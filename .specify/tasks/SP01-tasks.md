@@ -9,19 +9,19 @@
 ## Phase 0: Branch Creation (PH00)
 
 ### SP01PH00T01 — Create spec branch
-- [ ] **Task:** Create branch `sp01-account-auth` from master
-- [ ] **Commit:** "SP01PH00: Branch created"
-- [ ] **Status:** Pending
+- [x] **Task:** Create branch `sp01-account-auth` from master
+- [x] **Commit:** "SP01PH00: Branch created"
+- [x] **Status:** Completed
 
 ### SP01PH00T02 — Commit spec document
-- [ ] **Task:** Commit SP01.md to branch
-- [ ] **Commit:** "SP01PH00: Spec committed"
-- [ ] **Status:** Pending
+- [x] **Task:** Commit SP01.md to branch
+- [x] **Commit:** "SP01PH00: Spec committed"
+- [x] **Status:** Completed
 
 ### SP01PH00T03 — Push branch
-- [ ] **Task:** Push branch to origin
-- [ ] **Commit:** N/A
-- [ ] **Status:** Pending
+- [x] **Task:** Push branch to origin
+- [x] **Commit:** N/A
+- [x] **Status:** Completed
 
 ---
 
@@ -276,7 +276,7 @@
 
 | Phase | Tasks | Completed |
 |-------|-------|----------|
-| PH00 | 3 | 0/3 |
+| PH00 | 3 | 3/3 |
 | PH01 | 2 | 0/2 |
 | PH02 | 3 | 0/3 |
 | PH03 | 8 | 0/8 |
@@ -285,7 +285,7 @@
 | PH06 | 3 | 0/3 |
 | PH07 | 9 | 0/9 |
 | PH08 | 4 | 0/4 |
-| **Total** | **41** | **0/41** |
+| **Total** | **41** | **3/41** |
 
 ---
 
