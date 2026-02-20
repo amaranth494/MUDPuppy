@@ -23,19 +23,6 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-func debugHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "(not set)"
-	}
-	json.NewEncoder(w).Encode(map[string]string{
-		"PORT":    port,
-		"DATABASE_URL": os.Getenv("DATABASE_URL"),
-		"REDIS_URL":   os.Getenv("REDIS_URL"),
-	})
-}
-
 func main() {
 	// Read database configuration from environment
 	databaseURL := os.Getenv("DATABASE_URL")
@@ -89,7 +76,6 @@ func main() {
 	}
 
 	http.HandleFunc("/health", healthHandler)
-	http.HandleFunc("/debug", debugHandler)
 
 	// Serve static frontend files
 	fs := http.FileServer(http.Dir("public"))
