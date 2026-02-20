@@ -1,10 +1,16 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
 	"os"
+	"time"
+
+	_ "github.com/lib/pq"
+	"github.com/redis/go-redis/v9"
 )
 
 type HealthResponse struct {
@@ -18,6 +24,52 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	// Read database configuration from environment
+	databaseURL := os.Getenv("DATABASE_URL")
+	redisURL := os.Getenv("REDIS_URL")
+
+	// Connect to PostgreSQL
+	if databaseURL == "" {
+		log.Println("WARNING: DATABASE_URL not set, skipping PostgreSQL connection")
+	} else {
+		log.Println("Connecting to PostgreSQL...")
+		db, err := sql.Open("postgres", databaseURL)
+		if err != nil {
+			log.Fatalf("Failed to connect to PostgreSQL: %v", err)
+		}
+
+		// Set connection timeout
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		if err := db.PingContext(ctx); err != nil {
+			log.Fatalf("Failed to ping PostgreSQL: %v", err)
+		}
+		log.Println("Connected to PostgreSQL")
+		defer db.Close()
+	}
+
+	// Connect to Redis
+	if redisURL == "" {
+		log.Println("WARNING: REDIS_URL not set, skipping Redis connection")
+	} else {
+		log.Println("Connecting to Redis...")
+		opt, err := redis.ParseURL(redisURL)
+		if err != nil {
+			log.Fatalf("Failed to parse Redis URL: %v", err)
+		}
+
+		client := redis.NewClient(opt)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		if err := client.Ping(ctx).Err(); err != nil {
+			log.Fatalf("Failed to connect to Redis: %v", err)
+		}
+		log.Println("Connected to Redis")
+		defer client.Close()
+	}
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"

@@ -69,24 +69,24 @@
 ## Phase 2: GitHub + Railway Setup (PH02)
 
 ### SP00PH02T01 — Push code to GitHub
-- [ ] **Task:** Push local repo to GitHub origin
-- [ ] **Commit:** "SP00PH02T01: Code pushed to GitHub"
-- [ ] **Status:** Pending
+- [x] **Task:** Push local repo to GitHub origin
+- [x] **Commit:** "SP00PH02T01: Code pushed to GitHub"
+- [x] **Status:** Completed
 
 ### SP00PH02T02 — Create Railway project
-- [ ] **Task:** Create Railway account and new project
-- [ ] **Commit:** N/A (remote creation)
-- [ ] **Status:** Pending
+- [x] **Task:** Create Railway account and new project
+- [x] **Commit:** N/A (remote creation)
+- [x] **Status:** Completed
 
 ### SP00PH02T03 — Link GitHub to Railway
-- [ ] **Task:** Connect GitHub repo in Railway dashboard
-- [ ] **Commit:** N/A
-- [ ] **Status:** Pending
+- [x] **Task:** Connect GitHub repo in Railway dashboard
+- [x] **Commit:** N/A
+- [x] **Status:** Completed
 
 ### SP00PH02T04 — Enable automatic deploys
-- [ ] **Task:** Configure automatic deployment in Railway
-- [ ] **Commit:** N/A
-- [ ] **Status:** Pending
+- [x] **Task:** Configure automatic deployment in Railway
+- [x] **Commit:** N/A
+- [x] **Status:** Completed
 
 ### SP00PH02T05 — Create CI workflow
 - [x] **Task:** Create .github/workflows/ci.yml
@@ -103,23 +103,26 @@
 - [ ] **Task:** Add PostgreSQL plugin in Railway
 - [ ] **Commit:** N/A
 - [ ] **Status:** Pending
+- [ ] **Guide:** See [SP00PH03-Railway-Data-Stores-Instructions.md](./SP00PH03-Railway-Data-Stores-Instructions.md)
 
 ### SP00PH03T02 — Provision Redis
 - [ ] **Task:** Add Redis plugin in Railway
 - [ ] **Commit:** N/A
 - [ ] **Status:** Pending
+- [ ] **Guide:** See [SP00PH03-Railway-Data-Stores-Instructions.md](./SP00PH03-Railway-Data-Stores-Instructions.md)
 
 ### SP00PH03T03 — Configure environment variables
 - [ ] **Task:** Add DATABASE_URL, REDIS_URL to Railway
 - [ ] **Commit:** N/A
 - [ ] **Status:** Pending
+- [ ] **Guide:** See [SP00PH03-Railway-Data-Stores-Instructions.md](./SP00PH03-Railway-Data-Stores-Instructions.md)
 
 ### SP00PH03T04 — Update backend for DB connection
-- [ ] **Task:** Modify main.go to read DATABASE_URL, REDIS_URL
-- [ ] **Acceptance:** Backend fails startup if DB connection fails
-- [ ] **Acceptance:** Backend logs explicit success message
-- [ ] **Commit:** "SP00PH03T04: Database connections configured"
-- [ ] **Status:** Pending
+- [x] **Task:** Modify main.go to read DATABASE_URL, REDIS_URL
+- [x] **Acceptance:** Backend fails startup if DB connection fails
+- [x] **Acceptance:** Backend logs explicit success message
+- [x] **Commit:** "SP00PH03T04: Database connections configured"
+- [x] **Status:** Completed
 
 ### SP00PH03T05 — Verify database connection
 - [ ] **Task:** Deploy and check logs for success messages
@@ -127,6 +130,7 @@
 - [ ] **Acceptance:** Logs show "Connected to Redis"
 - [ ] **Commit:** "SP00PH03T05: Database connections verified"
 - [ ] **Status:** Pending
+- [ ] **Guide:** See [SP00PH03-Railway-Data-Stores-Instructions.md](./SP00PH03-Railway-Data-Stores-Instructions.md)
 
 ---
 
@@ -248,13 +252,13 @@
 |-------|-------|-----------|
 | PH00 | 3 | 3/3 |
 | PH01 | 6 | 6/6 |
-| PH02 | 5 | 1/5 |
-| PH03 | 5 | 0/5 |
+| PH02 | 5 | 5/5 |
+| PH03 | 5 | 1/5 |
 | PH04 | 5 | 0/5 |
 | PH05 | 4 | 0/5 |
 | PH06 | 5 | 0/5 |
 | PH07 | 3 | 0/3 |
-| **Total** | **36** | **10/36** |
+| **Total** | **36** | **15/36** |
 
 ---
 
