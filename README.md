@@ -36,4 +36,3 @@ See the [SPEC](./.specify/specs/SP00.md) for environment setup instructions.
 ## License
 
 MIT
-"# Test commit to verify branch protection"  
