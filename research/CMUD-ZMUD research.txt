@@ -1,0 +1,379 @@
+ Product Comparison 
+
+This table compares various features between the different MUD/Telnet products available from Zugg Software. CMUD, CMUDPro, and TeSSH all represent the latest version (currently v3.31).
+
+ 	CMUD	CMUDPro	TeSSH	zMUD v7.21
+Supported Operating Systems
+Windows 7	Yes	Yes	Yes	 
+Windows Vista	Yes	Yes	Yes	 
+Windows XP	Yes	Yes	Yes	Yes
+Windows 95,98,ME	 	 	 	Yes
+
+Basic Features
+Script Wizard	Yes	Yes	Yes	 
+Pattern Wizard	Yes	Yes	Yes	 
+Aliases	Yes	Yes	Yes	Yes
+Macros	Yes, any key	Yes, any key	Yes, any key	Yes, any key
+Triggers	Yes	Yes	Yes	Yes
+Command line triggers	Yes	Yes	Yes	Yes
+MXP/XML triggers	Yes	Yes	Yes	Yes
+Telnet triggers	Yes	Yes	Yes	 
+Expression triggers	Yes	Yes	Yes	Yes
+Timers/Alarms	Yes	Yes	Yes	Yes
+Events	Yes	Yes	Yes	 
+Variables (persistent in session)	Yes	Yes	Yes	Yes
+Variables (non-persistent)	Yes	Yes	Yes	 
+Local Variables	Yes	Yes	Yes	 
+String List variables (string arrays)	Yes, hashed	Yes, hashed	Yes, hashed	Yes
+Table variables (associative arrays)	Yes, hashed	Yes, hashed	Yes, hashed	Yes
+Nested lists and tables	Yes	Yes	Yes	 
+COM arrays	Yes	Yes	Yes	Yes
+Integer size	64bit	64bit	64bit	32bit
+Floating point precision	double	double	double	single
+Speedwalking Paths	Yes	Yes	Yes	Yes
+Inline Functions	Yes	Yes	Yes	Yes
+Full Functions	Yes	Yes	Yes	 
+Buttons (within session window)	Yes	Yes	Yes	Yes
+Buttons (any toolbar)	Yes	Yes	Yes	 
+Buttons (drag/drop floating)	Yes	Yes	Yes	 
+Gauges	Yes	Yes	Yes	Yes
+Menu items (right-click menu)	Yes	Yes	Yes	Yes
+Menu items (main menu)	Yes	Yes	Yes	 
+Status bar items	Yes	Yes	Yes	Yes
+Status window items	Yes	Yes	Yes	Yes
+Multiple capture windows	Yes	Yes	Yes	Yes
+SQL scripting	SQLite only	Yes	Yes	 
+Web scripting	 	Yes	Yes	 
+Multiple sessions	Yes	Yes	Yes	Yes
+Script modules	Yes	Yes	Yes	 
+Script packages	Yes	Yes	Yes	 
+Shared package library	Yes	Yes	Yes	 
+Inherited settings	unlimited	unlimited	unlimited	one
+DLL Plugins	 	 	 	Yes
+Dockable window layout	Yes	Yes	Yes	Yes
+Customizable toolbars	Yes	Yes	Yes	 
+Split-screen scrollback	Yes	Yes	Yes	Yes
+Automatic time-stamps	Yes	Yes	Yes	 
+
+Command line
+Spellchecking	Yes	Yes	Yes	Yes
+Multi-line	Yes	Yes	Yes	Yes
+Smart (allows special characters)	Yes	Yes	Yes	 
+Command history recall	Yes	Yes	Yes	Yes
+Tab completion words	Yes	Yes	Yes	Yes
+Tab completion from screen words	Yes	Yes	Yes	hold Shift key
+Server-assisted tab completion	Yes	Yes	Yes	 
+Context-sensitive F1 help	Yes	Yes	Yes	Yes
+Lua mode	Yes	Yes	Yes	 
+
+
+Script Editor
+Syntax checking	Yes	Yes	Yes	Yes
+Script reformatting	Yes	Yes	Yes	Yes
+Syntax color highlighting	Yes	Yes	Yes	Yes
+Line numbers	Yes	Yes	Yes	 
+Code collapsing	Yes	Yes	Yes	 
+XML import/export	Yes	Yes	Yes	 
+Drag/drop support	Yes	Yes	Yes	Yes
+Copy/paste support	Yes	Yes	Yes	Yes
+Code completion	Yes	Yes	Yes	 
+Code hints	Yes	Yes	Yes	Yes
+Variable/Alias linking	Yes	Yes	Yes	Yes
+Context-sensitive F1 help	Yes	Yes	Yes	Yes
+Scintilla based (NotePad++)	Yes	Yes	Yes	 
+
+
+Scripting Languages
+zScript (zMUD scripting language)	zScript v2	zScript v2	zScript v2	zScript v1
+Compiled scripting	Yes	Yes	Yes	 
+Other Integrated scripting languages	Lua v5.1	Lua v5.1	Lua v5.1	 
+Other external scripting languages	VBScript, JavaScript, Perl, Python, Ruby	VBScript, JavaScript, Perl, Python, Ruby	VBScript, JavaScript, Perl, Python, Ruby	VBScript, JavaScript, Perl, Python, Ruby
+zScript Trigger Patterns	Yes	Yes	Yes	Yes
+Regular Expression Patterns	PCRE v8.1	PCRE v8.1	PCRE v8.1	PCRE v3.4
+Sequential Scripting	Yes	Yes	Yes	 
+Multi Threaded	Yes	Yes	Yes	 
+COM object scripting	Yes	Yes	Yes	Yes
+COM server API	Yes	Yes	Yes	Yes
+
+
+Mapper
+Dockable map window	Yes	Yes	 	Yes
+Map as you explore	Yes	Yes	 	Yes
+Multiple levels visible	Yes	Yes	 	Yes
+Interactive map editing	Yes	Yes	 	Yes
+Custom directions	Yes	Yes	 	Yes
+Custom exits (doors, locked doors, etc)	Yes	Yes	 	Yes
+Custom room types	Yes	Yes	 	with zMapper
+Shortest path speedwalking	Yes	Yes	 	Yes
+Room colors	Yes	Yes	 	Yes
+Map labels	Yes	Yes	 	Yes
+Multiple zones	Yes	Yes	 	Yes
+Multiple map windows	Yes	Yes	 	 
+Multiple locations on map	Yes	Yes	 	 
+Dockable Room Properties	Yes	Yes	 	not dockable
+Graphical compass for movement	Yes	Yes	 	 
+Map scripting (zScript)	Yes	Yes	 	Yes
+Map scripting (COM objects)	with zMapper	Yes	 	with zMapper
+
+
+Other Features
+Database module	Yes	Yes	 	Yes
+Chat	planned	planned	 	with zChat
+Script Debugger	Yes	Yes	Yes	Yes
+MUD Listing	Yes	Yes	 	Yes
+Logging (ANSI color)	Yes	Yes	Yes	Yes
+Logging (HTML)	Yes	Yes	Yes	 
+Integrated help system	Yes	Yes	Yes	Yes
+Help sync'd with online web help	Yes	Yes	Yes	 
+
+
+Protocols
+Telnet (with option negotiation)	Yes	Yes	Yes	Yes
+Character-mode Telnet	Yes	Yes	Yes	Yes
+SSH	 	Yes	Yes	 
+ANSI Color	Yes	Yes	Yes	Yes
+ANSI Full (cursor)	Yes	Yes	Yes	Yes
+VT100 (including scrolling regions)	Yes	Yes	Yes	Yes
+MXP (MUD eXtension Protocol)	MXP v1.2	MXP v1.2	MXP v1.2	MXP v1.0
+MSP (MUD Sound Protocol)	Yes, MP3	Yes, MP3	Yes, MP3	Yes, only WAV
+MCCP (MUD Client Compression Protocol)	Yes	Yes	Yes	Yes
+MCP (MUD Client Protocol)	Yes	Yes	 	Yes
+XML	Yes	Yes	Yes	 
+Simutronics GSL (including login)	Yes	Yes	 	Yes
+Pueblo	Yes	Yes	Yes	Yes
+ATCP	Yes	Yes	Yes	 
+GMCP	Yes	Yes	Yes	 
+FTP (integrated)	 	Yes (SFTP)	Yes (SFTP)	Yes
+
+CMUD Features:
+ Fast and Easy Scripting
+
+Compiled scripts are 2 to 10 times faster than zMUD.
+Vast majority of zMUD scripts run without any changes in CMUD.
+Compiling is performed behind the scenes. Your scripts just magically run faster.
+Scripts are saved to a new database format...no more corrupted settings!
+Scripts are automatically saved, even if your computer crashes.
+New scripting features such as Local variables, #SWITCH and Named Arguments make scripts faster and easier to understand.
+New script editor has better and faster syntax highlighting, code folding, line numbers, and many other features expected from a programmer's editor.
+Integrated support for the Lua scripting language for very high-performance scripting.
+Works with any other Windows scripting language. Scripting languages can be freely mixed, even within the same window. Built-in syntax highlighting for Lua, VBScript, JavaScript, Perl, Python, Ruby.
+
+ Scripts can be easily shared
+
+New Package Library allows you to quickly and easily share scripts with other players.
+Scripts can be searched based upon Category, MUD, or Author.
+Scripts can be rated so you can tell which scripts are the best.
+You can view comments about each script and add your own comment.
+Sort scripts based upon Name, Popularity, or Rating.
+Scripts can be exported/imported via a text-based XML format that can be posted to the forums or send to other users via email.
+
+ Automatic Mapping
+
+MapperCMUD and zMUD are the only MUD clients designed to create automatic maps as you move around the MUD on most any MUD that you want to play (doesn't require MUD support). Don't be fooled by cheap imitations!
+Double-click on any room on the map to let CMUD compute the shortest path and automatically send the speedwalk directions to the game.
+Room properties allow you to change visual appearance of rooms, and to assign scripts to specific rooms.
+Maps can be easily edited and support custom room exits and portals.
+New mapper in latest CMUD 3.x BETA allows you to track multiple locations on the same map.
+Graphical enhancements such as a background image, custom room shapes, icons, and more can be added to your map.
+
+ Modern User Interface
+
+New window docking system is more reliable than zMUD and offers features such as "fly out" panels.
+New toolbar systems allows you to create or customize toolbars with custom commands and buttons.
+Toolbars and docking layouts can be easily saved and loaded.
+Full Windows XP and Vista theme support. Works fine with 3rd party enhancements such as WindowBlinds.
+
+ Much Much More!
+
+New "Smart" command line works better with MOOs and MUSHes
+New Editor can be docked with MUD windows and supports multiple-docked file tabs and HTML support.
+New Script Editor supports customizable syntax highlighting, spellchecking, and more powerful user interface.
+Improved sound support allows up to 32 simultaneous sounds of any type, including WAV, MID, and MP3.
+Supports all major MUD protocols including ANSI, VT100, MXP, MSP, MCP, MCCP, ATCP.
+
+ZMUD Features:
+
+Feature	
+Description
+Recently Added Features
+
+Spell Checking
+
+	
+As-you-type spell checking. Misspelled words are underlined with a red wiggle. You can right-click to get a suggestion of correct words. You can add words to your own dictionary, and even auto-correct your common mispellings. Dictionaries for many different languages are available.
+PERL-based Regular Expressions
+	
+Uses the Open Source PCRE Perl Regular Expression Library.  ALL Triggers now run from two to ten times faster.  Full Regular Expression support is provided, including captured substrings, named substrings, and nested wildcards.  Not only does every zMUD user benefit from the speed improvements, but advanced users can use the regular expressions for even more powerful triggers.  Regular expression conditions are fully supported by multi-state triggers, providing more triggering power than any other MUD client.
+Database-driven Automapper
+	
+The Automapper module in zMUD has been rewritten from scratch to use an SQL database engine (using the MDAC database software that comes with Windows).  This is the same mapping engine used in zMapper and zExplorer.  zMUD map databases can be customized using the external zMapper program (available seperately) to graphically enhance your maps.  Maps enhanced with zMapper can be displayed within zMUD when zMapper is installed using the automatic zMapper plugin for zMUD.
+The speed and stability of the mapper has been greatly improved.  When you double-click on a zone, the zone is now loaded instantly.  You can now speedwalk across multiple zones as easily as you speedwalk within a single zone.  Speedwalk calculations are incredibly fast compared to any previous mapper.  Options have been added for sending only a certain number of directions at once for MUDs that restrict speedwalking.  Custom exit commands have been improved and can be mapped to standard directions for faster keypad walking through special exits.  Portal commands have been added to support teleportation spells.
+
+Windows XP Themes
+	
+The entire look and feel of zMUD has been updated for the modern Windows XP operating system.  All users of zMUD will benefit from the more colorful icons used in zMUD.  For Windows XP users, zMUD fully supports the XP Themes so that zMUD will look and feel like other applications on your computer.
+Trigger Wizard
+	
+Use the new wizard to create common triggers for your MUD.  Advanced users can write their own custom wizards to help people create MUD-specific triggers. [More detailed information]
+Flexible Scripting
+	
+Now you can write scripts in ANY scripting language supported by Windows.  Using the Windows Scripting Engine, you can write scripts in VBScript, JavaScript, or any other language that you install that supports this Microsoft engine (such as PerlScript).  You can freely mix scripting languages in your files using the zMUD %mss function.  zMUD Scripting is still the fastest and most optimized scripting language for MUD playing, but if you don't want to learn zMUD Scripting, you can now use your favorite scripting language instead. [zMUD COM object model documentation]
+Multi-state Triggers
+	
+The most powerful trigger system just got better: multi-state triggers.  Add multiple conditions to your triggers for handling multiple lines, or other complex situations.  It's a full "state machine" that you can control to provide powerful processing of MUD output. [More detailed information]
+FTP
+	
+zMUD includes a full FTP client.  Using the new #FTP command you can now download files to and from your MUD.  You can even download a file directly into the zMUD Editor, and then Save your changes and have the file automatically sent back to the MUD.  Great for world-building.
+Simutronic GSL Support
+
+ 
+zMUD is the ONLY 3rd party MUD client that officially supports the Simutronics GSL protocol used in MUDs such as Gemstone and Dragonrealms.  This support also provides inline image support via the MXP <IMAGE> tag, and Pueblo emulation for those MUDs that still support the old Pueblo protocol.
+Major or Unique zMUD Features
+Automatic Mapping
+mapper.gif (3790 bytes)	
+Even without zMapper, you can create a graphical map as you walk around the MUD. A revolutionary feature for a MUD client!  Don't be fooled by imitations...zMUD was the first MUD client to have an automapper, and it still has more features and compatibility with more MUDs than any other MUD client.
+Map handles 8 standard directions plus custom teleport directions, doors, multiple levels, one-way links, room colors, multiple zones, custom labels, and much more.
+
+Double click on a room and it will automatically speedwalk you to the room from wherever you are using the shortest path, even across zones!
+
+Redesigned Settings Editor
+	
+The Settings Editor (used to create and edit aliases, triggers, keyboard macros, etc) has been redesigned to work more like Windows Explorer.  Classes are now folders and can be nested and contain other settings.  Setting type (alias, trigger, etc) are like file types.  Multiple windows can be opened and settings can be dragged and dropped between windows to easily exchange settings with others. 
+[Read more about Settings Editor]
+Databases
+db.gif (1731 bytes)	
+User-definable database for storing information on equipment, monsters, other players, etc.  Can be queried and scripted from the command line, or you can use the powerful GUI interface.
+(v5.40 and greater)
+Dockable Windows
+	
+Windows can be dragged together to tile horizontally, vertically, or on top of each other using window tabs.  Once you have the windows set up the way you want, use Save Layout to save your arrangement and zMUD will always remember how you like your windows arranged.
+[Read more about Docking]
+[See full screenshot]
+Chat Module
+chat.gif (2886 bytes)	
+Chat with other zMUD or MUD Master users using the zChat plugin for zMUD.   Supports scripting and PGP encryption.
+(v5.42 and greater)
+Other Plugins
+plugin.gif (539 bytes)	
+Plugins can be written by others.   The Prompt plugin shown here is included in the zMUD Developer's Kit as an example of what can be done.  COM-based plugins are also supported.
+Advanced Windows
+	
+Advanced Windows interface supports fullscreen MUD windows, rollup and rolldown of dialogs, stay-on-top windows, restoring of last window size and position, and auto tiling for multiple windows, all configurable by the user.
+(v5.0 and greater)
+International Customization	
+All text output in zMUD, including dialog prompts, menus, buttons, etc can be easily translated to a different language.  Language files for German, Italian, and many other languages should be available soon.  You can also use this feature to completely personalize zMUD.
+Most Powerful Scripting
+
+Syntax Checker
+	
+Color highlighting shows you at a glance zMUD command keyboards, variables, etc.  Syntax errors in your settings are indicated.  Popup help as you type helps you learn how to write scripts.
+Debugger
+	
+Debug your scripts by stepping through them a line at a time while monitoring variables in zMUD.  Set breakpoints on script lines, or on access to items such as variable value changes.
+[Read more about the Debugger]
+Visual Gauges
+	
+Keep track of values such as Hit Points, Mana, etc using visual gauge buttons.  Appearance and size can be completely customized. 
+[Read more about Gauges]
+Nested Classes
+	
+Class folders can be nested for better organize your settings. 
+[Read more about Class Folders]
+Sub Menus
+	
+Menu items can now be used to form nested submenus.
+[Read more about Menus]
+Command Input Triggers	
+Match commands sent to the MUD against patterns and alter the command before the MUD sees it.
+[Read more about Command Input Triggers]
+Buttons
+button.gif (2265 bytes)	
+User-definable button bar for executing commands, keeping track of character status, or controlling your character
+Status line
+status.gif (613 bytes)	
+customizable line shows the status of variables and triggers
+Macro keys
+key.gif (686 bytes)	
+assign text or commands to any key combination on the keyboard
+Variables
+food = bread	
+both text and numeric variables saved with your session
+Aliases
+#ALIAS ef {eat @food}	
+assign text or commands to shortcut names to save typing
+Triggers
+#trigger {You are hungry.}
+{eat @food}	
+execute commands based upon patterns received from MUD. Sophisticated pattern matching functions and expressions are provided.  Advanced multi-state triggers are also supported.
+Functions
+line = %concat(@name,@class)	
+both built-in and user-defined functions. zMUD contains a full-powered programming language, including DDE support.
+Paths and Speedwalking
+#path temple .2se4n
+.temple	
+let you record directions to MUD locations, and even play them back in reverse. Customized commands can be added. Also includes an innovative concept known as SlowWalking - safe walking based upon triggers that lets you create robots.
+Microsoft Scripting Support	
+Write your scripts using the built-in zMUD scripting language, or use familiar languages such as VBScript or JScript.
+#WAIT can be used in loops	
+The #WAIT command has been rewritten to work more as expected.  #WAIT can now be used within loops to better control timing of commands.
+[Read more about the #WAIT command]
+COM Scripting	
+Access any Windows COM object from a zMUD script.  Control your email from within zMUD!
+[Read more about COM Scripting]
+Arrays	
+In addition to normal "sparse" array support that has always been part of zMUD, true arrays are now available, mostly for use by COM objects
+Global Settings	
+Global variables, aliases, buttons, and menu items provide even more customization of zMUD.  Using global menus and buttons you can alter the main zMUD menu and toolbar.
+Other Features
+
+Character Database
+	
+keeps a database of all of your MUD characters, and detailed notes for each one.  Uses an Explorer-like interface to make it easy to select the character you want to play.
+Searchable MUD List
+	
+The master MUD listing from the MUD Connector is now loaded instantly and can be searched quickly by keyword.  Makes it easier to browse the over 2000 MUD games on the Internet to find one you like. 
+[Read more about MUD List]
+History
+history.gif (1870 bytes)	
+command history of last 20 commands. The default of 20 can be changed to save any number of past commands.
+Multiplaying
+wind.gif (2926 bytes)	
+Supports multiple characters in multiple windows and methods to send commands to different windows. Can also capture text and send it to a secondary window.  Window captions can be placed on the left side to provide the maximum number of text lines.
+Status Icons
+	
+Global status icon shows you the state of the MUD even when zMUD is in the background.
+Tab completion	
+allows you to enter long strings of text by typing the first few characters and then pressing <TAB> to fill in the rest. Dynamic Shift-tab completion fills in the string from text received recently from the MUD.
+Logging	
+log your session to a file for review at a later time, including the ANSI color information.
+Timers	
+a built-in timer allows you to take control of ticks, while another timer tracks the amount of time connected to the current MUD, as well as keeping track of the total time you have ever played a particular character. Alarms execute commands at certain times or intervals.
+Auto-login	
+automatically sets up a login script when you first connect to a MUD.
+Auto-reconnect	
+automatically retries failed connections every few seconds to quick reconnect after a MUD crash
+GUI	
+provides both a GUI interface as well as a traditional command line interface. Output can be scrolled and word-wrapped, and window can be split to view scrollback and current text at the same time.
+Supports ALL MUD Standards
+ANSI / VT100
+color.gif (4818 bytes)	
+full ANSI color support, including an ANSI editor for composing long messages or for builders working on room descriptions. Also has full VT102 support, including scrolling region for MUD status lines.
+MUD Sound Protocol
+!!SOUND(thunder.wav)	
+Support for the MUD Sound Protocol (MSP) allows the MUD to trigger sound effects and background music.   zMUD can play up to 16 sounds at the same time as the background music and can chain multiple sound effects together. [Read more about MSP]
+MUD eXtension Protocol
+The MUD eXtension Protocol (MXP) supports HTML and XML-like tags.  The MUD can use these tags to better control the look of the MUD output.  Support for full 32-bit color, text font changes, text attributes (bold, italic, etc), hyperlinks, embedded command links and right-click menus, and MUD relocation and login tags.  This is an evolving open specification that several MUDs are contributing to.  Unlike previous attempts to bring HTML to MUDs, MXP has built in security and it tailored specifically to telnet sessions, rather than strictly adhering to the HTML standard. 
+[Read More about MXP]
+MUD Client Compression Protocol
+The Mud Client Compression Protocol (MCCP) allows the MUD to compress the text sent to the client.  Your compression savings can be monitored within zMUD.  More compression means zMUD can handle more MUD output for faster text scrolling.  Especially useful during battles. 
+[Read more about MCCP]
+MUD Client Protocol	
+MUD Client Protocol support (MCP).  This protocol utilizes various packages to enhance MUD clients and servers.  Specifically, the simpleedit package is supported for MUSHes and MOOs that use it for world building.  This protcol allows a command on the MUD to send a text file directly to the zMUD editor where you can edit it and save the changes back to the MUD.  No other MUD client supports the wide range of MUD Protocols included in zMUD! [More detailed information]
+Other Standards	
+zMUD also supports Simutronics GSL, Pueblo emulation, full Telnet Option negotiation, and character-mode Telnet for remote shell usage.  No other MUD or Telnet client supports the full range of standards that zMUD does.
+Compatibility	
+90% compatibility with TINTIN and TINTIN+ text-based clients. Even includes a command to import your TINTIN++ scripts and convert them to zMUD scripts.
+Proxy Support	
+built in support for SOCKS4, SOCKS5 and Telnet proxy servers.   
+Windows compatibility	
+A 32-bit version developed and tested for Windows 95, 98, ME, 2000, XP and Windows NT 4.0. An older, free 16-bit version is available that works under Windows 3.x.  Windows XP Themes supported.
