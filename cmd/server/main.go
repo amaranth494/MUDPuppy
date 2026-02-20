@@ -24,6 +24,9 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	// CI GATE TEST - INVALID SYNTAX
+	this is not valid go
+	
 	// Read database configuration from environment
 	databaseURL := os.Getenv("DATABASE_URL")
 	redisURL := os.Getenv("REDIS_URL")
