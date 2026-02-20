@@ -28,26 +28,27 @@ func main() {
 	databaseURL := os.Getenv("DATABASE_URL")
 	redisURL := os.Getenv("REDIS_URL")
 
-	// Connect to PostgreSQL
+	// Fail-fast if DATABASE_URL is missing (SP01PH01T04)
 	if databaseURL == "" {
-		log.Println("WARNING: DATABASE_URL not set, skipping PostgreSQL connection")
-	} else {
-		log.Println("Connecting to PostgreSQL...")
-		db, err := sql.Open("postgres", databaseURL)
-		if err != nil {
-			log.Fatalf("Failed to connect to PostgreSQL: %v", err)
-		}
-
-		// Set connection timeout
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		if err := db.PingContext(ctx); err != nil {
-			log.Fatalf("Failed to ping PostgreSQL: %v", err)
-		}
-		log.Println("Connected to PostgreSQL")
-		defer db.Close()
+		log.Fatal("FATAL: DATABASE_URL environment variable is required. Set it before starting the server.")
 	}
+
+	// Connect to PostgreSQL
+	log.Println("Connecting to PostgreSQL...")
+	db, err := sql.Open("postgres", databaseURL)
+	if err != nil {
+		log.Fatalf("Failed to connect to PostgreSQL: %v", err)
+	}
+
+	// Set connection timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := db.PingContext(ctx); err != nil {
+		log.Fatalf("Failed to ping PostgreSQL: %v", err)
+	}
+	log.Println("Connected to PostgreSQL")
+	defer db.Close()
 
 	// Connect to Redis
 	if redisURL == "" {

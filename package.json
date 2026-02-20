@@ -7,7 +7,11 @@
     "dev": "echo 'Dev server starting...' && exit 0",
     "build": "echo 'Building frontend...' && exit 0",
     "start": "echo 'Serving frontend...' && exit 0",
-    "test": "echo 'No tests yet' && exit 0"
+    "test": "echo 'No tests yet' && exit 0",
+    "migrate:up": "migrate -path migrations -database \"$DATABASE_URL\" up",
+    "migrate:down": "migrate -path migrations -database \"$DATABASE_URL\" down",
+    "migrate:create": "migrate create -dir migrations -ext sql -seq",
+    "db:setup": "echo 'Setting up database...'"
   },
   "engines": {
     "node": ">=22.18.0"

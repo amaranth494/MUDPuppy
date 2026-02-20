@@ -27,16 +27,40 @@
 
 ## Phase 1: Database Schema (PH01)
 
-### SP01PH01T01 — Create users table
-- [ ] **Task:** Create users table migration (id, email, created_at, updated_at)
-- [ ] **Acceptance:** Migration file created
-- [ ] **Commit:** "SP01PH01T01: Users table created"
-- [ ] **Status:** Pending
+### SP01PH01T01 — Choose and wire migration tool
+- [x] **Task:** Select migration tool (Goose / Atlas / sql-migrate / golang-migrate), wire into backend build
+- [x] **Acceptance:** Migration tool integrated with build system
+- [x] **Commit:** "SP01PH01T01: Migration tool selected and wired"
+- [x] **Status:** Completed
 
-### SP01PH01T02 — Verify migrations locally
-- [ ] **Task:** Run migrations locally, confirm users table exists
-- [ ] **Acceptance:** users table created without error
-- [ ] **Commit:** "SP01PH01T02: Migrations verified locally"
+### SP01PH01T02 — Create users table
+- [x] **Task:** Create users table migration (id uuid pk, email citext unique, email_verified_at nullable, created_at, updated_at)
+- [x] **Acceptance:** Migration created with unique constraint on email
+- [x] **Commit:** "SP01PH01T02: Users table created"
+- [x] **Status:** Completed
+
+### SP01PH01T03 — Create otp_challenges table
+- [x] **Task:** Create otp_challenges table migration (id uuid pk, email indexed, otp_hash, expires_at, attempts default 0, created_at)
+- [x] **Acceptance:** Migration created with indexed email column
+- [x] **Commit:** "SP01PH01T03: OTP challenges table created"
+- [x] **Status:** Completed
+
+### SP01PH01T04 — Add DB connectivity check
+- [x] **Task:** Add startup check: fail-fast if DATABASE_URL missing/unreachable
+- [x] **Acceptance:** App panics on missing DB at startup
+- [x] **Commit:** "SP01PH01T04: DB connectivity check added"
+- [x] **Status:** Completed
+
+### SP01PH01T05 — Run migrations on Railway Staging
+- [x] **Task:** Run migrations from local terminal against Railway Staging Postgres (DATABASE_URL points to Staging)
+- [x] **Acceptance:** Tables created in Staging, unique constraint enforced
+- [x] **Commit:** "SP01PH01T05: Migrations applied to Railway Staging"
+- [x] **Status:** Completed
+
+### SP01PH01T06 — Deploy to Staging
+- [ ] **Task:** Deploy feature branch to Railway Staging environment
+- [ ] **Acceptance:** Staging deploy succeeds after migrations
+- [ ] **Commit:** "SP01PH01T06: Deployed to Railway Staging"
 - [ ] **Status:** Pending
 
 ---
@@ -277,7 +301,7 @@
 | Phase | Tasks | Completed |
 |-------|-------|----------|
 | PH00 | 3 | 3/3 |
-| PH01 | 2 | 0/2 |
+| PH01 | 6 | 5/6 |
 | PH02 | 3 | 0/3 |
 | PH03 | 8 | 0/8 |
 | PH04 | 5 | 0/5 |
@@ -285,7 +309,7 @@
 | PH06 | 3 | 0/3 |
 | PH07 | 9 | 0/9 |
 | PH08 | 4 | 0/4 |
-| **Total** | **41** | **3/41** |
+| **Total** | **45** | **5/45** |
 
 ---
 
