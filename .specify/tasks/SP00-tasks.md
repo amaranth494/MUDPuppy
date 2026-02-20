@@ -118,8 +118,8 @@
 - [x] **Guide:** See [SP00PH03-Railway-Data-Stores-Instructions.md](./SP00PH03-Railway-Data-Stores-Instructions.md)
 
 **Provisioned Values:**
-- `DATABASE_URL` = `postgres://postgres:BmoCEzLZwfvCcKmCKbnFaRYtisIITfqa@postgres.railway.internal:5432/railway`
-- `REDIS_URL` = `redis://default:PfnViYrQUyQbnCYbVJoAMpylkKseMRsR@redis.railway.internal:6379`
+- `DATABASE_URL` = `<REDACTED>` (configured in Railway)
+- `REDIS_URL` = `<REDACTED>` (configured in Railway)
 
 ### SP00PH03T04 — Update backend for DB connection
 - [x] **Task:** Modify main.go to read DATABASE_URL, REDIS_URL
