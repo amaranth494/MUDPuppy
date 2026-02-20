@@ -198,12 +198,13 @@
 - [x] **Status:** Completed
 
 ### SP00PH05T04 — Test CI gate
-- [ ] **Task:** Create test PR, verify CI runs and blocks merge
+- [x] **Task:** Create test PR, verify CI runs and blocks merge
 - [x] **Guide:** [.specify/tasks/SP00PH05-CI-Gate-Verification-Instructions.md](./SP00PH05-CI-Gate-Verification-Instructions.md)
+- [x] **Note:** Branch protection verified (mergeable_state=blocked), GitHub Actions not running on test PRs (newly public repo)
 - [ ] **Acceptance:** CI fails on broken code
 - [ ] **Acceptance:** CI passes on valid code
 - [ ] **Commit:** "SP00PH05T04: CI gate verified"
-- [ ] **Status:** Pending
+- [ ] **Status:** Partial - branch protection working, CI needs verification
 
 ---
 
