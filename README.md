@@ -2,6 +2,9 @@
 
 A MUD (Multi-User Dungeon) game client and framework.
 
+## CI Gate Test
+This is a test comment to verify CI passes on valid code.
+
 ## Deployment
 
 [![Deploy to Railway](https://railway.app/button.svg)](https://railway.app/new/template?repo=https://github.com/amaranth494/MudPuppy)
