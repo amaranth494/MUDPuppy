@@ -77,6 +77,10 @@ func main() {
 
 	http.HandleFunc("/health", healthHandler)
 
+	// Serve static frontend files
+	fs := http.FileServer(http.Dir("public"))
+	http.Handle("/", fs)
+
 	log.Printf("Server starting on port %s", port)
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatalf("Server failed to start: %v", err)

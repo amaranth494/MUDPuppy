@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MUDPuppy - Multi-User Dungeon</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #0a0a0a;
+            color: #00ff00;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            text-shadow: 0 0 10px #00ff00;
+        }
+        
+        p {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            opacity: 0.8;
+        }
+        
+        .status {
+            color: #00ff00;
+            font-size: 1rem;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #00ff00;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>MUDPuppy</h1>
+        <p>A Multi-User Dungeon Experience</p>
+        <div class="status">
+            <span class="loading"></span>
+            Loading...
+        </div>
+    </div>
+    
+    <script>
+        // Check backend health
+        fetch('/health')
+            .then(response => response.json())
+            .then(data => {
+                console.log('Backend connected:', data);
+            })
+            .catch(error => {
+                console.error('Backend not available:', error);
+            });
+    </script>
+</body>
+</html>

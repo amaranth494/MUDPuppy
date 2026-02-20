@@ -100,22 +100,22 @@
 ## Phase 3: Data Stores (PH03)
 
 ### SP00PH03T01 — Provision PostgreSQL
-- [ ] **Task:** Add PostgreSQL plugin in Railway
-- [ ] **Commit:** N/A
-- [ ] **Status:** Pending
-- [ ] **Guide:** See [SP00PH03-Railway-Data-Stores-Instructions.md](./SP00PH03-Railway-Data-Stores-Instructions.md)
+- [x] **Task:** Add PostgreSQL plugin in Railway
+- [x] **Commit:** N/A
+- [x] **Status:** Completed
+- [x] **Guide:** See [SP00PH03-Railway-Data-Stores-Instructions.md](./SP00PH03-Railway-Data-Stores-Instructions.md)
 
 ### SP00PH03T02 — Provision Redis
-- [ ] **Task:** Add Redis plugin in Railway
-- [ ] **Commit:** N/A
-- [ ] **Status:** Pending
-- [ ] **Guide:** See [SP00PH03-Railway-Data-Stores-Instructions.md](./SP00PH03-Railway-Data-Stores-Instructions.md)
+- [x] **Task:** Add Redis plugin in Railway
+- [x] **Commit:** N/A
+- [x] **Status:** Completed
+- [x] **Guide:** See [SP00PH03-Railway-Data-Stores-Instructions.md](./SP00PH03-Railway-Data-Stores-Instructions.md)
 
 ### SP00PH03T03 — Configure environment variables
-- [ ] **Task:** Add DATABASE_URL, REDIS_URL to Railway
-- [ ] **Commit:** N/A
-- [ ] **Status:** Pending
-- [ ] **Guide:** See [SP00PH03-Railway-Data-Stores-Instructions.md](./SP00PH03-Railway-Data-Stores-Instructions.md)
+- [x] **Task:** Add DATABASE_URL, REDIS_URL to Railway
+- [x] **Commit:** N/A
+- [x] **Status:** Completed
+- [x] **Guide:** See [SP00PH03-Railway-Data-Stores-Instructions.md](./SP00PH03-Railway-Data-Stores-Instructions.md)
 
 ### SP00PH03T04 — Update backend for DB connection
 - [x] **Task:** Modify main.go to read DATABASE_URL, REDIS_URL
@@ -125,12 +125,12 @@
 - [x] **Status:** Completed
 
 ### SP00PH03T05 — Verify database connection
-- [ ] **Task:** Deploy and check logs for success messages
-- [ ] **Acceptance:** Logs show "Connected to Postgres"
-- [ ] **Acceptance:** Logs show "Connected to Redis"
-- [ ] **Commit:** "SP00PH03T05: Database connections verified"
-- [ ] **Status:** Pending
-- [ ] **Guide:** See [SP00PH03-Railway-Data-Stores-Instructions.md](./SP00PH03-Railway-Data-Stores-Instructions.md)
+- [x] **Task:** Deploy and check logs for success messages
+- [x] **Acceptance:** Logs show "Connected to Postgres"
+- [x] **Acceptance:** Logs show "Connected to Redis"
+- [x] **Commit:** "SP00PH03T05: Database connections verified"
+- [x] **Status:** Completed
+- [x] **Guide:** See [SP00PH03-Railway-Data-Stores-Instructions.md](./SP00PH03-Railway-Data-Stores-Instructions.md)
 
 ---
 
@@ -253,12 +253,12 @@
 | PH00 | 3 | 3/3 |
 | PH01 | 6 | 6/6 |
 | PH02 | 5 | 5/5 |
-| PH03 | 5 | 1/5 |
+| PH03 | 5 | 5/5 |
 | PH04 | 5 | 0/5 |
 | PH05 | 4 | 0/5 |
 | PH06 | 5 | 0/5 |
 | PH07 | 3 | 0/3 |
-| **Total** | **36** | **15/36** |
+| **Total** | **36** | **19/36** |
 
 ---
 
