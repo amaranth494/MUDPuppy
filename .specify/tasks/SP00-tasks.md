@@ -190,11 +190,12 @@
 - [x] **Note:** Already configured - npm ci, npm run build, go build present
 
 ### SP00PH05T03 — Enable branch protection
-- [x] **Task:** Enable branch protection on sp00-environment-foundation
-- [x] **Script:** scripts/powershell/setup-branch-protection.ps1
-- [x] **Guide:** [.specify/tasks/SP00PH05-CI-Gate-Verification-Instructions.md](./SP00PH05-CI-Gate-Verification-Instructions.md)
-- [x] **Action:** Repository made public, branch protection configured via GitHub API
-- [x] **Commit:** "SP00PH05T03: Branch protection enabled"
+- [x] **Task:** Enable branch protection on master and spec branch
+- [x] **Protected Branches:**
+  - [x] `master` - canonical branch (requires CI, 1 approval)
+  - [x] `sp00-environment-foundation` - spec branch (requires CI)
+- [x] **Verification:** PR #4 to master showed mergeable_state=blocked
+- [x] **Commit:** "SP00PH05T03: Branch protection enabled on master"
 - [x] **Status:** Completed
 
 ### SP00PH05T04 — Test CI gate
