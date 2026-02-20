@@ -2,8 +2,8 @@
 # Run this script with a GitHub personal access token to configure branch protection
 
 # Usage:
-# $env:GITHUB_TOKEN = "your-token-here"
-# .\setup-branch-protection.ps1 -RepoOwner "username" -RepoName "mudpuppy"
+# $env:GITHUB_TOKEN = "<YOUR_GITHUB_TOKEN>"
+# .\setup-branch-protection.ps1 -RepoOwner "amaranth494" -RepoName "mudpuppy"
 
 param(
     [Parameter(Mandatory=$true)]

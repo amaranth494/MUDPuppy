@@ -37,7 +37,7 @@ Branch protection ensures that code cannot be merged to the main branch without 
 
    ```powershell
    # Set the token as an environment variable
-   $env:GITHUB_TOKEN = "ghp_your_token_here"
+   $env:GITHUB_TOKEN = "<YOUR_GITHUB_TOKEN>"
 
    # Run the script
    cd d:\Projects\MUDPuppy

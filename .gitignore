@@ -1,0 +1,21 @@
+# Build outputs
+/node_modules
+/public/build
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test outputs
+/coverage
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PowerShell artifacts
+$null
