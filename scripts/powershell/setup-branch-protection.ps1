@@ -48,7 +48,7 @@ $body = @{
 Write-Host "Configuring branch protection for $BranchName..."
 
 try {
-    $response = Invoke-RestMethod -Uri $url -Method PUT -Headers $headers -Body $body -ContentType "application/json"
+    $null = Invoke-RestMethod -Uri $url -Method PUT -Headers $headers -Body $body -ContentType "application/json"
     Write-Host "Branch protection enabled successfully!" -ForegroundColor Green
     Write-Host "- Require status checks to pass: Yes"
     Write-Host "- Require code reviews: Yes (1 approval)"
@@ -66,8 +66,7 @@ try {
     $masterCheck = Invoke-RestMethod -Uri "https://api.github.com/repos/$RepoOwner/$RepoName/branches/master" -Method GET -Headers $headers
     if ($masterCheck) {
         Write-Host "Master branch exists, applying protection..."
-        $masterBody = $body
-        $null = Invoke-RestMethod -Uri $masterUrl -Method PUT -Headers $headers -Body $masterBody -ContentType "application/json"
+        $null = Invoke-RestMethod -Uri $masterUrl -Method PUT -Headers $headers -Body $body -ContentType "application/json"
         Write-Host "Master branch protection enabled!" -ForegroundColor Green
     }
 } catch {
