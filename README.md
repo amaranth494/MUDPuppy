@@ -8,10 +8,16 @@ MUDPuppy is a modern MUD client built with web technologies, designed to provide
 
 ## Technology Stack
 
-- **Frontend:** Node.js
-- **Backend:** Go
+- **Frontend:** Node.js 22.18.0
+- **Backend:** Go 1.26.x
 - **Database:** PostgreSQL
 - **Cache:** Redis
+
+## Prerequisites
+
+- Node.js 22.18.0 (managed via .nvmrc)
+- Go 1.26.x or later
+- Git
 
 ## Getting Started
 
