@@ -2,6 +2,10 @@
 
 A MUD (Multi-User Dungeon) game client and framework.
 
+## Deployment
+
+[![Deploy to Railway](https://railway.app/button.svg)](https://railway.app/new/template?repo=https://github.com/amaranth494/MudPuppy)
+
 ## Overview
 
 MUDPuppy is a modern MUD client built with web technologies, designed to provide a seamless gaming experience for MUD enthusiasts.
