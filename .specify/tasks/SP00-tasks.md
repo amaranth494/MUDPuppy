@@ -190,12 +190,16 @@
 - [x] **Note:** Already configured - npm ci, npm run build, go build present
 
 ### SP00PH05T03 — Enable branch protection
-- [ ] **Task:** Protect master branch, require CI passing
-- [ ] **Commit:** N/A
-- [ ] **Status:** Pending
+- [x] **Task:** Create branch protection setup script
+- [x] **Script:** scripts/powershell/setup-branch-protection.ps1
+- [x] **Guide:** [.specify/tasks/SP00PH05-CI-Gate-Verification-Instructions.md](./SP00PH05-CI-Gate-Verification-Instructions.md)
+- [ ] **Action Required:** Run script with GitHub token OR configure manually in GitHub UI
+- [ ] **Commit:** "SP00PH05T03: Branch protection enabled"
+- [ ] **Status:** Pending (script and guide ready)
 
 ### SP00PH05T04 — Test CI gate
 - [ ] **Task:** Create test PR, verify CI runs and blocks merge
+- [x] **Guide:** [.specify/tasks/SP00PH05-CI-Gate-Verification-Instructions.md](./SP00PH05-CI-Gate-Verification-Instructions.md)
 - [ ] **Acceptance:** CI fails on broken code
 - [ ] **Acceptance:** CI passes on valid code
 - [ ] **Commit:** "SP00PH05T04: CI gate verified"
@@ -263,10 +267,10 @@
 | PH02 | 5 | 5/5 |
 | PH03 | 5 | 5/5 |
 | PH04 | 5 | 5/5 |
-| PH05 | 4 | 0/5 |
+| PH05 | 4 | 2/5 |
 | PH06 | 5 | 0/5 |
 | PH07 | 3 | 0/3 |
-| **Total** | **36** | **24/36** |
+| **Total** | **36** | **26/36** |
 
 ---
 
