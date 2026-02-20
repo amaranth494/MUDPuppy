@@ -117,6 +117,10 @@
 - [x] **Status:** Completed
 - [x] **Guide:** See [SP00PH03-Railway-Data-Stores-Instructions.md](./SP00PH03-Railway-Data-Stores-Instructions.md)
 
+**Provisioned Values:**
+- `DATABASE_URL` = `postgres://postgres:BmoCEzLZwfvCcKmCKbnFaRYtisIITfqa@postgres.railway.internal:5432/railway`
+- `REDIS_URL` = `redis://default:PfnViYrQUyQbnCYbVJoAMpylkKseMRsR@redis.railway.internal:6379`
+
 ### SP00PH03T04 — Update backend for DB connection
 - [x] **Task:** Modify main.go to read DATABASE_URL, REDIS_URL
 - [x] **Acceptance:** Backend fails startup if DB connection fails
@@ -172,16 +176,18 @@
 ## Phase 5: CI Gate Verification (PH05)
 
 ### SP00PH05T01 — Configure CI workflow
-- [ ] **Task:** Update ci.yml for PR + push triggers
-- [ ] **Acceptance:** CI uses Node from .nvmrc
-- [ ] **Acceptance:** CI uses documented Go version
-- [ ] **Commit:** "SP00PH05T01: CI configured for version pinning"
-- [ ] **Status:** Pending
+- [x] **Task:** Update ci.yml for PR + push triggers
+- [x] **Acceptance:** CI uses Node from .nvmrc
+- [x] **Acceptance:** CI uses documented Go version
+- [x] **Commit:** "SP00PH05T01: CI configured for version pinning"
+- [x] **Status:** Completed
+- [x] **Note:** Already configured in existing ci.yml - uses node-version-file and go-version-file
 
 ### SP00PH05T02 — Add build steps
-- [ ] **Task:** Add npm install, npm build, go build to ci.yml
-- [ ] **Commit:** "SP00PH05T02: Build steps added"
-- [ ] **Status:** Pending
+- [x] **Task:** Add npm install, npm build, go build to ci.yml
+- [x] **Commit:** "SP00PH05T02: Build steps added"
+- [x] **Status:** Completed
+- [x] **Note:** Already configured - npm ci, npm run build, go build present
 
 ### SP00PH05T03 — Enable branch protection
 - [ ] **Task:** Protect master branch, require CI passing
