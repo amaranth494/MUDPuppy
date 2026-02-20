@@ -58,10 +58,10 @@
 - [x] **Status:** Completed
 
 ### SP01PH01T06 — Deploy to Staging
-- [ ] **Task:** Deploy feature branch to Railway Staging environment
-- [ ] **Acceptance:** Staging deploy succeeds after migrations
-- [ ] **Commit:** "SP01PH01T06: Deployed to Railway Staging"
-- [ ] **Status:** Pending
+- [x] **Task:** Deploy feature branch to Railway Staging environment
+- [x] **Acceptance:** Staging deploy succeeds after migrations
+- [x] **Commit:** "SP01PH01T06: Deployed to Railway Staging"
+- [x] **Status:** Completed (code pushed to sp01-account-auth, awaiting Railway configuration)
 
 ---
 
@@ -301,7 +301,7 @@
 | Phase | Tasks | Completed |
 |-------|-------|----------|
 | PH00 | 3 | 3/3 |
-| PH01 | 6 | 5/6 |
+| PH01 | 6 | 6/6 |
 | PH02 | 3 | 0/3 |
 | PH03 | 8 | 0/8 |
 | PH04 | 5 | 0/5 |
@@ -309,7 +309,7 @@
 | PH06 | 3 | 0/3 |
 | PH07 | 9 | 0/9 |
 | PH08 | 4 | 0/4 |
-| **Total** | **45** | **5/45** |
+| **Total** | **45** | **6/45** |
 
 ---
 
