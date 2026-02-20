@@ -137,33 +137,35 @@
 ## Phase 4: Deployment Verification (PH04)
 
 ### SP00PH04T01 — Create health endpoint
-- [ ] **Task:** Verify /health endpoint exists (created in PH01)
-- [ ] **Acceptance:** Returns { status: "ok" }
-- [ ] **Commit:** N/A
-- [ ] **Status:** Pending
+- [x] **Task:** Verify /health endpoint exists (created in PH01)
+- [x] **Acceptance:** Returns { status: "ok" }
+- [x] **Commit:** N/A
+- [x] **Status:** Completed
 
 ### SP00PH04T02 — Create frontend landing
-- [ ] **Task:** Create simple index.html
-- [ ] **Commit:** "SP00PH04T02: Frontend landing created"
-- [ ] **Status:** Pending
+- [x] **Task:** Create simple index.html
+- [x] **Commit:** "SP00PH04T02: Frontend landing created"
+- [x] **Status:** Completed
 
 ### SP00PH04T03 — Deploy to Railway
-- [ ] **Task:** Push to trigger Railway deployment
-- [ ] **Commit:** N/A
-- [ ] **Status:** Pending
+- [x] **Task:** Push to trigger Railway deployment
+- [x] **Commit:** N/A
+- [x] **Status:** Completed
+- [x] **URL:** https://mudpuppy-production.up.railway.app
 
 ### SP00PH04T04 — Verify Railway PORT handling
-- [ ] **Task:** Confirm Railway PORT variable works
-- [ ] **Acceptance:** Server responds on Railway-assigned port
-- [ ] **Commit:** N/A
-- [ ] **Status:** Pending
+- [x] **Task:** Confirm Railway PORT variable works
+- [x] **Acceptance:** Server responds on Railway-assigned port
+- [x] **PORT:** 8080
+- [x] **Commit:** N/A
+- [x] **Status:** Completed
 
 ### SP00PH04T05 — Verify production URL
-- [ ] **Task:** Access production URL and /health endpoint
-- [ ] **Acceptance:** Production URL returns frontend
-- [ ] **Acceptance:** /health returns JSON ok status
-- [ ] **Commit:** "SP00PH04T05: Production verified"
-- [ ] **Status:** Pending
+- [x] **Task:** Access production URL and /health endpoint
+- [x] **Acceptance:** Production URL returns frontend
+- [x] **Acceptance:** /health returns JSON ok status
+- [x] **Commit:** "SP00PH04T05: Production verified"
+- [x] **Status:** Completed
 
 ---
 
@@ -254,11 +256,11 @@
 | PH01 | 6 | 6/6 |
 | PH02 | 5 | 5/5 |
 | PH03 | 5 | 5/5 |
-| PH04 | 5 | 0/5 |
+| PH04 | 5 | 5/5 |
 | PH05 | 4 | 0/5 |
 | PH06 | 5 | 0/5 |
 | PH07 | 3 | 0/3 |
-| **Total** | **36** | **19/36** |
+| **Total** | **36** | **24/36** |
 
 ---
 
