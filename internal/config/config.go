@@ -81,7 +81,7 @@ func Load() (*Config, error) {
 	// Port whitelist (comma-separated, defaults to 23 for telnet)
 	cfg.PortWhitelist = os.Getenv("MUD_PROXY_PORT_WHITELIST")
 	if cfg.PortWhitelist == "" {
-		cfg.PortWhitelist = "23,80" // TEMPORARY for testing
+		cfg.PortWhitelist = "23" // Default: telnet only
 	}
 
 	// Idle timeout in minutes (defaults to 30)
