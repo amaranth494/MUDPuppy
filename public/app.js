@@ -58,6 +58,7 @@ function cacheElements() {
     elements.registerEmail = document.getElementById('register-email');
     elements.loginOtpInput = document.getElementById('login-otp-input');
     elements.otpInput = document.getElementById('otp-input') || document.getElementById('otp-input-verify');
+    elements.verifyOtpInput = document.getElementById('otp-input-verify');
     elements.userEmail = document.getElementById('user-email');
     elements.logoutBtn = document.getElementById('logout-btn');
     
