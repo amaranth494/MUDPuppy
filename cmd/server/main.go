@@ -18,6 +18,7 @@ import (
 	"github.com/amaranth494/MudPuppy/internal/store"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
 )
 
