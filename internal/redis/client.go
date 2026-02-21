@@ -182,6 +182,31 @@ func (c *Client) DeleteSession(ctx context.Context, sessionID string) error {
 }
 
 // ============================================================================
+// Generic Key-Value Operations (SP02)
+// ============================================================================
+
+// Set stores a string value with TTL
+func (c *Client) Set(ctx context.Context, key string, value string, ttl time.Duration) error {
+	return c.rdb.Set(ctx, key, value, ttl).Err()
+}
+
+// Get retrieves a string value
+func (c *Client) Get(ctx context.Context, key string) (string, error) {
+	return c.rdb.Get(ctx, key).Result()
+}
+
+// Delete removes a key
+func (c *Client) Delete(ctx context.Context, key string) error {
+	return c.rdb.Del(ctx, key).Err()
+}
+
+// Exists checks if a key exists
+func (c *Client) Exists(ctx context.Context, key string) (bool, error) {
+	n, err := c.rdb.Exists(ctx, key).Result()
+	return n > 0, err
+}
+
+// ============================================================================
 // Rate Limiting Operations (SP01PH05)
 // ============================================================================
 

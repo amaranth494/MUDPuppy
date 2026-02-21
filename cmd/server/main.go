@@ -15,6 +15,7 @@ import (
 	"github.com/amaranth494/MudPuppy/internal/auth"
 	"github.com/amaranth494/MudPuppy/internal/config"
 	"github.com/amaranth494/MudPuppy/internal/redis"
+	"github.com/amaranth494/MudPuppy/internal/session"
 	"github.com/amaranth494/MudPuppy/internal/store"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -114,6 +115,14 @@ func main() {
 	userStore := store.NewUserStore(db)
 	authHandler := auth.NewHandler(userStore, redisClient, cfg)
 
+	// Initialize session manager and handler (SP02PH01)
+	sessionManager := session.NewManager(
+		cfg.PortWhitelist,
+		cfg.IdleTimeoutMinutes,
+		cfg.HardSessionCapHours,
+	)
+	sessionHandler := session.NewHandler(sessionManager, cfg)
+
 	// Create router with session middleware
 	mux := http.NewServeMux()
 
@@ -124,6 +133,11 @@ func main() {
 	mux.HandleFunc("/api/v1/login", authHandler.Login)
 	mux.HandleFunc("/api/v1/logout", authHandler.Logout)
 	mux.HandleFunc("/api/v1/me", authHandler.Me)
+
+	// Add session endpoints to mux (SP02PH01)
+	mux.HandleFunc("/api/v1/session/connect", sessionHandler.Connect)
+	mux.HandleFunc("/api/v1/session/disconnect", sessionHandler.Disconnect)
+	mux.HandleFunc("/api/v1/session/status", sessionHandler.Status)
 
 	// Serve static files from public directory
 	mux.Handle("/", http.FileServer(http.Dir("./public")))
@@ -161,7 +175,7 @@ func sessionMiddleware(redisClient *redis.Client, next http.Handler) http.Handle
 			}
 
 			ctx := context.Background()
-			_, err := redisClient.GetSession(ctx, sessionToken)
+			userID, err := redisClient.GetSession(ctx, sessionToken)
 			if err != nil {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
@@ -169,6 +183,9 @@ func sessionMiddleware(redisClient *redis.Client, next http.Handler) http.Handle
 
 			// Refresh session idle timer
 			redisClient.RefreshSession(ctx, sessionToken)
+
+			// Add user ID to context for session handlers (SP02PH01)
+			r = r.WithContext(context.WithValue(r.Context(), "user_id", userID))
 		}
 
 		next.ServeHTTP(w, r)

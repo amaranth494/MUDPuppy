@@ -33,52 +33,52 @@
 ## Phase 1: Backend Connection Manager (PH01)
 
 ### SP02PH01T00 — Create saved_connections table
-- [ ] **Task:** Create migration for mud_saved_connections table (id, user_id, name, host, port, created_at, updated_at)
+- [x] **Task:** Create migration for mud_saved_connections table (id, user_id, name, host, port, created_at, updated_at)
 - **Storage:** Postgres (not Redis)
-- [ ] **Commit:** "SP02PH01T00: Saved connections table created"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP02PH01T00: Saved connections table created"
+- [x] **Status:** Completed
 
 ### SP02PH01T01 — TCP Dialer Implementation
-- [ ] **Task:** Implement outbound TCP connection to arbitrary host:port
+- [x] **Task:** Implement outbound TCP connection to arbitrary host:port
 - **Acceptance:** Backend can connect to test MUD server
-- [ ] **Commit:** "SP02PH01T01: TCP dialer implemented"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP02PH01T01: TCP dialer implemented"
+- [x] **Status:** Completed
 
 ### SP02PH01T02 — Port Whitelist Enforcement
-- [ ] **Task:** Implement port whitelist (default: 23)
+- [x] **Task:** Implement port whitelist (default: 23)
 - **Reject:** Ports not in whitelist with clear error
-- [ ] **Commit:** "SP02PH01T02: Port whitelist enforced"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP02PH01T02: Port whitelist enforced"
+- [x] **Status:** Completed
 
 ### SP02PH01T03 — Private IP Detection
-- [ ] **Task:** Implement private IP detection and blocking
+- [x] **Task:** Implement private IP detection and blocking
 - **Block:** 10.x.x.x, 172.16-31.x.x, 192.168.x.x, 127.x.x.x, localhost
-- [ ] **Commit:** "SP02PH01T03: Private IP blocking implemented"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP02PH01T03: Private IP blocking implemented"
+- [x] **Status:** Completed
 
 ### SP02PH01T04 — Per-User Session Binding
-- [ ] **Task:** Bind each MUD connection to authenticated user session
+- [x] **Task:** Bind each MUD connection to authenticated user session
 - **Acceptance:** One connection per user enforced
-- [ ] **Commit:** "SP02PH01T04: Per-user session binding"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP02PH01T04: Per-user session binding"
+- [x] **Status:** Completed
 
 ### SP02PH01T05 — Idle Timer Enforcement
-- [ ] **Task:** Implement 30-minute idle timeout
+- [x] **Task:** Implement 30-minute idle timeout
 - **Behavior:** No activity for 30 min → disconnect
-- [ ] **Commit:** "SP02PH01T05: Idle timeout enforced"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP02PH01T05: Idle timeout enforced"
+- [x] **Status:** Completed
 
 ### SP02PH01T06 — Hard Session Cap
-- [ ] **Task:** Implement 24-hour absolute session limit
+- [x] **Task:** Implement 24-hour absolute session limit
 - **Behavior:** 24 hours max → forced disconnect
-- [ ] **Commit:** "SP02PH01T06: Hard session cap enforced"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP02PH01T06: Hard session cap enforced"
+- [x] **Status:** Completed
 
 ### SP02PH01T07 — Connection Metadata Logging
-- [ ] **Task:** Log connection metadata (connect time, host, port, duration, disconnect reason)
+- [x] **Task:** Log connection metadata (connect time, host, port, duration, disconnect reason)
 - **Acceptance:** Logs visible, no PII logged
-- [ ] **Commit:** "SP02PH01T07: Connection metadata logging"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP02PH01T07: Connection metadata logging"
+- [x] **Status:** Completed
 
 ### SP02PH01T08 — Local Test Verification
 - [ ] **Task:** Test backend connecting to real MUD server locally
@@ -286,10 +286,10 @@
 | Phase | Tasks | Status |
 |-------|-------|--------|
 | PH00 | 5 | 5/5 |
-| PH01 | 9 | 0/9 |
+| PH01 | 9 | 8/9 |
 | PH02 | 6 | 0/6 |
 | PH03 | 8 | 0/8 |
 | PH04 | 4 | 0/4 |
 | PH05 | 2 | 0/2 |
 | PH06 | 6 | 0/6 |
-| **Total** | **40** | **5/40** |
+| **Total** | **40** | **13/40** |

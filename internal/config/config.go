@@ -24,6 +24,12 @@ type Config struct {
 
 	// OTP
 	OTPExpiryMinutes int
+
+	// MUD Session Proxy (SP02)
+	PortWhitelist         string
+	IdleTimeoutMinutes    int
+	HardSessionCapHours   int
+	MaxMessageSizeBytes  int
 }
 
 // Load loads configuration from environment variables
@@ -68,6 +74,46 @@ func Load() (*Config, error) {
 			log.Printf("Warning: Invalid OTP_EXPIRY_MINUTES '%s', using default 15", expiryStr)
 		} else {
 			cfg.OTPExpiryMinutes = expiry
+		}
+	}
+
+	// MUD Session Proxy configuration (SP02PH01)
+	// Port whitelist (comma-separated, defaults to 23 for telnet)
+	cfg.PortWhitelist = os.Getenv("MUD_PROXY_PORT_WHITELIST")
+	if cfg.PortWhitelist == "" {
+		cfg.PortWhitelist = "23"
+	}
+
+	// Idle timeout in minutes (defaults to 30)
+	cfg.IdleTimeoutMinutes = 30
+	if idleStr := os.Getenv("IDLE_TIMEOUT_MINUTES"); idleStr != "" {
+		idle, err := strconv.Atoi(idleStr)
+		if err != nil {
+			log.Printf("Warning: Invalid IDLE_TIMEOUT_MINUTES '%s', using default 30", idleStr)
+		} else {
+			cfg.IdleTimeoutMinutes = idle
+		}
+	}
+
+	// Hard session cap in hours (defaults to 24)
+	cfg.HardSessionCapHours = 24
+	if capStr := os.Getenv("HARD_SESSION_CAP_HOURS"); capStr != "" {
+		cap, err := strconv.Atoi(capStr)
+		if err != nil {
+			log.Printf("Warning: Invalid HARD_SESSION_CAP_HOURS '%s', using default 24", capStr)
+		} else {
+			cfg.HardSessionCapHours = cap
+		}
+	}
+
+	// Max message size in bytes (defaults to 64KB)
+	cfg.MaxMessageSizeBytes = 65536
+	if sizeStr := os.Getenv("MAX_MESSAGE_SIZE_BYTES"); sizeStr != "" {
+		size, err := strconv.Atoi(sizeStr)
+		if err != nil {
+			log.Printf("Warning: Invalid MAX_MESSAGE_SIZE_BYTES '%s', using default 65536", sizeStr)
+		} else {
+			cfg.MaxMessageSizeBytes = size
 		}
 	}
 
