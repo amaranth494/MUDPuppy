@@ -127,6 +127,91 @@ Post-MVP, the architecture must support migrating from xterm.js terminal renderi
 - Rich media integration
 The migration path from MVP (xterm.js) to Phase N (structured events) must be planned and documented.
 
+### Minimum UI Contract for MVP
+
+This section defines the required UI components and screens for MVP. All UI must be functional without relying on browser-local persistence (per Constitution V.a).
+
+**1. Global App Shell**
+Always visible on authenticated pages:
+- Top App Bar with app name/logo (click → Home)
+- Session Status Pill: Disconnected | Connecting | Connected | Error
+- Account menu (avatar or email initial)
+- Primary Navigation: Play | Connections | Account | Help
+
+**2. Screens Required for MVP**
+
+**A. Landing (Unauthenticated)**
+- Purpose: Explain app, drive login
+- Sign In button
+- Help/FAQ link
+
+**B. Authentication Flow (SP01)**
+- Email OTP Sign-In screen
+- Email input + "Send Code" button
+- OTP input (6 digits) + "Verify & Sign In" button
+- Inline error states (rate limit, invalid code, expired code)
+- No "remember me" toggles (server-side TTL governs sessions)
+
+**C. Home / Play (Primary MVP Experience)**
+- Connection Panel: Host field, Port field (default 23), Connect/Disconnect buttons
+- Terminal/Output Panel: Scrollback, Command input row
+- Input field with Enter to send
+
+**D. Connections (Minimal Management)**
+- Table/list: saved connections (Name, Host, Port)
+- Actions: Connect, Edit, Delete
+- Add Connection button
+- Server-persisted (not browser-local)
+
+**E. Account**
+- Show signed-in email
+- Sign out button
+- Optional: Session info ("Last login", "Session expires in...")
+
+**F. Help**
+- "How to connect"
+- "Allowed ports"
+- "Privacy/logging note"
+- Basic troubleshooting
+
+**3. Menus Required for MVP**
+
+**Account Menu (Top Right Dropdown)**
+- Account (go to Account page)
+- Help
+- Sign Out
+
+**Terminal Context Menu (Right-click, Optional)**
+- Copy, Select all, Clear screen
+
+**4. Dialog Boxes and Modals Required for MVP**
+
+- Connect Validation Errors: Host required, Port must be 23 (Telnet), Private IPs not allowed
+- Connection Attempt Failure: DNS fail, refused, timeout - human-readable reason
+- Disconnect Confirmation (Optional): Immediate disconnect allowed for MVP
+- Idle Timeout Warning (Optional but recommended): "You'll be disconnected in 60 seconds"
+- Forced Disconnect Notice (Required): Idle timeout / Session limit / Remote server closed + Reconnect button
+
+**5. Connection State Machine**
+
+| State | Connect Panel | Output Panel | Status Pill |
+|-------|--------------|--------------|-------------|
+| Disconnected | Enabled | Empty/Last session end | Gray |
+| Connecting | Disabled | "Connecting..." spinner | Yellow |
+| Connected | Disconnect enabled | Active session | Green |
+| Error | Enabled | Error banner | Red |
+
+**6. MVP UI Non-Goals (Explicit)**
+
+The MVP UI does NOT include:
+- Multiple simultaneous MUD sessions
+- Split panes, tabbed sessions, window docking
+- Macro bars, trigger editors, alias managers
+- Automapper UI
+- Rich UI overlays (health bars, panels)
+- Protocol visualization tools (GMCP inspectors)
+- Import/export packages
+
 ### WebSocket-Based Communication
 The browser connects securely over HTTPS (port 443) to the hosted service via WebSocket. The service maintains the actual telnet (and later optional SSH) connections to MUD servers, handling all protocol complexity.
 
@@ -322,9 +407,9 @@ Frontend and backend evolve independently. Versioning ensures compatibility:
 - Feature flags allow server-side enablement for newer API features
 - Breaking changes only in major version bumps
 
-**Version**: 1.8.0 | **Ratified**: 2026-02-20 | **Last Amended**: 2026-02-21
+**Version**: 1.9.0 | **Ratified**: 2026-02-20 | **Last Amended**: 2026-02-21
 
-**Amendment v1.8.0:** Added branching strategy clause, migration discipline, authentication baseline requirements, CI enforcement update.
+**Amendment v1.9.0:** Added Minimum UI Contract for MVP.
 
 **Amendment v1.7.1:** Changed all references from 'main' to 'master' branch to match repository naming convention.
 
