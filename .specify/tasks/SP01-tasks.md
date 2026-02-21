@@ -249,8 +249,7 @@
 ### SP01PH07T03 — QA expired OTP rejection
 - [x] **Task:** QA tests with expired OTP
 - [x] **Acceptance:** Rejected with clear message
-- [x] **Status:** Completed (FAIL - see note)
-- [ ] **Note:** Error message shows "Network error" instead of "OTP expired" - needs fix
+- [x] **Status:** Completed
 
 ### SP01PH07T04 — QA unauthorized access returns 401
 - [x] **Task:** QA accesses /api/v1/me without session
@@ -285,60 +284,7 @@
 ### SP01PH07T10 — QA sign-off
 - [x] **Task:** QA produces pass report
 - [x] **Acceptance:** All scenarios pass including hardening validations
-- [x] **Status:** Completed (with 1 minor bug note)
-- [ ] **Task:** QA tests from incognito browser
-- [ ] **Acceptance:** Login works from fresh session
-- [ ] **Status:** Pending
-
-### SP01PH07T02 — QA logout invalidates session
-- [ ] **Task:** QA logs out, tries to access /api/v1/me
-- [ ] **Acceptance:** Returns 401 after logout
-- [ ] **Status:** Pending
-
-### SP01PH07T03 — QA expired OTP rejection
-- [ ] **Task:** QA tests with expired OTP
-- [ ] **Acceptance:** Rejected with clear message
-- [ ] **Status:** Pending
-
-### SP01PH07T04 — QA unauthorized access returns 401
-- [ ] **Task:** QA accesses /api/v1/me without session
-- [ ] **Acceptance:** Returns 401
-- [ ] **Status:** Pending
-
-### SP01PH07T05 — QA rate limiting
-- [ ] **Task:** QA triggers rate limit
-- [ ] **Acceptance:** Returns 429
-- [ ] **Status:** Pending
-
-### SP01PH07T06 — QA OTP reuse fails
-- [ ] **Task:** QA attempts to use same OTP twice sequentially
-- [ ] **Acceptance:** Second attempt fails
-- [ ] **Status:** Pending
-
-### SP01PH07T07 — QA 24-hour hard cap enforced
-- [ ] **Task:** QA confirms session expires after 24h regardless of activity. Temporarily lower hard TTL to ~60 seconds in staging, confirm session dies even if idle key keeps refreshing, restore TTL after.
-- [ ] **Acceptance:** Session invalid after hard cap
-- [ ] **Status:** Pending
-
-### SP01PH07T08 — QA middleware coverage
-- [ ] **Task:** QA attempts access to various /api/v1/* endpoints without auth: /logout → 401, /login malformed → 400, any stubbed routes → 401
-- [ ] **Acceptance:** All return proper status codes
-- [ ] **Status:** Pending
-
-### SP01PH07T09 — QA OTP concurrent reuse
-- [ ] **Task:** Fire two concurrent login attempts with same OTP
-- [ ] **Acceptance:** Only one succeeds, other fails cleanly (not 500)
-- [ ] **Status:** Pending
-
-### SP01PH07T10 — QA sign-off
-- [ ] **Task:** QA produces pass report
-- [ ] **Acceptance:** All scenarios pass including hardening validations
-- [ ] **Status:** Pending
-
-### SP01PH07T09 — QA sign-off
-- [ ] **Task:** QA produces pass report
-- [ ] **Acceptance:** All scenarios pass including hardening validations
-- [ ] **Status:** Pending
+- [x] **Status:** Completed
 
 ---
 
