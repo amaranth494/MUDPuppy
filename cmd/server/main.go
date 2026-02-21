@@ -85,6 +85,15 @@ func main() {
 	}
 	log.Println("Migrations completed successfully")
 
+	// Verify tables exist
+	var tableCount int
+	err = db.QueryRow("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('users', 'otp_challenges')").Scan(&tableCount)
+	if err != nil {
+		log.Printf("Warning: Could not verify tables: %v", err)
+	} else {
+		log.Printf("Found %d tables in public schema", tableCount)
+	}
+
 	// Fail-fast if REDIS_URL is missing (SP01PH02T04)
 	if redisURL == "" {
 		log.Fatal("FATAL: REDIS_URL environment variable is required. Set it before starting the server.")
