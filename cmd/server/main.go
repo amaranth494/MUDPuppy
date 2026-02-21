@@ -16,6 +16,8 @@ import (
 	"github.com/amaranth494/MudPuppy/internal/config"
 	"github.com/amaranth494/MudPuppy/internal/redis"
 	"github.com/amaranth494/MudPuppy/internal/store"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/lib/pq"
 )
 
@@ -62,6 +64,25 @@ func main() {
 	}
 	log.Println("Connected to PostgreSQL")
 	defer db.Close()
+
+	// Run migrations (SP01PH06T01)
+	log.Println("Running database migrations...")
+	driver, err := postgres.WithInstance(db, &postgres.Config{})
+	if err != nil {
+		log.Fatalf("Failed to create migration driver: %v", err)
+	}
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://migrations",
+		"postgres",
+		driver,
+	)
+	if err != nil {
+		log.Fatalf("Failed to create migration instance: %v", err)
+	}
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		log.Fatalf("Migration failed: %v", err)
+	}
+	log.Println("Migrations completed successfully")
 
 	// Fail-fast if REDIS_URL is missing (SP01PH02T04)
 	if redisURL == "" {
