@@ -10,6 +10,3 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- Create index on email for faster lookups
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-
--- +migrate Down
-DROP TABLE IF EXISTS users CASCADE;

@@ -14,6 +14,3 @@ CREATE INDEX IF NOT EXISTS idx_otp_challenges_email ON otp_challenges(email);
 
 -- Create index on expires_at for cleanup of expired OTPs
 CREATE INDEX IF NOT EXISTS idx_otp_challenges_expires_at ON otp_challenges(expires_at);
-
--- +migrate Down
-DROP TABLE IF EXISTS otp_challenges CASCADE;
