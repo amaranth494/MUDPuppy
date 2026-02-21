@@ -224,7 +224,9 @@ func (h *Handler) SendOTP(w http.ResponseWriter, r *http.Request) {
 
 	// If user doesn't exist, return error
 	if existingUser == nil {
-		http.Error(w, "Email not found. Please register first.", http.StatusNotFound)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "Email not found. Please register first."})
 		return
 	}
 
