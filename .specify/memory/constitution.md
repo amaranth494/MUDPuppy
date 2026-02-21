@@ -29,6 +29,14 @@ Beyond MUD-specific functionality, this is a modern web application. Authenticat
 ### V.a Zero Local Storage Dependency
 The product must not require persistent browser-local storage (LocalStorage, IndexedDB, filesystem APIs) for core functionality. A user must be able to log in and play fully from a fresh browser session on any device. Optional ephemeral client caching (in-memory only) is allowed for responsiveness, but must not be required for correctness, persistence, or recovery.
 
+### V.b Authentication Baseline Requirements
+Authentication systems must:
+- Use secure, HTTP-only cookies for session tokens
+- Enforce explicit TTL and hard expiration
+- Implement rate limiting for authentication endpoints
+- Log abuse attempts without storing sensitive payload data
+- Fail-fast if required secrets are missing
+
 ### VI. Multi-Tenant Security by Default
 The product must be multi-tenant by design, secure by default, and operationally observable. Performance and reliability must be measurable and continuously improvable through proper monitoring and logging.
 
@@ -72,6 +80,12 @@ The service layer is comprised of discrete, focused components:
 - User configurations and profiles
 - Automation rules (aliases, triggers, timers, variables)
 - Utilizes appropriate data stores (SQL for structured data, NoSQL for logs/sessions)
+
+**Schema Migration Discipline:**
+All database schema changes must be versioned via a migration tool.
+- Migrations must be reversible (up/down)
+- Schema changes must not be performed via ad-hoc SQL in application startup logic
+- The migration tool must track applied versions in the database
 
 **Automation Engine**
 - Rule-based processing for MVP (aliases, triggers, timers, variables)
@@ -194,6 +208,20 @@ The deployment workflow uses Railway with GitHub integration for push-to-deploy 
 - **Staging** - Full integration testing mirror of production
 - **Production** - Manual approval required for release
 
+**Persistent Branch Model:**
+The repository operates under a three-tier branch model:
+- **master** — Production branch (deploys to production environment)
+- **staging** — Integration branch (deploys to staging environment)
+- **sp##-*** — Short-lived Spec feature branches (branch from staging)
+
+**Promotion Flow:**
+1. Feature branch merges into staging
+2. Staging validated
+3. staging merged into master
+4. Production verification performed
+
+**Rule:** No feature branches may merge directly into master.
+
 ## Governance
 
 ### Constitution Supremacy
@@ -209,7 +237,7 @@ All features must demonstrate:
 - Extensibility without breaking existing architecture
 
 ### Quality Gates
-- All code must pass automated tests before merge
+- All code must pass CI (build + automated tests) before merge
 - Security review required for authentication and multi-tenant features
 - Performance benchmarks must be established and maintained
 
@@ -294,7 +322,9 @@ Frontend and backend evolve independently. Versioning ensures compatibility:
 - Feature flags allow server-side enablement for newer API features
 - Breaking changes only in major version bumps
 
-**Version**: 1.7.1 | **Ratified**: 2026-02-20 | **Last Amended**: 2026-02-20
+**Version**: 1.8.0 | **Ratified**: 2026-02-20 | **Last Amended**: 2026-02-21
+
+**Amendment v1.8.0:** Added branching strategy clause, migration discipline, authentication baseline requirements, CI enforcement update.
 
 **Amendment v1.7.1:** Changed all references from 'main' to 'master' branch to match repository naming convention.
 
