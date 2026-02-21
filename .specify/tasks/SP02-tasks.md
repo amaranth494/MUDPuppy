@@ -81,10 +81,10 @@
 - [x] **Status:** Completed
 
 ### SP02PH01T08 — Local Test Verification
-- [ ] **Task:** Test backend connecting to real MUD server locally
-- [ ] **Acceptance:** Connect, send command, receive output, disconnect
-- [ ] **Commit:** "SP02PH01T08: Local test verification"
-- [ ] **Status:** Pending
+- [x] **Task:** Test backend connecting to real MUD server locally
+- [x] **Acceptance:** Connect, send command, receive output, disconnect
+- [x] **Commit:** "SP02PH01T08: Local test verification"
+- [x] **Status:** Completed
 
 ---
 
@@ -286,10 +286,10 @@
 | Phase | Tasks | Status |
 |-------|-------|--------|
 | PH00 | 5 | 5/5 |
-| PH01 | 9 | 8/9 |
+| PH01 | 9 | 9/9 |
 | PH02 | 6 | 0/6 |
 | PH03 | 8 | 0/8 |
 | PH04 | 4 | 0/4 |
 | PH05 | 2 | 0/2 |
 | PH06 | 6 | 0/6 |
-| **Total** | **40** | **13/40** |
+| **Total** | **40** | **14/40** |
