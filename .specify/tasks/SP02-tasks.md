@@ -9,24 +9,24 @@
 ## Phase 0: Branch Creation (PH00)
 
 ### SP02PH00T01 — Create spec branch
-- [ ] **Task:** Create branch `sp02-session-proxy` from staging
-- [ ] **Commit:** "SP02PH00: Branch created"
-- [ ] **Status:** Pending
+- [x] **Task:** Create branch `sp02-session-proxy` from staging
+- [x] **Commit:** "SP02PH00: Branch created"
+- [x] **Status:** Completed
 
 ### SP02PH00T02 — Commit spec document
-- [ ] **Task:** Commit SP02.md, SP02-plan.md, SP02-tasks.md to branch
-- [ ] **Commit:** "SP02PH00: Spec committed"
-- [ ] **Status:** Pending
+- [x] **Task:** Commit SP02.md, SP02-plan.md, SP02-tasks.md to branch
+- [x] **Commit:** "SP02PH00: Branch created"
+- [x] **Status:** Completed
 
 ### SP02PH00T03 — Push branch
-- [ ] **Task:** Push branch to origin
-- [ ] **Commit:** N/A
-- [ ] **Status:** Pending
+- [x] **Task:** Push branch to origin
+- [x] **Commit:** N/A
+- [x] **Status:** Completed
 
 ### SP02PH00T04 — Verify CI passes
-- [ ] **Task:** Verify CI passes on sp02-session-proxy branch before proceeding
-- [ ] **Commit:** N/A
-- [ ] **Status:** Pending
+- [x] **Task:** Verify CI passes on sp02-session-proxy branch before proceeding
+- [x] **Commit:** N/A
+- [x] **Status:** Completed
 
 ---
 
@@ -285,11 +285,11 @@
 
 | Phase | Tasks | Status |
 |-------|-------|--------|
-| PH00 | 5 | 0/5 |
+| PH00 | 5 | 5/5 |
 | PH01 | 9 | 0/9 |
 | PH02 | 6 | 0/6 |
 | PH03 | 8 | 0/8 |
 | PH04 | 4 | 0/4 |
 | PH05 | 2 | 0/2 |
 | PH06 | 6 | 0/6 |
-| **Total** | **40** | **0/40** |
+| **Total** | **40** | **5/40** |
