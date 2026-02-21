@@ -26,10 +26,10 @@ type Config struct {
 	OTPExpiryMinutes int
 
 	// MUD Session Proxy (SP02)
-	PortWhitelist         string
-	IdleTimeoutMinutes    int
-	HardSessionCapHours   int
-	MaxMessageSizeBytes  int
+	PortWhitelist       string
+	IdleTimeoutMinutes  int
+	HardSessionCapHours int
+	MaxMessageSizeBytes int
 }
 
 // Load loads configuration from environment variables
@@ -81,7 +81,7 @@ func Load() (*Config, error) {
 	// Port whitelist (comma-separated, defaults to 23 for telnet)
 	cfg.PortWhitelist = os.Getenv("MUD_PROXY_PORT_WHITELIST")
 	if cfg.PortWhitelist == "" {
-		cfg.PortWhitelist = "23"
+		cfg.PortWhitelist = "23,80" // TEMPORARY for testing
 	}
 
 	// Idle timeout in minutes (defaults to 30)
