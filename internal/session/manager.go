@@ -106,13 +106,17 @@ func (m *Manager) getAllowedPorts() []int {
 
 // Connect establishes a MUD connection for a user
 func (m *Manager) Connect(ctx context.Context, userID, host string, port int) (*Session, error) {
+	log.Printf("[SP02PH01] Connect called: user=%s, host=%s, port=%d", userID, host, port)
+
 	// Validate port first
 	if err := m.ValidatePort(port); err != nil {
+		log.Printf("[SP02PH01] Port validation failed: %v", err)
 		return nil, err
 	}
 
 	// Validate host (private IP blocking)
 	if err := ValidateHost(host); err != nil {
+		log.Printf("[SP02PH01] Host validation failed: %v", err)
 		return nil, err
 	}
 
@@ -134,15 +138,18 @@ func (m *Manager) Connect(ctx context.Context, userID, host string, port int) (*
 
 	// Dial the MUD server
 	address := net.JoinHostPort(host, strconv.Itoa(port))
-	conn, err := net.DialTimeout("tcp", address, 10*time.Second)
+	log.Printf("[SP02PH01] Dialing %s...", address)
+	conn, err := net.DialTimeout("tcp", address, 5*time.Second) // Reduced timeout
 	if err != nil {
+		log.Printf("[SP02PH01] Dial failed: %v", err)
 		session.State = StateError
 		session.DisconnectErr = err.Error()
 		m.sessions[userID] = session
 		return session, fmt.Errorf("connection failed: %v", err)
 	}
+	log.Printf("[SP02PH01] Dial succeeded")
 
-	// Handle telnet negotiation - consume initial bytes
+	// Handle telnet negotiation - consume initial bytes (with timeout)
 	m.consumeTelnetNegotiation(conn)
 
 	// Update session state
@@ -154,12 +161,13 @@ func (m *Manager) Connect(ctx context.Context, userID, host string, port int) (*
 	m.sessions[userID] = session
 	m.conns[userID] = conn
 
-	// Start idle timer and hard cap timer
-	m.startTimers(ctx, userID)
+	// Start idle timer and hard cap timer (non-blocking)
+	go m.startTimers(context.Background(), userID)
 
 	// Log connection metadata (SP02PH01T07)
 	m.logConnectionMetadata(session)
 
+	log.Printf("[SP02PH01] Connection established for user=%s", userID)
 	return session, nil
 }
 
