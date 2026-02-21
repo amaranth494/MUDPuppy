@@ -1,4 +1,4 @@
-// SP01PH01: Database Schema - migrations and auth foundation - TEST 2
+// SP01PH01: Database Schema - migrations and auth foundation - TEST 3
 package main
 
 import (
