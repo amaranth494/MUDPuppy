@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [master, main]
+    branches: [master, main, 'sp*']
   pull_request:
     branches: [master, main]
 
@@ -36,6 +36,11 @@ jobs:
 
       - name: Download Go dependencies
         run: go mod download
+
+      - name: Install golang-migrate
+        run: |
+          curl -L https://github.com/golang-migrate/migrate/releases/download/v4.18.1/migrate.linux-amd64.tar.gz | tar xvz
+          sudo mv migrate /usr/local/bin/
 
       - name: Build backend
         run: go build -o mudpuppy ./cmd/server
