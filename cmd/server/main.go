@@ -16,9 +16,6 @@ import (
 	"github.com/amaranth494/MudPuppy/internal/config"
 	"github.com/amaranth494/MudPuppy/internal/redis"
 	"github.com/amaranth494/MudPuppy/internal/store"
-	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
 )
 
@@ -66,70 +63,39 @@ func main() {
 	log.Println("Connected to PostgreSQL")
 	defer db.Close()
 
-	// Run migrations (SP01PH06T01)
-	log.Println("Running database migrations...")
-	// Try multiple migration sources
-	var m *migrate.Migrate
-	driver, err := postgres.WithInstance(db, &postgres.Config{})
-	if err != nil {
-		log.Fatalf("Failed to create migration driver: %v", err)
+	// Run migrations (SP01PH06T01) - using direct SQL
+	log.Println("Running database migrations (direct SQL)...")
+	// Create users table
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS users (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		email TEXT NOT NULL UNIQUE,
+		email_verified_at TIMESTAMP WITH TIME ZONE,
+		created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+		updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+	)`); err != nil {
+		log.Fatalf("Failed to create users table: %v", err)
 	}
-	// Try embedded file source
-	m, err = migrate.NewWithDatabaseInstance(
-		"file://./migrations",
-		"postgres",
-		driver,
-	)
-	if err != nil {
-		log.Printf("Failed to create migration with file source: %v", err)
-		log.Println("Attempting to run raw SQL migrations instead...")
-		// Fall back to direct SQL
-		if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS users (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			email TEXT NOT NULL UNIQUE,
-			email_verified_at TIMESTAMP WITH TIME ZONE,
-			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-			updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-		)`); err != nil {
-			log.Fatalf("Failed to create users table: %v", err)
-		}
-		if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS otp_challenges (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			email TEXT NOT NULL,
-			otp_hash TEXT NOT NULL,
-			expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-			attempts INTEGER NOT NULL DEFAULT 0,
-			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-		)`); err != nil {
-			log.Fatalf("Failed to create otp_challenges table: %v", err)
-		}
-		log.Println("Tables created via direct SQL")
-	} else {
-		if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-			log.Printf("Migration with file source failed: %v", err)
-			log.Println("Attempting to run raw SQL migrations instead...")
-			// Fall back to direct SQL
-			if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS users (
-				id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-				email TEXT NOT NULL UNIQUE,
-				email_verified_at TIMESTAMP WITH TIME ZONE,
-				created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-				updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-			)`); err != nil {
-				log.Fatalf("Failed to create users table: %v", err)
-			}
-			if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS otp_challenges (
-				id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-				email TEXT NOT NULL,
-				otp_hash TEXT NOT NULL,
-				expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-				attempts INTEGER NOT NULL DEFAULT 0,
-				created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-			)`); err != nil {
-				log.Fatalf("Failed to create otp_challenges table: %v", err)
-			}
-			log.Println("Tables created via direct SQL")
-		}
+	// Create index on users email
+	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`); err != nil {
+		log.Printf("Warning: Failed to create users email index: %v", err)
+	}
+	// Create otp_challenges table
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS otp_challenges (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		email TEXT NOT NULL,
+		otp_hash TEXT NOT NULL,
+		expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+		attempts INTEGER NOT NULL DEFAULT 0,
+		created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+	)`); err != nil {
+		log.Fatalf("Failed to create otp_challenges table: %v", err)
+	}
+	// Create indexes on otp_challenges
+	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_otp_challenges_email ON otp_challenges(email)`); err != nil {
+		log.Printf("Warning: Failed to create otp_challenges email index: %v", err)
+	}
+	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_otp_challenges_expires_at ON otp_challenges(expires_at)`); err != nil {
+		log.Printf("Warning: Failed to create otp_challenges expires_at index: %v", err)
 	}
 	log.Println("Migrations completed successfully")
 
