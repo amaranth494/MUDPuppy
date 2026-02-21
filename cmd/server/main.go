@@ -147,7 +147,7 @@ func sessionMiddleware(redisClient *redis.Client, next http.Handler) http.Handle
 		path := r.URL.Path
 
 		// Allow public endpoints through
-		if path == "/health" || path == "/api/v1/register" || path == "/api/v1/login" {
+		if path == "/health" || path == "/api/v1/register" || path == "/api/v1/send-otp" || path == "/api/v1/login" {
 			next.ServeHTTP(w, r)
 			return
 		}

@@ -317,7 +317,7 @@ function showLoginEmailStep() {
     elements.loginEmailStep.style.display = 'block';
     elements.loginOtpStep.style.display = 'none';
     state.pendingEmail = null;
-    hideMessage(elements.loginMessage);
+    clearMessages();
 }
 
 // Show the login OTP step (Step 2)
