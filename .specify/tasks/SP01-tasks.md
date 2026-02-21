@@ -67,23 +67,29 @@
 
 ## Phase 2: Redis Configuration (PH02)
 
-### SP01PH02T01 — Configure Redis key naming
-- [ ] **Task:** Set Redis key format: `otp:{email}`, `session:{sessionID}`
-- [ ] **Acceptance:** Keys defined in code
-- [ ] **Commit:** "SP01PH02T01: Redis keys configured"
-- [ ] **Status:** Pending
+### SP01PH02T01 — Create Redis utility module
+- [x] **Task:** Create Go module with key builders, TTL constants, getters/setters. Key formats: OTP otp:email:{sha256(lower(email))}, Session session:{sessionID}, Session idle session_idle:{sessionID}
+- [x] **Acceptance:** Utility module exists, no auth routes yet
+- [x] **Commit:** "SP01PH02T01: Redis utility module created"
+- [x] **Status:** Completed
 
-### SP01PH02T02 — Set OTP TTL
-- [ ] **Task:** Configure OTP TTL to 15 minutes
-- [ ] **Acceptance:** TTL set in Redis config
-- [ ] **Commit:** "SP01PH02T02: OTP TTL configured"
-- [ ] **Status:** Pending
+### SP01PH02T02 — Define OTP TTL
+- [x] **Task:** Implement OTP storage with SET key EX 900 (atomic, 15 min)
+- [x] **Acceptance:** OTP keys expire in 15 minutes
+- [x] **Commit:** "SP01PH02T02: OTP TTL implemented"
+- [x] **Status:** Completed
 
-### SP01PH02T03 — Set session TTL
-- [ ] **Task:** Configure session TTL: Absolute max = 24 hours (hard cap), Idle timeout = 30 minutes (resets on activity)
-- [ ] **Acceptance:** TTL set in Redis config
-- [ ] **Commit:** "SP01PH02T03: Session TTL configured"
-- [ ] **Status:** Pending
+### SP01PH02T03 — Define Session TTL (dual-key)
+- [x] **Task:** Implement session with two keys: session:{id} with EX 86400 (24h hard cap), session_idle:{id} with EX 1800 (30min sliding)
+- [x] **Acceptance:** Middleware checks both keys exist
+- [x] **Commit:** "SP01PH02T03: Session TTL implemented"
+- [x] **Status:** Completed
+
+### SP01PH02T04 — Add Redis health check
+- [x] **Task:** Add startup check: fail-fast if REDIS_URL missing/unreachable
+- [x] **Acceptance:** App panics on missing Redis at startup
+- [x] **Commit:** "SP01PH02T04: Redis health check added"
+- [x] **Status:** Completed
 
 ---
 
@@ -302,14 +308,14 @@
 |-------|-------|----------|
 | PH00 | 3 | 3/3 |
 | PH01 | 6 | 6/6 |
-| PH02 | 3 | 0/3 |
+| PH02 | 4 | 4/4 |
 | PH03 | 8 | 0/8 |
 | PH04 | 5 | 0/5 |
 | PH05 | 4 | 0/4 |
 | PH06 | 3 | 0/3 |
 | PH07 | 9 | 0/9 |
 | PH08 | 4 | 0/4 |
-| **Total** | **45** | **6/45** |
+| **Total** | **46** | **13/46** |
 
 ---
 
