@@ -1,6 +1,7 @@
 package email
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net/smtp"
@@ -57,16 +58,60 @@ func (s *Sender) sendEmail(recipient, subject, body string) error {
 	msg.WriteString("\r\n")
 	msg.WriteString(body)
 
-	// Connect to SMTP server and send
+	// Connect to SMTP server with TLS
 	addr := fmt.Sprintf("%s:%d", s.host, s.port)
 
-	// Use TLS
-	auth := smtp.PlainAuth("", s.username, s.password, s.host)
+	// Create TLS connection
+	tlsConfig := &tls.Config{
+		ServerName:         s.host,
+		InsecureSkipVerify: false,
+	}
 
-	err := smtp.SendMail(addr, auth, s.fromAddress, []string{recipient}, []byte(msg.String()))
+	conn, err := tls.Dial("tcp", addr, tlsConfig)
 	if err != nil {
-		log.Printf("Failed to send email to %s: %v", recipient, err)
-		return fmt.Errorf("failed to send email: %w", err)
+		log.Printf("Failed to connect to SMTP server: %v", err)
+		return fmt.Errorf("failed to connect to SMTP server: %w", err)
+	}
+	defer conn.Close()
+
+	// Create SMTP client
+	client, err := smtp.NewClient(conn, s.host)
+	if err != nil {
+		log.Printf("Failed to create SMTP client: %v", err)
+		return fmt.Errorf("failed to create SMTP client: %w", err)
+	}
+	defer client.Close()
+
+	// Authenticate
+	auth := smtp.PlainAuth("", s.username, s.password, s.host)
+	if err := client.Auth(auth); err != nil {
+		log.Printf("Failed to authenticate: %v", err)
+		return fmt.Errorf("failed to authenticate: %w", err)
+	}
+
+	// Set sender
+	if err := client.Mail(s.fromAddress); err != nil {
+		log.Printf("Failed to set sender: %v", err)
+		return fmt.Errorf("failed to set sender: %w", err)
+	}
+
+	// Set recipient
+	if err := client.Rcpt(recipient); err != nil {
+		log.Printf("Failed to set recipient: %v", err)
+		return fmt.Errorf("failed to set recipient: %w", err)
+	}
+
+	// Write message
+	w, err := client.Data()
+	if err != nil {
+		log.Printf("Failed to get data writer: %v", err)
+		return fmt.Errorf("failed to get data writer: %w", err)
+	}
+	defer w.Close()
+
+	if _, err := w.Write([]byte(msg.String())); err != nil {
+		log.Printf("Failed to write message: %v", err)
+		return fmt.Errorf("failed to write message: %w", err)
 	}
 
 	log.Printf("Email sent successfully to %s", recipient)
