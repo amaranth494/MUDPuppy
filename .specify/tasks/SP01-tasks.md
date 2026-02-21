@@ -291,30 +291,30 @@
 ## Phase 8: Merge & Close (PH08)
 
 ### SP01PH08T01 — Final CI check
-- [ ] **Task:** Ensure CI passes
-- [ ] **Acceptance:** All tests green
-- [ ] **Status:** Pending
+- [x] **Task:** Ensure CI passes
+- [x] **Acceptance:** All tests green
+- [x] **Status:** Completed
 
 ### SP01PH08T02 — Merge to master
-- [ ] **Task:** Merge sp01-account-auth to master
-- [ ] **Commit:** "SP01PH08T02: Merged to master"
-- [ ] **Status:** Pending
+- [x] **Task:** Merge sp01-account-auth to master
+- [x] **Commit:** "SP01PH08T02: Merged to master"
+- [x] **Status:** Completed
 
 ### SP01PH08T03 — Verify production
-- [ ] **Task:** Confirm production works post-merge
-- [ ] **Acceptance:** Production URL stable
-- [ ] **Status:** Pending
+- [x] **Task:** Confirm production works post-merge
+- [x] **Acceptance:** Production URL stable
+- [x] **Status:** Completed
 
 ### SP01PH08T04 — Mark spec closed
-- [ ] **Task:** Update SP01.md status to Closed
-- [ ] **Commit:** "SP01PH08T04: Spec closed"
-- [ ] **Status:** Pending
+- [x] **Task:** Update SP01.md status to Closed
+- [x] **Commit:** "SP01PH08T04: Spec closed"
+- [x] **Status:** Completed
 
 ### SP01PH08T05 — Establish Persistent Staging Branch
-- [ ] **Task:** Convert sp01-account-auth into long-lived staging branch: Merge to master, create staging from master, delete feature branch, configure Railway
-- [ ] **Acceptance:** master = production, staging = integration buffer, Railway: master→Prod, staging→Staging, future specs branch from staging
-- [ ] **Commit:** "SP01PH08T05: Staging branch established"
-- [ ] **Status:** Pending
+- [x] **Task:** Convert sp01-account-auth into long-lived staging branch: Merge to master, create staging from master, delete feature branch, configure Railway
+- [x] **Acceptance:** master = production, staging = integration buffer, Railway: master→Prod, staging→Staging, future specs branch from staging
+- [x] **Commit:** "SP01PH08T05: Staging branch established"
+- [x] **Status:** Completed
 
 ---
 
@@ -330,8 +330,8 @@
 | PH05 | 4 | 4/4 |
 | PH06 | 3 | 3/3 |
 | PH07 | 11 | 11/11 |
-| PH08 | 5 | 0/5 |
-| **Total** | **48** | **44/48** |
+| PH08 | 5 | 5/5 |
+| **Total** | **48** | **48/48** |
 
 ---
 
