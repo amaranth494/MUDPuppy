@@ -1,4 +1,4 @@
-// SP01PH01: Database Schema - migrations and auth foundation - TEST 2
+// SP01PH02: Redis Configuration - utility module, OTP/Session TTL, fail-fast
 
 package main
 
@@ -11,8 +11,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/amaranth494/MudPuppy/internal/redis"
 	_ "github.com/lib/pq"
-	"github.com/redis/go-redis/v9"
 )
 
 type HealthResponse struct {
@@ -52,26 +52,26 @@ func main() {
 	log.Println("Connected to PostgreSQL")
 	defer db.Close()
 
-	// Connect to Redis
+	// Fail-fast if REDIS_URL is missing (SP01PH02T04)
 	if redisURL == "" {
-		log.Println("WARNING: REDIS_URL not set, skipping Redis connection")
-	} else {
-		log.Println("Connecting to Redis...")
-		opt, err := redis.ParseURL(redisURL)
-		if err != nil {
-			log.Fatalf("Failed to parse Redis URL: %v", err)
-		}
-
-		client := redis.NewClient(opt)
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		if err := client.Ping(ctx).Err(); err != nil {
-			log.Fatalf("Failed to connect to Redis: %v", err)
-		}
-		log.Println("Connected to Redis")
-		defer client.Close()
+		log.Fatal("FATAL: REDIS_URL environment variable is required. Set it before starting the server.")
 	}
+
+	// Connect to Redis
+	log.Println("Connecting to Redis...")
+	redisClient, err := redis.NewClient(redisURL)
+	if err != nil {
+		log.Fatalf("Failed to create Redis client: %v", err)
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := redisClient.Ping(ctx); err != nil {
+		log.Fatalf("Failed to connect to Redis: %v", err)
+	}
+	log.Println("Connected to Redis")
+	defer redisClient.Close()
 
 	port := os.Getenv("PORT")
 	if port == "" {
