@@ -10,7 +10,7 @@
     <div class="container">
         <img src="/mudpuppy_logo.png" alt="MUDPuppy" class="logo">
         <h1>MUDPuppy</h1>
-        <p class="subtitle">Multi-User Dungeon Experience</p>
+        <p class="subtitle">A Legendary MUD Client</p>
         
         <!-- Login Section -->
         <div id="login-section" class="auth-card fade-in active">
@@ -100,6 +100,11 @@
             <h2 style="margin-bottom: 1.5rem; text-align: center;">Verify Your Email</h2>
             
             <div id="otp-message" class="message" style="display: none;"></div>
+            
+            <!-- Show the email being verified -->
+            <p id="otp-email-display" style="font-size: 0.9rem; margin-bottom: 1rem; text-align: center; opacity: 0.8;">
+                Verifying: <span id="otp-email-value" style="color: #00ff00;"></span>
+            </p>
             
             <form id="otp-form">
                 <div class="form-group">

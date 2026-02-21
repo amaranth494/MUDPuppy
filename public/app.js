@@ -400,7 +400,13 @@ async function handleRegisterSubmit(e) {
             showMessage(elements.otpMessage, 'Verification code sent! Check your email.', 'success');
             showView('otp');
             
-            // Clear login email and use same for OTP
+            // Show email in OTP section
+            const emailDisplay = document.getElementById('otp-email-value');
+            if (emailDisplay) {
+                emailDisplay.textContent = email;
+            }
+            
+            // Clear OTP input and focus
             if (elements.otpInput) {
                 elements.otpInput.value = '';
                 elements.otpInput.focus();
@@ -425,8 +431,14 @@ async function handleOTPSubmit(e) {
     const email = state.pendingEmail || elements.registerEmail?.value?.trim();
     const otp = elements.verifyOtpInput?.value?.trim();
     
-    if (!email || !otp) {
+    if (!email && !otp) {
         showMessage(elements.otpMessage, 'Please enter your email and OTP', 'error');
+        return;
+    } else if (!email) {
+        showMessage(elements.otpMessage, 'Session expired. Please go back and request a new code.', 'error');
+        return;
+    } else if (!otp) {
+        showMessage(elements.otpMessage, 'Please enter the verification code', 'error');
         return;
     }
     
