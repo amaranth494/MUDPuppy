@@ -133,7 +133,7 @@ func (m *Manager) Connect(ctx context.Context, userID, host string, port int) (*
 	}
 
 	// Dial the MUD server
-	address := fmt.Sprintf("%s:%d", host, port)
+	address := net.JoinHostPort(host, strconv.Itoa(port))
 	conn, err := net.DialTimeout("tcp", address, 10*time.Second)
 	if err != nil {
 		session.State = StateError
