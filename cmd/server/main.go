@@ -1,4 +1,4 @@
-// SP01PH02: Redis Configuration - utility module, OTP/Session TTL, fail-fast
+// SP01PH05: Security & Rate Limiting - Security headers middleware
 
 package main
 
@@ -9,9 +9,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/amaranth494/MudPuppy/internal/auth"
+	"github.com/amaranth494/MudPuppy/internal/config"
 	"github.com/amaranth494/MudPuppy/internal/redis"
+	"github.com/amaranth494/MudPuppy/internal/store"
 	_ "github.com/lib/pq"
 )
 
@@ -26,6 +30,13 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	// Load configuration (SP01PH03T08)
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("FATAL: %v", err)
+	}
+	log.Println("Configuration loaded successfully")
+
 	// Read database configuration from environment
 	databaseURL := os.Getenv("DATABASE_URL")
 	redisURL := os.Getenv("REDIS_URL")
@@ -73,20 +84,103 @@ func main() {
 	log.Println("Connected to Redis")
 	defer redisClient.Close()
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
+	// Initialize stores and handlers
+	userStore := store.NewUserStore(db)
+	authHandler := auth.NewHandler(userStore, redisClient, cfg)
 
-	http.HandleFunc("/health", healthHandler)
+	// Create router with session middleware
+	mux := http.NewServeMux()
 
-	// Serve static frontend files
-	fs := http.FileServer(http.Dir("public"))
-	http.Handle("/", fs)
+	// Public endpoints
+	mux.HandleFunc("/health", healthHandler)
+	mux.HandleFunc("/api/v1/register", authHandler.Register)
+	mux.HandleFunc("/api/v1/login", authHandler.Login)
+	mux.HandleFunc("/api/v1/logout", authHandler.Logout)
+	mux.HandleFunc("/api/v1/me", authHandler.Me)
 
-	log.Printf("PORT env: %s", os.Getenv("PORT"))
-	log.Printf("Server starting on port %s", port)
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	// Serve static files from public directory
+	mux.Handle("/", http.FileServer(http.Dir("./public")))
+
+	// Protected endpoints - wrapped with session middleware
+	protectedHandler := sessionMiddleware(redisClient, mux)
+
+	// Add security headers middleware (SP01PH05T03)
+	handler := securityHeadersMiddleware(protectedHandler)
+
+	log.Printf("Server starting on port %s", cfg.Port)
+	if err := http.ListenAndServe(":"+cfg.Port, handler); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
+}
+
+// sessionMiddleware validates session for protected routes
+func sessionMiddleware(redisClient *redis.Client, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Route the request first to determine if it's a protected path
+		path := r.URL.Path
+
+		// Allow public endpoints through
+		if path == "/health" || path == "/api/v1/register" || path == "/api/v1/login" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// For /api/v1/* paths (except register/login), require session
+		if strings.HasPrefix(path, "/api/v1/") {
+			sessionToken := getSessionToken(r)
+			if sessionToken == "" {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+
+			ctx := context.Background()
+			_, err := redisClient.GetSession(ctx, sessionToken)
+			if err != nil {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+
+			// Refresh session idle timer
+			redisClient.RefreshSession(ctx, sessionToken)
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// securityHeadersMiddleware adds security headers to all responses (SP01PH05T03)
+func securityHeadersMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Prevent clickjacking
+		w.Header().Set("X-Frame-Options", "DENY")
+		// XSS protection
+		w.Header().Set("X-XSS-Protection", "1; mode=block")
+		// Prevent MIME type sniffing
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		// Content Security Policy
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'")
+		// Referrer policy
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		// Permissions policy
+		w.Header().Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// getSessionToken extracts session token from cookie or Authorization header
+func getSessionToken(r *http.Request) string {
+	// First try cookie
+	cookie, err := r.Cookie("session_token")
+	if err == nil && cookie.Value != "" {
+		return cookie.Value
+	}
+
+	// Then try Authorization header
+	authHeader := r.Header.Get("Authorization")
+	if strings.HasPrefix(authHeader, "Bearer ") {
+		return strings.TrimPrefix(authHeader, "Bearer ")
+	}
+
+	return ""
 }

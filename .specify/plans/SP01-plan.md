@@ -32,11 +32,31 @@ This plan outlines the execution path for SP01, introducing authenticated user a
 
 ## Phase 2: Redis Configuration (PH02)
 
-### Tasks:
-- [ ] Configure Redis key naming: `otp:{email}`, `session:{sessionID}`
-- [ ] Set OTP TTL to 15 minutes
-- [ ] Set session TTL: Absolute max = 24 hours (hard cap), Idle timeout = 30 minutes (resets on activity)
-- [ ] Commit with message: "SP01PH02: Redis keys configured"
+### SP01PH02T01 — Create Redis utility module
+- [ ] **Task:** Create Go module with key builders, TTL constants, getters/setters
+- **Key formats:**
+  - OTP: `otp:email:{sha256(lower(email))}`
+  - Session: `session:{sessionID}` (hard cap)
+  - Session idle: `session_idle:{sessionID}` (sliding)
+- **Acceptance:** Utility module exists, no auth routes yet
+- [ ] **Commit:** "SP01PH02T01: Redis utility module created"
+
+### SP01PH02T02 — Define OTP TTL
+- [ ] **Task:** Implement OTP storage with SET key EX 900 (atomic, 15 min)
+- [ ] **Acceptance:** OTP keys expire in 15 minutes
+- [ ] **Commit:** "SP01PH02T02: OTP TTL implemented"
+
+### SP01PH02T03 — Define Session TTL (dual-key)
+- [ ] **Task:** Implement session with two keys:
+  - `session:{id}` with EX 86400 (24h hard cap)
+  - `session_idle:{id}` with EX 1800 (30min sliding, updated on activity)
+- [ ] **Acceptance:** Middleware checks both keys exist
+- [ ] **Commit:** "SP01PH02T03: Session TTL implemented"
+
+### SP01PH02T04 — Add Redis health check
+- [ ] **Task:** Add startup check: fail-fast if REDIS_URL missing/unreachable
+- [ ] **Acceptance:** App panics on missing Redis at startup
+- [ ] **Commit:** "SP01PH02T04: Redis health check added"
 
 ---
 

@@ -96,114 +96,114 @@
 ## Phase 3: Authentication Backend (PH03)
 
 ### SP01PH03T01 — Implement registration endpoint
-- [ ] **Task:** POST /api/v1/register accepts email
-- [ ] **Acceptance:** Returns 201 on success
-- [ ] **Commit:** "SP01PH03T01: Registration endpoint created"
-- [ ] **Status:** Pending
+- [x] **Task:** POST /api/v1/register accepts email
+- [x] **Acceptance:** Returns 201 on success
+- [x] **Commit:** "SP01PH03T01: Registration endpoint created"
+- [x] **Status:** Completed
 
 ### SP01PH03T02 — Implement OTP generation
-- [ ] **Task:** Generate 6-digit OTP, store in Redis with 15-min TTL. If SMTP fails, do NOT store OTP.
-- [ ] **Acceptance:** OTP stored in Redis (key: otp:{email}, TTL: 15 min)
-- [ ] **Commit:** "SP01PH03T02: OTP generation implemented"
-- [ ] **Status:** Pending
+- [x] **Task:** Generate 6-digit OTP, store in Redis with 15-min TTL. If SMTP fails, do NOT store OTP.
+- [x] **Acceptance:** OTP stored in Redis (key: otp:{email}, TTL: 15 min)
+- [x] **Commit:** "SP01PH03T02: OTP generation implemented"
+- [x] **Status:** Completed
 
 ### SP01PH03T03 — Implement OTP delivery (SMTP)
-- [ ] **Task:** Send OTP via SMTP
-- [ ] **Acceptance:** Email sent with OTP code
-- [ ] **Commit:** "SP01PH03T03: OTP email delivery implemented"
-- [ ] **Status:** Pending
+- [x] **Task:** Send OTP via SMTP
+- [x] **Acceptance:** Email sent with OTP code
+- [x] **Commit:** "SP01PH03T03: OTP email delivery implemented"
+- [x] **Status:** Completed
 
 ### SP01PH03T04 — Implement login endpoint
-- [ ] **Task:** POST /api/v1/login accepts email + OTP
-- [ ] **Acceptance:** Returns session token on valid OTP
-- [ ] **Commit:** "SP01PH03T04: Login endpoint created"
-- [ ] **Status:** Pending
+- [x] **Task:** POST /api/v1/login accepts email + OTP
+- [x] **Acceptance:** Returns session token on valid OTP
+- [x] **Commit:** "SP01PH03T04: Login endpoint created"
+- [x] **Status:** Completed
 
 ### SP01PH03T05 — Implement session validation middleware
-- [ ] **Task:** Middleware validates session from Redis only, protects all /api/v1/* routes by default
-- [ ] **Acceptance:** Returns 401 without valid session
-- [ ] **Commit:** "SP01PH03T05: Session middleware created"
-- [ ] **Status:** Pending
+- [x] **Task:** Middleware validates session from Redis only, protects all /api/v1/* routes by default
+- [x] **Acceptance:** Returns 401 without valid session
+- [x] **Commit:** "SP01PH03T05: Session middleware created"
+- [x] **Status:** Completed
 
 ### SP01PH03T06 — Implement logout endpoint
-- [ ] **Task:** DELETE /api/v1/logout invalidates session
-- [ ] **Acceptance:** Session removed, returns 200
-- [ ] **Commit:** "SP01PH03T06: Logout endpoint created"
-- [ ] **Status:** Pending
+- [x] **Task:** DELETE /api/v1/logout invalidates session
+- [x] **Acceptance:** Session removed, returns 200
+- [x] **Commit:** "SP01PH03T06: Logout endpoint created"
+- [x] **Status:** Completed
 
 ### SP01PH03T07 — Implement /api/v1/me endpoint
-- [ ] **Task:** GET /api/v1/me returns user info
-- [ ] **Acceptance:** Returns user email when authenticated
-- [ ] **Commit:** "SP01PH03T07: User info endpoint created"
-- [ ] **Status:** Pending
+- [x] **Task:** GET /api/v1/me returns user info
+- [x] **Acceptance:** Returns user email when authenticated
+- [x] **Commit:** "SP01PH03T07: User info endpoint created"
+- [x] **Status:** Completed
 
 ### SP01PH03T08 — Add environment variable handling
-- [ ] **Task:** Add SESSION_SECRET, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_FROM_ADDRESS
-- [ ] **Acceptance:** Startup fails if SESSION_SECRET missing
-- [ ] **Commit:** "SP01PH03T08: Env vars configured"
-- [ ] **Status:** Pending
+- [x] **Task:** Add SESSION_SECRET, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_FROM_ADDRESS
+- [x] **Acceptance:** Startup fails if SESSION_SECRET missing
+- [x] **Commit:** "SP01PH03T08: Env vars configured"
+- [x] **Status:** Completed
 
 ---
 
 ## Phase 4: Frontend UI (PH04)
 
 ### SP01PH04T01 — Create login page
-- [ ] **Task:** Login page with email input
-- [ ] **Acceptance:** Email field, submit button visible
-- [ ] **Commit:** "SP01PH04T01: Login page created"
-- [ ] **Status:** Pending
+- [x] **Task:** Login page with email input
+- [x] **Acceptance:** Email field, submit button visible
+- [x] **Commit:** "SP01PH04T01: Login page created"
+- [x] **Status:** Completed
 
 ### SP01PH04T02 — Create registration flow
-- [ ] **Task:** Registration page with OTP entry
-- [ ] **Acceptance:** OTP input field appears after email submit
-- [ ] **Commit:** "SP01PH04T02: Registration flow created"
-- [ ] **Status:** Pending
+- [x] **Task:** Registration page with OTP entry
+- [x] **Acceptance:** OTP input field appears after email submit
+- [x] **Commit:** "SP01PH04T02: Registration flow created"
+- [x] **Status:** Completed
 
 ### SP01PH04T03 — Implement auth state management
-- [ ] **Task:** Store session in HTTP-only cookie
-- [ ] **Acceptance:** Cookie set on login, cleared on logout
-- [ ] **Commit:** "SP01PH04T03: Auth state management implemented"
-- [ ] **Status:** Pending
+- [x] **Task:** Store session in HTTP-only cookie
+- [x] **Acceptance:** Cookie set on login, cleared on logout
+- [x] **Commit:** "SP01PH04T03: Auth state management implemented"
+- [x] **Status:** Completed
 
 ### SP01PH04T04 — Add logged-in indicator
-- [ ] **Task:** Show user email when logged in
-- [ ] **Acceptance:** Displays logged-in state in UI
-- [ ] **Commit:** "SP01PH04T04: Logged-in indicator added"
-- [ ] **Status:** Pending
+- [x] **Task:** Show user email when logged in
+- [x] **Acceptance:** Displays logged-in state in UI
+- [x] **Commit:** "SP01PH04T04: Logged-in indicator added"
+- [x] **Status:** Completed
 
 ### SP01PH04T05 — Add logout button
-- [ ] **Task:** Logout button in UI
-- [ ] **Acceptance:** Clicking logout clears session
-- [ ] **Commit:** "SP01PH04T05: Logout button added"
-- [ ] **Status:** Pending
+- [x] **Task:** Logout button in UI
+- [x] **Acceptance:** Clicking logout clears session
+- [x] **Commit:** "SP01PH04T05: Logout button added"
+- [x] **Status:** Completed
 
 ---
 
 ## Phase 5: Security & Rate Limiting (PH05)
 
 ### SP01PH05T01 — Implement OTP rate limiting
-- [ ] **Task:** Max 5 OTP requests per email per hour
-- [ ] **Acceptance:** Returns 429 when exceeded
-- [ ] **Commit:** "SP01PH05T01: OTP rate limiting implemented"
-- [ ] **Status:** Pending
+- [x] **Task:** Max 5 OTP requests per email per hour
+- [x] **Acceptance:** Returns 429 when exceeded
+- [x] **Commit:** "SP01PH05T01: OTP rate limiting implemented"
+- [x] **Status:** Completed
 
 ### SP01PH05T02 — Implement login rate limiting
-- [ ] **Task:** Max 10 login attempts per IP per 10 min
-- [ ] **Acceptance:** Returns 429 when exceeded
-- [ ] **Commit:** "SP01PH05T02: Login rate limiting implemented"
-- [ ] **Status:** Pending
+- [x] **Task:** Max 10 login attempts per IP per 10 min
+- [x] **Acceptance:** Returns 429 when exceeded
+- [x] **Commit:** "SP01PH05T02: Login rate limiting implemented"
+- [x] **Status:** Completed
 
 ### SP01PH05T03 — Add security headers
-- [ ] **Task:** Add CSRF, security headers
-- [ ] **Acceptance:** Headers present in responses
-- [ ] **Commit:** "SP01PH05T03: Security headers added"
-- [ ] **Status:** Pending
+- [x] **Task:** Add CSRF, security headers
+- [x] **Acceptance:** Headers present in responses
+- [x] **Commit:** "SP01PH05T03: Security headers added"
+- [x] **Status:** Completed
 
 ### SP01PH05T04 — Add abuse logging
-- [ ] **Task:** Log rate-limit violations (IP, endpoint, timestamp) without PII
-- [ ] **Acceptance:** Logs include violation details for later analysis
-- [ ] **Commit:** "SP01PH05T04: Abuse logging added"
-- [ ] **Status:** Pending
+- [x] **Task:** Log rate-limit violations (IP, endpoint, timestamp) without PII
+- [x] **Acceptance:** Logs include violation details for later analysis
+- [x] **Commit:** "SP01PH05T04: Abuse logging added"
+- [x] **Status:** Completed
 
 ---
 
@@ -309,13 +309,13 @@
 | PH00 | 3 | 3/3 |
 | PH01 | 6 | 6/6 |
 | PH02 | 4 | 4/4 |
-| PH03 | 8 | 0/8 |
-| PH04 | 5 | 0/5 |
-| PH05 | 4 | 0/4 |
+| PH03 | 8 | 8/8 |
+| PH04 | 5 | 5/5 |
+| PH05 | 4 | 4/4 |
 | PH06 | 3 | 0/3 |
 | PH07 | 9 | 0/9 |
 | PH08 | 4 | 0/4 |
-| **Total** | **46** | **13/46** |
+| **Total** | **46** | **30/46** |
 
 ---
 

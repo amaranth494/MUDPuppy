@@ -3,82 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MUDPuppy - Multi-User Dungeon</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Courier New', Courier, monospace;
-            background-color: #0a0a0a;
-            color: #00ff00;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .container {
-            text-align: center;
-            padding: 2rem;
-        }
-        
-        h1 {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            text-shadow: 0 0 10px #00ff00;
-        }
-        
-        p {
-            font-size: 1.2rem;
-            margin-bottom: 2rem;
-            opacity: 0.8;
-        }
-        
-        .status {
-            color: #00ff00;
-            font-size: 1rem;
-        }
-        
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #00ff00;
-            border-radius: 50%;
-            border-top-color: transparent;
-            animation: spin 1s linear infinite;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-    </style>
+    <title>MUDPuppy - Authentication</title>
+    <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
     <div class="container">
         <h1>MUDPuppy</h1>
-        <p>A Multi-User Dungeon Experience</p>
-        <div class="status">
-            <span class="loading"></span>
-            Loading...
+        <p class="subtitle">Multi-User Dungeon Experience</p>
+        
+        <!-- Login Section -->
+        <div id="login-section" class="auth-card fade-in active">
+            <h2 style="margin-bottom: 1.5rem; text-align: center;">Login</h2>
+            
+            <div id="login-message" class="message" style="display: none;"></div>
+            
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-email">Email Address</label>
+                    <input type="email" id="login-email" name="email" placeholder="you@example.com" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="otp-input">Verification Code</label>
+                    <input type="text" id="otp-input" class="otp-input" name="otp" placeholder="000000" maxlength="6" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Login</button>
+            </form>
+            
+            <div style="margin-top: 1.5rem; text-align: center;">
+                <p style="font-size: 0.9rem; margin-bottom: 0.5rem;">
+                    Don't have an account? 
+                    <a id="show-register" class="link">Register</a>
+                </p>
+            </div>
+        </div>
+        
+        <!-- Register Section -->
+        <div id="register-section" class="auth-card fade-in" style="display: none;">
+            <h2 style="margin-bottom: 1.5rem; text-align: center;">Create Account</h2>
+            
+            <div id="register-message" class="message" style="display: none;"></div>
+            
+            <form id="register-form">
+                <div class="form-group">
+                    <label for="register-email">Email Address</label>
+                    <input type="email" id="register-email" name="email" placeholder="you@example.com" required>
+                </div>
+                
+                <p style="font-size: 0.8rem; opacity: 0.7; margin-bottom: 1.5rem;">
+                    We'll send a verification code to your email. 
+                    No password required!
+                </p>
+                
+                <button type="submit" class="btn btn-primary">Send Code</button>
+            </form>
+            
+            <div style="margin-top: 1.5rem; text-align: center;">
+                <p style="font-size: 0.9rem;">
+                    Already have an account? 
+                    <a id="show-login" class="link">Login</a>
+                </p>
+            </div>
+        </div>
+        
+        <!-- OTP Section -->
+        <div id="otp-section" class="auth-card fade-in" style="display: none;">
+            <h2 style="margin-bottom: 1.5rem; text-align: center;">Verify Your Email</h2>
+            
+            <div id="otp-message" class="message" style="display: none;"></div>
+            
+            <form id="otp-form">
+                <div class="form-group">
+                    <label for="otp-input-verify">Enter Verification Code</label>
+                    <input type="text" id="otp-input-verify" class="otp-input" name="otp" placeholder="000000" maxlength="6" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Verify</button>
+            </form>
+            
+            <div style="margin-top: 1.5rem; text-align: center;">
+                <p style="font-size: 0.9rem;">
+                    Didn't receive the code? 
+                    <a id="resend-otp" class="link">Resend</a>
+                </p>
+            </div>
+            
+            <div style="margin-top: 1rem; text-align: center;">
+                <p style="font-size: 0.9rem;">
+                    <a id="back-to-register" class="link">Use different email</a>
+                </p>
+            </div>
+        </div>
+        
+        <!-- Dashboard Section (Logged In) -->
+        <div id="dashboard-section" class="auth-card fade-in" style="display: none;">
+            <div class="user-info">
+                <h2 style="margin-bottom: 1.5rem;">Welcome!</h2>
+                
+                <p class="user-email" id="user-email">user@example.com</p>
+                
+                <p class="user-status">You are logged in</p>
+                
+                <button id="logout-btn" class="btn btn-secondary">Logout</button>
+            </div>
         </div>
     </div>
     
-    <script>
-        // Check backend health
-        fetch('/health')
-            .then(response => response.json())
-            .then(data => {
-                console.log('Backend connected:', data);
-            })
-            .catch(error => {
-                console.error('Backend not available:', error);
-            });
-    </script>
+    <script src="/app.js"></script>
 </body>
 </html>
