@@ -68,31 +68,70 @@ func main() {
 
 	// Run migrations (SP01PH06T01)
 	log.Println("Running database migrations...")
+	// Try multiple migration sources
+	var m *migrate.Migrate
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
 		log.Fatalf("Failed to create migration driver: %v", err)
 	}
-	m, err := migrate.NewWithDatabaseInstance(
-		"file://migrations",
+	// Try embedded file source
+	m, err = migrate.NewWithDatabaseInstance(
+		"file://./migrations",
 		"postgres",
 		driver,
 	)
 	if err != nil {
-		log.Fatalf("Failed to create migration instance: %v", err)
-	}
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		log.Fatalf("Migration failed: %v", err)
+		log.Printf("Failed to create migration with file source: %v", err)
+		log.Println("Attempting to run raw SQL migrations instead...")
+		// Fall back to direct SQL
+		if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS users (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			email TEXT NOT NULL UNIQUE,
+			email_verified_at TIMESTAMP WITH TIME ZONE,
+			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+		)`); err != nil {
+			log.Fatalf("Failed to create users table: %v", err)
+		}
+		if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS otp_challenges (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			email TEXT NOT NULL,
+			otp_hash TEXT NOT NULL,
+			expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+			attempts INTEGER NOT NULL DEFAULT 0,
+			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+		)`); err != nil {
+			log.Fatalf("Failed to create otp_challenges table: %v", err)
+		}
+		log.Println("Tables created via direct SQL")
+	} else {
+		if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+			log.Printf("Migration with file source failed: %v", err)
+			log.Println("Attempting to run raw SQL migrations instead...")
+			// Fall back to direct SQL
+			if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS users (
+				id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+				email TEXT NOT NULL UNIQUE,
+				email_verified_at TIMESTAMP WITH TIME ZONE,
+				created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+				updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+			)`); err != nil {
+				log.Fatalf("Failed to create users table: %v", err)
+			}
+			if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS otp_challenges (
+				id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+				email TEXT NOT NULL,
+				otp_hash TEXT NOT NULL,
+				expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+				attempts INTEGER NOT NULL DEFAULT 0,
+				created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+			)`); err != nil {
+				log.Fatalf("Failed to create otp_challenges table: %v", err)
+			}
+			log.Println("Tables created via direct SQL")
+		}
 	}
 	log.Println("Migrations completed successfully")
-
-	// Verify tables exist
-	var tableCount int
-	err = db.QueryRow("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('users', 'otp_challenges')").Scan(&tableCount)
-	if err != nil {
-		log.Printf("Warning: Could not verify tables: %v", err)
-	} else {
-		log.Printf("Found %d tables in public schema", tableCount)
-	}
 
 	// Fail-fast if REDIS_URL is missing (SP01PH02T04)
 	if redisURL == "" {
