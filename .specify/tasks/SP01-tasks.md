@@ -207,29 +207,34 @@
 
 ---
 
-## Phase 6: Deployment & Testing (PH06)
+## Phase 6: Deployment to Staging (PH06)
 
-### SP01PH06T01 — Run migrations on Railway
-- [ ] **Task:** Apply migrations to Railway Postgres
-- [ ] **Acceptance:** Tables created in production
-- [ ] **Commit:** "SP01PH06T01: Migrations applied to Railway"
-- [ ] **Status:** Pending
+### SP01PH06T01 — Run migrations on Railway Staging
+- [x] **Task:** Apply migrations to Railway Staging Postgres
+- [x] **Acceptance:** Tables created in staging
+- [x] **Commit:** "SP01PH06T01: Migrations applied to Railway Staging"
+- [x] **Status:** Completed (golang-migrate runs programmatically on server startup)
 
 ### SP01PH06T02 — Configure environment variables
-- [ ] **Task:** Add SESSION_SECRET, SMTP_* to Railway
-- [ ] **Acceptance:** Variables set, app starts
-- [ ] **Commit:** "SP01PH06T02: Environment configured"
-- [ ] **Status:** Pending
+- [x] **Task:** Add SESSION_SECRET, SMTP_* to Railway Staging
+- [x] **Acceptance:** Variables set, app starts
+- [x] **Commit:** "SP01PH06T02: Environment configured"
+- [x] **Status:** Completed (DATABASE_URL, REDIS_URL, SESSION_SECRET, SMTP_HOST=smtp.gmail.com, SMTP_PORT=465, SMTP_USER, SMTP_PASS, EMAIL_FROM_ADDRESS)
 
-### SP01PH06T03 — Verify production auth flow
-- [ ] **Task:** Test full registration/login flow in production
-- [ ] **Acceptance:** All endpoints work in production
-- [ ] **Commit:** "SP01PH06T03: Production auth verified"
-- [ ] **Status:** Pending
+### SP01PH06T03 — Verify staging auth flow
+- [x] **Task:** Test full registration/login flow in staging
+- [x] **Acceptance:** All endpoints work in staging
+- [x] **Commit:** "SP01PH06T03: Staging auth verified"
+- [x] **Status:** Completed (Registration returns 201, Email sent successfully, Login works, Session validation works)
 
 ---
 
 ## Phase 7: QA Validation (PH07)
+
+### SP01PH07T00 — QA Testing Guide Created
+- [x] **Task:** Create detailed manual QA testing guide
+- [x] **Acceptance:** Guide document created at .specify/tasks/SP01PH07-QA-Testing-Guide.md
+- [x] **Status:** Completed
 
 ### SP01PH07T01 — QA login from clean browser
 - [ ] **Task:** QA tests from incognito browser
@@ -257,18 +262,28 @@
 - [ ] **Status:** Pending
 
 ### SP01PH07T06 — QA OTP reuse fails
-- [ ] **Task:** QA attempts to use same OTP twice
+- [ ] **Task:** QA attempts to use same OTP twice sequentially
 - [ ] **Acceptance:** Second attempt fails
 - [ ] **Status:** Pending
 
 ### SP01PH07T07 — QA 24-hour hard cap enforced
-- [ ] **Task:** QA confirms session expires after 24h regardless of activity
-- [ ] **Acceptance:** Session invalid after 24h
+- [ ] **Task:** QA confirms session expires after 24h regardless of activity. Temporarily lower hard TTL to ~60 seconds in staging, confirm session dies even if idle key keeps refreshing, restore TTL after.
+- [ ] **Acceptance:** Session invalid after hard cap
 - [ ] **Status:** Pending
 
 ### SP01PH07T08 — QA middleware coverage
-- [ ] **Task:** QA attempts access to various /api/v1/* endpoints without auth
-- [ ] **Acceptance:** All return 401
+- [ ] **Task:** QA attempts access to various /api/v1/* endpoints without auth: /logout → 401, /login malformed → 400, any stubbed routes → 401
+- [ ] **Acceptance:** All return proper status codes
+- [ ] **Status:** Pending
+
+### SP01PH07T09 — QA OTP concurrent reuse
+- [ ] **Task:** Fire two concurrent login attempts with same OTP
+- [ ] **Acceptance:** Only one succeeds, other fails cleanly (not 500)
+- [ ] **Status:** Pending
+
+### SP01PH07T10 — QA sign-off
+- [ ] **Task:** QA produces pass report
+- [ ] **Acceptance:** All scenarios pass including hardening validations
 - [ ] **Status:** Pending
 
 ### SP01PH07T09 — QA sign-off
@@ -312,10 +327,10 @@
 | PH03 | 8 | 8/8 |
 | PH04 | 5 | 5/5 |
 | PH05 | 4 | 4/4 |
-| PH06 | 3 | 0/3 |
-| PH07 | 9 | 0/9 |
+| PH06 | 3 | 3/3 |
+| PH07 | 11 | 1/11 |
 | PH08 | 4 | 0/4 |
-| **Total** | **46** | **30/46** |
+| **Total** | **48** | **34/48** |
 
 ---
 

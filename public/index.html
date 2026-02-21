@@ -8,6 +8,7 @@
 </head>
 <body>
     <div class="container">
+        <img src="/mudpuppy.png" alt="MUDPuppy" class="logo">
         <h1>MUDPuppy</h1>
         <p class="subtitle">Multi-User Dungeon Experience</p>
         
@@ -17,19 +18,46 @@
             
             <div id="login-message" class="message" style="display: none;"></div>
             
-            <form id="login-form">
-                <div class="form-group">
-                    <label for="login-email">Email Address</label>
-                    <input type="email" id="login-email" name="email" placeholder="you@example.com" required>
+            <!-- Step 1: Email Input -->
+            <div id="login-email-step">
+                <form id="login-email-form">
+                    <div class="form-group">
+                        <label for="login-email">Email Address</label>
+                        <input type="email" id="login-email" name="email" placeholder="you@example.com" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Send One-Time Password</button>
+                </form>
+            </div>
+            
+            <!-- Step 2: OTP Input (hidden initially) -->
+            <div id="login-otp-step" style="display: none;">
+                <p style="font-size: 0.9rem; margin-bottom: 1rem; opacity: 0.8;">
+                    Code has been sent. Enter the code you receive in your email below.
+                </p>
+                
+                <form id="login-otp-form">
+                    <div class="form-group">
+                        <label for="login-otp-input">Verification Code</label>
+                        <input type="text" id="login-otp-input" class="otp-input" name="otp" placeholder="000000" maxlength="6" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Verify</button>
+                </form>
+                
+                <div style="margin-top: 1rem; text-align: center;">
+                    <p style="font-size: 0.9rem;">
+                        Didn't receive the code? 
+                        <a id="login-resend-otp" class="link">Resend</a>
+                    </p>
                 </div>
                 
-                <div class="form-group">
-                    <label for="otp-input">Verification Code</label>
-                    <input type="text" id="otp-input" class="otp-input" name="otp" placeholder="000000" maxlength="6" required>
+                <div style="margin-top: 0.5rem; text-align: center;">
+                    <p style="font-size: 0.9rem;">
+                        <a id="login-back-to-email" class="link">Use different email</a>
+                    </p>
                 </div>
-                
-                <button type="submit" class="btn btn-primary">Login</button>
-            </form>
+            </div>
             
             <div style="margin-top: 1.5rem; text-align: center;">
                 <p style="font-size: 0.9rem; margin-bottom: 0.5rem;">

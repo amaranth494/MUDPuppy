@@ -42,40 +42,53 @@ function cacheElements() {
     elements.registerSection = document.getElementById('register-section');
     elements.otpSection = document.getElementById('otp-section');
     elements.dashboardSection = document.getElementById('dashboard-section');
-    elements.loginForm = document.getElementById('login-form');
+    
+    // Login forms (two-step)
+    elements.loginEmailForm = document.getElementById('login-email-form');
+    elements.loginOtpForm = document.getElementById('login-otp-form');
+    
+    // Register form
     elements.registerForm = document.getElementById('register-form');
+    
+    // OTP form (register flow)
     elements.otpForm = document.getElementById('otp-form');
+    
+    // Input fields
     elements.loginEmail = document.getElementById('login-email');
     elements.registerEmail = document.getElementById('register-email');
+    elements.loginOtpInput = document.getElementById('login-otp-input');
     elements.otpInput = document.getElementById('otp-input') || document.getElementById('otp-input-verify');
     elements.userEmail = document.getElementById('user-email');
     elements.logoutBtn = document.getElementById('logout-btn');
+    
+    // Messages
     elements.loginMessage = document.getElementById('login-message');
     elements.registerMessage = document.getElementById('register-message');
     elements.otpMessage = document.getElementById('otp-message');
     
+    // Login steps
+    elements.loginEmailStep = document.getElementById('login-email-step');
+    elements.loginOtpStep = document.getElementById('login-otp-step');
+    
     // State for OTP inputs
     state.loginOtpValue = '';
     state.verifyOtpValue = '';
-    
-    // Cache OTP input in both sections
-    elements.loginOtpInput = document.getElementById('otp-input');
-    elements.verifyOtpInput = document.getElementById('otp-input-verify');
 }
 
 // Bind event listeners
 function bindEvents() {
-    // Login form
-    elements.loginForm.addEventListener('submit', handleLoginSubmit);
+    // Login forms (two-step)
+    elements.loginEmailForm?.addEventListener('submit', handleLoginEmailSubmit);
+    elements.loginOtpForm?.addEventListener('submit', handleLoginOtpSubmit);
     
     // Register form
-    elements.registerForm.addEventListener('submit', handleRegisterSubmit);
+    elements.registerForm?.addEventListener('submit', handleRegisterSubmit);
     
     // OTP form
-    elements.otpForm.addEventListener('submit', handleOTPSubmit);
+    elements.otpForm?.addEventListener('submit', handleOTPSubmit);
     
     // Logout button
-    elements.logoutBtn.addEventListener('click', handleLogout);
+    elements.logoutBtn?.addEventListener('click', handleLogout);
     
     // Link navigation
     document.getElementById('show-register')?.addEventListener('click', (e) => {
@@ -96,6 +109,17 @@ function bindEvents() {
     document.getElementById('back-to-register')?.addEventListener('click', (e) => {
         e.preventDefault();
         showView('register');
+    });
+    
+    // Login page links
+    document.getElementById('login-resend-otp')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        loginResendOTP();
+    });
+    
+    document.getElementById('login-back-to-email')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        showLoginEmailStep();
     });
 }
 
@@ -134,6 +158,7 @@ function showView(view) {
         case 'login':
             elements.loginSection?.classList.add('active');
             clearMessages();
+            showLoginEmailStep(); // Reset to email step
             elements.loginEmail?.focus();
             break;
         case 'register':
@@ -187,19 +212,68 @@ function showMessage(element, message, type = 'error') {
     element.style.display = 'block';
 }
 
-// Handle login form submission
-async function handleLoginSubmit(e) {
+// Handle login email submission (Step 1: send OTP)
+async function handleLoginEmailSubmit(e) {
     e.preventDefault();
     
     const email = elements.loginEmail?.value?.trim();
-    const otp = elements.loginOtpInput?.value?.trim();
     
-    if (!email || !otp) {
-        showMessage(elements.loginMessage, 'Please enter email and OTP', 'error');
+    if (!email || !email.includes('@')) {
+        showMessage(elements.loginMessage, 'Please enter a valid email address', 'error');
         return;
     }
     
-    setLoading(elements.loginForm, true);
+    setLoading(elements.loginEmailForm, true);
+    
+    try {
+        // Call /api/v1/register to send OTP
+        const response = await fetch(`${API_BASE}/register`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            body: JSON.stringify({ email })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            // OTP sent successfully - show OTP step
+            state.pendingEmail = email;
+            showLoginOtpStep();
+            showMessage(elements.loginMessage, 'Verification code sent! Check your email.', 'success');
+        } else if (response.status === 429) {
+            showMessage(elements.loginMessage, data.error || 'Too many requests. Please try again later.', 'error');
+        } else {
+            // Check if user doesn't exist - prompt to register
+            if (data.error && data.error.includes('not found')) {
+                showMessage(elements.loginMessage, 'Email not found. Please click Register below.', 'error');
+            } else {
+                showMessage(elements.loginMessage, data.error || 'Failed to send code. Please try again.', 'error');
+            }
+        }
+    } catch (error) {
+        console.error('Send OTP error:', error);
+        showMessage(elements.loginMessage, 'Network error. Please try again.', 'error');
+    } finally {
+        setLoading(elements.loginEmailForm, false);
+    }
+}
+
+// Handle login OTP verification (Step 2: verify OTP and login)
+async function handleLoginOtpSubmit(e) {
+    e.preventDefault();
+    
+    const email = state.pendingEmail;
+    const otp = elements.loginOtpInput?.value?.trim();
+    
+    if (!email || !otp) {
+        showMessage(elements.loginMessage, 'Please enter the verification code', 'error');
+        return;
+    }
+    
+    setLoading(elements.loginOtpForm, true);
     
     try {
         const response = await fetch(`${API_BASE}/login`, {
@@ -222,18 +296,75 @@ async function handleLoginSubmit(e) {
             if (userResponse.ok) {
                 const user = await userResponse.json();
                 state.currentUser = user;
+                state.pendingEmail = null;
                 showDashboard(user);
             } else {
                 showMessage(elements.loginMessage, 'Login successful but could not fetch user info', 'error');
             }
         } else {
-            showMessage(elements.loginMessage, data.error || 'Login failed', 'error');
+            showMessage(elements.loginMessage, data.error || 'Invalid or expired verification code', 'error');
         }
     } catch (error) {
         console.error('Login error:', error);
         showMessage(elements.loginMessage, 'Network error. Please try again.', 'error');
     } finally {
-        setLoading(elements.loginForm, false);
+        setLoading(elements.loginOtpForm, false);
+    }
+}
+
+// Show the login email step (Step 1)
+function showLoginEmailStep() {
+    elements.loginEmailStep.style.display = 'block';
+    elements.loginOtpStep.style.display = 'none';
+    state.pendingEmail = null;
+    hideMessage(elements.loginMessage);
+}
+
+// Show the login OTP step (Step 2)
+function showLoginOtpStep() {
+    elements.loginEmailStep.style.display = 'none';
+    elements.loginOtpStep.style.display = 'block';
+    if (elements.loginOtpInput) {
+        elements.loginOtpInput.value = '';
+        elements.loginOtpInput.focus();
+    }
+}
+
+// Resend OTP for login
+async function loginResendOTP() {
+    const email = state.pendingEmail;
+    
+    if (!email) {
+        showMessage(elements.loginMessage, 'No email address found. Please go back to email entry.', 'error');
+        return;
+    }
+    
+    setLoading(elements.loginOtpForm, true);
+    
+    try {
+        const response = await fetch(`${API_BASE}/register`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            body: JSON.stringify({ email })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showMessage(elements.loginMessage, 'New verification code sent!', 'success');
+        } else if (response.status === 429) {
+            showMessage(elements.loginMessage, data.error || 'Too many requests. Please try again later.', 'error');
+        } else {
+            showMessage(elements.loginMessage, data.error || 'Failed to resend code.', 'error');
+        }
+    } catch (error) {
+        console.error('Resend OTP error:', error);
+        showMessage(elements.loginMessage, 'Network error. Please try again.', 'error');
+    } finally {
+        setLoading(elements.loginOtpForm, false);
     }
 }
 
@@ -412,12 +543,15 @@ function setLoading(form, loading) {
         if (loading) {
             btn.innerHTML = '<span class="loading"></span>Processing...';
         } else {
-            // Reset button text based on form
-            if (form.id === 'login-form') {
-                btn.textContent = 'Login';
-            } else if (form.id === 'register-form') {
+            // Reset button text based on form ID
+            const formId = form?.id;
+            if (formId === 'login-email-form') {
+                btn.textContent = 'Send One-Time Password';
+            } else if (formId === 'login-otp-form') {
+                btn.textContent = 'Verify';
+            } else if (formId === 'register-form') {
                 btn.textContent = 'Send Code';
-            } else if (form.id === 'otp-form') {
+            } else if (formId === 'otp-form') {
                 btn.textContent = 'Verify';
             }
         }

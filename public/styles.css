@@ -17,6 +17,14 @@ body {
     justify-content: center;
 }
 
+/* Logo */
+.logo {
+    display: block;
+    margin: 0 auto 1rem;
+    max-width: 120px;
+    height: auto;
+}
+
 .container {
     width: 100%;
     max-width: 400px;
