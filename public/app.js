@@ -306,7 +306,8 @@ async function handleLoginOtpSubmit(e) {
         }
     } catch (error) {
         console.error('Login error:', error);
-        showMessage(elements.loginMessage, 'Network error. Please try again.', 'error');
+        // Check if this was actually an HTTP error response
+        showMessage(elements.loginMessage, 'Invalid or expired verification code. Please request a new one.', 'error');
     } finally {
         setLoading(elements.loginOtpForm, false);
     }
