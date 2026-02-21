@@ -310,6 +310,12 @@
 - [ ] **Commit:** "SP01PH08T04: Spec closed"
 - [ ] **Status:** Pending
 
+### SP01PH08T05 — Establish Persistent Staging Branch
+- [ ] **Task:** Convert sp01-account-auth into long-lived staging branch: Merge to master, create staging from master, delete feature branch, configure Railway
+- [ ] **Acceptance:** master = production, staging = integration buffer, Railway: master→Prod, staging→Staging, future specs branch from staging
+- [ ] **Commit:** "SP01PH08T05: Staging branch established"
+- [ ] **Status:** Pending
+
 ---
 
 ## Summary
@@ -324,7 +330,7 @@
 | PH05 | 4 | 4/4 |
 | PH06 | 3 | 3/3 |
 | PH07 | 11 | 11/11 |
-| PH08 | 4 | 0/4 |
+| PH08 | 5 | 0/5 |
 | **Total** | **48** | **44/48** |
 
 ---

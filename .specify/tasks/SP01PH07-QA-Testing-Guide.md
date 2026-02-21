@@ -45,7 +45,7 @@
 - [x] Email submission triggers OTP send
 - [x] OTP input field appears after email submission
 - [x] Successful login shows authenticated state
-- [ ] No console errors in browser
+- [x] No console errors in browser
 
 ---
 
@@ -72,11 +72,11 @@
 5. **Expected Result:** Returns `401 Unauthorized`
 
 ### Validation Checklist
-- [ ] Logout button is visible when logged in
-- [ ] Clicking logout shows login page
-- [ ] Session cookie is removed after logout
-- [ ] `/api/v1/me` returns 401 after logout
-- [ ] Cannot access protected pages after logout
+- [x] Logout button is visible when logged in
+- [x] Clicking logout shows login page
+- [x] Session cookie is removed after logout
+- [x] `/api/v1/me` returns 401 after logout
+- [x] Cannot access protected pages after logout -- There are no pages
 
 ---
 
@@ -98,10 +98,10 @@
    - HTTP status 401
 
 ### Validation Checklist
-- [ ] OTP request succeeds initially
-- [ ] After waiting, OTP is rejected
-- [ ] Error message is clear and user-friendly
-- [ ] No 500 Internal Server Error
+- [x] OTP request succeeds initially
+- [x] After waiting, OTP is rejected
+- [FAIL] Error message is clear and user-friendly - Error is "Network error. Please try again." should be "OTP has expired, please request a new one."
+- [x] No 500 Internal Server Error
 
 ---
 
@@ -119,9 +119,9 @@
 5. **Expected Result:** All return 401 when no session exists
 
 ### Validation Checklist
-- [ ] `/api/v1/me` returns 401 without session
-- [ ] Error response includes appropriate message
-- [ ] No sensitive data leaked in response
+- [x] `/api/v1/me` returns 401 without session
+- [x] Error response includes appropriate message
+- [x] No sensitive data leaked in response
 
 ---
 
@@ -151,10 +151,10 @@
    - Error message: "Too many login attempts. Please try again later."
 
 ### Validation Checklist
-- [ ] OTP rate limit returns 429 after 5 requests
-- [ ] Login rate limit returns 429 after 10 attempts
-- [ ] Error messages are clear
-- [ ] Wait period allows requests again after limit expires
+- [x] OTP rate limit returns 429 after 5 requests
+- [x] Login rate limit returns 429 after 10 attempts
+- [x] Error messages are clear
+- [x] Wait period allows requests again after limit expires
 
 ---
 
@@ -177,10 +177,10 @@
    - Error message: "Invalid or expired OTP"
 
 ### Validation Checklist
-- [ ] First login with OTP succeeds
-- [ ] Second attempt with same OTP fails
-- [ ] Error message is clear
-- [ ] No 500 error
+- [x] First login with OTP succeeds
+- [x] Second attempt with same OTP fails
+- [x] Error message is clear
+- [x] No 500 error
 
 ---
 
@@ -200,9 +200,9 @@ The 24-hour hard cap cannot be tested in real-time. This test requires code modi
    - This confirms the cookie matches the server-side hard cap
 
 ### Validation Checklist
-- [ ] Session hard cap is 24 hours (86400 seconds) in code
-- [ ] Cookie Max-Age matches server TTL
-- [ ] Dual-key approach implemented (session + session_idle)
+- [NOT TESTING] Session hard cap is 24 hours (86400 seconds) in code
+- [NOT TESTING] Cookie Max-Age matches server TTL
+- [NOT TESTING] Dual-key approach implemented (session + session_idle)
 
 ---
 
@@ -226,9 +226,9 @@ The 24-hour hard cap cannot be tested in real-time. This test requires code modi
    - **Expected:** All return `401 Unauthorized`
 
 ### Validation Checklist
-- [ ] `/api/v1/logout` returns 401 without session
-- [ ] `/api/v1/login` with bad payload returns 400
-- [ ] Other protected routes return 401 without session
+- [x] `/api/v1/logout` returns 401 without session
+- [x] `/api/v1/login` with bad payload returns 400
+- [x] Other protected routes return 401 without session
 
 ---
 
@@ -248,9 +248,9 @@ The 24-hour hard cap cannot be tested in real-time. This test requires code modi
    - No server errors
 
 ### Validation Checklist
-- [ ] Only one concurrent login attempt succeeds
-- [ ] Failed attempt returns 401 (not 500)
-- [ ] No server crashes or internal errors
+- [x] Only one concurrent login attempt succeeds
+- [x] Failed attempt returns 401 (not 500)
+- [x] No server crashes or internal errors
 
 ---
 

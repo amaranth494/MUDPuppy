@@ -204,11 +204,23 @@ This plan outlines the execution path for SP01, introducing authenticated user a
 
 ### SP01PH07T07 — QA 24-hour hard cap enforced
 - [ ] **Task:** QA confirms session expires after 24h regardless of activity
-- [ ] **Acceptance:** Session invalid after 24h
+  - Temporarily lower hard TTL to ~60 seconds in staging
+  - Confirm session dies even if idle key keeps refreshing
+  - Restore TTL constant afterward
+- [ ] **Acceptance:** Session invalid after hard cap
 
 ### SP01PH07T08 — QA middleware coverage
-- [ ] **Task:** QA attempts access to various /api/v1/* endpoints without auth
-- [ ] **Acceptance:** All return 401
+- [ ] **Task:** QA attempts access to various /api/v1/* endpoints without auth:
+  - /api/v1/logout without session → 401
+  - /api/v1/login with malformed payload → 400
+  - Any stubbed /api/v1/* routes → 401
+- [ ] **Acceptance:** All return proper status codes
+
+### SP01PH07T09 — QA OTP concurrent reuse
+- [ ] **Task:** Fire two concurrent login attempts with same OTP
+- [ ] **Acceptance:** Only one succeeds, other fails cleanly (not 500)
+
+### SP01PH07T10 — QA sign-off
 
 ### SP01PH07T09 — QA sign-off
 - [ ] **Task:** QA produces pass report
@@ -233,6 +245,20 @@ This plan outlines the execution path for SP01, introducing authenticated user a
 ### SP01PH08T04 — Mark spec closed
 - [ ] **Task:** Update SP01.md status to Closed
 - [ ] **Commit:** "SP01PH08T04: Spec closed"
+
+### SP01PH08T05 — Establish Persistent Staging Branch
+- [ ] **Task:** Convert sp01-account-auth into long-lived staging branch:
+  1. Ensure sp01-account-auth is up-to-date
+  2. Merge sp01-account-auth → master
+  3. Create staging branch from master: git checkout -b staging
+  4. Push staging: git push -u origin staging
+  5. Delete sp01-account-auth (local + remote)
+- [ ] **Acceptance:**
+  - master reflects production state
+  - staging exists as long-lived integration branch
+  - Railway configured: master → Production, staging → Staging
+  - Future specs branch from staging, not master
+- [ ] **Commit:** "SP01PH08T05: Staging branch established"
 
 ---
 
