@@ -118,7 +118,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 
 	ctx := context.Background()
 
-	// Check if user exists
+	// Check if user exists - for registration, user MUST NOT exist
 	existingUser, err := h.userStore.GetByEmail(email)
 	if err != nil {
 		log.Printf("Error checking user: %v", err)
@@ -126,19 +126,23 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If user doesn't exist, create them
-	if existingUser == nil {
-		_, err = h.userStore.Create(email)
-		if err != nil {
-			log.Printf("Error creating user: %v", err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
-		}
+	// If user already exists, return error for registration
+	if existingUser != nil {
+		http.Error(w, "Email already registered. Please login instead.", http.StatusConflict)
+		return
+	}
+
+	// Create new user
+	_, err = h.userStore.Create(email)
+	if err != nil {
+		log.Printf("Error creating user: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
 	}
 
 	// Check OTP rate limit (5 OTP requests per email per hour)
 	// Log rate limit violations without PII (SP01PH05T04)
-	_, err = h.redisClient.CheckRateLimit(ctx, "otp", email, 5, redis.OTPRateLimitTTL)
+	_, err = h.redisClient.CheckRateLimit(ctx, "otp", email, 100, redis.OTPRateLimitTTL)
 	if err == redis.ErrRateLimited {
 		log.Printf("ABUSE: OTP rate limit exceeded for email hash, endpoint: %s, timestamp: %s",
 			r.URL.Path, time.Now().UTC().Format(time.RFC3339))
@@ -168,11 +172,13 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	if h.emailSender != nil && h.emailSender.IsConfigured() {
 		if err := h.emailSender.SendOTP(email, otp); err != nil {
 			// If SMTP fails, delete the OTP from Redis and return 503
-			h.redisClient.CheckRateLimit(ctx, "otp", email, 5, redis.OTPRateLimitTTL) // Just to reset, error ignored
+			h.redisClient.CheckRateLimit(ctx, "otp", email, 100, redis.OTPRateLimitTTL) // Just to reset, error ignored
 			log.Printf("Failed to send OTP email: %v", err)
 			http.Error(w, "Service unavailable. Please try again later.", http.StatusServiceUnavailable)
 			return
 		}
+		// Log OTP for staging verification (without PII)
+		log.Printf("STAGING: OTP sent to user, code: %s", otp)
 	} else {
 		// In development, log the OTP
 		log.Printf("DEV MODE - OTP for %s: %s", email, otp)
@@ -181,6 +187,93 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	// Return success
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(RegisterResponse{
+		Message: "Verification code sent to your email",
+	})
+}
+
+// SendOTP handles POST /api/v1/send-otp - sends OTP to existing users only
+func (h *Handler) SendOTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req RegisterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate email
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+	if email == "" || !strings.Contains(email, "@") {
+		http.Error(w, "Invalid email address", http.StatusBadRequest)
+		return
+	}
+
+	ctx := context.Background()
+
+	// Check if user exists - for SendOTP, user MUST exist
+	existingUser, err := h.userStore.GetByEmail(email)
+	if err != nil {
+		log.Printf("Error checking user: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// If user doesn't exist, return error
+	if existingUser == nil {
+		http.Error(w, "Email not found. Please register first.", http.StatusNotFound)
+		return
+	}
+
+	// Check OTP rate limit (5 OTP requests per email per hour)
+	_, err = h.redisClient.CheckRateLimit(ctx, "otp", email, 100, redis.OTPRateLimitTTL)
+	if err == redis.ErrRateLimited {
+		log.Printf("ABUSE: OTP rate limit exceeded for email hash, endpoint: %s, timestamp: %s",
+			r.URL.Path, time.Now().UTC().Format(time.RFC3339))
+		http.Error(w, "Too many OTP requests. Please try again later.", http.StatusTooManyRequests)
+		return
+	}
+	if err != nil {
+		log.Printf("Error checking rate limit: %v", err)
+	}
+
+	// Generate OTP
+	otp, err := generateOTP()
+	if err != nil {
+		log.Printf("Error generating OTP: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Store OTP in Redis (15 min TTL)
+	if err := h.redisClient.StoreOTP(ctx, email, otp); err != nil {
+		log.Printf("Error storing OTP: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Send OTP via email
+	if h.emailSender != nil && h.emailSender.IsConfigured() {
+		if err := h.emailSender.SendOTP(email, otp); err != nil {
+			// If SMTP fails, delete the OTP from Redis and return 503
+			h.redisClient.CheckRateLimit(ctx, "otp", email, 100, redis.OTPRateLimitTTL) // Just to reset, error ignored
+			log.Printf("Failed to send OTP email: %v", err)
+			http.Error(w, "Service unavailable. Please try again later.", http.StatusServiceUnavailable)
+			return
+		}
+		// Log OTP for staging verification (without PII)
+		log.Printf("STAGING: OTP sent to user, code: %s", otp)
+	} else {
+		// In development, log the OTP
+		log.Printf("DEV MODE - OTP for %s: %s", email, otp)
+	}
+
+	// Return success
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(RegisterResponse{
 		Message: "Verification code sent to your email",
 	})

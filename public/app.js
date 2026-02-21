@@ -227,8 +227,8 @@ async function handleLoginEmailSubmit(e) {
     setLoading(elements.loginEmailForm, true);
     
     try {
-        // Call /api/v1/register to send OTP
-        const response = await fetch(`${API_BASE}/register`, {
+        // Call /api/v1/send-otp to send OTP (requires existing user)
+        const response = await fetch(`${API_BASE}/send-otp`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -246,13 +246,11 @@ async function handleLoginEmailSubmit(e) {
             showMessage(elements.loginMessage, 'Verification code sent! Check your email.', 'success');
         } else if (response.status === 429) {
             showMessage(elements.loginMessage, data.error || 'Too many requests. Please try again later.', 'error');
+        } else if (response.status === 404) {
+            // User not found - prompt to register
+            showMessage(elements.loginMessage, 'Email not found. Please register first.', 'error');
         } else {
-            // Check if user doesn't exist - prompt to register
-            if (data.error && data.error.includes('not found')) {
-                showMessage(elements.loginMessage, 'Email not found. Please click Register below.', 'error');
-            } else {
-                showMessage(elements.loginMessage, data.error || 'Failed to send code. Please try again.', 'error');
-            }
+            showMessage(elements.loginMessage, data.error || 'Failed to send code. Please try again.', 'error');
         }
     } catch (error) {
         console.error('Send OTP error:', error);
@@ -344,7 +342,7 @@ async function loginResendOTP() {
     setLoading(elements.loginOtpForm, true);
     
     try {
-        const response = await fetch(`${API_BASE}/register`, {
+        const response = await fetch(`${API_BASE}/send-otp`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -359,6 +357,8 @@ async function loginResendOTP() {
             showMessage(elements.loginMessage, 'New verification code sent!', 'success');
         } else if (response.status === 429) {
             showMessage(elements.loginMessage, data.error || 'Too many requests. Please try again later.', 'error');
+        } else if (response.status === 404) {
+            showMessage(elements.loginMessage, 'Email not found. Please register first.', 'error');
         } else {
             showMessage(elements.loginMessage, data.error || 'Failed to resend code.', 'error');
         }
