@@ -149,8 +149,8 @@ func (m *Manager) Connect(ctx context.Context, userID, host string, port int) (*
 	}
 	log.Printf("[SP02PH01] Dial succeeded")
 
-	// Handle telnet negotiation - consume initial bytes (with timeout)
-	m.consumeTelnetNegotiation(conn)
+	// Skip telnet negotiation consumption - let the WebSocket handler read all data
+	// This ensures we don't lose any welcome text
 
 	// Update session state
 	session.State = StateConnected
