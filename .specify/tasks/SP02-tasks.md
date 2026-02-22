@@ -237,22 +237,30 @@
 - [ ] **Commit:** "SP02PH04T01: Connection limits enforced"
 - [ ] **Status:** Pending
 
-### SP02PH04T02 — Throughput Limits
-- [ ] **Task:** Implement throughput monitoring and limits
-- [ ] **Acceptance:** Excessive throughput detected and throttled
-- [ ] **Commit:** "SP02PH04T02: Throughput limits enforced"
+### SP02PH04T02 — Soft Backpressure Strategy
+- [ ] **Task:** Implement soft throttling instead of immediate disconnect
+- **Strategy:** Drop excess → Send warning → Escalate only on sustained abuse
+- **Acceptance:** Legitimate heavy ANSI bursts don't kill sessions; fast typists not booted
+- [ ] **Commit:** "SP02PH04T02: Soft backpressure implemented"
 - [ ] **Status:** Pending
 
-### SP02PH04T03 — Observability Metrics
-- [ ] **Task:** Add metrics for connection attempts, failures, durations
-- **Acceptance:** Metrics visible in observability tooling
+### SP02PH04T03 — Observability Metrics (PRIORITY)
+- [ ] **Task:** Add metrics: avg throughput, bytes/sec per user, commands/sec, idle patterns
+- **Rationale:** Establish baseline BEFORE enforcing limits
 - [ ] **Commit:** "SP02PH04T03: Observability metrics added"
 - [ ] **Status:** Pending
 
-### SP02PH04T04 — Fail-Fast Invalid Handling
+### SP02PH04T04 — Slow Client Test
+- [ ] **Task:** Test with simulated slow browser (network throttling)
+- **Rationale:** Ensure server doesn't panic on slow WebSocket consumer
+- **Acceptance:** Server handles slow client gracefully
+- [ ] **Commit:** "SP02PH04T04: Slow client scenario tested"
+- [ ] **Status:** Pending
+
+### SP02PH04T05 — Fail-Fast Invalid Handling
 - [ ] **Task:** Ensure invalid connections fail fast with clear errors
 - [ ] **Acceptance:** No hanging connections, immediate feedback
-- [ ] **Commit:** "SP02PH04T04: Fail-fast handling implemented"
+- [ ] **Commit:** "SP02PH04T05: Fail-fast handling implemented"
 - [ ] **Status:** Pending
 
 ---

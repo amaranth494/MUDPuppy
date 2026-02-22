@@ -142,9 +142,8 @@ export default function PlayScreen() {
     setIsConnecting(true);
     try {
       await connect(inputHost.trim(), inputPort);
-      if (terminalInstanceRef.current) {
-        terminalInstanceRef.current.writeln(`\r\n[Connecting to ${inputHost}:${inputPort}...]\r\n`);
-      }
+      // Note: MUD output arrives via WebSocket - no need for "Connecting..." message
+      // The button already shows "Connecting..." state
     } catch (err) {
       // Error is handled by context
     } finally {

@@ -407,9 +407,33 @@ Frontend and backend evolve independently. Versioning ensures compatibility:
 - Feature flags allow server-side enablement for newer API features
 - Breaking changes only in major version bumps
 
-**Version**: 1.10.0 | **Ratified**: 2026-02-22 | **Last Amended**: 2026-02-22
+**Version**: 1.11.0 | **Ratified**: 2026-02-22 | **Last Amended**: 2026-02-22
 
-**Amendment v1.10.0:** Added Deployment Governance & Environment Integrity (VIII).
+**Amendment v1.11.0:** Added Transport Layer Governance (IX) - WebSocket idle behavior, Control/Data plane separation.
+
+---
+
+## IX. Transport Layer Governance
+
+### 1. WebSocket Idle Behavior
+
+**The Session Manager is the authoritative idle enforcement layer.**
+
+WebSocket transport layers must not impose independent idle timeouts that conflict with backend session policies. The backend's 30-minute idle timeout (PH01T05) is authoritative. This prevents future developers from adding aggressive WSS read deadlines that break legitimate MUD idle gameplay.
+
+### 2. Control Plane vs Data Plane Separation
+
+**REST = Control Plane** — Used for:
+- Session connect/disconnect
+- Session status queries (/api/v1/session/status)
+- Authentication
+- Account management
+
+**WebSocket = Data Plane** — Used for:
+- Real-time MUD output streaming
+- Command submission
+
+**The frontend must not infer connection state from WebSocket events alone.** GET /api/v1/session/status is the authoritative source for connection state. This separation must remain logically distinct.
 
 ---
 
