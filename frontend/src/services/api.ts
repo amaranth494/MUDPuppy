@@ -2,12 +2,20 @@ import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectRespons
 
 const API_BASE = '/api/v1';
 
+// Helper to handle auth errors and redirect to login
+function handleAuthError(response: Response): void {
+  if (response.status === 401) {
+    window.location.href = '/login';
+  }
+}
+
 // Check if user is authenticated
 export async function checkAuth(): Promise<User | null> {
   try {
     const response = await fetch(`${API_BASE}/me`, {
       credentials: 'include',
     });
+    handleAuthError(response);
     if (response.ok) {
       return await response.json();
     }
@@ -31,6 +39,7 @@ export async function getSessionStatus(): Promise<SessionStatus> {
   const response = await fetch(`${API_BASE}/session/status`, {
     credentials: 'include',
   });
+  handleAuthError(response);
   if (!response.ok) {
     throw new Error('Failed to get session status');
   }
@@ -48,6 +57,7 @@ export async function connectToMud(request: ConnectRequest): Promise<ConnectResp
     body: JSON.stringify(request),
   });
   
+  handleAuthError(response);
   const data = await response.json();
   if (!response.ok) {
     throw new Error(data.error || 'Connection failed');
@@ -66,6 +76,7 @@ export async function disconnectFromMud(reason?: string): Promise<DisconnectResp
     body: JSON.stringify({ reason }),
   });
   
+  handleAuthError(response);
   const data = await response.json();
   if (!response.ok) {
     throw new Error(data.error || 'Disconnect failed');
