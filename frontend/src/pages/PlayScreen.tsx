@@ -83,6 +83,7 @@ export default function PlayScreen() {
     const terminal = terminalInstanceRef.current;
 
     const handleData = (data: string) => {
+      console.log('[PlayScreen] Received data:', data);
       terminal.write(data);
     };
 
