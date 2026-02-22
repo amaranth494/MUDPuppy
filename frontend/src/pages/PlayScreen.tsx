@@ -142,17 +142,12 @@ export default function PlayScreen() {
   };
 
   const handleCommand = (command: string) => {
-    const timestamp = new Date().toISOString();
-    console.log(`[CLIENT ${timestamp}] handleCommand called with: "${command}"`);
     if (wsManager && connectionState === 'connected') {
-      console.log(`[CLIENT ${timestamp}] Sending via WebSocket: "${command + '\n'}"`);
       wsManager.sendCommand(command + '\n');
       // Echo command locally
       if (terminalInstanceRef.current) {
         terminalInstanceRef.current.write(command + '\r\n');
       }
-    } else {
-      console.log(`[CLIENT ${timestamp}] Cannot send - wsManager: ${!!wsManager}, connectionState: ${connectionState}`);
     }
   };
 
