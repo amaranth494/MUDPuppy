@@ -336,8 +336,10 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 			}
 
 			// Send command to MUD via channel
+			log.Printf("[SP02PH02] TRACE: Received WebSocket message at %v: %q", time.Now().UnixNano(), wsMsg.Data)
 			select {
 			case clientToMUD <- wsMsg.Data:
+				log.Printf("[SP02PH02] TRACE: Queued command to channel at %v", time.Now().UnixNano())
 			default:
 				h.sendError(conn, "Command queue full")
 			}
@@ -371,7 +373,7 @@ func (h *WebSocketHandler) readMUDOutput(ctx context.Context, userID string, mud
 			// Copy the data to send through channel
 			data := make([]byte, n)
 			copy(data, buffer[:n])
-			log.Printf("[SP02PH02] DEBUG: Read %d bytes from MUD at %v", n, time.Now().UnixNano())
+			log.Printf("[SP02PH02] TRACE: Read %d bytes from MUD at %v", n, time.Now().UnixNano())
 			select {
 			case mudToClient <- data:
 			case <-ctx.Done():
@@ -400,7 +402,7 @@ func (h *WebSocketHandler) relayMUDToClient(ctx context.Context, userID string, 
 			// Strip telnet IAC sequences before sending to client
 			cleanData := stripTelnetIAC(data)
 
-			log.Printf("[SP02PH02] DEBUG: Sending %d bytes to WebSocket (was %d bytes)", len(cleanData), len(data))
+			log.Printf("[SP02PH02] TRACE: Forwarding %d bytes to WebSocket at %v", len(cleanData), time.Now().UnixNano())
 
 			// Send as JSON message with type 'data'
 			err := conn.WriteJSON(WSMessage{
@@ -411,6 +413,7 @@ func (h *WebSocketHandler) relayMUDToClient(ctx context.Context, userID string, 
 				log.Printf("[SP02PH02] Error writing to WebSocket: %v", err)
 				return
 			}
+			log.Printf("[SP02PH02] TRACE: Sent %d bytes to WebSocket at %v", len(cleanData), time.Now().UnixNano())
 		}
 	}
 }
@@ -479,12 +482,14 @@ func (h *WebSocketHandler) handleClientCommands(ctx context.Context, userID stri
 		case <-ctx.Done():
 			return
 		case command := <-clientToMUD:
+			log.Printf("[SP02PH02] TRACE: Received command from client at %v: %q", time.Now().UnixNano(), command)
 			err := h.manager.SendCommand(userID, command)
 			if err != nil {
 				log.Printf("[SP02PH02] Error sending command to MUD: %v", err)
 				statusChan <- "disconnected"
 				return
 			}
+			log.Printf("[SP02PH02] TRACE: Sent command to MUD at %v", time.Now().UnixNano())
 		}
 	}
 }
