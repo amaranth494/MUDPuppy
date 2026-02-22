@@ -123,6 +123,9 @@ func main() {
 	)
 	sessionHandler := session.NewHandler(sessionManager, cfg)
 
+	// Initialize WebSocket handler (SP02PH02)
+	wsHandler := session.NewWebSocketHandler(sessionManager, cfg)
+
 	// Create router with session middleware
 	mux := http.NewServeMux()
 
@@ -138,6 +141,9 @@ func main() {
 	mux.HandleFunc("/api/v1/session/connect", sessionHandler.Connect)
 	mux.HandleFunc("/api/v1/session/disconnect", sessionHandler.Disconnect)
 	mux.HandleFunc("/api/v1/session/status", sessionHandler.Status)
+
+	// WebSocket endpoint (SP02PH02)
+	mux.HandleFunc("/api/v1/session/stream", wsHandler.HandleWebSocket)
 
 	// Serve static files from public directory
 	mux.Handle("/", http.FileServer(http.Dir("./public")))

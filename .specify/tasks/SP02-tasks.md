@@ -1,5 +1,7 @@
 # SP02 Tasks Tracker
 
+> **Constitutional Reference:** This task tracker is governed by Constitution VIII. Deployment Governance & Environment Integrity.
+
 **Spec:** SP02 — Session Proxy & Live Connectivity  
 **Reference:** [.specify/specs/SP02.md](../specs/SP02.md)  
 **Reference:** [.specify/plans/SP02-plan.md](../plans/SP02-plan.md)
@@ -90,42 +92,55 @@
 
 ## Phase 2: WebSocket Bridge (PH02)
 
+> **Design Constraints:**
+> - WebSocket must NOT dial TCP directly — must call into Session Manager
+> - No new connection logic in handler layer — Handler → Manager only
+> - Rate limiting at WebSocket ingress before manager write
+> - Message size enforcement before forwarding to TCP
+> - WebSocket close triggers proper session teardown
+> - No cross-user leakage — session lookup uses authenticated user context only
+
 ### SP02PH02T01 — WSS Endpoint Implementation
-- [ ] **Task:** Implement WebSocket upgrade endpoint at /api/v1/session/stream
+- [x] **Task:** Implement WebSocket upgrade endpoint at /api/v1/session/stream
 - **Acceptance:** Endpoint accepts WebSocket connections from authenticated users
-- [ ] **Commit:** "SP02PH02T01: WSS endpoint implemented"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP02PH02T01: WSS endpoint implemented"
+- [x] **Status:** Completed
 
 ### SP02PH02T02 — Bidirectional Stream Relay
-- [ ] **Task:** Implement stream relay: MUD → client, client → MUD
-- [ ] **Acceptance:** Data flows both directions in real-time
-- [ ] **Commit:** "SP02PH02T02: Bidirectional stream relay"
-- [ ] **Status:** Pending
+- [x] **Task:** Implement stream relay: MUD → client, client → MUD
+- **Design Constraint:** WebSocket handler MUST call Session Manager methods — no direct TCP dialing
+- **Acceptance:** Data flows both directions in real-time
+- [x] **Commit:** "SP02PH02T02: Bidirectional stream relay"
+- [x] **Status:** Completed
 
 ### SP02PH02T03 — Message Size Enforcement
-- [ ] **Task:** Implement 64KB message size limit per message
+- [x] **Task:** Implement 64KB message size limit per message
+- **Design Constraint:** Enforcement must occur BEFORE forwarding to TCP (at WebSocket ingress)
 - **Reject:** Messages exceeding limit, close connection
-- [ ] **Commit:** "SP02PH02T03: Message size limit enforced"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP02PH02T03: Message size limit enforced"
+- [x] **Status:** Completed
 
 ### SP02PH02T04 — Flood Protection
-- [ ] **Task:** Implement rate limiting (max 10 commands/second per user)
+- [x] **Task:** Implement rate limiting (max 10 commands/second per user)
+- **Design Constraint:** Rate limiting enforced at WebSocket ingress before manager write
 - **Enforcement Location:** WebSocket ingress layer (before reaching TCP writer)
-- [ ] **Acceptance:** Rapid commands throttled or rejected at ingress
-- [ ] **Commit:** "SP02PH02T04: Flood protection implemented"
-- [ ] **Status:** Pending
+- [x] **Acceptance:** Rapid commands throttled or rejected at ingress
+- [x] **Commit:** "SP02PH02T04: Flood protection implemented"
+- [x] **Status:** Completed
 
 ### SP02PH02T05 — Session Teardown
-- [ ] **Task:** Implement proper cleanup on WebSocket close
+- [x] **Task:** Implement proper cleanup on WebSocket close
+- **Design Constraint:** WebSocket close must trigger proper session teardown via Manager
 - **Behavior:** MUD connection closed, resources freed
-- [ ] **Commit:** "SP02PH02T05: Session teardown implemented"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP02PH02T05: Session teardown implemented"
+- [x] **Status:** Completed
 
 ### SP02PH02T06 — Multi-User Isolation Test
-- [ ] **Task:** Test with two simultaneous users
-- [ ] **Acceptance:** No session crossover, independent connections
-- [ ] **Commit:** "SP02PH02T06: Multi-user isolation verified"
-- [ ] **Status:** Pending
+- [x] **Task:** Test with two simultaneous users
+- **Design Constraint:** No cross-user leakage — session lookup must use authenticated user context only
+- [x] **Acceptance:** No session crossover, independent connections
+- [x] **Commit:** "SP02PH02T06: Multi-user isolation verified"
+- [x] **Status:** Completed
 
 ---
 
@@ -244,26 +259,39 @@
 
 ## Phase 6: Final Phase - Merge & Deployment (PH06)
 
+> **Constitutional Note (VIII):** All promotions must follow: sp02-session-proxy → staging → master. No direct Railway CLI deployment except emergency.
+
 ### SP02PH06T01 — Code Review
 - [ ] **Task:** Complete code review
+- **Constitutional Check:** Verify implementation matches SP02.md spec
 - [ ] **Acceptance:** All comments resolved
 - [ ] **Commit:** N/A
 - [ ] **Status:** Pending
 
 ### SP02PH06T02 — Merge to Staging
 - [ ] **Task:** Merge sp02-session-proxy → staging
+- **Constitutional Verification (VIII.4):**
+  - [ ] `git branch` → confirm on sp02-session-proxy
+  - [ ] `railway status` → confirm staging environment
+- **Command:** `git push origin sp02-session-proxy:staging`
 - [ ] **Acceptance:** CI passes on staging
 - [ ] **Commit:** "SP02PH06T02: Merged to staging"
 - [ ] **Status:** Pending
 
 ### SP02PH06T03 — Staging Validation
 - [ ] **Task:** Verify SP02 features work in staging environment
+- **QA Required:** All acceptance criteria verified in staging
 - [ ] **Acceptance:** All acceptance criteria verified in staging
 - [ ] **Commit:** N/A
 - [ ] **Status:** Pending
 
 ### SP02PH06T04 — Merge to Master
 - [ ] **Task:** Merge staging → master
+- **Constitutional Requirements (VIII.5):**
+  - [ ] All SP02 tasks complete
+  - [ ] QA phase complete
+  - [ ] Acceptance criteria verified
+- **Command:** `git push origin staging:master`
 - [ ] **Acceptance:** CI passes on master
 - [ ] **Commit:** "SP02PH06T04: Merged to master"
 - [ ] **Status:** Pending
@@ -287,9 +315,9 @@
 |-------|-------|--------|
 | PH00 | 5 | 5/5 |
 | PH01 | 9 | 9/9 |
-| PH02 | 6 | 0/6 |
+| PH02 | 6 | 6/6 |
 | PH03 | 8 | 0/8 |
 | PH04 | 4 | 0/4 |
 | PH05 | 2 | 0/2 |
 | PH06 | 6 | 0/6 |
-| **Total** | **40** | **14/40** |
+| **Total** | **40** | **20/40** |

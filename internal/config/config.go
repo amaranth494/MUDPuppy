@@ -26,10 +26,11 @@ type Config struct {
 	OTPExpiryMinutes int
 
 	// MUD Session Proxy (SP02)
-	PortWhitelist       string
-	IdleTimeoutMinutes  int
-	HardSessionCapHours int
-	MaxMessageSizeBytes int
+	PortWhitelist          string
+	IdleTimeoutMinutes     int
+	HardSessionCapHours    int
+	MaxMessageSizeBytes    int
+	CommandRateLimitPerSec int
 }
 
 // Load loads configuration from environment variables
@@ -114,6 +115,17 @@ func Load() (*Config, error) {
 			log.Printf("Warning: Invalid MAX_MESSAGE_SIZE_BYTES '%s', using default 65536", sizeStr)
 		} else {
 			cfg.MaxMessageSizeBytes = size
+		}
+	}
+
+	// Command rate limit per second (defaults to 10)
+	cfg.CommandRateLimitPerSec = 10
+	if rateStr := os.Getenv("COMMAND_RATE_LIMIT_PER_SECOND"); rateStr != "" {
+		rate, err := strconv.Atoi(rateStr)
+		if err != nil {
+			log.Printf("Warning: Invalid COMMAND_RATE_LIMIT_PER_SECOND '%s', using default 10", rateStr)
+		} else {
+			cfg.CommandRateLimitPerSec = rate
 		}
 	}
 

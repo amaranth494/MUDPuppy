@@ -407,9 +407,143 @@ Frontend and backend evolve independently. Versioning ensures compatibility:
 - Feature flags allow server-side enablement for newer API features
 - Breaking changes only in major version bumps
 
-**Version**: 1.9.0 | **Ratified**: 2026-02-20 | **Last Amended**: 2026-02-21
+**Version**: 1.10.0 | **Ratified**: 2026-02-22 | **Last Amended**: 2026-02-22
 
-**Amendment v1.9.0:** Added Minimum UI Contract for MVP.
+**Amendment v1.10.0:** Added Deployment Governance & Environment Integrity (VIII).
+
+---
+
+## VIII. Deployment Governance & Environment Integrity
+
+### 1. Authority of Branches
+
+The following branch-to-environment mapping is constitutionally binding:
+
+| Branch | Environment | Purpose |
+|--------|-------------|---------|
+| master | Production | Live system |
+| staging | Staging | Integration & QA |
+| sp##-* | None (feature branches) | Spec implementation |
+
+No branch other than master may deploy to Production.
+No feature/spec branch may deploy directly to Production.
+Promotion must follow:
+
+**sp##-* → staging → master**
+
+Direct promotion from sp##-* to master is prohibited.
+
+### 2. Deployment Mechanism Hierarchy
+
+The authoritative deployment mechanism is **Git branch promotion**.
+
+Deployments occur via:
+
+```
+git push origin SOURCE_BRANCH:TARGET_BRANCH
+```
+
+Example:
+
+```
+git push origin sp02-session-proxy:staging
+```
+
+This is the approved method for moving a Spec branch into staging.
+
+**Railway CLI (railway up) is not the primary deployment mechanism** and must not be used for routine Spec promotion.
+
+### 3. Railway CLI Governance
+
+Railway CLI commands are permitted only for:
+
+- Viewing environment status
+- Viewing logs
+- **Explicitly authorized emergency deployment**
+
+Before any Railway CLI deployment (`railway up`) is executed, the following is mandatory:
+
+```
+railway status
+```
+
+The operator must confirm:
+
+- **Environment: staging** or
+- **Environment: production**
+
+**Environment ambiguity is prohibited.**
+
+The linking flow:
+
+```
+railway unlink
+railway link
+railway status
+```
+
+must be used whenever environment uncertainty exists.
+
+**Failure to verify environment before deployment constitutes a constitutional violation.**
+
+### 4. Pre-Promotion Verification Requirements
+
+Before any branch promotion, confirm:
+
+1. **Local branch:** `git branch` + `git status`
+2. **Remote target branch:** `git branch -a`
+3. **Railway environment linkage:** `railway status`
+
+These confirmations must be documented in the relevant Spec or Task document prior to promotion.
+
+### 5. Production Protection Rule
+
+Production may only be updated by:
+
+```
+git push origin staging:master
+```
+
+This action must only occur after:
+
+- All tasks for the Spec are complete
+- QA phase is complete
+- Acceptance criteria are verified
+- Documentation is finalized
+
+**Manual Railway CLI deployment to Production without branch promotion is prohibited** except under declared emergency conditions.
+
+### 6. Emergency Deployment Protocol
+
+If emergency deployment via Railway CLI is required:
+
+1. Document justification inside the active Spec
+2. Run `railway status`
+3. If not correct environment: `railway unlink` → `railway link` → `railway status`
+4. Only then: `railway up`
+
+The environment confirmation output must be preserved in the Spec record.
+
+### 7. Deployment Integrity Principle
+
+Deployments must be:
+
+- **Deterministic**
+- **Traceable to a commit hash**
+- **Mapped to a branch**
+- **Auditable via repository history**
+
+**Railway environment state must never be the sole source of truth. Git history is the authoritative deployment ledger.**
+
+### 8. Operator Responsibility
+
+Operators are responsible for:
+
+- Knowing their current Git branch
+- Knowing their linked Railway environment
+- Preventing cross-environment contamination
+
+**"Accidental deployment due to environment confusion" is not an acceptable operational state** under this Constitution.
 
 **Amendment v1.7.1:** Changed all references from 'main' to 'master' branch to match repository naming convention.
 

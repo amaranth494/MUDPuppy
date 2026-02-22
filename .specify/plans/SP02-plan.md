@@ -2,6 +2,8 @@
 
 ## Plan
 
+> **Constitutional Reference:** This plan implements SP02 and is governed by Constitution VIII. Deployment Governance & Environment Integrity. All branch promotions must follow the defined flow.
+
 This plan outlines the execution path for SP02, introducing the first live MUD connection capability: an authenticated user can connect to, interact with, and disconnect from a real MUD server through a secure backend proxy.
 
 ---
@@ -236,6 +238,56 @@ This plan outlines the execution path for SP02, introducing the first live MUD c
 | PH05 | 2 | QA validation |
 | PH06 | 6 | Merge and deployment |
 | **Total** | **40** | |
+
+---
+
+## Deployment Governance (Constitution VIII)
+
+### Branch-to-Environment Mapping
+
+| Branch | Environment | Purpose |
+|--------|-------------|---------|
+| sp02-session-proxy | Feature branch | Spec implementation |
+| staging | Staging | Integration & QA |
+| master | Production | Live system |
+
+### Promotion Flow
+
+**Step 1: Verify Environment (VIII.4)**
+Before any promotion, verify:
+
+1. `git branch` → confirm local branch is `sp02-session-proxy`
+2. `git status` → confirm clean working tree
+3. `git branch -a` → confirm remote staging exists
+4. `railway status` → confirm linked to **staging** (never production)
+
+**Step 2: Promote to Staging**
+```
+git push origin sp02-session-proxy:staging
+```
+
+**Step 3: Verify Staging Deployment**
+- Confirm CI passes on staging
+- Run QA in staging environment
+
+**Step 4: Promote to Production** (after QA complete)
+```
+git push origin staging:master
+```
+
+### Railway CLI Rules (VIII.3)
+
+- **DO NOT** use `railway up` for routine deployments
+- Railway CLI only for: `railway status`, `railway logs`, emergency
+- If uncertain about environment: `railway unlink` → `railway link` → `railway status`
+
+### Emergency Deployment Protocol (VIII.6)
+
+If Railway CLI deployment required:
+1. Document justification in this plan
+2. Run `railway status` and verify environment
+3. Preserve output in this plan
+4. After fix: promote via git to restore normal process
 
 ---
 
