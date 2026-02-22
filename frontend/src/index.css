@@ -56,6 +56,22 @@ body {
   min-height: 100vh;
 }
 
+/* Enable text selection in xterm.js terminal */
+.xterm {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+.xterm-screen {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+.xterm-viewport {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
 .app-content {
   flex: 1;
   display: flex;
