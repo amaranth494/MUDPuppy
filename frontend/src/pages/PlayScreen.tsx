@@ -56,6 +56,28 @@ export default function PlayScreen() {
     terminal.open(terminalRef.current);
     fitAddon.fit();
 
+    // Handle Ctrl+C / Cmd+C for clipboard copy when text is selected
+    terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+      // Check for Ctrl+C (Windows/Linux) or Cmd+C (Mac)
+      const isCopyShortcut = (event.ctrlKey || event.metaKey) && event.key === 'c';
+      
+      if (isCopyShortcut) {
+        const selection = terminal.getSelection();
+        if (selection) {
+          // Copy selection to clipboard
+          navigator.clipboard.writeText(selection).catch(() => {
+            // Fallback for clipboard permission issues
+          });
+          // Return false to prevent xterm from handling it (no ^C sent to MUD)
+          return false;
+        }
+        // If no selection, let xterm handle it (though we prefer to do nothing)
+        return false;
+      }
+      // Let all other keys pass through to xterm
+      return true;
+    });
+
     terminalInstanceRef.current = terminal;
     fitAddonRef.current = fitAddon;
 
