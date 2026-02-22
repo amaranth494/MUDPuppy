@@ -138,8 +138,8 @@ export default function PlayScreen() {
   };
 
   // State machine for UI
-  const canConnect = connectionState === 'disconnected' && !isConnecting;
-  const canDisconnect = connectionState === 'connected';
+  const canConnect = (connectionState === 'disconnected' || connectionState === 'error') && !isConnecting;
+  const canDisconnect = connectionState === 'connected' || connectionState === 'error';
   const isConnectingState = connectionState === 'connecting' || isConnecting;
   const showError = error && connectionState === 'error';
 
