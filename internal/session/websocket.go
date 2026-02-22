@@ -77,6 +77,7 @@ type WebSocketHandler struct {
 	upgrader       websocket.Upgrader
 	rateLimiters   map[string]*RateLimiter
 	rateLimitersMu sync.RWMutex
+	wsWriteMu      sync.Mutex // Protects WebSocket writes from concurrent goroutines
 }
 
 // NewWebSocketHandler creates a new WebSocket handler
@@ -120,6 +121,22 @@ func (h *WebSocketHandler) removeRateLimiter(userID string) {
 	h.rateLimitersMu.Lock()
 	delete(h.rateLimiters, userID)
 	h.rateLimitersMu.Unlock()
+}
+
+// writeJSON writes JSON to the WebSocket with proper locking and deadline
+func (h *WebSocketHandler) writeJSON(conn *websocket.Conn, v interface{}) error {
+	h.wsWriteMu.Lock()
+	defer h.wsWriteMu.Unlock()
+	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	return conn.WriteJSON(v)
+}
+
+// writeMessage writes a message to the WebSocket with proper locking and deadline
+func (h *WebSocketHandler) writeMessage(conn *websocket.Conn, msgType int, data []byte) error {
+	h.wsWriteMu.Lock()
+	defer h.wsWriteMu.Unlock()
+	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	return conn.WriteMessage(msgType, data)
 }
 
 // HandleWebSocket handles WebSocket connections at /api/v1/session/stream
@@ -188,8 +205,8 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 			if status == "disconnected" {
 				log.Printf("[SP02PH02] MUD connection closed for user %s", userIDStr)
 				connected = false
-				// Send disconnect message to client
-				err := conn.WriteJSON(WSMessage{
+				// Send disconnect message to client (using helper for thread-safe writes)
+				err := h.writeJSON(conn, WSMessage{
 					Type:   MsgTypeDisconnect,
 					Status: "disconnected",
 				})
@@ -199,9 +216,8 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 				}
 			}
 		case <-pingTicker.C:
-			// Send ping to keep connection alive (SP02 hardening)
-			conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+			// Send ping to keep connection alive (using helper for thread-safe writes)
+			if err := h.writeMessage(conn, websocket.PingMessage, nil); err != nil {
 				log.Printf("[SP02PH02] Ping failed: %v", err)
 				return
 			}
@@ -293,8 +309,8 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 				log.Printf("[SP02PH02] Connected to %s:%d for user %s", wsMsg.Host, wsMsg.Port, userIDStr)
 			}
 
-			// Send success message (common for both paths)
-			err = conn.WriteJSON(WSMessage{
+			// Send success message (common for both paths) - using helper for thread-safe writes
+			err = h.writeJSON(conn, WSMessage{
 				Type:   MsgTypeStatus,
 				Status: StateConnected,
 			})
@@ -404,8 +420,8 @@ func (h *WebSocketHandler) relayMUDToClient(ctx context.Context, userID string, 
 
 			log.Printf("[SP02PH02] TRACE: Forwarding %d bytes to WebSocket at %v", len(cleanData), time.Now().UnixNano())
 
-			// Send as JSON message with type 'data'
-			err := conn.WriteJSON(WSMessage{
+			// Send as JSON message with type 'data' (using helper for thread-safe writes)
+			err := h.writeJSON(conn, WSMessage{
 				Type: MsgTypeData,
 				Data: string(cleanData),
 			})
@@ -496,7 +512,7 @@ func (h *WebSocketHandler) handleClientCommands(ctx context.Context, userID stri
 
 // sendError sends an error message to the WebSocket client
 func (h *WebSocketHandler) sendError(conn *websocket.Conn, errorMsg string) {
-	err := conn.WriteJSON(WSMessage{
+	err := h.writeJSON(conn, WSMessage{
 		Type:  MsgTypeError,
 		Error: errorMsg,
 	})
