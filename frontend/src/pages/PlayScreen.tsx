@@ -4,6 +4,12 @@ import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { useSession } from '../context/SessionContext';
 
+// Enable text selection in terminal
+const terminalSelectionStyle = {
+  userSelect: 'text' as const,
+  WebkitUserSelect: 'text' as const,
+};
+
 export default function PlayScreen() {
   const { 
     connectionState, 
@@ -36,6 +42,14 @@ export default function PlayScreen() {
       },
       allowTransparency: true,
     });
+
+    // Apply selection style to terminal element
+    if (terminalRef.current) {
+      const xtermElement = terminalRef.current.querySelector('.xterm') as HTMLElement;
+      if (xtermElement) {
+        Object.assign(xtermElement.style, terminalSelectionStyle);
+      }
+    }
 
     const fitAddon = new FitAddon();
     terminal.loadAddon(fitAddon);
