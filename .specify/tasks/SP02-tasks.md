@@ -265,11 +265,11 @@
 - [x] **Status:** Completed
 
 ### SP02PH04T04 — Slow Client Test
-- [ ] **Task:** Test with simulated slow browser (network throttling)
+- [x] **Task:** Test with simulated slow browser (network throttling)
 - **Rationale:** Ensure server doesn't panic on slow WebSocket consumer
 - **Acceptance:** Server handles slow client gracefully
-- [ ] **Commit:** "SP02PH04T04: Slow client scenario tested"
-- [ ] **Status:** Pending (Testing task)
+- [x] **Commit:** "SP02PH04T04: Slow client scenario tested"
+- [x] **Status:** Completed
 
 ### SP02PH04T05 — Fail-Fast Invalid Handling
 - [x] **Task:** Ensure invalid connections fail fast with clear errors
@@ -307,11 +307,13 @@
 - [x] **Status:** Completed (Integrated into T03)
 
 ### SP02PH04T09 — Port Policy Tests
-- [ ] **Task:** Test denylist behavior
+- [x] **Task:** Test denylist behavior
 - **Tests:** Connect to blocked port (expect rejection), connect to allowed port (expect success)
+  port 22 is blocked for security reasons
+  Host 8bit.fansi.org Port 4201 - Connected
 - **Acceptance:** All denylist tests pass
-- [ ] **Commit:** "SP02PH04T09: Port policy tests completed"
-- [ ] **Status:** Pending (Testing task)
+- [x] **Commit:** "SP02PH04T09: Port policy tests completed"
+- [x] **Status:** Completed
 
 ---
 
@@ -408,7 +410,7 @@
 | PH01 | 9 | 9/9 |
 | PH02 | 6 | 6/6 |
 | PH03 | 8 | 8/8 |
-| PH04 | 9 | 6/9 (T04, T09 testing pending) |
+| PH04 | 9 | 9/9 (All tasks completed & tested) |
 | PH05 | 2 | 0/2 |
 | PH06 | 6 | 0/6 |
-| **Total** | **40** | **34/40** |
+| **Total** | **40** | **37/40** |
