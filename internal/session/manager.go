@@ -123,7 +123,7 @@ func NewManager(portWhitelist string, portDenylist string, portAllowlistOverride
 }
 
 // ValidatePort checks if a port is allowed (SP02PH04T06 - Port Denylist)
-// Priority: allowlist override > denylist > whitelist
+// Priority: allowlist override > denylist > allow-all (except denylisted)
 func (m *Manager) ValidatePort(port int) error {
 	if port < 1 || port > 65535 {
 		return fmt.Errorf("port must be between 1-65535")
@@ -146,11 +146,7 @@ func (m *Manager) ValidatePort(port int) error {
 		return fmt.Errorf("port %d is blocked for security reasons", port)
 	}
 
-	// Check whitelist (legacy behavior)
-	if !m.portWhitelist[port] {
-		return fmt.Errorf("port %d is not allowed. Allowed ports: %v", port, m.getAllowedPorts())
-	}
-
+	// Port is not in denylist and no override - allow it (SP02 spec: allow non-deny-listed ports)
 	return nil
 }
 
