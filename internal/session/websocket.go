@@ -212,6 +212,8 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 			}
 			h.removeRateLimiter(userIDStr)
 			return
+		default:
+			// No blocking - continue to read message immediately
 		}
 
 		// Set read deadline
@@ -395,12 +397,15 @@ func (h *WebSocketHandler) relayMUDToClient(ctx context.Context, userID string, 
 			// Reset idle timer on inbound data
 			h.manager.ResetIdleTimerOnInbound(userID)
 
-			log.Printf("[SP02PH02] DEBUG: Sending %d bytes to WebSocket at %v", len(data), time.Now().UnixNano())
+			// Strip telnet IAC sequences before sending to client
+			cleanData := stripTelnetIAC(data)
+
+			log.Printf("[SP02PH02] DEBUG: Sending %d bytes to WebSocket (was %d bytes) at %v", len(cleanData), len(data), time.Now().UnixNano())
 
 			// Send as JSON message with type 'data'
 			err := conn.WriteJSON(WSMessage{
 				Type: MsgTypeData,
-				Data: string(data),
+				Data: string(cleanData),
 			})
 			if err != nil {
 				log.Printf("[SP02PH02] Error writing to WebSocket: %v", err)
@@ -408,6 +413,55 @@ func (h *WebSocketHandler) relayMUDToClient(ctx context.Context, userID string, 
 			}
 		}
 	}
+}
+
+// stripTelnetIAC removes telnet IAC (Interpret As Command) sequences from the data
+// IAC is byte 255 (0xFF). Telnet commands are: IAC + command + [option]
+func stripTelnetIAC(data []byte) []byte {
+	if len(data) == 0 {
+		return data
+	}
+
+	var result []byte
+	i := 0
+	for i < len(data) {
+		if data[i] == 255 { // IAC
+			if i+1 < len(data) {
+				cmd := data[i+1]
+				switch cmd {
+				case 251, 252, 253, 254: // WILL, WON'T, DO, DON'T - skip command + option
+					if i+2 < len(data) {
+						i += 3 // Skip IAC + command + option
+						continue
+					}
+				case 255: // IAC IAC - escaped literal 255
+					i += 2 // Skip both IAC bytes
+					if result == nil {
+						result = make([]byte, 0, len(data))
+						result = append(result, data[:i-2]...)
+					}
+					result = append(result, 255)
+					continue
+				default:
+					// Unknown command, skip just command byte
+					i += 2
+					continue
+				}
+			}
+		}
+		// Regular byte
+		if result == nil {
+			i++
+			continue
+		}
+		result = append(result, data[i])
+		i++
+	}
+
+	if result == nil {
+		return data
+	}
+	return result
 }
 
 // handleClientCommands handles commands from client and forwards to MUD
