@@ -193,6 +193,7 @@ func (m *Manager) consumeTelnetNegotiation(conn net.Conn) {
 }
 
 // startTimers starts idle timeout and hard cap timers
+// Uses ticker-based approach to properly handle idle timer resets
 func (m *Manager) startTimers(ctx context.Context, userID string) {
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -200,36 +201,72 @@ func (m *Manager) startTimers(ctx context.Context, userID string) {
 	m.cleanups[userID] = cancel
 	m.mu.Unlock()
 
+	idleTimeoutDuration := time.Duration(m.idleTimeoutMinutes) * time.Minute
+	hardCapDuration := time.Duration(m.hardCapHours) * time.Hour
+
+	// Hard cap is absolute; calculate when it should fire
+	hardCapAt := time.Now().Add(hardCapDuration)
+
 	go func() {
-		idleTimer := time.NewTimer(time.Duration(m.idleTimeoutMinutes) * time.Minute)
-		hardCapTimer := time.NewTimer(time.Duration(m.hardCapHours) * time.Hour)
+		ticker := time.NewTicker(1 * time.Minute) // Check every minute
+		defer ticker.Stop()
 
-		defer func() {
-			idleTimer.Stop()
-			hardCapTimer.Stop()
-		}()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				m.mu.RLock()
+				session, ok := m.sessions[userID]
+				m.mu.RUnlock()
 
-		select {
-		case <-ctx.Done():
-			return
-		case <-idleTimer.C:
-			log.Printf("[SP02PH01T05] Idle timeout for user %s", userID)
-			m.Disconnect(userID, ReasonIdle)
-		case <-hardCapTimer.C:
-			log.Printf("[SP02PH01T06] Hard session cap reached for user %s", userID)
-			m.Disconnect(userID, ReasonHardCap)
+				if !ok {
+					return // Session no longer exists
+				}
+
+				now := time.Now()
+
+				// Check hard cap first (absolute limit)
+				if now.After(hardCapAt) {
+					log.Printf("[SP02PH01T06] Hard session cap reached for user %s", userID)
+					m.Disconnect(userID, ReasonHardCap)
+					return
+				}
+
+				// Check idle timeout (resets on activity via session.LastActivityAt)
+				idleTimeoutAt := session.LastActivityAt.Add(idleTimeoutDuration)
+				if now.After(idleTimeoutAt) {
+					log.Printf("[SP02PH01T05] Idle timeout for user %s", userID)
+					m.Disconnect(userID, ReasonIdle)
+					return
+				}
+			}
 		}
 	}()
 }
 
 // ResetIdleTimer resets the idle timer for a session
+// This should be called when there's any activity (inbound or outbound)
 func (m *Manager) ResetIdleTimer(userID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if session, ok := m.sessions[userID]; ok {
 		session.LastActivityAt = time.Now()
+		log.Printf("[SP02PH01T05] Idle timer reset for user %s", userID)
 	}
+}
+
+// ResetIdleTimerOnInbound resets the idle timer when MUD sends data to client
+// Call this from the WebSocket relay when forwarding MUD→client data
+func (m *Manager) ResetIdleTimerOnInbound(userID string) {
+	m.ResetIdleTimer(userID)
+}
+
+// ResetIdleTimerOnOutbound resets the idle timer when client sends command to MUD
+// Call this from the WebSocket relay when forwarding client→MUD data
+func (m *Manager) ResetIdleTimerOnOutbound(userID string) {
+	m.ResetIdleTimer(userID)
 }
 
 // Disconnect terminates a user's MUD connection
