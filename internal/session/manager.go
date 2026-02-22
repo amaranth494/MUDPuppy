@@ -366,8 +366,8 @@ func (m *Manager) ReadOutput(userID string, buffer []byte) (int, error) {
 		return 0, fmt.Errorf("no active connection")
 	}
 
-	// Set read deadline
-	conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+	// Set read deadline - shorter for faster response
+	conn.SetReadDeadline(time.Now().Add(50 * time.Millisecond))
 
 	n, err := conn.Read(buffer)
 	if err != nil {

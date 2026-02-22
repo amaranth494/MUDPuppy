@@ -372,10 +372,12 @@ func (h *WebSocketHandler) readMUDOutput(ctx context.Context, userID string, mud
 			case <-ctx.Done():
 				return
 			}
+			// No sleep when we have data - process immediately
+			continue
 		}
 
-		// Small sleep to prevent tight loop
-		time.Sleep(10 * time.Millisecond)
+		// Small sleep to prevent tight loop when no data
+		time.Sleep(1 * time.Millisecond)
 	}
 }
 
