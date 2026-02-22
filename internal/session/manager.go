@@ -351,8 +351,11 @@ func (m *Manager) ReadOutput(userID string, buffer []byte) (int, error) {
 	m.mu.RUnlock()
 
 	if !ok {
+		log.Printf("[SP02PH02] ReadOutput: no connection found for user %s", userID)
 		return 0, fmt.Errorf("no active connection")
 	}
+
+	log.Printf("[SP02PH02] ReadOutput: connection found, attempting read for user %s", userID)
 
 	// Set read deadline
 	conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
@@ -362,6 +365,7 @@ func (m *Manager) ReadOutput(userID string, buffer []byte) (int, error) {
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 			return 0, nil // Timeout is not an error
 		}
+		log.Printf("[SP02PH02] ReadOutput: read error for user %s: %v", userID, err)
 		return n, err
 	}
 
