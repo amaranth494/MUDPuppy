@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -145,8 +146,29 @@ func main() {
 	// WebSocket endpoint (SP02PH02)
 	mux.HandleFunc("/api/v1/session/stream", wsHandler.HandleWebSocket)
 
-	// Serve static files from public directory
-	mux.Handle("/", http.FileServer(http.Dir("./public")))
+	// Serve static files from public directory (SPA mode - serve index.html for non-file routes)
+	publicDir := http.Dir("./public")
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// Try to serve the requested file
+		path := r.URL.Path
+		f, err := publicDir.Open(path)
+		if err != nil {
+			// File doesn't exist - serve index.html for SPA routing
+			// This handles routes like /play, /connections, etc.
+			index, err := publicDir.Open("/index.html")
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			defer index.Close()
+			w.Header().Set("Content-Type", "text/html")
+			http.ServeContent(w, r, "index.html", time.Now(), index.(io.ReadSeeker))
+			return
+		}
+		defer f.Close()
+		// Serve the file
+		http.FileServer(publicDir).ServeHTTP(w, r)
+	})
 
 	// Protected endpoints - wrapped with session middleware
 	protectedHandler := sessionMiddleware(redisClient, mux)
