@@ -133,7 +133,7 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 	}
 	userIDStr := userID.(string)
 
-	log.Printf("[SP02PH02] WebSocket connection from user: %s", userIDStr)
+	log.Printf("[SP02PH02] WebSocket connection from user: %s at %v", userIDStr, time.Now().UnixNano())
 
 	// Upgrade HTTP to WebSocket
 	conn, err := h.upgrader.Upgrade(w, r, nil)
@@ -367,6 +367,7 @@ func (h *WebSocketHandler) readMUDOutput(ctx context.Context, userID string, mud
 			// Copy the data to send through channel
 			data := make([]byte, n)
 			copy(data, buffer[:n])
+			log.Printf("[SP02PH02] DEBUG: Read %d bytes from MUD at %v", n, time.Now().UnixNano())
 			select {
 			case mudToClient <- data:
 			case <-ctx.Done():
@@ -390,6 +391,8 @@ func (h *WebSocketHandler) relayMUDToClient(ctx context.Context, userID string, 
 		case data := <-mudToClient:
 			// Reset idle timer on inbound data
 			h.manager.ResetIdleTimerOnInbound(userID)
+
+			log.Printf("[SP02PH02] DEBUG: Sending %d bytes to WebSocket at %v", len(data), time.Now().UnixNano())
 
 			// Send as JSON message with type 'data'
 			err := conn.WriteJSON(WSMessage{
