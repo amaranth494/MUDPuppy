@@ -143,6 +143,23 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 	}
 	defer conn.Close()
 
+	// Set read limit to prevent memory exhaustion (SP02 hardening)
+	conn.SetReadLimit(65536) // 64KB max message size
+
+	// Write deadline for all outbound writes
+	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+
+	// Set up ping/pong handler for keepalive (SP02 hardening)
+	pongChan := make(chan string, 1)
+	conn.SetPongHandler(func(appData string) error {
+		pongChan <- appData
+		return nil
+	})
+
+	// Start ping ticker
+	pingTicker := time.NewTicker(30 * time.Second)
+	defer pingTicker.Stop()
+
 	// Create context for this connection
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
@@ -165,7 +182,7 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 
 	// Main WebSocket message loop
 	for {
-		// Check if we got a disconnect status
+		// Check if we got a disconnect status or ping ticker
 		select {
 		case status := <-statusChan:
 			if status == "disconnected" {
@@ -181,7 +198,20 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 					return
 				}
 			}
-		default:
+		case <-pingTicker.C:
+			// Send ping to keep connection alive (SP02 hardening)
+			conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				log.Printf("[SP02PH02] Ping failed: %v", err)
+				return
+			}
+		case <-ctx.Done():
+			// Context cancelled - clean up and exit (no goroutine leak)
+			if connected {
+				h.manager.Disconnect(userIDStr, ReasonRemote)
+			}
+			h.removeRateLimiter(userIDStr)
+			return
 		}
 
 		// Set read deadline
