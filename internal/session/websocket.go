@@ -427,7 +427,20 @@ func stripTelnetIAC(data []byte) []byte {
 		return data
 	}
 
-	var result []byte
+	// First pass: check if there are any IAC bytes
+	hasIAC := false
+	for _, b := range data {
+		if b == 255 {
+			hasIAC = true
+			break
+		}
+	}
+	if !hasIAC {
+		return data
+	}
+
+	// Second pass: strip IAC sequences
+	result := make([]byte, 0, len(data))
 	i := 0
 	for i < len(data) {
 		if data[i] == 255 { // IAC
@@ -440,32 +453,21 @@ func stripTelnetIAC(data []byte) []byte {
 						continue
 					}
 				case 255: // IAC IAC - escaped literal 255
-					i += 2 // Skip both IAC bytes
-					if result == nil {
-						result = make([]byte, 0, len(data))
-						result = append(result, data[:i-2]...)
-					}
+					i += 2
 					result = append(result, 255)
 					continue
 				default:
-					// Unknown command, skip just command byte
+					// Unknown command, skip command byte only
 					i += 2
 					continue
 				}
 			}
 		}
-		// Regular byte
-		if result == nil {
-			i++
-			continue
-		}
+		// Regular byte (not part of IAC sequence)
 		result = append(result, data[i])
 		i++
 	}
 
-	if result == nil {
-		return data
-	}
 	return result
 }
 
