@@ -113,7 +113,6 @@ export class WebSocketManager {
       };
       
       this.ws.onmessage = (event) => {
-        console.log('[WebSocket] Received message:', event.data);
         try {
           const message: WSMessage = JSON.parse(event.data);
           this.handleMessage(message);
@@ -131,7 +130,6 @@ export class WebSocketManager {
   }
 
   private handleMessage(message: WSMessage): void {
-    console.log('[WebSocket] Handling message:', message);
     switch (message.type) {
       case 'data':
         if (message.data) {

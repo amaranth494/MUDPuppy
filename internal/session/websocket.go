@@ -367,7 +367,6 @@ func (h *WebSocketHandler) readMUDOutput(ctx context.Context, userID string, mud
 			// Copy the data to send through channel
 			data := make([]byte, n)
 			copy(data, buffer[:n])
-			log.Printf("[SP02PH02] Read %d bytes from MUD, sending to relay", n)
 			select {
 			case mudToClient <- data:
 			case <-ctx.Done():
@@ -382,7 +381,6 @@ func (h *WebSocketHandler) readMUDOutput(ctx context.Context, userID string, mud
 
 // relayMUDToClient relays MUD output to WebSocket client
 func (h *WebSocketHandler) relayMUDToClient(ctx context.Context, userID string, conn *websocket.Conn, mudToClient <-chan []byte) {
-	log.Printf("[SP02PH02] Starting MUD->client relay for user %s", userID)
 	for {
 		select {
 		case <-ctx.Done():
@@ -390,8 +388,6 @@ func (h *WebSocketHandler) relayMUDToClient(ctx context.Context, userID string, 
 		case data := <-mudToClient:
 			// Reset idle timer on inbound data
 			h.manager.ResetIdleTimerOnInbound(userID)
-
-			log.Printf("[SP02PH02] Sending data to client: %d bytes", len(data))
 
 			// Send as JSON message with type 'data'
 			err := conn.WriteJSON(WSMessage{
