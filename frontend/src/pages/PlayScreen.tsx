@@ -238,11 +238,9 @@ export default function PlayScreen() {
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               const input = e.currentTarget;
-              const command = input.value.trim();
-              if (command) {
-                handleCommand(command);
-                input.value = '';
-              }
+              const command = input.value; // Don't trim - allow blank lines for MUDs
+              handleCommand(command); // Always send (even empty = just CR)
+              input.value = '';
             }
           }}
         />
