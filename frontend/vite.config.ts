@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: '../public',
-    emptyOutDir: true,
+    emptyOutDir: false,
     sourcemap: true,
   },
   server: {
