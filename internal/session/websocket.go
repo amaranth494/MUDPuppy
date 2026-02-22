@@ -253,7 +253,7 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 			if err == nil && session.State == StateConnected {
 				// Session already exists from REST API - just use it
 				connected = true
-				log.Printf("[SP02PH02] Using existing session for user %s (from REST API)", userIDStr)
+				log.Printf("[SP02PH02] Using existing session for user %s (from REST API) at %v", userIDStr, time.Now().UnixNano())
 			} else {
 				// No existing session - this is a WebSocket-only connect attempt
 				// Validate host/port
@@ -303,6 +303,7 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 
 			// Start the MUD->client relay (for both new and existing sessions)
 			go h.relayMUDToClient(ctx, userIDStr, conn, mudToClient)
+			log.Printf("[SP02PH02] Started relay at %v", time.Now().UnixNano())
 
 		case MsgTypeDisconnect:
 			if connected {
@@ -347,6 +348,7 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 
 // readMUDOutput reads output from MUD and sends to mudToClient channel
 func (h *WebSocketHandler) readMUDOutput(ctx context.Context, userID string, mudToClient chan<- []byte, statusChan chan<- string) {
+	log.Printf("[SP02PH02] readMUDOutput started at %v", time.Now().UnixNano())
 	buffer := make([]byte, 8192)
 
 	for {
@@ -384,6 +386,7 @@ func (h *WebSocketHandler) readMUDOutput(ctx context.Context, userID string, mud
 
 // relayMUDToClient relays MUD output to WebSocket client
 func (h *WebSocketHandler) relayMUDToClient(ctx context.Context, userID string, conn *websocket.Conn, mudToClient <-chan []byte) {
+	log.Printf("[SP02PH02] relayMUDToClient started at %v", time.Now().UnixNano())
 	for {
 		select {
 		case <-ctx.Done():
