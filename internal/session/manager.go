@@ -178,14 +178,26 @@ func (m *Manager) consumeTelnetNegotiation(conn net.Conn) {
 	conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
 
 	buf := make([]byte, 1024)
+	var textData []byte
+
 	for {
 		n, err := conn.Read(buf)
 		if err != nil {
 			break
 		}
-		// If we got non-IAC bytes, put them back (not implemented for MVP)
-		// For MVP, we just discard negotiation bytes
-		_ = n
+
+		// Only discard IAC (255) telnet negotiation bytes
+		// Keep actual text data for the client
+		for i := 0; i < n; i++ {
+			if buf[i] != 255 { // Not an IAC command
+				textData = append(textData, buf[i])
+			}
+		}
+	}
+
+	// If we collected text data, log it for debugging
+	if len(textData) > 0 {
+		log.Printf("[SP02PH01] Collected %d bytes of initial data from MUD", len(textData))
 	}
 
 	// Reset to no deadline for normal operation
