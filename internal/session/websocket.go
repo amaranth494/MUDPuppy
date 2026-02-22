@@ -452,6 +452,9 @@ func stripTelnetIAC(data []byte) []byte {
 						i += 3 // Skip IAC + command + option
 						continue
 					}
+					// Incomplete (IAC + cmd but no option) - skip both bytes
+					i += 2
+					continue
 				case 255: // IAC IAC - escaped literal 255
 					i += 2
 					result = append(result, 255)
@@ -462,6 +465,9 @@ func stripTelnetIAC(data []byte) []byte {
 					continue
 				}
 			}
+			// Incomplete IAC at end of data (just 255 with no command) - skip it
+			i++
+			continue
 		}
 		// Regular byte (not part of IAC sequence)
 		result = append(result, data[i])
