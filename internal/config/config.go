@@ -27,10 +27,15 @@ type Config struct {
 
 	// MUD Session Proxy (SP02)
 	PortWhitelist          string
+	PortDenylist           string
+	PortAllowlistOverride  string
 	IdleTimeoutMinutes     int
 	HardSessionCapHours    int
 	MaxMessageSizeBytes    int
 	CommandRateLimitPerSec int
+
+	// Admin
+	AdminMetricsSecret string
 }
 
 // Load loads configuration from environment variables
@@ -128,6 +133,20 @@ func Load() (*Config, error) {
 			cfg.CommandRateLimitPerSec = rate
 		}
 	}
+
+	// Port denylist (SP02PH04T06) - comma-separated, defaults to dangerous ports
+	cfg.PortDenylist = os.Getenv("MUD_PORT_DENYLIST")
+	if cfg.PortDenylist == "" {
+		// Default deny-list: Email (25,465,587,110,143,993,995), DNS (53), Web (80,443),
+		// Databases (1433,1521,3306,5432,6379,27017), Remote admin (22,3389,5900), File sharing (445,139,2049)
+		cfg.PortDenylist = "25,465,587,110,143,993,995,53,80,443,1433,1521,3306,5432,6379,27017,22,3389,5900,445,139,2049"
+	}
+
+	// Port allowlist override (optional - if set, only these ports are allowed)
+	cfg.PortAllowlistOverride = os.Getenv("MUD_PORT_ALLOWLIST")
+
+	// Admin metrics endpoint secret (required for /api/v1/admin/metrics)
+	cfg.AdminMetricsSecret = os.Getenv("ADMIN_METRICS_SECRET")
 
 	return cfg, nil
 }

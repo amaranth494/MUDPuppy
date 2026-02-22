@@ -186,7 +186,7 @@ Always visible on authenticated pages:
 
 **4. Dialog Boxes and Modals Required for MVP**
 
-- Connect Validation Errors: Host required, Port must be 23 (Telnet), Private IPs not allowed
+- Connect Validation Errors: Host required, Port must be allowed (not blocked), Private IPs not allowed
 - Connection Attempt Failure: DNS fail, refused, timeout - human-readable reason
 - Disconnect Confirmation (Optional): Immediate disconnect allowed for MVP
 - Idle Timeout Warning (Optional but recommended): "You'll be disconnected in 60 seconds"
@@ -342,8 +342,20 @@ As a multi-tenant hosted service, resource limits must be enforceable. Exact num
 This product proxies arbitrary text streams and opens outbound connections. Abuse prevention is constitution-level, not implementation-level:
 
 **Connection Restrictions:**
-- Default deny all outbound ports
-- Whitelist allowed destination ports: 23 (telnet), 22 (SSH), 80, 443
+- **Deny-list dangerous ports (always blocked):**
+  - Email: 25, 465, 587, 110, 143, 993, 995
+  - DNS: 53
+  - Web: 80, 443 (unless gateway support explicitly added later)
+  - Databases: 1433, 1521, 3306, 5432, 6379, 27017
+  - Remote admin: 22, 3389, 5900
+  - File sharing: 445, 139, 2049
+- **Allow other ports (with constraints):** Port 23, 2525, and any other non-deny-listed port
+- All standard guardrails still apply: private IP blocking, one connection per user, rate limiting, message size cap, session duration cap
+- **Protocol Plausibility Check (optional second gate):**
+  - For first N seconds / first X bytes of server output
+  - If output looks like TLS handshake, HTTP headers, or obvious binary protocol → disconnect as "not a telnet/ANSI MUD"
+  - If output is printable text, telnet IAC, or ANSI → allow
+  - This is for accidental misuse prevention, not primary security
 - No port scanning capabilities
 - No proxy to internal/private networks
 
@@ -407,7 +419,9 @@ Frontend and backend evolve independently. Versioning ensures compatibility:
 - Feature flags allow server-side enablement for newer API features
 - Breaking changes only in major version bumps
 
-**Version**: 1.11.0 | **Ratified**: 2026-02-22 | **Last Amended**: 2026-02-22
+**Version**: 1.12.0 | **Ratified**: 2026-02-22 | **Last Amended**: 2026-02-22
+
+**Amendment v1.12.0:** Changed port policy from allowlist (23, 22, 80, 443) to denylist model. Always block dangerous/non-MUD service ports (email, DNS, databases, remote admin, file sharing). Allow other ports with constraints (private IP blocking, session limits, rate limiting). Added optional protocol plausibility check as second gate.
 
 **Amendment v1.11.0:** Added Transport Layer Governance (IX) - WebSocket idle behavior, Control/Data plane separation.
 

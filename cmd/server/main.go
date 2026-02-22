@@ -15,6 +15,7 @@ import (
 
 	"github.com/amaranth494/MudPuppy/internal/auth"
 	"github.com/amaranth494/MudPuppy/internal/config"
+	"github.com/amaranth494/MudPuppy/internal/metrics"
 	"github.com/amaranth494/MudPuppy/internal/redis"
 	"github.com/amaranth494/MudPuppy/internal/session"
 	"github.com/amaranth494/MudPuppy/internal/store"
@@ -119,6 +120,8 @@ func main() {
 	// Initialize session manager and handler (SP02PH01)
 	sessionManager := session.NewManager(
 		cfg.PortWhitelist,
+		cfg.PortDenylist,
+		cfg.PortAllowlistOverride,
 		cfg.IdleTimeoutMinutes,
 		cfg.HardSessionCapHours,
 	)
@@ -126,6 +129,9 @@ func main() {
 
 	// Initialize WebSocket handler (SP02PH02)
 	wsHandler := session.NewWebSocketHandler(sessionManager, cfg)
+
+	// Initialize metrics (SP02PH04T03)
+	metrics.Init()
 
 	// Create router with session middleware
 	mux := http.NewServeMux()
@@ -145,6 +151,9 @@ func main() {
 
 	// WebSocket endpoint (SP02PH02)
 	mux.HandleFunc("/api/v1/session/stream", wsHandler.HandleWebSocket)
+
+	// Admin metrics endpoint (SP02PH04T03)
+	mux.HandleFunc("/api/v1/admin/metrics", metricsHandler(cfg))
 
 	// Serve static files from public directory (SPA mode - serve index.html for non-file routes)
 	publicDir := http.Dir("./public")
@@ -179,6 +188,24 @@ func main() {
 	log.Printf("Server starting on port %s", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, handler); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
+	}
+}
+
+// metricsHandler handles the /api/v1/admin/metrics endpoint (SP02PH04T03)
+func metricsHandler(cfg *config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Check for secret if configured
+		if cfg.AdminMetricsSecret != "" {
+			secret := r.Header.Get("X-Admin-Secret")
+			if secret != cfg.AdminMetricsSecret {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+		}
+
+		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
+		metricsSnapshot := metrics.Get().GetSnapshot()
+		w.Write([]byte(metricsSnapshot))
 	}
 }
 

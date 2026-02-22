@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/amaranth494/MudPuppy/internal/metrics"
 )
 
 // Session state constants
@@ -21,11 +23,14 @@ const (
 
 // Disconnect reasons
 const (
-	ReasonUser    = "user"
-	ReasonIdle    = "idle_timeout"
-	ReasonHardCap = "hard_cap"
-	ReasonRemote  = "remote_close"
-	ReasonError   = "error"
+	ReasonUser             = "user"
+	ReasonIdle             = "idle_timeout"
+	ReasonHardCap          = "hard_cap"
+	ReasonRemote           = "remote_close"
+	ReasonError            = "error"
+	ReasonSlowClient       = "slow_client"       // SP02PH04T02
+	ReasonRateLimit        = "rate_limit"        // SP02PH04T02
+	ReasonProtocolMismatch = "protocol_mismatch" // SP02PH04T07
 )
 
 // Session represents an active MUD connection session
@@ -41,9 +46,11 @@ type Session struct {
 
 // Manager handles MUD session management
 type Manager struct {
-	portWhitelist      map[int]bool
-	idleTimeoutMinutes int
-	hardCapHours       int
+	portWhitelist         map[int]bool
+	portDenylist          map[int]bool
+	portAllowlistOverride map[int]bool
+	idleTimeoutMinutes    int
+	hardCapHours          int
 
 	mu       sync.RWMutex
 	sessions map[string]*Session // userID -> session
@@ -52,7 +59,7 @@ type Manager struct {
 }
 
 // NewManager creates a new session manager
-func NewManager(portWhitelist string, idleTimeoutMinutes, hardCapHours int) *Manager {
+func NewManager(portWhitelist string, portDenylist string, portAllowlistOverride string, idleTimeoutMinutes, hardCapHours int) *Manager {
 	// Parse port whitelist
 	ports := make(map[int]bool)
 	for _, p := range strings.Split(portWhitelist, ",") {
@@ -73,22 +80,73 @@ func NewManager(portWhitelist string, idleTimeoutMinutes, hardCapHours int) *Man
 		ports[23] = true
 	}
 
+	// Parse port denylist
+	denylist := make(map[int]bool)
+	for _, p := range strings.Split(portDenylist, ",") {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		port, err := strconv.Atoi(p)
+		if err != nil {
+			log.Printf("Warning: Invalid port in denylist '%s', skipping", p)
+			continue
+		}
+		denylist[port] = true
+	}
+
+	// Parse port allowlist override (if set, only these ports are allowed)
+	allowlistOverride := make(map[int]bool)
+	for _, p := range strings.Split(portAllowlistOverride, ",") {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		port, err := strconv.Atoi(p)
+		if err != nil {
+			log.Printf("Warning: Invalid port in allowlist override '%s', skipping", p)
+			continue
+		}
+		allowlistOverride[port] = true
+	}
+
 	return &Manager{
-		portWhitelist:      ports,
-		idleTimeoutMinutes: idleTimeoutMinutes,
-		hardCapHours:       hardCapHours,
-		sessions:           make(map[string]*Session),
-		conns:              make(map[string]net.Conn),
-		cleanups:           make(map[string]context.CancelFunc),
+		portWhitelist:         ports,
+		portDenylist:          denylist,
+		portAllowlistOverride: allowlistOverride,
+		idleTimeoutMinutes:    idleTimeoutMinutes,
+		hardCapHours:          hardCapHours,
+		sessions:              make(map[string]*Session),
+		conns:                 make(map[string]net.Conn),
+		cleanups:              make(map[string]context.CancelFunc),
 	}
 }
 
-// ValidatePort checks if a port is in the whitelist
+// ValidatePort checks if a port is allowed (SP02PH04T06 - Port Denylist)
+// Priority: allowlist override > denylist > whitelist
 func (m *Manager) ValidatePort(port int) error {
 	if port < 1 || port > 65535 {
 		return fmt.Errorf("port must be between 1-65535")
 	}
 
+	// Check allowlist override first (if set, only these ports are allowed)
+	if len(m.portAllowlistOverride) > 0 {
+		if !m.portAllowlistOverride[port] {
+			metrics.Get().IncBlockedPort()
+			log.Printf("[SP02PH04T06] Port %d blocked: not in allowlist override", port)
+			return fmt.Errorf("port %d is not allowed. Allowed ports: %v", port, m.getAllowlistOverridePorts())
+		}
+		return nil
+	}
+
+	// Check denylist (always blocked)
+	if m.portDenylist[port] {
+		metrics.Get().IncBlockedPort()
+		log.Printf("[SP02PH04T06] Port %d blocked: in denylist", port)
+		return fmt.Errorf("port %d is blocked for security reasons", port)
+	}
+
+	// Check whitelist (legacy behavior)
 	if !m.portWhitelist[port] {
 		return fmt.Errorf("port %d is not allowed. Allowed ports: %v", port, m.getAllowedPorts())
 	}
@@ -99,6 +157,14 @@ func (m *Manager) ValidatePort(port int) error {
 func (m *Manager) getAllowedPorts() []int {
 	ports := make([]int, 0, len(m.portWhitelist))
 	for p := range m.portWhitelist {
+		ports = append(ports, p)
+	}
+	return ports
+}
+
+func (m *Manager) getAllowlistOverridePorts() []int {
+	ports := make([]int, 0, len(m.portAllowlistOverride))
+	for p := range m.portAllowlistOverride {
 		ports = append(ports, p)
 	}
 	return ports
@@ -160,6 +226,9 @@ func (m *Manager) Connect(ctx context.Context, userID, host string, port int) (*
 	// Store connection
 	m.sessions[userID] = session
 	m.conns[userID] = conn
+
+	// Record metrics
+	metrics.Get().IncConnect()
 
 	// Start idle timer and hard cap timer (non-blocking)
 	go m.startTimers(context.Background(), userID)
@@ -307,6 +376,9 @@ func (m *Manager) Disconnect(userID, reason string) error {
 	session.State = StateDisconnected
 	session.DisconnectErr = reason
 
+	// Record metrics
+	metrics.Get().IncDisconnect(reason)
+
 	// Log disconnect metadata
 	m.logDisconnectMetadata(session)
 
@@ -396,4 +468,118 @@ func (m *Manager) logDisconnectMetadata(session *Session) {
 	duration := time.Since(session.ConnectedAt)
 	log.Printf("[SP02PH01T07] Connection closed: user=%s, host=%s, port=%d, duration=%v, reason=%s",
 		session.UserID, session.Host, session.Port, duration, session.DisconnectErr)
+}
+
+// Protocol plausibility check constants (SP02PH04T07)
+const (
+	protocolCheckBytes   = 512             // First N bytes to check
+	protocolCheckTimeout = 2 * time.Second // Timeout for reading initial data
+)
+
+// detectProtocolMismatch checks if the initial data from MUD server looks like non-MUD protocol
+// Returns true if protocol mismatch detected, false if it looks like valid MUD/telnet
+func (m *Manager) detectProtocolMismatch(conn net.Conn) (bool, string) {
+	// Set read deadline
+	conn.SetReadDeadline(time.Now().Add(protocolCheckTimeout))
+
+	buffer := make([]byte, protocolCheckBytes)
+	n, err := conn.Read(buffer)
+
+	// Reset deadline for normal operation
+	conn.SetReadDeadline(time.Time{})
+
+	if err != nil || n == 0 {
+		// No data or error - can't determine, allow it
+		return false, ""
+	}
+
+	data := buffer[:n]
+
+	// Check for TLS/SSL handshake (starts with 0x16 = TLS Handshake)
+	if len(data) >= 1 && data[0] == 0x16 {
+		log.Printf("[SP02PH04T07] Protocol mismatch detected: TLS handshake")
+		metrics.Get().IncProtocolMismatch()
+		return true, "TLS/SSL not supported"
+	}
+
+	// Check for HTTP response (starts with "HTTP/")
+	if len(data) >= 5 && string(data[:5]) == "HTTP/" {
+		log.Printf("[SP02PH04T07] Protocol mismatch detected: HTTP response")
+		metrics.Get().IncProtocolMismatch()
+		return true, "HTTP not supported"
+	}
+
+	// Check for SSH (starts with "SSH-")
+	if len(data) >= 4 && string(data[:4]) == "SSH-" {
+		log.Printf("[SP02PH04T07] Protocol mismatch detected: SSH")
+		metrics.Get().IncProtocolMismatch()
+		return true, "SSH not supported"
+	}
+
+	// Check for FTP (starts with "220-" or "220 ")
+	if len(data) >= 4 && (string(data[:4]) == "220-" || string(data[:4]) == "220 ") {
+		log.Printf("[SP02PH04T07] Protocol mismatch detected: FTP")
+		metrics.Get().IncProtocolMismatch()
+		return true, "FTP not supported"
+	}
+
+	// Check for SMTP (starts with "220-" from SMTP but different from FTP)
+	if len(data) >= 4 && string(data[:4]) == "220-" {
+		// Could be SMTP - check for ESMTP markers
+		if containsSMTPMarker(data) {
+			log.Printf("[SP02PH04T07] Protocol mismatch detected: SMTP")
+			metrics.Get().IncProtocolMismatch()
+			return true, "SMTP not supported"
+		}
+	}
+
+	// Check for high concentration of null bytes (binary protocol)
+	nullCount := 0
+	for _, b := range data {
+		if b == 0 {
+			nullCount++
+		}
+	}
+	// If more than 10% are null bytes, likely binary
+	if float64(nullCount)/float64(len(data)) > 0.1 {
+		log.Printf("[SP02PH04T07] Protocol mismatch detected: binary data (null bytes)")
+		metrics.Get().IncProtocolMismatch()
+		return true, "Binary protocol not supported"
+	}
+
+	// Default: looks like valid text/telnet/MUD
+	return false, ""
+}
+
+// containsSMTPMarker checks if data contains SMTP-specific markers
+func containsSMTPMarker(data []byte) bool {
+	dataStr := string(data)
+	smtpMarkers := []string{"ESMTP", "SMTP", "mail", "EHLO"}
+	for _, marker := range smtpMarkers {
+		if strings.Contains(dataStr, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+// CheckAndDisconnectProtocolMismatch checks for protocol mismatch and disconnects if detected
+// Returns true if disconnected due to protocol mismatch
+func (m *Manager) CheckAndDisconnectProtocolMismatch(userID string) bool {
+	m.mu.RLock()
+	conn, ok := m.conns[userID]
+	m.mu.RUnlock()
+
+	if !ok {
+		return false
+	}
+
+	isMismatch, message := m.detectProtocolMismatch(conn)
+	if isMismatch {
+		m.Disconnect(userID, ReasonError)
+		log.Printf("[SP02PH04T07] Protocol mismatch disconnect: user=%s, reason=%s", userID, message)
+		return true
+	}
+
+	return false
 }

@@ -177,6 +177,33 @@ This plan outlines the execution path for SP02, introducing the first live MUD c
 - [ ] **Acceptance:** No hanging connections, immediate feedback
 - [ ] **Commit:** "SP02PH04T05: Fail-fast handling implemented"
 
+### SP02PH04T06 — Port Denylist Policy
+- [ ] **Task:** Implement port denylist (always block dangerous ports)
+- **Deny-list:** Email (25,465,587,110,143,993,995), DNS (53), Web (80,443), Databases (1433,1521,3306,5432,6379,27017), Remote admin (22,3389,5900), File sharing (445,139,2049)
+- **Allow:** 23, 2525, and other non-deny-listed ports
+- [ ] **Acceptance:** Blocked ports rejected with clear error; allowed ports work
+- [ ] **Commit:** "SP02PH04T06: Port denylist implemented"
+
+### SP02PH04T07 — Protocol Plausibility Check
+- [ ] **Task:** Implement protocol mismatch detection
+- **Behavior:** Check first N seconds/X bytes of server output
+- **Disconnect if:** TLS handshake, HTTP headers, obvious binary protocol
+- **Error code:** protocol_mismatch
+- [ ] **Acceptance:** Non-MUD protocols rejected with clear message
+- [ ] **Commit:** "SP02PH04T07: Protocol plausibility check added"
+
+### SP02PH04T08 — Blocked Port Metrics
+- [ ] **Task:** Add logging/metrics for blocked_port and protocol_mismatch
+- **Metrics:** Count of blocked ports, count of protocol mismatches
+- [ ] **Acceptance:** Metrics visible in observability tooling
+- [ ] **Commit:** "SP02PH04T08: Port block metrics added"
+
+### SP02PH04T09 — Port Policy Tests
+- [ ] **Task:** Test denylist behavior
+- **Tests:** Connect to blocked port (expect rejection), connect to allowed port (expect success)
+- [ ] **Acceptance:** All denylist tests pass
+- [ ] **Commit:** "SP02PH04T09: Port policy tests completed"
+
 ---
 
 ## Phase 5: QA Phase (PH05)
@@ -198,6 +225,8 @@ This plan outlines the execution path for SP02, introducing the first live MUD c
 - [ ] Invalid host error message displayed
 - [ ] Invalid port error message displayed
 - [ ] Private IP attempt blocked with error
+- [ ] Blocked port (e.g., 3306) rejected with clear error
+- [ ] Allowed port (e.g., 2525) connects successfully
 
 ### SP02PH05T02 — QA Sign-Off
 - [ ] **Task:** Produce QA pass report

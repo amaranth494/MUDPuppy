@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/amaranth494/MudPuppy/internal/config"
+	"github.com/amaranth494/MudPuppy/internal/metrics"
 	"github.com/gorilla/websocket"
 )
 
@@ -246,6 +247,9 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
+		// Record metrics for incoming message
+		metrics.Get().IncWSMessagesIn()
+
 		if msgType != websocket.TextMessage {
 			continue
 		}
@@ -304,6 +308,16 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 
 				connected = true
 				log.Printf("[SP02PH02] Connected to %s:%d for user %s", wsMsg.Host, wsMsg.Port, userIDStr)
+
+				// Protocol plausibility check (SP02PH04T07)
+				// Check after connection to ensure it's actually a MUD server
+				go func() {
+					time.Sleep(500 * time.Millisecond) // Brief delay to let initial data arrive
+					if h.manager.CheckAndDisconnectProtocolMismatch(userIDStr) {
+						log.Printf("[SP02PH04T07] Protocol mismatch detected for user %s, disconnected", userIDStr)
+						h.sendError(conn, "Protocol mismatch: server appears to be non-MUD")
+					}
+				}()
 			}
 
 			// Send success message (common for both paths) - using helper for thread-safe writes
@@ -353,6 +367,8 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 			select {
 			case clientToMUD <- wsMsg.Data:
 				log.Printf("[SP02PH02] TRACE: Queued command to channel at %v", time.Now().UnixNano())
+				// Record metrics for outgoing message
+				metrics.Get().IncWSMessagesOut()
 			default:
 				h.sendError(conn, "Command queue full")
 			}
@@ -388,6 +404,10 @@ func (h *WebSocketHandler) readMUDOutput(ctx context.Context, userID string, mud
 			data := make([]byte, n)
 			copy(data, buffer[:n])
 			log.Printf("[SP02PH02] TRACE: Read %d bytes from MUD at %v", n, time.Now().UnixNano())
+
+			// Record metrics for incoming bytes from MUD
+			metrics.Get().AddMudBytesIn(int64(n))
+
 			select {
 			case mudToClient <- data:
 			case <-ctx.Done():
@@ -402,10 +422,24 @@ func (h *WebSocketHandler) readMUDOutput(ctx context.Context, userID string, mud
 	}
 }
 
-// relayMUDToClient relays MUD output to WebSocket client
+// Soft backpressure constants (SP02PH04T02)
+const (
+	maxCoalesceSize = 64 * 1024             // Max bytes to coalesce before sending
+	coalesceTimeout = 50 * time.Millisecond // Max time to wait before sending partial data
+	slowClientDrops = 100                   // Number of drops before warning
+	sustainedDrops  = 500                   // Number of sustained drops before disconnect
+)
+
+// relayMUDToClient relays MUD output to WebSocket client with soft backpressure
 func (h *WebSocketHandler) relayMUDToClient(ctx context.Context, userID string, conn *websocket.Conn, mudToClient <-chan []byte) {
 	defer log.Printf("[SP02PH02] WS reader (relayMUDToClient) exiting for user %s at %v", userID, time.Now().UnixNano())
 	log.Printf("[SP02PH02] relayMUDToClient started at %v", time.Now().UnixNano())
+
+	var coalesceBuffer []byte
+	lastSendTime := time.Now()
+	dropCount := 0
+	sustainedDropCount := 0
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -419,18 +453,73 @@ func (h *WebSocketHandler) relayMUDToClient(ctx context.Context, userID string, 
 
 			log.Printf("[SP02PH02] TRACE: Forwarding %d bytes to WebSocket at %v", len(cleanData), time.Now().UnixNano())
 
-			// Send as JSON message with type 'data' (using helper for thread-safe writes)
-			err := h.writeJSON(conn, WSMessage{
-				Type: MsgTypeData,
-				Data: string(cleanData),
-			})
-			if err != nil {
-				log.Printf("[SP02PH02] Error writing to WebSocket: %v", err)
-				return
+			// Coalesce data: append to buffer if it fits
+			if len(coalesceBuffer)+len(cleanData) <= maxCoalesceSize {
+				coalesceBuffer = append(coalesceBuffer, cleanData...)
+			} else {
+				// Buffer full - send current and start new
+				if len(coalesceBuffer) > 0 {
+					h.sendCoalescedData(conn, userID, coalesceBuffer, &dropCount, &sustainedDropCount)
+					coalesceBuffer = nil
+				}
+				coalesceBuffer = append(coalesceBuffer, cleanData...)
 			}
-			log.Printf("[SP02PH02] TRACE: Sent %d bytes to WebSocket at %v", len(cleanData), time.Now().UnixNano())
+
+			// Record metrics for outgoing bytes to client
+			metrics.Get().AddMudBytesOut(int64(len(cleanData)))
+
+			// Check if we should send due to time
+			sinceLastSend := time.Since(lastSendTime)
+			if sinceLastSend >= coalesceTimeout && len(coalesceBuffer) > 0 {
+				h.sendCoalescedData(conn, userID, coalesceBuffer, &dropCount, &sustainedDropCount)
+				coalesceBuffer = nil
+			}
+
+		default:
+			// No data available - check if we should send coalesced data
+			sinceLastSend := time.Since(lastSendTime)
+			if sinceLastSend >= coalesceTimeout && len(coalesceBuffer) > 0 {
+				h.sendCoalescedData(conn, userID, coalesceBuffer, &dropCount, &sustainedDropCount)
+				coalesceBuffer = nil
+			}
+
+			// Small sleep to prevent tight loop
+			time.Sleep(10 * time.Millisecond)
 		}
 	}
+}
+
+// sendCoalescedData sends coalesced data to WebSocket with drop handling
+func (h *WebSocketHandler) sendCoalescedData(conn *websocket.Conn, userID string, data []byte, dropCount *int, sustainedDropCount *int) {
+	err := h.writeJSON(conn, WSMessage{
+		Type: MsgTypeData,
+		Data: string(data),
+	})
+
+	if err != nil {
+		log.Printf("[SP02PH04T02] Error writing to WebSocket (slow client?): %v", err)
+		*dropCount++
+		*sustainedDropCount++
+
+		// If sustained drops, log warning
+		if *sustainedDropCount >= sustainedDrops {
+			log.Printf("[SP02PH04T02] Slow client detected for user %s: %d sustained drops", userID, *sustainedDropCount)
+			metrics.Get().IncSlowClient()
+			// Don't disconnect yet - let it continue and see if client recovers
+		}
+
+		// Log warning every slowClientDrops
+		if *dropCount >= slowClientDrops {
+			log.Printf("[SP02PH04T02] Slow client warning for user %s: %d drops in buffer", userID, *dropCount)
+			*dropCount = 0 // Reset for next warning cycle
+		}
+
+		return
+	}
+
+	// Successful send - reset counters
+	*dropCount = 0
+	*sustainedDropCount = 0
 }
 
 // stripTelnetIAC removes telnet IAC (Interpret As Command) sequences from the data
