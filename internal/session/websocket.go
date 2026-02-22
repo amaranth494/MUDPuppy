@@ -245,47 +245,53 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 
 		switch wsMsg.Type {
 		case MsgTypeConnect:
-			// Already connected?
-			if connected {
-				h.sendError(conn, "Already connected")
-				continue
+			var err error
+			var session *Session
+
+			// Check if session already exists (may have been created via REST API)
+			session, err = h.manager.GetSession(userIDStr)
+			if err == nil && session.State == StateConnected {
+				// Session already exists from REST API - just use it
+				connected = true
+				log.Printf("[SP02PH02] Using existing session for user %s (from REST API)", userIDStr)
+			} else {
+				// No existing session - this is a WebSocket-only connect attempt
+				// Validate host/port
+				if wsMsg.Host == "" {
+					h.sendError(conn, "Host is required")
+					continue
+				}
+
+				// Default port to 23
+				if wsMsg.Port == 0 {
+					wsMsg.Port = 23
+				}
+
+				log.Printf("[SP02PH02T01] Connect request: user=%s, host=%s, port=%d", userIDStr, wsMsg.Host, wsMsg.Port)
+
+				// Attempt connection via Manager
+				session, err = h.manager.Connect(ctx, userIDStr, wsMsg.Host, wsMsg.Port)
+				if err != nil {
+					log.Printf("[SP02PH02] Connection failed: %v", err)
+					h.sendError(conn, err.Error())
+					continue
+				}
+
+				// Wait a moment for connection to establish
+				time.Sleep(100 * time.Millisecond)
+
+				// Check if actually connected
+				session, _ = h.manager.GetSession(userIDStr)
+				if session.State != StateConnected {
+					h.sendError(conn, "Failed to establish connection")
+					continue
+				}
+
+				connected = true
+				log.Printf("[SP02PH02] Connected to %s:%d for user %s", wsMsg.Host, wsMsg.Port, userIDStr)
 			}
 
-			// Validate host/port
-			if wsMsg.Host == "" {
-				h.sendError(conn, "Host is required")
-				continue
-			}
-
-			// Default port to 23
-			if wsMsg.Port == 0 {
-				wsMsg.Port = 23
-			}
-
-			log.Printf("[SP02PH02T01] Connect request: user=%s, host=%s, port=%d", userIDStr, wsMsg.Host, wsMsg.Port)
-
-			// Attempt connection via Manager (NOT direct TCP)
-			session, err := h.manager.Connect(ctx, userIDStr, wsMsg.Host, wsMsg.Port)
-			if err != nil {
-				log.Printf("[SP02PH02] Connection failed: %v", err)
-				h.sendError(conn, err.Error())
-				continue
-			}
-
-			// Wait a moment for connection to establish
-			time.Sleep(100 * time.Millisecond)
-
-			// Check if actually connected
-			session, _ = h.manager.GetSession(userIDStr)
-			if session.State != StateConnected {
-				h.sendError(conn, "Failed to establish connection")
-				continue
-			}
-
-			connected = true
-			log.Printf("[SP02PH02] Connected to %s:%d for user %s", wsMsg.Host, wsMsg.Port, userIDStr)
-
-			// Send success message
+			// Send success message (common for both paths)
 			err = conn.WriteJSON(WSMessage{
 				Type:   MsgTypeStatus,
 				Status: StateConnected,
