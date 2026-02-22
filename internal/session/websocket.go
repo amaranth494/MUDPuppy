@@ -397,15 +397,10 @@ func (h *WebSocketHandler) relayMUDToClient(ctx context.Context, userID string, 
 			// Reset idle timer on inbound data
 			h.manager.ResetIdleTimerOnInbound(userID)
 
-			// Debug: log first few bytes
-			if len(data) > 0 {
-				log.Printf("[SP02PH02] DEBUG: First 10 bytes: %v", data[:min(10, len(data))])
-			}
-
 			// Strip telnet IAC sequences before sending to client
 			cleanData := stripTelnetIAC(data)
 
-			log.Printf("[SP02PH02] DEBUG: Sending %d bytes to WebSocket (was %d bytes) at %v", len(cleanData), len(data), time.Now().UnixNano())
+			log.Printf("[SP02PH02] DEBUG: Sending %d bytes to WebSocket (was %d bytes)", len(cleanData), len(data))
 
 			// Send as JSON message with type 'data'
 			err := conn.WriteJSON(WSMessage{
