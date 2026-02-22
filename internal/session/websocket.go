@@ -169,6 +169,8 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 	// Set up ping/pong handler for keepalive (SP02 hardening)
 	pongChan := make(chan string, 1)
 	conn.SetPongHandler(func(appData string) error {
+		// Refresh read deadline on pong to keep connection alive
+		conn.SetReadDeadline(time.Now().Add(30 * time.Second))
 		pongChan <- appData
 		return nil
 	})
@@ -183,8 +185,8 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 
 	// Channel for MUD output to send to client
 	mudToClient := make(chan []byte, 100)
-	// Channel for client commands to send to MUD
-	clientToMUD := make(chan string, 10)
+	// Channel for client commands to send to MUD (buffered to prevent blocking)
+	clientToMUD := make(chan string, 64)
 	// Channel for connection status
 	statusChan := make(chan string, 2)
 
@@ -368,6 +370,7 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 
 // readMUDOutput reads output from MUD and sends to mudToClient channel
 func (h *WebSocketHandler) readMUDOutput(ctx context.Context, userID string, mudToClient chan<- []byte, statusChan chan<- string) {
+	defer log.Printf("[SP02PH02] WS reader (readMUDOutput) exiting for user %s at %v", userID, time.Now().UnixNano())
 	log.Printf("[SP02PH02] readMUDOutput started at %v", time.Now().UnixNano())
 	buffer := make([]byte, 8192)
 
@@ -406,6 +409,7 @@ func (h *WebSocketHandler) readMUDOutput(ctx context.Context, userID string, mud
 
 // relayMUDToClient relays MUD output to WebSocket client
 func (h *WebSocketHandler) relayMUDToClient(ctx context.Context, userID string, conn *websocket.Conn, mudToClient <-chan []byte) {
+	defer log.Printf("[SP02PH02] WS reader (relayMUDToClient) exiting for user %s at %v", userID, time.Now().UnixNano())
 	log.Printf("[SP02PH02] relayMUDToClient started at %v", time.Now().UnixNano())
 	for {
 		select {
@@ -493,15 +497,18 @@ func stripTelnetIAC(data []byte) []byte {
 
 // handleClientCommands handles commands from client and forwards to MUD
 func (h *WebSocketHandler) handleClientCommands(ctx context.Context, userID string, clientToMUD <-chan string, statusChan chan<- string) {
+	defer log.Printf("[SP02PH02] WS reader (handleClientCommands) exiting for user %s at %v", userID, time.Now().UnixNano())
+	log.Printf("[SP02PH02] handleClientCommands started at %v", time.Now().UnixNano())
 	for {
 		select {
 		case <-ctx.Done():
+			log.Printf("[SP02PH02] handleClientCommands: context cancelled for user %s", userID)
 			return
 		case command := <-clientToMUD:
 			log.Printf("[SP02PH02] TRACE: Received command from client at %v: %q", time.Now().UnixNano(), command)
 			err := h.manager.SendCommand(userID, command)
 			if err != nil {
-				log.Printf("[SP02PH02] Error sending command to MUD: %v", err)
+				log.Printf("[SP02PH02] Error sending command to MUD: %v - sending disconnect status", err)
 				statusChan <- "disconnected"
 				return
 			}
