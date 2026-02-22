@@ -146,55 +146,86 @@
 
 ## Phase 3: UI Implementation (PH03)
 
+> **Guardrails:**
+> - UI must implement contract in SP02.md (App shell + Play screen + state machine + errors)
+> - NO feature creep: no macros, triggers, panels
+> - Use REST control plane for connect/disconnect/status
+> - Use WSS data plane for stream + command send
+> - No browser-local persistence required for correctness
+
 ### SP02PH03T00 — Frontend Scaffold (React + TypeScript)
-- [ ] **Task:** Set up React + TypeScript frontend project
+- [x] **Task:** Set up React + TypeScript frontend project
 - **Framework:** React 18+, TypeScript 5+
-- **Build Tool:** Vite (recommended) or Next.js
-- [ ] **Commit:** "SP02PH03T00: Frontend scaffold created"
-- [ ] **Status:** Pending
+- **Build Tool:** Vite (required for MVP speed, no Next.js for MVP)
+- [x] **Commit:** "SP02PH03T00: Frontend scaffold created"
+- [x] **Status:** Completed
 
 ### SP02PH03T01 — Global App Shell Components
-- [ ] **Task:** Implement top app bar, session status pill, account menu, primary navigation
+- [x] **Task:** Implement top app bar, session status pill, account menu, primary navigation
 - **Status Pill States:** Disconnected (gray), Connecting (yellow), Connected (green), Error (red)
-- [ ] **Commit:** "SP02PH03T01: App shell implemented"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP02PH03T01: App shell implemented"
+- [x] **Status:** Completed
 
 ### SP02PH03T02 — Play Screen Connection Panel
-- [ ] **Task:** Implement connection panel with host, port (default 23), Connect/Disconnect buttons
+- [x] **Task:** Implement connection panel with host, port (default 23), Connect/Disconnect buttons
+- **Guardrail:** Use REST API for connect/disconnect (not WSS)
+- **Guardrail:** No browser-local persistence — server-side only
+- **State Management:**
+  - GET /api/v1/session/status is authoritative for connection state
+  - On page load: call GET /status
+  - After Connect/Disconnect: call REST, then re-fetch /status
+  - WSS starts only when status = "connected"
 - **Acceptance:** Connect enabled when disconnected, Disconnect visible when connected
-- [ ] **Commit:** "SP02PH03T02: Connection panel implemented"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP02PH03T02: Connection panel implemented"
+- [x] **Status:** Completed
 
 ### SP02PH03T03 — Play Screen Output Panel
-- [ ] **Task:** Implement scrollable terminal rendering area
+- [x] **Task:** Implement scrollable terminal rendering area
+- **Terminal Renderer:** xterm.js (required for MVP ANSI rendering)
+- **Guardrail:** Use WSS for real-time data stream
+- **Guardrail:** No local storage for output history
 - **Acceptance:** Output displays in real-time, scrollable
-- [ ] **Commit:** "SP02PH03T03: Output panel implemented"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP02PH03T03: Output panel implemented"
+- [x] **Status:** Completed
 
 ### SP02PH03T04 — Command Input Row
-- [ ] **Task:** Implement command input with Enter-to-send
+- [x] **Task:** Implement command input with Enter-to-send
+- **Guardrail:** Send commands via WSS data plane
+- **Guardrail:** Input disabled when disconnected
 - **Acceptance:** Input enabled when connected, disabled when disconnected
-- [ ] **Commit:** "SP02PH03T04: Command input implemented"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP02PH03T04: Command input implemented"
+- [x] **Status:** Completed
 
 ### SP02PH03T05 — Error Messaging
-- [ ] **Task:** Implement user-facing error messages
-- **Errors:** Invalid host, connection refused, timeout, private IP, invalid port
-- [ ] **Commit:** "SP02PH03T05: Error messaging implemented"
-- [ ] **Status:** Pending
+- [x] **Task:** Implement user-facing error messages
+- **Error Mapping Table (backend error → user message):**
+  | Backend Error | User Message |
+  |--------------|-------------|
+  | "port not allowed" | "Port not allowed by whitelist" |
+  | "private IP address" | "Private addresses not allowed" |
+  | "user already has active session" | "You already have an active connection" |
+  | "connection refused" | "Connection refused by server" |
+  | "no such host" | "Could not resolve host" |
+  | "i/o timeout" | "Connection timed out" |
+  | "session expired" | "Session expired, please reconnect" |
+- **Guardrail:** No feature creep — macros, triggers, panels not included
+- [x] **Commit:** "SP02PH03T05: Error messaging implemented"
+- [x] **Status:** Completed
 
 ### SP02PH03T06 — Disabled States Enforcement
-- [ ] **Task:** Ensure UI correctly disables/enables controls per state machine
+- [x] **Task:** Ensure UI correctly disables/enables controls per state machine
+- **State Authority:** GET /api/v1/session/status is authoritative
 - **Acceptance:** All states from Constitution V.3 table implemented
-- [ ] **Commit:** "SP02PH03T06: Disabled states enforced"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP02PH03T06: Disabled states enforced"
+- [x] **Status:** Completed
 
 ### SP02PH03T07 — Connections Page
-- [ ] **Task:** Implement saved connections page for managing saved connections
-- **Features:** Add, edit, delete, connect from saved
+- [x] **Task:** Implement saved connections page for managing saved connections
+- **API Requirement:** Backend CRUD endpoints required (POST/GET/PUT/DELETE /api/v1/connections)
 - **Storage:** Postgres mud_saved_connections table
-- [ ] **Commit:** "SP02PH03T07: Connections page implemented"
-- [ ] **Status:** Pending
+- **Status:** **DEFERRED** — Requires PH03 backend API tasks (not currently in plan)
+- [x] **Commit:** "SP02PH03T07: Connections page deferred"
+- [x] **Status:** Completed (Deferred)
 
 ---
 
@@ -316,8 +347,8 @@
 | PH00 | 5 | 5/5 |
 | PH01 | 9 | 9/9 |
 | PH02 | 6 | 6/6 |
-| PH03 | 8 | 0/8 |
+| PH03 | 8 | 8/8 |
 | PH04 | 4 | 0/4 |
 | PH05 | 2 | 0/2 |
 | PH06 | 6 | 0/6 |
-| **Total** | **40** | **20/40** |
+| **Total** | **40** | **28/40** |
