@@ -389,7 +389,11 @@ func (h *WebSocketHandler) relayMUDToClient(ctx context.Context, userID string, 
 			// Reset idle timer on inbound data
 			h.manager.ResetIdleTimerOnInbound(userID)
 
-			err := conn.WriteMessage(websocket.TextMessage, data)
+			// Send as JSON message with type 'data'
+			err := conn.WriteJSON(WSMessage{
+				Type: MsgTypeData,
+				Data: string(data),
+			})
 			if err != nil {
 				log.Printf("[SP02PH02] Error writing to WebSocket: %v", err)
 				return
