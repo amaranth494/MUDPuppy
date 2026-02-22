@@ -397,6 +397,11 @@ func (h *WebSocketHandler) relayMUDToClient(ctx context.Context, userID string, 
 			// Reset idle timer on inbound data
 			h.manager.ResetIdleTimerOnInbound(userID)
 
+			// Debug: log first few bytes
+			if len(data) > 0 {
+				log.Printf("[SP02PH02] DEBUG: First 10 bytes: %v", data[:min(10, len(data))])
+			}
+
 			// Strip telnet IAC sequences before sending to client
 			cleanData := stripTelnetIAC(data)
 
