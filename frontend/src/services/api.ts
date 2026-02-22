@@ -153,11 +153,16 @@ export class WebSocketManager {
   }
 
   sendCommand(command: string): void {
+    const timestamp = new Date().toISOString();
+    console.log(`[API ${timestamp}] sendCommand called: "${command}"`);
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      console.log(`[API ${timestamp}] WebSocket.send: "${command}"`);
       this.ws.send(JSON.stringify({
         type: 'data',
         data: command,
       }));
+    } else {
+      console.log(`[API ${timestamp}] Cannot send - ws: ${!!this.ws}, readyState: ${this.ws?.readyState}`);
     }
   }
 
