@@ -150,14 +150,6 @@ func (m *Manager) ValidatePort(port int) error {
 	return nil
 }
 
-func (m *Manager) getAllowedPorts() []int {
-	ports := make([]int, 0, len(m.portWhitelist))
-	for p := range m.portWhitelist {
-		ports = append(ports, p)
-	}
-	return ports
-}
-
 func (m *Manager) getAllowlistOverridePorts() []int {
 	ports := make([]int, 0, len(m.portAllowlistOverride))
 	for p := range m.portAllowlistOverride {
@@ -234,39 +226,6 @@ func (m *Manager) Connect(ctx context.Context, userID, host string, port int) (*
 
 	log.Printf("[SP02PH01] Connection established for user=%s", userID)
 	return session, nil
-}
-
-// consumeTelnetNegotiation reads and discards initial telnet negotiation bytes
-// This ensures the client only receives application-layer text
-func (m *Manager) consumeTelnetNegotiation(conn net.Conn) {
-	// Set a short read deadline
-	conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
-
-	buf := make([]byte, 1024)
-	var textData []byte
-
-	for {
-		n, err := conn.Read(buf)
-		if err != nil {
-			break
-		}
-
-		// Only discard IAC (255) telnet negotiation bytes
-		// Keep actual text data for the client
-		for i := 0; i < n; i++ {
-			if buf[i] != 255 { // Not an IAC command
-				textData = append(textData, buf[i])
-			}
-		}
-	}
-
-	// If we collected text data, log it for debugging
-	if len(textData) > 0 {
-		log.Printf("[SP02PH01] Collected %d bytes of initial data from MUD", len(textData))
-	}
-
-	// Reset to no deadline for normal operation
-	conn.SetReadDeadline(time.Time{})
 }
 
 // startTimers starts idle timeout and hard cap timers
