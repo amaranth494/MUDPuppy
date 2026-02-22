@@ -166,12 +166,8 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 	// Write deadline for all outbound writes
 	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 
-	// Set up ping/pong handler for keepalive (SP02 hardening)
-	pongChan := make(chan string, 1)
+	// Note: Don't use pongChan - it blocks and prevents deadline refresh
 	conn.SetPongHandler(func(appData string) error {
-		// Refresh read deadline on pong to keep connection alive
-		conn.SetReadDeadline(time.Now().Add(30 * time.Second))
-		pongChan <- appData
 		return nil
 	})
 
@@ -234,8 +230,7 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 			// No blocking - continue to read message immediately
 		}
 
-		// Set read deadline
-		conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+		// No read deadline - let MUD server handle idle timeout
 
 		// Read message from client
 		msgType, msg, err := conn.ReadMessage()
