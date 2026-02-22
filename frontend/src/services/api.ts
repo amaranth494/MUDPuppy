@@ -5,7 +5,10 @@ const API_BASE = '/api/v1';
 // Helper to handle auth errors and redirect to login
 function handleAuthError(response: Response): void {
   if (response.status === 401) {
-    window.location.href = '/login';
+    // Don't redirect if already on login page
+    if (!window.location.pathname.startsWith('/login')) {
+      window.location.href = '/login';
+    }
   }
 }
 
