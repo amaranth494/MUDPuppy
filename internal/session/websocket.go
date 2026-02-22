@@ -301,7 +301,7 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 				continue
 			}
 
-			// Start the MUD->client relay
+			// Start the MUD->client relay (for both new and existing sessions)
 			go h.relayMUDToClient(ctx, userIDStr, conn, mudToClient)
 
 		case MsgTypeDisconnect:
