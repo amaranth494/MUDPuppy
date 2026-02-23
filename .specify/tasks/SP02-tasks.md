@@ -470,7 +470,7 @@ railway status
 - [x] **Status:** Completed
 
 ### SP02PH06T05 — Merge to Master via PR
-- [ ] **Task:** Open PR: staging → master
+- [x] **Task:** Open PR: staging → master
 - **Requirements:**
   - CI must pass
   - Merge via PR (no CLI push to prod)
@@ -479,26 +479,26 @@ railway status
   - QA phase complete
   - Acceptance criteria verified
 - **Acceptance:** Production deploy triggers from master automatically
-- [ ] **Commit:** "SP02PH06T05: Merged to master"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP02PH06T05: Merged to master"
+- [x] **Status:** Completed
 
 ### SP02PH06T06 — Production Verification
-- [ ] **Task:** Repeat smaller version of staging validation on production
+- [x] **Task:** Repeat smaller version of staging validation on production
 - **Validation:**
   - Login works
   - Connect to one MUD, send/receive
   - Denylist + private IP block work
   - Metrics endpoint still secret-protected
 - **Acceptance:** Production is healthy; no regressions; logs clean
-- [ ] **Status:** Pending
+- [x] **Status:** Completed
 
 ### SP02PH06T07 — Spec Closed
-- [ ] **Task:** Update SP02.md status to Closed
+- [x] **Task:** Update SP02.md status to Closed
 - **Idle Timeout Note:**
   - WebSocket read-deadline idle disconnect: REMOVED
   - Session hard cap (24h): REMAINS
-- [ ] **Commit:** "SP02PH06T07: Spec closed"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP02PH06T07: Spec closed"
+- [x] **Status:** Completed
 
 ---
 
@@ -512,5 +512,5 @@ railway status
 | PH03 | 8 | 8/8 |
 | PH04 | 9 | 9/9 (All tasks completed & tested) |
 | PH05 | 2 | 2/2 (QA complete) |
-| PH06 | 7 | 0/7 |
+| PH06 | 7 | 7/7 |
 | **Total** | **45** | **45/45** |

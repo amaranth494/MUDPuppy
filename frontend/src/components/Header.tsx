@@ -1,9 +1,58 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
 
+// Session Badge Component - derives from GET /api/v1/session/status (Constitution IX)
+export function SessionBadge() {
+  const { connectionState, refreshStatus } = useSession();
+  
+  // Refresh status periodically to ensure badge matches backend truth
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refreshStatus();
+    }, 5000); // Poll every 5 seconds
+    
+    return () => clearInterval(interval);
+  }, [refreshStatus]);
+  
+  const getStateDisplay = () => {
+    switch (connectionState) {
+      case 'connected':
+        return 'Connected';
+      case 'connecting':
+        return 'Connecting';
+      case 'disconnected':
+        return 'Disconnected';
+      case 'error':
+        return 'Error';
+      default:
+        return 'Disconnected';
+    }
+  };
+  
+  const getStatusClass = () => {
+    switch (connectionState) {
+      case 'connected':
+        return 'status-connected';
+      case 'connecting':
+        return 'status-connecting';
+      case 'error':
+        return 'status-error';
+      default:
+        return 'status-disconnected';
+    }
+  };
+  
+  return (
+    <div className={`session-badge ${getStatusClass()}`}>
+      <span className="session-badge-dot" />
+      <span className="session-badge-text">{getStateDisplay()}</span>
+    </div>
+  );
+}
+
 export default function Header() {
-  const { user, connectionState } = useSession();
+  const { user } = useSession();
   const [showDropdown, setShowDropdown] = useState(false);
   const location = useLocation();
 
@@ -52,10 +101,8 @@ export default function Header() {
       </nav>
 
       <div className="header-right">
-        <div className={`status-pill ${connectionState}`}>
-          <span className="status-dot" />
-          <span>{connectionState}</span>
-        </div>
+        {/* Session Badge - Persistent status indicator derived from API */}
+        <SessionBadge />
 
         <div className="account-menu">
           <button 

@@ -61,6 +61,117 @@ body {
   overflow: hidden;
 }
 
+/* App Shell - Persistent layout with Play at root */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  position: relative;
+}
+
+/* Play Layer - Always mounted, session persists */
+.play-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Overlay Layer - For Connections, Account, Help pages */
+.overlay-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding-top: 60px; /* Account for fixed header */
+}
+
+/* Overlay content container */
+.overlay-content {
+  padding: var(--spacing-xl);
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Close button for overlay */
+.overlay-close {
+  position: fixed;
+  top: 70px;
+  right: var(--spacing-lg);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  z-index: 51;
+}
+
+.overlay-close:hover {
+  border-color: var(--color-text);
+  background: rgba(0, 255, 0, 0.1);
+}
+
+/* Session Badge - Persistent status indicator (Constitution IX) */
+.session-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: 999px;
+  font-size: var(--font-size-sm);
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.session-badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.session-badge.status-disconnected {
+  background: rgba(128, 128, 128, 0.2);
+  color: #888;
+}
+
+.session-badge.status-connecting {
+  background: rgba(255, 255, 0, 0.2);
+  color: var(--color-warning);
+}
+
+.session-badge.status-connected {
+  background: rgba(0, 255, 0, 0.2);
+  color: var(--color-success);
+}
+
+.session-badge.status-error {
+  background: rgba(255, 68, 68, 0.2);
+  color: var(--color-error);
+}
+
 /* Enable text selection in xterm.js terminal */
 .xterm {
   user-select: text !important;

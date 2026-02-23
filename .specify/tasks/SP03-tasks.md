@@ -11,54 +11,54 @@
 ## Phase 0: Branch Creation (PH00)
 
 ### SP03PH00T01 — Create spec branch
-- [ ] **Task:** Create branch `sp03-persistent-shell-connections` from master
-- [ ] **Commit:** "SP03PH00: Branch created"
-- [ ] **Status:** Pending
+- [x] **Task:** Create branch `sp03-persistent-shell-connections` from master
+- [x] **Commit:** "SP03PH00: Branch created"
+- [x] **Status:** Complete
 
 ### SP03PH00T02 — Commit spec document
-- [ ] **Task:** Commit SP03.md, SP03-plan.md, SP03-tasks.md to branch
-- [ ] **Commit:** "SP03PH00: Branch created"
-- [ ] **Status:** Pending
+- [x] **Task:** Commit SP03.md, SP03-plan.md, SP03-tasks.md to branch
+- [x] **Commit:** "SP03PH00: Branch created"
+- [x] **Status:** Complete
 
 ### SP03PH00T03 — Push to origin
-- [ ] **Task:** Push branch to origin
-- [ ] **Commit:** "SP03PH00: Branch pushed"
-- [ ] **Status:** Pending
+- [x] **Task:** Push branch to origin
+- [x] **Commit:** "SP03PH00: Branch pushed"
+- [x] **Status:** Complete
 
 ### SP03PH00T04 — Verify CI passes
-- [ ] **Task:** Verify CI passes on branch
-- [ ] **Acceptance:** CI green
-- [ ] **Commit:** N/A
-- [ ] **Status:** Pending
+- [x] **Task:** Verify CI passes on branch
+- [x] **Acceptance:** CI green
+- [x] **Commit:** N/A
+- [x] **Status:** Complete
 
 ### SP03PH00T05 — Phase 0 complete
-- [ ] **Task:** Confirm Phase 0 complete before feature work
-- [ ] **Status:** Pending
+- [x] **Task:** Confirm Phase 0 complete before feature work
+- [x] **Status:** Complete
 
 ---
 
 ## Phase 1: Persistent App Shell (PH01)
 
 ### SP03PH01T01 — App Root Restructure
-- [ ] **Task:** Restructure App.tsx to mount Play at root level
+- [x] **Task:** Restructure App.tsx to mount Play at root level
 - **Acceptance:** Session persists across route changes
-- [ ] **Commit:** "SP03PH01T01: App shell restructured"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP03PH01T01: App shell restructured"
+- [x] **Status:** Complete
 
 ### SP03PH01T02 — Session State Lift
-- [ ] **Task:** Lift session state to application root context
+- [x] **Task:** Lift session state to application root context
 - **Acceptance:** SessionContext available globally
-- [ ] **Commit:** "SP03PH01T02: Session state lifted to root"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP03PH01T02: Session state lifted to root"
+- [x] **Status:** Complete
 
 ### SP03PH01T03 — Session Badge Component
-- [ ] **Task:** Create persistent session status badge
+- [x] **Task:** Create persistent session status badge
 - **States:** Connected, Connecting, Disconnected
 - **Source of Truth:** Must derive from GET /api/v1/session/status (Constitution IX)
 - **Must NOT:** Infer solely from WebSocket open/close events
 - **Acceptance:** Badge visible in all views
-- [ ] **Commit:** "SP03PH01T03: Session badge component created"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP03PH01T03: Session badge component created"
+- [x] **Status:** Complete
 
 ---
 
@@ -326,8 +326,8 @@
 
 | Phase | Tasks | Status |
 |-------|-------|--------|
-| PH00 | 5 | 0/5 |
-| PH01 | 3 | 0/3 |
+| PH00 | 5 | 5/5 |
+| PH01 | 3 | 3/3 |
 | PH02 | 4 | 0/4 |
 | PH03 | 4 | 0/4 |
 | PH04 | 3 | 0/3 |
@@ -335,7 +335,7 @@
 | PH06 | 6 | 0/6 |
 | PH07 | 7 | 0/7 |
 | PH08 | 6 | 0/6 |
-| **Total** | **42** | **0/42** |
+| **Total** | **42** | **3/42** |
 
 ---
 
