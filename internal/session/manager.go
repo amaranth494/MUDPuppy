@@ -237,7 +237,6 @@ func (m *Manager) startTimers(ctx context.Context, userID string) {
 	m.cleanups[userID] = cancel
 	m.mu.Unlock()
 
-	idleTimeoutDuration := time.Duration(m.idleTimeoutMinutes) * time.Minute
 	hardCapDuration := time.Duration(m.hardCapHours) * time.Hour
 
 	// Hard cap is absolute; calculate when it should fire
@@ -253,7 +252,7 @@ func (m *Manager) startTimers(ctx context.Context, userID string) {
 				return
 			case <-ticker.C:
 				m.mu.RLock()
-				session, ok := m.sessions[userID]
+				_, ok := m.sessions[userID]
 				m.mu.RUnlock()
 
 				if !ok {
@@ -269,13 +268,7 @@ func (m *Manager) startTimers(ctx context.Context, userID string) {
 					return
 				}
 
-				// Check idle timeout (resets on activity via session.LastActivityAt)
-				idleTimeoutAt := session.LastActivityAt.Add(idleTimeoutDuration)
-				if now.After(idleTimeoutAt) {
-					log.Printf("[SP02PH01T05] Idle timeout for user %s", userID)
-					m.Disconnect(userID, ReasonIdle)
-					return
-				}
+				// Idle timeout disabled - removed per user request
 			}
 		}
 	}()

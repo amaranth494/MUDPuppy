@@ -328,7 +328,6 @@
 - [x] Failed connect (invalid host)
 - [x] Failed connect (connection refused)
 - [x] Failed connect (timeout)
-- [x] Idle timeout at 30 minutes (implemented in manager.go, configurable)
 - [x] Hard cap at 24 hours (implemented in manager.go, configurable)
 - [x] Disconnect button functionality
 - [x] Rapid connect/disconnect sequences
