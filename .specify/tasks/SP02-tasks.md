@@ -332,10 +332,10 @@
 - [x] Disconnect button functionality
 - [x] Rapid connect/disconnect sequences
 - [x] Two users simultaneously (isolation)
-- [x] Invalid host error message displayed
-- [x] Invalid port error message displayed
-- [x] Private IP attempt blocked with error
-- [x] Blocked port (e.g., 3306) rejected with clear error
+- [x] Invalid host error message displayed - Connection timed out
+- [x] Invalid port error message displayed - port XX is blocked for security reasons
+- [x] Private IP attempt blocked with error - private addresses not allowed
+- [x] Blocked port (e.g., 3306) rejected with clear error - port 3306 is blocked for security reasons
 - [x] Allowed port (e.g., 2525) connects successfully
 
 #### Verification Completed:
@@ -357,8 +357,8 @@
   - All API endpoints present in implementation
   - All UI components present in implementation
   - All acceptance criteria from SP02.md covered in code
-- [ ] **Commit:** "SP02PH05T02: QA sign-off"
-- [ ] **Status:** Pending
+- [X] **Commit:** "SP02PH05T02: QA sign-off"
+- [x] **Status:** Completed
 
 ---
 
@@ -423,6 +423,6 @@
 | PH02 | 6 | 6/6 |
 | PH03 | 8 | 8/8 |
 | PH04 | 9 | 9/9 (All tasks completed & tested) |
-| PH05 | 2 | 2/2 (QA in progress) |
+| PH05 | 2 | 2/2 (QA complete) |
 | PH06 | 6 | 0/6 |
-| **Total** | **40** | **39/40** |
+| **Total** | **40** | **40/40** |
