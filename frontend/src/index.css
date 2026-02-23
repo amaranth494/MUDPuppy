@@ -816,7 +816,6 @@ body {
   width: 100%;
   box-sizing: border-box;
   padding: var(--spacing-md);
-  padding-top: 60px; /* Account for fixed header */
   gap: var(--spacing-md);
 }
 
@@ -876,6 +875,13 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 300px;
+}
+
+.output-panel-full {
+  flex: 1;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
 }
 
 .terminal-container {

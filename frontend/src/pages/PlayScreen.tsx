@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
@@ -13,16 +13,9 @@ const terminalSelectionStyle = {
 export default function PlayScreen() {
   const { 
     connectionState, 
-    error, 
-    connect, 
-    disconnect,
     wsManager,
     isInputLocked,
   } = useSession();
-
-  const [inputHost, setInputHost] = useState('');
-  const [inputPort, setInputPort] = useState(23);
-  const [isConnecting, setIsConnecting] = useState(false);
   
   const terminalRef = useRef<HTMLDivElement>(null);
   const terminalInstanceRef = useRef<Terminal | null>(null);
@@ -90,7 +83,7 @@ export default function PlayScreen() {
 
     // Initial message
     terminal.writeln('Welcome to MUDPuppy!');
-    terminal.writeln('Enter a host and port to connect to a MUD server.');
+    terminal.writeln('Click Play in the sidebar to connect to a MUD server.');
     terminal.writeln('');
 
     return () => {
@@ -137,32 +130,6 @@ export default function PlayScreen() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const handleConnect = async () => {
-    if (!inputHost.trim()) return;
-    
-    setIsConnecting(true);
-    try {
-      await connect(inputHost.trim(), inputPort);
-      // Note: MUD output arrives via WebSocket - no need for "Connecting..." message
-      // The button already shows "Connecting..." state
-    } catch (err) {
-      // Error is handled by context
-    } finally {
-      setIsConnecting(false);
-    }
-  };
-
-  const handleDisconnect = async () => {
-    try {
-      await disconnect();
-      if (terminalInstanceRef.current) {
-        terminalInstanceRef.current.writeln('\r\n[Disconnected by user]\r\n');
-      }
-    } catch (err) {
-      // Error is handled by context
-    }
-  };
-
   const handleCommand = (command: string) => {
     // SP03PH03: Gate command submission when modal is open
     // This prevents keystrokes from leaking to MUD while modal is active
@@ -179,75 +146,10 @@ export default function PlayScreen() {
     }
   };
 
-  // State machine for UI
-  const canConnect = (connectionState === 'disconnected' || connectionState === 'error') && !isConnecting;
-  const canDisconnect = connectionState === 'connected' || connectionState === 'error';
-  const isConnectingState = connectionState === 'connecting' || isConnecting;
-  const showError = error && connectionState === 'error';
-
   return (
     <div className="play-screen">
-      {/* Connection Panel */}
-      <div className="connection-panel">
-        <div className="form-group">
-          <label className="form-label">Host</label>
-          <input
-            type="text"
-            className="form-input"
-            placeholder="e.g., example.com"
-            value={inputHost}
-            onChange={(e) => setInputHost(e.target.value)}
-            disabled={!canConnect}
-          />
-        </div>
-        
-        <div className="form-group">
-          <label className="form-label">Port</label>
-          <input
-            type="number"
-            className="form-input"
-            placeholder="23"
-            value={inputPort}
-            onChange={(e) => setInputPort(parseInt(e.target.value) || 23)}
-            disabled={!canConnect}
-          />
-        </div>
-        
-        {canConnect && (
-          <button 
-            className="btn btn-primary"
-            onClick={handleConnect}
-            disabled={!inputHost.trim() || isConnectingState}
-          >
-            Connect
-          </button>
-        )}
-        
-        {canDisconnect && (
-          <button 
-            className="btn btn-danger"
-            onClick={handleDisconnect}
-          >
-            Disconnect
-          </button>
-        )}
-        
-        {isConnectingState && (
-          <button className="btn btn-secondary" disabled>
-            Connecting...
-          </button>
-        )}
-      </div>
-
-      {/* Error Message */}
-      {showError && (
-        <div className="message message-error">
-          {error}
-        </div>
-      )}
-
-      {/* Output Panel */}
-      <div className="output-panel">
+      {/* Output Panel - Full height terminal */}
+      <div className="output-panel output-panel-full">
         <div className="terminal-container" ref={terminalRef} />
       </div>
 
@@ -256,7 +158,7 @@ export default function PlayScreen() {
         <input
           type="text"
           className="form-input"
-          placeholder={connectionState === 'connected' ? 'Type command and press Enter...' : 'Connect to a MUD server first'}
+          placeholder={connectionState === 'connected' ? 'Type command and press Enter...' : 'Connect to a MUD server via Play in sidebar'}
           disabled={connectionState !== 'connected'}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
