@@ -16,7 +16,8 @@ export default function PlayScreen() {
     error, 
     connect, 
     disconnect,
-    wsManager
+    wsManager,
+    isInputLocked,
   } = useSession();
 
   const [inputHost, setInputHost] = useState('');
@@ -163,6 +164,12 @@ export default function PlayScreen() {
   };
 
   const handleCommand = (command: string) => {
+    // SP03PH03: Gate command submission when modal is open
+    // This prevents keystrokes from leaking to MUD while modal is active
+    if (isInputLocked) {
+      return;
+    }
+    
     if (wsManager && connectionState === 'connected') {
       wsManager.sendCommand(command + '\n');
       // Echo command locally

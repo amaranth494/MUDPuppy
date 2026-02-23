@@ -20,6 +20,9 @@ interface SessionContextType {
   disconnect: () => Promise<void>;
   refreshStatus: () => Promise<void>;
   wsManager: WebSocketManager | null;
+  // Input lock state for modal (SP03PH03)
+  isInputLocked: boolean;
+  setInputLocked: (locked: boolean) => void;
 }
 
 const SessionContext = createContext<SessionContextType | null>(null);
@@ -44,6 +47,10 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   const [host, setHost] = useState<string>('');
   const [port, setPort] = useState<number>(23);
   const [wsManager, setWsManager] = useState<WebSocketManager | null>(null);
+  
+  // Input lock state for modal (SP03PH03)
+  // When true, terminal input is locked and commands cannot be sent to MUD
+  const [isInputLocked, setInputLocked] = useState(false);
 
   // Check authentication on mount
   useEffect(() => {
@@ -166,6 +173,8 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
         disconnect,
         refreshStatus,
         wsManager,
+        isInputLocked,
+        setInputLocked,
       }}
     >
       {children}

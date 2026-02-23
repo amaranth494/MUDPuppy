@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { SessionProvider, useSession } from './context/SessionContext';
 import PlayScreen from './pages/PlayScreen';
 import ConnectionsPage from './pages/ConnectionsPage';
@@ -7,6 +7,7 @@ import HelpPage from './pages/HelpPage';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import LoginScreen from './pages/LoginScreen';
 import Sidebar from './components/Sidebar';
+import Modal from './components/Modal';
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useSession();
@@ -26,25 +27,16 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function OverlayCloseButton() {
-  const navigate = useNavigate();
-  
-  return (
-    <button 
-      className="overlay-close"
-      onClick={() => navigate('/play')}
-    >
-      ✕ Close
-    </button>
-  );
-}
-
 function AppContent() {
   // Drawer state - ephemeral (in-memory only, per Constitution V.a)
   // Does NOT persist to localStorage
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  
+  // Get input lock state from SessionContext (SP03PH03)
+  const { isInputLocked, setInputLocked } = useSession();
   
   // Drawer toggle handlers - have no session impact (SP03PH02T02)
   const handleToggleSidebar = useCallback(() => {
@@ -60,6 +52,34 @@ function AppContent() {
     location.pathname === '/connections' || 
     location.pathname === '/account' || 
     location.pathname === '/help';
+  
+  // Get modal title based on current route
+  const getModalTitle = () => {
+    switch (location.pathname) {
+      case '/connections':
+        return 'Connections';
+      case '/account':
+        return 'Account';
+      case '/help':
+        return 'Help';
+      default:
+        return '';
+    }
+  };
+  
+  // Handle modal close - navigate back to Play
+  const handleModalClose = useCallback(() => {
+    navigate('/play');
+    // Unlock input when modal closes (SP03PH03)
+    setInputLocked(false);
+  }, [navigate, setInputLocked]);
+  
+  // Lock input when modal opens (SP03PH03)
+  useEffect(() => {
+    if (isOverlayPage && !isInputLocked) {
+      setInputLocked(true);
+    }
+  }, [isOverlayPage, isInputLocked, setInputLocked]);
   
   // PlayScreen is always mounted at root level - session persists across route changes
   return (
@@ -87,18 +107,21 @@ function AppContent() {
           <PlayScreen />
         </div>
         
-        {/* Other pages render as overlays on top of PlayScreen */}
+        {/* Modal overlay for Connections, Account, Help pages (SP03PH03) */}
+        {/* Uses Modal component for full-height overlay, close button, ESC support */}
+        {/* Focus management and input lock handled by Modal and SessionContext */}
         {isOverlayPage && (
-          <div className="overlay-layer">
-            <OverlayCloseButton />
-            <div className="overlay-content">
-              <Routes>
-                <Route path="/connections" element={<ConnectionsPage />} />
-                <Route path="/account" element={<AccountPage />} />
-                <Route path="/help" element={<HelpPage />} />
-              </Routes>
-            </div>
-          </div>
+          <Modal
+            isOpen={isOverlayPage}
+            onClose={handleModalClose}
+            title={getModalTitle()}
+          >
+            <Routes>
+              <Route path="/connections" element={<ConnectionsPage />} />
+              <Route path="/account" element={<AccountPage />} />
+              <Route path="/help" element={<HelpPage />} />
+            </Routes>
+          </Modal>
         )}
       </main>
     </div>

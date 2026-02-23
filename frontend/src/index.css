@@ -472,6 +472,90 @@ body {
   left: auto;
 }
 
+/* Modal Component (SP03PH03) */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-lg);
+}
+
+.modal-container {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  width: 100%;
+  max-width: 800px;
+  max-height: calc(100vh - var(--spacing-xl) * 2);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  outline: none;
+}
+
+.modal-close {
+  position: absolute;
+  top: var(--spacing-md);
+  right: var(--spacing-md);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-dim);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: all var(--transition-fast);
+  z-index: 1;
+}
+
+.modal-close:hover {
+  border-color: var(--color-text);
+  color: var(--color-text);
+  background: rgba(0, 255, 0, 0.1);
+}
+
+.modal-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.modal-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-xl);
+  padding-top: calc(var(--spacing-xl) + 40px); /* Account for close button */
+}
+
+/* Full-height modal variant for complex tools */
+.modal-container.modal-full-height {
+  max-width: 90vw;
+  height: calc(100vh - var(--spacing-xl) * 2);
+  max-height: none;
+}
+
+.modal-container.modal-full-height .modal-content {
+  height: 100%;
+  max-height: none;
+}
+
 .header-left {
   display: flex;
   align-items: center;
