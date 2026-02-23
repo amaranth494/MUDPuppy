@@ -64,7 +64,8 @@ export default function QuickConnectModal({ isOpen, onClose }: QuickConnectModal
     
     try {
       await connect(inputHost.trim(), inputPort);
-      // Modal will close via useEffect when connectionState becomes 'connected'
+      // Close modal on successful connect
+      onClose();
     } catch (err) {
       // Error is handled by session context and synced via useEffect
       // Modal stays open to show error
@@ -78,6 +79,8 @@ export default function QuickConnectModal({ isOpen, onClose }: QuickConnectModal
     setLocalError(null);
     try {
       await disconnect();
+      // Close modal after disconnect
+      onClose();
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : 'Disconnect failed');
     }
