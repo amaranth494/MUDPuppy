@@ -40,12 +40,18 @@ export default function QuickConnectModal({ isOpen, onClose }: QuickConnectModal
   }, [error]);
 
   // Close modal only when connection succeeds (transition to connected state)
+  // But NOT when already connected (to allow disconnect access)
   useEffect(() => {
     if (isOpen && connectionState === 'connected' && !isConnecting) {
-      // Connection succeeded - close modal
-      onClose();
+      // Only close if we just completed a connection (was previously connecting)
+      // Don't close if already connected (user wants to access disconnect)
+      // We track this by checking if we were in the connecting state
+      // For now, only auto-close if there's no current host (not already connected)
+      if (!host) {
+        onClose();
+      }
     }
-  }, [isOpen, connectionState, isConnecting, onClose]);
+  }, [isOpen, connectionState, isConnecting, onClose, host]);
 
   const handleConnect = async () => {
     if (!inputHost.trim()) {
