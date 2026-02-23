@@ -39,6 +39,14 @@ export default function QuickConnectModal({ isOpen, onClose }: QuickConnectModal
     }
   }, [error]);
 
+  // Close modal only when connection succeeds (transition to connected state)
+  useEffect(() => {
+    if (isOpen && connectionState === 'connected' && !isConnecting) {
+      // Connection succeeded - close modal
+      onClose();
+    }
+  }, [isOpen, connectionState, isConnecting, onClose]);
+
   const handleConnect = async () => {
     if (!inputHost.trim()) {
       setLocalError('Host is required');
@@ -50,10 +58,10 @@ export default function QuickConnectModal({ isOpen, onClose }: QuickConnectModal
     
     try {
       await connect(inputHost.trim(), inputPort);
-      // On successful connect, close modal
-      onClose();
+      // Modal will close via useEffect when connectionState becomes 'connected'
     } catch (err) {
       // Error is handled by session context and synced via useEffect
+      // Modal stays open to show error
       setLocalError(err instanceof Error ? err.message : 'Connection failed');
     } finally {
       setIsConnecting(false);

@@ -10,9 +10,11 @@ interface SidebarProps {
   onToggle?: () => void;
   /** Callback when Play is clicked - opens Quick Connect modal */
   onPlayClick?: () => void;
+  /** Whether Play button should be disabled (when route modal is open) */
+  isPlayDisabled?: boolean;
 }
 
-export default function Sidebar({ isCollapsed = false, onToggle, onPlayClick }: SidebarProps) {
+export default function Sidebar({ isCollapsed = false, onToggle, onPlayClick, isPlayDisabled }: SidebarProps) {
   const { user } = useSession();
   const [showDropdown, setShowDropdown] = useState(false);
   const location = useLocation();
@@ -57,6 +59,7 @@ export default function Sidebar({ isCollapsed = false, onToggle, onPlayClick }: 
           className={`sidebar-nav-item ${isActive('/play') ? 'active' : ''}`}
           title={isCollapsed ? 'Play' : undefined}
           onClick={onPlayClick}
+          disabled={isPlayDisabled}
         >
           <span className="sidebar-nav-icon">▶</span>
           {!isCollapsed && (

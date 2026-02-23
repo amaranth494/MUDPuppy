@@ -85,6 +85,7 @@ function AppContent() {
           isCollapsed={isSidebarCollapsed}
           onToggle={handleToggleCollapse}
           onPlayClick={() => setIsQuickConnectOpen(true)}
+          isPlayDisabled={isOverlayPage}
         />
       )}
       <main className={isSidebarOpen ? 'app-main-with-sidebar' + (isSidebarCollapsed ? ' sidebar-collapsed' : '') : 'app-main'}>
