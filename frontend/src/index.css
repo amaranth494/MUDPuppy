@@ -401,7 +401,8 @@ body {
 .terminal-container {
   flex: 1;
   padding: var(--spacing-sm);
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   min-height: 0;
 }
 
