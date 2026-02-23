@@ -1,11 +1,12 @@
-import { useNavigate, Routes, Route, useLocation } from 'react-router-dom';
+import { useState, useCallback } from 'react';
 import { SessionProvider, useSession } from './context/SessionContext';
 import PlayScreen from './pages/PlayScreen';
 import ConnectionsPage from './pages/ConnectionsPage';
 import AccountPage from './pages/AccountPage';
 import HelpPage from './pages/HelpPage';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import LoginScreen from './pages/LoginScreen';
-import Header from './components/Header';
+import Sidebar from './components/Sidebar';
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useSession();
@@ -39,7 +40,20 @@ function OverlayCloseButton() {
 }
 
 function AppContent() {
+  // Drawer state - ephemeral (in-memory only, per Constitution V.a)
+  // Does NOT persist to localStorage
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const location = useLocation();
+  
+  // Drawer toggle handlers - have no session impact (SP03PH02T02)
+  const handleToggleSidebar = useCallback(() => {
+    setIsSidebarOpen(prev => !prev);
+  }, []);
+  
+  const handleToggleCollapse = useCallback(() => {
+    setIsSidebarCollapsed(prev => !prev);
+  }, []);
   
   // Pages that should render as overlays (not unmount PlayScreen)
   const isOverlayPage = 
@@ -49,9 +63,25 @@ function AppContent() {
   
   // PlayScreen is always mounted at root level - session persists across route changes
   return (
-    <div className="app-shell">
-      <Header />
-      <main className="app-main">
+    <div className={isSidebarOpen ? 'app-shell-with-sidebar' : 'app-shell'}>
+      {/* Sidebar - Collapsible drawer (SP03PH02) */}
+      {isSidebarOpen && (
+        <Sidebar 
+          isCollapsed={isSidebarCollapsed}
+          onToggle={handleToggleCollapse}
+        />
+      )}
+      <main className={isSidebarOpen ? 'app-main-with-sidebar' + (isSidebarCollapsed ? ' sidebar-collapsed' : '') : 'app-main'}>
+        {/* Drawer toggle button - toggles sidebar open/close (SP03PH02T02) */}
+        <button
+          className="drawer-toggle-button"
+          onClick={handleToggleSidebar}
+          title={isSidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+          aria-label={isSidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+        >
+          {isSidebarOpen ? '☰' : '▶'}
+        </button>
+        
         {/* PlayScreen is ALWAYS mounted - this is the key to session persistence */}
         <div className="play-layer">
           <PlayScreen />

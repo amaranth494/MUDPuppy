@@ -65,27 +65,29 @@
 ## Phase 2: Sidebar Drawer (PH02)
 
 ### SP03PH02T01 — Sidebar Component
-- [ ] **Task:** Create collapsible sidebar component
+- [x] **Task:** Create collapsible sidebar component
 - **Structure:** Logo, Play, Connections, Help, User Menu, Account, Sign Off
-- [ ] **Commit:** "SP03PH02T01: Sidebar component created"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP03PH02T01: Sidebar component created"
+- [x] **Status:** Complete
 
 ### SP03PH02T02 — Drawer Toggle Logic
-- [ ] **Task:** Implement open/close drawer state management
+- [x] **Task:** Implement open/close drawer state management
 - **Acceptance:** Toggle has no session impact
-- [ ] **Commit:** "SP03PH02T02: Drawer toggle logic implemented"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP03PH02T02: Drawer toggle logic implemented"
+- [x] **Status:** Complete
 
 ### SP03PH02T03 — Collapsed Icon Mode
-- [ ] **Task:** Implement collapsed state showing icons only
+- [x] **Task:** Implement collapsed state showing icons only
 - **Storage:** Ephemeral (in-memory only); must NOT persist to localStorage (per Constitution V.a)
-- [ ] **Commit:** "SP03PH02T03: Collapsed icon mode implemented"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP03PH02T03: Collapsed icon mode implemented"
+- [x] **Status:** Complete
 
 ### SP03PH02T04 — Header Removal
-- [ ] **Task:** Remove old header component
-- [ ] **Commit:** "SP03PH02T04: Header component removed"
-- [ ] **Status:** Pending
+- [x] **Task:** Remove old header component
+- **Prerequisite:** Relocate SessionBadge into Sidebar/AppShell before removing Header (SessionBadge currently imported by Header.tsx)
+- **Acceptance:** Header component removed; SessionBadge remains visible in Sidebar/AppShell
+- [x] **Commit:** "SP03PH02T04: Header component removed"
+- [x] **Status:** Complete
 
 ---
 
@@ -100,7 +102,8 @@
 ### SP03PH03T02 — Input Lock Mechanism
 - [ ] **Task:** Implement terminal input lock when modal open
 - **UX Discipline:** Only command submission is locked; terminal rendering and text selection (Ctrl+C) must still work
-- **Acceptance:** No keystrokes leak to MUD
+- **Overlay Copy Behavior:** While modal overlay is open, allow selection/copy from terminal if overlay doesn't cover it; keep copy behavior sane
+- **Acceptance:** No keystrokes leak to MUD; copy/selection still works
 - [ ] **Commit:** "SP03PH03T02: Input lock mechanism implemented"
 - [ ] **Status:** Pending
 
@@ -328,14 +331,14 @@
 |-------|-------|--------|
 | PH00 | 5 | 5/5 |
 | PH01 | 3 | 3/3 |
-| PH02 | 4 | 0/4 |
+| PH02 | 4 | 4/4 |
 | PH03 | 4 | 0/4 |
 | PH04 | 3 | 0/3 |
 | PH05 | 4 | 0/4 |
 | PH06 | 6 | 0/6 |
 | PH07 | 7 | 0/7 |
 | PH08 | 6 | 0/6 |
-| **Total** | **42** | **3/42** |
+| **Total** | **42** | **15/42** |
 
 ---
 
