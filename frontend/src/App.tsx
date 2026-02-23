@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { SessionProvider, useSession } from './context/SessionContext';
 import PlayScreen from './pages/PlayScreen';
 import ConnectionsPage from './pages/ConnectionsPage';
@@ -35,8 +35,9 @@ function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
   
-  // Get input lock state from SessionContext (SP03PH03)
-  const { isInputLocked, setInputLocked } = useSession();
+  // Get setInputLocked from SessionContext (SP03PH03)
+  // Modal will manage input lock via onInputLockChange callback
+  const { setInputLocked } = useSession();
   
   // Drawer toggle handlers - have no session impact (SP03PH02T02)
   const handleToggleSidebar = useCallback(() => {
@@ -68,18 +69,10 @@ function AppContent() {
   };
   
   // Handle modal close - navigate back to Play
+  // Note: Input unlock is handled by Modal's useEffect cleanup
   const handleModalClose = useCallback(() => {
     navigate('/play');
-    // Unlock input when modal closes (SP03PH03)
-    setInputLocked(false);
-  }, [navigate, setInputLocked]);
-  
-  // Lock input when modal opens (SP03PH03)
-  useEffect(() => {
-    if (isOverlayPage && !isInputLocked) {
-      setInputLocked(true);
-    }
-  }, [isOverlayPage, isInputLocked, setInputLocked]);
+  }, [navigate]);
   
   // PlayScreen is always mounted at root level - session persists across route changes
   return (
@@ -109,12 +102,13 @@ function AppContent() {
         
         {/* Modal overlay for Connections, Account, Help pages (SP03PH03) */}
         {/* Uses Modal component for full-height overlay, close button, ESC support */}
-        {/* Focus management and input lock handled by Modal and SessionContext */}
+        {/* Focus management and input lock handled by Modal (with useEffect cleanup) */}
         {isOverlayPage && (
           <Modal
             isOpen={isOverlayPage}
             onClose={handleModalClose}
             title={getModalTitle()}
+            onInputLockChange={setInputLocked}
           >
             <Routes>
               <Route path="/connections" element={<ConnectionsPage />} />

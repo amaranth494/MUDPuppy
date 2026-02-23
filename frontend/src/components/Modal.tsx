@@ -9,6 +9,8 @@ interface ModalProps {
   title?: string;
   /** Whether clicking the backdrop should close the modal (default: false) */
   closeOnBackdropClick?: boolean;
+  /** Callback to set input lock state - called on mount/unmount */
+  onInputLockChange?: (locked: boolean) => void;
   /** Child content to render inside the modal */
   children: ReactNode;
 }
@@ -22,19 +24,33 @@ interface ModalProps {
  * - ESC key support to close
  * - Focus management (trap focus, restore on close)
  * - Accessibility (role="dialog", aria-modal="true")
+ * - Input lock management via onInputLockChange callback
  * 
  * Note: Terminal rendering and text selection continue to work while modal is open.
- * Input lock is handled separately via SessionContext.
+ * Input lock is handled via onInputLockChange callback with proper cleanup.
  */
 export default function Modal({
   isOpen,
   onClose,
   title,
   closeOnBackdropClick = false,
+  onInputLockChange,
   children,
 }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  // Handle input lock - set on mount, clear on unmount (SP03PH03T02)
+  // This ensures input is unlocked even if route changes unexpectedly
+  useEffect(() => {
+    if (isOpen && onInputLockChange) {
+      onInputLockChange(true);
+      // Cleanup: always unlock when modal unmounts
+      return () => {
+        onInputLockChange(false);
+      };
+    }
+  }, [isOpen, onInputLockChange]);
 
   // Save the currently focused element before modal opens
   useEffect(() => {
