@@ -92,6 +92,8 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       manager.onError((err) => {
         setError(mapBackendError(err));
         setConnectionState('error');
+        // Event-driven: refresh status on WS error
+        refreshStatus();
       });
       
       manager.onStatus((status) => {
@@ -104,6 +106,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       
       manager.onDisconnect(() => {
         setConnectionState('disconnected');
+        // Event-driven: refresh status on WS disconnect
         refreshStatus();
       });
       
@@ -113,12 +116,14 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       // Send connect message via WebSocket
       manager.sendConnect(mudHost, mudPort);
       
-      // Verify connection status
+      // Event-driven: verify connection status after connect action
       await refreshStatus();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Connection failed';
       setError(mapBackendError(errorMessage));
       setConnectionState('error');
+      // Event-driven: refresh status on connect failure
+      await refreshStatus();
     }
   }, [refreshStatus]);
 
@@ -138,10 +143,13 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       setConnectionState('disconnected');
       setHost('');
       setPort(23);
+      // Event-driven: refresh status after disconnect action completes
       await refreshStatus();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Disconnect failed';
       setError(mapBackendError(errorMessage));
+      // Event-driven: refresh status on disconnect failure
+      await refreshStatus();
     }
   }, [wsManager, refreshStatus]);
 

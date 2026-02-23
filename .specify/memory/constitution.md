@@ -419,7 +419,9 @@ Frontend and backend evolve independently. Versioning ensures compatibility:
 - Feature flags allow server-side enablement for newer API features
 - Breaking changes only in major version bumps
 
-**Version**: 1.12.0 | **Ratified**: 2026-02-22 | **Last Amended**: 2026-02-22
+**Version**: 1.13.0 | **Ratified**: 2026-02-23 | **Last Amended**: 2026-02-23
+
+**Amendment v1.13.0:** Updated Spec branch to originate from staging (not master). Added VIII.A Branch-Environment Mapping, VIII.B Spec Development Deployment Flow (Single-Admin Model), VIII.C Direct Push Policy (Clarified), VIII.D Audit Requirements.
 
 **Amendment v1.12.0:** Changed port policy from allowlist (23, 22, 80, 443) to denylist model. Always block dangerous/non-MUD service ports (email, DNS, databases, remote admin, file sharing). Allow other ports with constraints (private IP blocking, session limits, rate limiting). Added optional protocol plausibility check as second gate.
 
@@ -583,6 +585,61 @@ Operators are responsible for:
 
 **"Accidental deployment due to environment confusion" is not an acceptable operational state** under this Constitution.
 
+### A. Branch–Environment Mapping
+
+The system operates with the following canonical mapping:
+
+| Branch | Environment | Purpose |
+|--------|-------------|---------|
+| master | Production | Live system (Railway Production) |
+| staging | Staging | Integration & QA (Railway Staging) |
+| sp##-* | None | Spec development branches |
+
+Railway environments are configured to auto-deploy when their respective branch updates.
+
+This mapping is intentional and foundational to the deployment model.
+
+### B. Spec Development Deployment Flow (Single-Admin Model)
+
+Because the system currently operates under a **single-administrator model**:
+
+1. Spec work occurs on sp##-* branches
+2. During development, updates may be directly pushed to staging in order to:
+   - Trigger Railway Staging auto-deploy
+   - Validate integrated behavior in the staging environment
+3. At Spec completion:
+   - staging becomes the authoritative integration state
+   - staging is then promoted to master to update Production
+   - The spec branch is deleted
+
+**This is not considered a governance violation.**
+
+### C. Direct Push Policy (Clarified)
+
+The prohibition against "direct pushes" applies to:
+
+- Overwriting branch history
+- Force-pushes
+- Untracked production changes
+- Manual CLI production deployments
+
+It does NOT prohibit:
+
+- Fast-forward pushes from a spec branch into staging
+- Controlled integration pushes performed by the single repository administrator
+
+In a multi-maintainer future, PR-based promotion may become mandatory. Under the current governance model, disciplined direct integration is acceptable.
+
+### D. Audit Requirements
+
+Even under the direct-push model:
+
+- CI must pass before promotion to staging
+- CI must pass before promotion to master
+- Production promotion must be intentional and documented in the commit message
+- No force-push to master is permitted
+- No direct Railway CLI deployment to production is permitted
+
 **Amendment v1.7.1:** Changed all references from 'main' to 'master' branch to match repository naming convention.
 
 ---
@@ -640,8 +697,10 @@ Each Spec is divided into Phases. Each Phase contains clearly defined Tasks.
 
 **Phase 0 — Branch Creation (SP##PH00)**
 - Purpose: Isolation and development boundary creation
-- Create a new Git branch from master
+- Create a new Git branch from **staging** (not master)
 - Branch must be named: sp##-feature-shortname
+- **staging is the integration baseline for all new Spec work**
+- Spec branches MUST originate from staging to ensure alignment with the active pre-production environment
 - CI must pass on branch creation
 - Spec document must be committed to branch before development begins
 - No feature development may begin before Phase 0 completes
