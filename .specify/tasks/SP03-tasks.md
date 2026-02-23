@@ -35,6 +35,9 @@
 - [x] **Task:** Confirm Phase 0 complete before feature work
 - [x] **Status:** Complete
 
+> **Staging Push:** To deploy this phase to staging, run:
+> `git push origin sp03-persistent-shell-connections:staging`
+
 ---
 
 ## Phase 1: Persistent App Shell (PH01)
@@ -59,6 +62,9 @@
 - **Acceptance:** Badge visible in all views
 - [x] **Commit:** "SP03PH01T03: Session badge component created"
 - [x] **Status:** Complete
+
+> **Staging Push:** To deploy this phase to staging, run:
+> `git push origin sp03-persistent-shell-connections:staging`
 
 ---
 
@@ -89,54 +95,63 @@
 - [x] **Commit:** "SP03PH02T04: Header component removed"
 - [x] **Status:** Complete
 
+> **Staging Push:** To deploy this phase to staging, run:
+> `git push origin sp03-persistent-shell-connections:staging`
+
 ---
 
 ## Phase 3: Modal Workspace Container (PH03)
 
 ### SP03PH03T01 — Modal Container Component
-- [ ] **Task:** Create reusable modal overlay component
+- [x] **Task:** Create reusable modal overlay component
 - **Features:** Full-height, close button, ESC support
-- [ ] **Commit:** "SP03PH03T01: Modal container created"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP03PH03T01: Modal container created"
+- [x] **Status:** Complete
 
 ### SP03PH03T02 — Input Lock Mechanism
-- [ ] **Task:** Implement terminal input lock when modal open
+- [x] **Task:** Implement terminal input lock when modal open
 - **UX Discipline:** Only command submission is locked; terminal rendering and text selection (Ctrl+C) must still work
 - **Overlay Copy Behavior:** While modal overlay is open, allow selection/copy from terminal if overlay doesn't cover it; keep copy behavior sane
 - **Acceptance:** No keystrokes leak to MUD; copy/selection still works
-- [ ] **Commit:** "SP03PH03T02: Input lock mechanism implemented"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP03PH03T02: Input lock mechanism implemented"
+- [x] **Status:** Complete
 
 ### SP03PH03T03 — Focus Restoration
-- [ ] **Task:** Restore terminal focus on modal close
-- [ ] **Commit:** "SP03PH03T03: Focus restoration implemented"
-- [ ] **Status:** Pending
+- [x] **Task:** Restore terminal focus on modal close
+- [x] **Commit:** "SP03PH03T03: Focus restoration implemented"
+- [x] **Status:** Complete
 
 ### SP03PH03T04 — High Load Handling
-- [ ] **Task:** Ensure modal handles high ANSI bursts without crashing
-- [ ] **Commit:** "SP03PH03T04: High load handling tested"
-- [ ] **Status:** Pending
+- [x] **Task:** Ensure modal handles high ANSI bursts without crashing
+- [x] **Commit:** "SP03PH03T04: High load handling tested"
+- [x] **Status:** Complete
+
+> **Staging Push:** To deploy this phase to staging, run:
+> `git push origin sp03-persistent-shell-connections:staging`
 
 ---
 
 ## Phase 4: Quick Connect (PH04)
 
 ### SP03PH04T01 — Quick Connect Modal UI
-- [ ] **Task:** Create Quick Connect form (Host, Port fields)
+- [x] **Task:** Create Quick Connect form (Host, Port fields)
 - **Acceptance:** Modal opens from Play screen
-- [ ] **Commit:** "SP03PH04T01: Quick Connect modal UI created"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP03PH04T01: Quick Connect modal UI created"
+- [x] **Status:** Complete
 
 ### SP03PH04T02 — Connect Flow Integration
-- [ ] **Task:** Integrate Quick Connect with existing session API
+- [x] **Task:** Integrate Quick Connect with existing session API
 - **Acceptance:** Uses backend control-plane flow
-- [ ] **Commit:** "SP03PH04T02: Connect flow integrated"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP03PH04T02: Connect flow integrated"
+- [x] **Status:** Complete
 
 ### SP03PH04T03 — Disconnect Integration
-- [ ] **Task:** Add disconnect button to Quick Connect/Play
-- [ ] **Commit:** "SP03PH04T03: Disconnect integration completed"
-- [ ] **Status:** Pending
+- [x] **Task:** Add disconnect button to Quick Connect/Play
+- [x] **Commit:** "SP03PH04T03: Disconnect integration completed"
+- [x] **Status:** Complete
+
+> **Staging Push:** To deploy this phase to staging, run:
+> `git push origin sp03-persistent-shell-connections:staging`
 
 ---
 
@@ -166,6 +181,9 @@
 - **Definition:** Recent connections = top 5 connections ordered by last_connected_at DESC where last_connected_at IS NOT NULL
 - [ ] **Commit:** "SP03PH05T04: Recent connections query implemented"
 - [ ] **Status:** Pending
+
+> **Staging Push:** To deploy this phase to staging, run:
+> `git push origin sp03-persistent-shell-connections:staging`
 
 ---
 
@@ -203,6 +221,9 @@
 - [ ] **Task:** Show recent connections from server
 - [ ] **Commit:** "SP03PH06T06: Recent connections display added"
 - [ ] **Status:** Pending
+
+> **Staging Push:** To deploy this phase to staging, run:
+> `git push origin sp03-persistent-shell-connections:staging`
 
 ---
 
@@ -265,11 +286,39 @@
 - [ ] **Commit:** N/A
 - [ ] **Status:** Pending
 
+### SP03PH07T06b — Terminal Resize Stability
+- [ ] **Task:** QA validates terminal stability during sidebar resize/collapse
+- **Tests:**
+  - Open terminal view, ensure connection active
+  - Collapse sidebar 20 times in rapid succession
+  - Expand sidebar 20 times in rapid succession
+  - Resize sidebar handle continuously
+  - **Verify:** Terminal content remains intact; no disconnect; scrollback preserved
+- **Known Risk:** xterm.js may exhibit reflow issues under rapid container width changes
+- [ ] **Commit:** N/A
+- [ ] **Status:** Pending
+
+### SP03PH07T06c — Focus & Keystroke Integrity
+- [ ] **Task:** QA validates focus and input integrity across navigation
+- **Tests:**
+  - Connect to MUD with active session
+  - Navigate to Play view, verify terminal has focus
+  - Navigate to Connections view, verify terminal loses focus
+  - Navigate back to Play view, verify terminal regains focus
+  - Navigate to Help view, verify terminal has no focus
+  - Navigate back to Play view, verify keystrokes reach MUD
+- **Known Risk:** Focus management complexity increases as overlay layers are added
+- [ ] **Commit:** N/A
+- [ ] **Status:** Pending
+
 ### SP03PH07T07 — QA Sign-Off
 - [ ] **Task:** Produce pass/fail report referencing SP03 task IDs
 - **Acceptance:** All tests pass
 - [ ] **Commit:** N/A
 - [ ] **Status:** Pending
+
+> **Staging Push:** To deploy this phase to staging, run:
+> `git push origin sp03-persistent-shell-connections:staging`
 
 ---
 
@@ -323,6 +372,9 @@
 - [ ] **Commit:** "SP03PH08T06: Spec closed"
 - [ ] **Status:** Pending
 
+> **Staging Push:** To deploy this phase to staging, run:
+> `git push origin sp03-persistent-shell-connections:staging`
+
 ---
 
 ## Summary
@@ -332,13 +384,13 @@
 | PH00 | 5 | 5/5 |
 | PH01 | 3 | 3/3 |
 | PH02 | 4 | 4/4 |
-| PH03 | 4 | 0/4 |
-| PH04 | 3 | 0/3 |
+| PH03 | 4 | 4/4 |
+| PH04 | 3 | 3/3 |
 | PH05 | 4 | 0/4 |
 | PH06 | 6 | 0/6 |
 | PH07 | 7 | 0/7 |
 | PH08 | 6 | 0/6 |
-| **Total** | **42** | **15/42** |
+| **Total** | **42** | **22/42** |
 
 ---
 

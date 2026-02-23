@@ -8,6 +8,7 @@ import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import LoginScreen from './pages/LoginScreen';
 import Sidebar from './components/Sidebar';
 import Modal from './components/Modal';
+import QuickConnectModal from './components/QuickConnectModal';
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useSession();
@@ -32,6 +33,7 @@ function AppContent() {
   // Does NOT persist to localStorage
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isQuickConnectOpen, setIsQuickConnectOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -82,6 +84,7 @@ function AppContent() {
         <Sidebar 
           isCollapsed={isSidebarCollapsed}
           onToggle={handleToggleCollapse}
+          onPlayClick={() => setIsQuickConnectOpen(true)}
         />
       )}
       <main className={isSidebarOpen ? 'app-main-with-sidebar' + (isSidebarCollapsed ? ' sidebar-collapsed' : '') : 'app-main'}>
@@ -117,6 +120,12 @@ function AppContent() {
             </Routes>
           </Modal>
         )}
+        
+        {/* Quick Connect Modal (SP03PH04) */}
+        <QuickConnectModal
+          isOpen={isQuickConnectOpen}
+          onClose={() => setIsQuickConnectOpen(false)}
+        />
       </main>
     </div>
   );

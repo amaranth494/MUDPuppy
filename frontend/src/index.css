@@ -843,6 +843,30 @@ body {
   min-width: 120px;
 }
 
+/* Quick Connect Modal (SP03PH04) */
+.quick-connect-form {
+  padding: var(--spacing-md);
+  min-width: 320px;
+}
+
+.quick-connect-form .form-group {
+  margin-bottom: var(--spacing-md);
+}
+
+.quick-connect-actions {
+  display: flex;
+  gap: var(--spacing-md);
+  align-items: center;
+  margin-top: var(--spacing-lg);
+  flex-wrap: wrap;
+}
+
+.quick-connect-status {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-dim);
+  flex: 1;
+}
+
 .output-panel {
   flex: 1;
   background: var(--color-bg-secondary);

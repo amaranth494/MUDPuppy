@@ -8,9 +8,11 @@ interface SidebarProps {
   isCollapsed?: boolean;
   /** Callback when toggle button is clicked */
   onToggle?: () => void;
+  /** Callback when Play is clicked - opens Quick Connect modal */
+  onPlayClick?: () => void;
 }
 
-export default function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
+export default function Sidebar({ isCollapsed = false, onToggle, onPlayClick }: SidebarProps) {
   const { user } = useSession();
   const [showDropdown, setShowDropdown] = useState(false);
   const location = useLocation();
@@ -21,12 +23,6 @@ export default function Sidebar({ isCollapsed = false, onToggle }: SidebarProps)
     setShowDropdown(false);
     window.location.href = '/';
   }, []);
-
-  const navItems = [
-    { path: '/play', label: 'Play', icon: '▶' },
-    { path: '/connections', label: 'Connections', icon: '⚡' },
-    { path: '/help', label: 'Help', icon: '?' },
-  ];
 
   return (
     <aside className={`sidebar ${isCollapsed ? 'sidebar-collapsed' : ''}`}>
@@ -56,19 +52,41 @@ export default function Sidebar({ isCollapsed = false, onToggle }: SidebarProps)
 
       {/* Navigation */}
       <nav className="sidebar-nav">
-        {navItems.map((item) => (
-          <Link
-            key={item.path}
-            to={item.path}
-            className={`sidebar-nav-item ${isActive(item.path) ? 'active' : ''}`}
-            title={isCollapsed ? item.label : undefined}
-          >
-            <span className="sidebar-nav-icon">{item.icon}</span>
-            {!isCollapsed && (
-              <span className="sidebar-nav-label">{item.label}</span>
-            )}
-          </Link>
-        ))}
+        {/* Play - opens Quick Connect modal */}
+        <button
+          className={`sidebar-nav-item ${isActive('/play') ? 'active' : ''}`}
+          title={isCollapsed ? 'Play' : undefined}
+          onClick={onPlayClick}
+        >
+          <span className="sidebar-nav-icon">▶</span>
+          {!isCollapsed && (
+            <span className="sidebar-nav-label">Play</span>
+          )}
+        </button>
+        
+        {/* Connections - navigates to Connections Hub */}
+        <Link
+          to="/connections"
+          className={`sidebar-nav-item ${isActive('/connections') ? 'active' : ''}`}
+          title={isCollapsed ? 'Connections' : undefined}
+        >
+          <span className="sidebar-nav-icon">⚡</span>
+          {!isCollapsed && (
+            <span className="sidebar-nav-label">Connections</span>
+          )}
+        </Link>
+        
+        {/* Help - navigates to Help */}
+        <Link
+          to="/help"
+          className={`sidebar-nav-item ${isActive('/help') ? 'active' : ''}`}
+          title={isCollapsed ? 'Help' : undefined}
+        >
+          <span className="sidebar-nav-icon">?</span>
+          {!isCollapsed && (
+            <span className="sidebar-nav-label">Help</span>
+          )}
+        </Link>
       </nav>
 
       {/* Session Status Badge - always visible */}

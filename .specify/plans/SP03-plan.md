@@ -17,6 +17,9 @@ This plan outlines the execution path for SP03, establishing a persistent applic
 - [ ] Push to origin
 - [ ] Verify CI passes on branch
 
+> **Staging Push:** To deploy this phase to staging, run:
+> `git push origin sp03-persistent-shell-connections:staging`
+
 ---
 
 ## Phase 1: Persistent App Shell (PH01)
@@ -39,6 +42,9 @@ This plan outlines the execution path for SP03, establishing a persistent applic
 - **Acceptance:** Badge visible in all views
 - [ ] **Commit:** "SP03PH01T03: Session badge component created"
 
+> **Staging Push:** To deploy this phase to staging, run:
+> `git push origin sp03-persistent-shell-connections:staging`
+
 ---
 
 ## Phase 2: Sidebar Drawer (PH02)
@@ -60,7 +66,12 @@ This plan outlines the execution path for SP03, establishing a persistent applic
 
 ### SP03PH02T04 — Header Removal
 - [ ] **Task:** Remove old header component
+- **Prerequisite:** Relocate SessionBadge into Sidebar/AppShell before removing Header (SessionBadge currently imported by Header.tsx)
+- **Acceptance:** Header component removed; SessionBadge remains visible in Sidebar/AppShell
 - [ ] **Commit:** "SP03PH02T04: Header component removed"
+
+> **Staging Push:** To deploy this phase to staging, run:
+> `git push origin sp03-persistent-shell-connections:staging`
 
 ---
 
@@ -84,6 +95,9 @@ This plan outlines the execution path for SP03, establishing a persistent applic
 - [ ] **Task:** Ensure modal handles high ANSI bursts without crashing
 - [ ] **Commit:** "SP03PH03T04: High load handling tested"
 
+> **Staging Push:** To deploy this phase to staging, run:
+> `git push origin sp03-persistent-shell-connections:staging`
+
 ---
 
 ## Phase 4: Quick Connect (PH04)
@@ -101,6 +115,9 @@ This plan outlines the execution path for SP03, establishing a persistent applic
 ### SP03PH04T03 — Disconnect Integration
 - [ ] **Task:** Add disconnect button to Quick Connect/Play
 - [ ] **Commit:** "SP03PH04T03: Disconnect integration completed"
+
+> **Staging Push:** To deploy this phase to staging, run:
+> `git push origin sp03-persistent-shell-connections:staging`
 
 ---
 
@@ -126,6 +143,9 @@ This plan outlines the execution path for SP03, establishing a persistent applic
 - [ ] **Task:** Implement endpoint to fetch recent connections
 - **Definition:** Recent connections = top 5 connections ordered by last_connected_at DESC where last_connected_at IS NOT NULL
 - [ ] **Commit:** "SP03PH05T04: Recent connections query implemented"
+
+> **Staging Push:** To deploy this phase to staging, run:
+> `git push origin sp03-persistent-shell-connections:staging`
 
 ---
 
@@ -157,6 +177,9 @@ This plan outlines the execution path for SP03, establishing a persistent applic
 ### SP03PH06T06 — Recent Connections Display
 - [ ] **Task:** Show recent connections from server
 - [ ] **Commit:** "SP03PH06T06: Recent connections display added"
+
+> **Staging Push:** To deploy this phase to staging, run:
+> `git push origin sp03-persistent-shell-connections:staging`
 
 ---
 
@@ -190,6 +213,9 @@ This plan outlines the execution path for SP03, establishing a persistent applic
 ### SP03PH07T07 — QA Sign-Off
 - [ ] **Task:** Produce pass/fail report
 - [ ] **Acceptance:** All tests pass; report references SP03 task IDs
+
+> **Staging Push:** To deploy this phase to staging, run:
+> `git push origin sp03-persistent-shell-connections:staging`
 
 ---
 
@@ -226,6 +252,9 @@ This plan outlines the execution path for SP03, establishing a persistent applic
 ### SP03PH08T06 — Spec Closed
 - [ ] **Task:** Update SP03.md status to Closed
 - [ ] **Commit:** "SP03PH08T06: Spec closed"
+
+> **Staging Push:** To deploy this phase to staging, run:
+> `git push origin sp03-persistent-shell-connections:staging`
 
 ---
 
