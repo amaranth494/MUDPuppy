@@ -445,10 +445,10 @@ body {
   left: 10px;
   width: 40px;
   height: 40px;
-  background: #ff00ff;
-  border: 2px solid #00ff00;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  color: #ffffff;
+  color: var(--color-text-dim);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -459,8 +459,8 @@ body {
 }
 
 .drawer-toggle-button:hover {
-  background: #00ff00;
-  color: #000000;
+  background: var(--color-border);
+  color: var(--color-text);
 }
 
 /* Overlay padding adjustment for sidebar */
