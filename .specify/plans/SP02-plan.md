@@ -236,29 +236,58 @@ This plan outlines the execution path for SP02, introducing the first live MUD c
 
 ## Phase 6: Final Phase - Merge & Deployment (PH06)
 
-### SP02PH06T01 — Code Review
-- [ ] **Task:** Complete code review
-- [ ] **Acceptance:** All comments resolved
+> **Constitutional Note (VIII):** All promotions must follow: sp02-session-proxy → staging → master. No direct Railway CLI deployment except emergency.
 
-### SP02PH06T02 — Merge to Staging
-- [ ] **Task:** Merge sp02-session-proxy → staging
-- [ ] **Acceptance:** CI passes on staging
+> **Idle Timeout Clarification:**
+> - WebSocket read-deadline-based idle disconnect: REMOVED (per Constitution IX, backend session policy is authoritative)
+> - Session hard cap (24 hours): REMAINS in effect
+> - Activity-based idle timeout (if implemented): Must be defined as "activity-based only" - inbound MUD OR outbound user activity resets timer
+
+### SP02PH06T01 — Confirm Branch State and Targets
+- [ ] **Task:** Verify you are on the correct branch locally
+- **Commands:** `git status`, `git branch --show-current` (should be sp02-session-proxy), `git remote -v`
+- **Acceptance:** No uncommitted changes; branch is correct; CI is green
+
+### SP02PH06T02 — Merge to Staging via PR
+- [ ] **Task:** Open PR: sp02-session-proxy → staging
+- **Requirements:** Ensure required CI checks pass; Merge using normal PR merge method (no bypass)
+- **Constitutional Verification (VIII.4):** `git branch` → confirm on sp02-session-proxy; `railway status` → confirm staging
+- **Acceptance:** staging contains SP02 commits; Railway staging deploy triggers automatically
 
 ### SP02PH06T03 — Staging Validation
-- [ ] **Task:** Verify SP02 features work in staging environment
-- [ ] **Acceptance:** All acceptance criteria verified in staging
+- [ ] **Task:** Validate in staging URL end-to-end
 
-### SP02PH06T04 — Merge to Master
-- [ ] **Task:** Merge staging → master
-- [ ] **Acceptance:** CI passes on master
+#### Functional Validation:
+- [ ] Login via OTP; Connect to at least two MUDs (include non-23 port); Send commands, receive output
+- [ ] Confirm telnet IAC stripping still clean; Confirm copy behavior works (Ctrl/Cmd+C and context menu)
 
-### SP02PH06T05 — Production Verification
-- [ ] **Task:** Verify SP02 features work in production
-- [ ] **Acceptance:** All acceptance criteria verified in production
+#### Policy / Safety Validation:
+- [ ] Private IP blocked; Denylisted port blocked with clear error; Protocol mismatch disconnect works
 
-### SP02PH06T06 — Spec Closed
+#### Observability Validation:
+- [ ] /api/v1/admin/metrics: Requires secret; Counters increment during session; No user identifiers leak
+
+- **Acceptance:** Staging behaves exactly like PH05 QA results; logs show no new errors
+
+### SP02PH06T04 — Railway CLI Deployment Discipline
+- [ ] **Task:** Document Railway CLI usage requirements
+- **Directive:** Any Railway CLI usage must be preceded by explicit environment verification command and documented output
+- **Acceptance:** PH06 writeup includes exact commands used and explicit verification output that it was staging
+
+### SP02PH06T05 — Merge to Master via PR
+- [ ] **Task:** Open PR: staging → master
+- **Requirements:** CI must pass; Merge via PR (no CLI push to prod)
+- **Acceptance:** Production deploy triggers from master automatically
+
+### SP02PH06T06 — Production Verification
+- [ ] **Task:** Repeat smaller version of staging validation on production
+- **Validation:** Login works; Connect to one MUD; Denylist + private IP block work; Metrics endpoint secret-protected
+- **Acceptance:** Production is healthy; no regressions; logs clean
+
+### SP02PH06T07 — Spec Closed
 - [ ] **Task:** Update SP02.md status to Closed
-- [ ] **Commit:** "SP02PH06T06: Spec closed"
+- **Idle Timeout Note:** WebSocket read-deadline idle disconnect: REMOVED; Session hard cap (24h): REMAINS
+- [ ] **Commit:** "SP02PH06T07: Spec closed"
 
 ---
 
@@ -270,10 +299,10 @@ This plan outlines the execution path for SP02, introducing the first live MUD c
 | PH01 | 9 | Backend connection manager + DB migration |
 | PH02 | 6 | WebSocket bridge |
 | PH03 | 8 | UI implementation + frontend scaffold |
-| PH04 | 4 | Abuse prevention |
+| PH04 | 9 | Abuse prevention + port policy |
 | PH05 | 2 | QA validation |
-| PH06 | 6 | Merge and deployment |
-| **Total** | **40** | |
+| PH06 | 7 | Merge and deployment |
+| **Total** | **45** | |
 
 ---
 
