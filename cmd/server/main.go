@@ -5,7 +5,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"encoding/base64"
 	"encoding/json"
 	"io"
 	"log"
@@ -124,24 +123,11 @@ func main() {
 	// Initialize connections handler FIRST (SP03PH05) - needed for session callbacks
 	connectionStore := store.NewConnectionStore(db)
 	credentialsStore := store.NewCredentialsStore(db)
-	// Create encryption key store from config
-	encryptionKeys := make(map[int][]byte)
-	if cfg.EncryptionKeyV1 != "" {
-		if key, err := base64.StdEncoding.DecodeString(cfg.EncryptionKeyV1); err == nil && len(key) == 32 {
-			encryptionKeys[1] = key
-		}
+	// Create encryption key store - uses DefaultKeyStore to generate default key if none configured
+	keyStore, err := crypto.DefaultKeyStore()
+	if err != nil {
+		log.Fatalf("Failed to initialize encryption key store: %v", err)
 	}
-	if cfg.EncryptionKeyV2 != "" {
-		if key, err := base64.StdEncoding.DecodeString(cfg.EncryptionKeyV2); err == nil && len(key) == 32 {
-			encryptionKeys[2] = key
-		}
-	}
-	if cfg.EncryptionKeyV3 != "" {
-		if key, err := base64.StdEncoding.DecodeString(cfg.EncryptionKeyV3); err == nil && len(key) == 32 {
-			encryptionKeys[3] = key
-		}
-	}
-	keyStore := crypto.NewKeyStore(encryptionKeys)
 
 	// Initialize session manager first (SP02PH01)
 	sessionManager := session.NewManager(
