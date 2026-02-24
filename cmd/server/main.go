@@ -191,7 +191,15 @@ func main() {
 	mux.HandleFunc("/api/v1/connections/recent", connectionsHandler.GetRecent)
 	mux.HandleFunc("/api/v1/connections/", func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
-		if strings.Contains(path, "/credentials") {
+		if strings.Contains(path, "/credentials/status") {
+			// Handle credential status endpoint
+			switch r.Method {
+			case http.MethodGet:
+				connectionsHandler.GetCredentialsStatus(w, r)
+			default:
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		} else if strings.Contains(path, "/credentials") {
 			// Handle credentials endpoints
 			switch r.Method {
 			case http.MethodGet:
