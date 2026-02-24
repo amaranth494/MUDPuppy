@@ -1,8 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { useSession } from '../context/SessionContext';
+import { getRecentConnections } from '../services/api';
+import { SavedConnection } from '../types';
 
 // Enable text selection in terminal
 const terminalSelectionStyle = {
@@ -15,7 +17,47 @@ export default function PlayScreen() {
     connectionState, 
     wsManager,
     isInputLocked,
+    connect,
+    error,
   } = useSession();
+  
+  // Recent connections state
+  const [recentConnections, setRecentConnections] = useState<SavedConnection[]>([]);
+  const [isLoadingRecent, setIsLoadingRecent] = useState(false);
+  
+  // Quick connect form state
+  const [quickHost, setQuickHost] = useState('');
+  const [quickPort, setQuickPort] = useState(23);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
+  
+  // Load recent connections
+  useEffect(() => {
+    const loadRecent = async () => {
+      setIsLoadingRecent(true);
+      try {
+        const connections = await getRecentConnections();
+        setRecentConnections(connections.slice(0, 5)); // Limit to 5
+      } catch (err) {
+        console.error('Failed to load recent connections:', err);
+      } finally {
+        setIsLoadingRecent(false);
+      }
+    };
+    
+    if (connectionState !== 'connected') {
+      loadRecent();
+    }
+  }, [connectionState]);
+  
+  // Sync error from session context
+  useEffect(() => {
+    if (error) {
+      setConnectError(error);
+    } else {
+      setConnectError(null);
+    }
+  }, [error]);
   
   const terminalRef = useRef<HTMLDivElement>(null);
   const terminalInstanceRef = useRef<Terminal | null>(null);
@@ -146,8 +188,109 @@ export default function PlayScreen() {
     }
   };
 
+  // Quick connect from form
+  const handleQuickConnect = async () => {
+    if (!quickHost.trim()) {
+      setConnectError('Host is required');
+      return;
+    }
+    
+    setIsConnecting(true);
+    setConnectError(null);
+    
+    try {
+      await connect(quickHost.trim(), quickPort);
+    } catch (err) {
+      setConnectError(err instanceof Error ? err.message : 'Connection failed');
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  // Quick connect from recent connection
+  const handleRecentConnect = async (conn: SavedConnection) => {
+    setIsConnecting(true);
+    setConnectError(null);
+    
+    try {
+      await connect(conn.host, conn.port);
+    } catch (err) {
+      setConnectError(err instanceof Error ? err.message : 'Connection failed');
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const isDisconnected = connectionState === 'disconnected' || connectionState === 'error';
+  
   return (
     <div className="play-screen">
+      {/* Quick Connect Panel - shown when not connected */}
+      {isDisconnected && (
+        <div className="quick-connect-panel">
+          <h3>Recent Servers</h3>
+          {isLoadingRecent ? (
+            <p className="loading-text">Loading...</p>
+          ) : recentConnections.length > 0 ? (
+            <div className="recent-connections">
+              {recentConnections.map((conn) => (
+                <button
+                  key={conn.id}
+                  className="recent-connection-btn"
+                  onClick={() => handleRecentConnect(conn)}
+                  disabled={isConnecting}
+                >
+                  <span className="conn-name">{conn.name}</span>
+                  <span className="conn-address">{conn.host}:{conn.port}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="no-recent">No recent connections</p>
+          )}
+          
+          <h3>Connect</h3>
+          <div className="quick-connect-form">
+            <div className="form-row">
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Host (e.g., game.example.com)"
+                value={quickHost}
+                onChange={(e) => setQuickHost(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleQuickConnect();
+                  }
+                }}
+              />
+              <input
+                type="number"
+                className="form-input form-input-port"
+                placeholder="Port"
+                value={quickPort}
+                onChange={(e) => setQuickPort(parseInt(e.target.value) || 23)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleQuickConnect();
+                  }
+                }}
+              />
+              <button
+                className="btn btn-primary"
+                onClick={handleQuickConnect}
+                disabled={isConnecting}
+              >
+                {isConnecting ? 'Connecting...' : 'Connect'}
+              </button>
+            </div>
+            {connectError && (
+              <p className="error-text">{connectError}</p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Output Panel - Full height terminal */}
       <div className="output-panel output-panel-full">
         <div className="terminal-container" ref={terminalRef} />

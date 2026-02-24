@@ -220,6 +220,19 @@ export async function getConnections(): Promise<SavedConnection[]> {
   return await response.json();
 }
 
+// Get recent connections (last 5 connected)
+export async function getRecentConnections(): Promise<SavedConnection[]> {
+  const response = await fetch(`${API_BASE}/connections/recent`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to get recent connections');
+  }
+  return await response.json();
+}
+
 // Get a single connection by ID
 export async function getConnection(id: string): Promise<SavedConnection> {
   const response = await fetch(`${API_BASE}/connections/${id}`, {

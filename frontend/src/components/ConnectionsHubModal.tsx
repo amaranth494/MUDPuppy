@@ -28,7 +28,6 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
   // State
   const [view, setView] = useState<ViewType>('list');
   const [connections, setConnections] = useState<SavedConnection[]>([]);
-  const [recentConnections, setRecentConnections] = useState<SavedConnection[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -62,12 +61,6 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
     try {
       const data = await getConnections();
       setConnections(data);
-      // Filter recent connections (those with last_connected_at)
-      const recent = data
-        .filter(c => c.last_connected_at)
-        .sort((a, b) => new Date(b.last_connected_at!).getTime() - new Date(a.last_connected_at!).getTime())
-        .slice(0, 5);
-      setRecentConnections(recent);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load connections');
     } finally {
@@ -275,30 +268,6 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
   // Render list view
   const renderListView = () => (
     <div className="connections-hub-list">
-      {/* Recent Connections */}
-      {recentConnections.length > 0 && (
-        <div className="connections-section">
-          <h3 className="connections-section-title">Recent</h3>
-          <div className="connections-list">
-            {recentConnections.map(conn => (
-              <div key={conn.id} className="connection-item recent">
-                <div className="connection-info">
-                  <span className="connection-name">{conn.name}</span>
-                  <span className="connection-address">{conn.host}:{conn.port}</span>
-                </div>
-                <button
-                  className="btn btn-sm btn-primary"
-                  onClick={() => handleConnect(conn)}
-                  disabled={connectingId === conn.id || connectionState === 'connected' || connectionState === 'connecting'}
-                >
-                  {connectingId === conn.id ? 'Connecting...' : 'Connect'}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Saved Connections */}
       <div className="connections-section">
         <div className="connections-section-header">
