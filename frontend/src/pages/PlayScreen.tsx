@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
@@ -15,24 +15,7 @@ export default function PlayScreen() {
     connectionState, 
     wsManager,
     isInputLocked,
-    connect,
-    error,
   } = useSession();
-  
-  // Quick connect form state
-  const [quickHost, setQuickHost] = useState('');
-  const [quickPort, setQuickPort] = useState(23);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [connectError, setConnectError] = useState<string | null>(null);
-  
-  // Sync error from session context
-  useEffect(() => {
-    if (error) {
-      setConnectError(error);
-    } else {
-      setConnectError(null);
-    }
-  }, [error]);
   
   const terminalRef = useRef<HTMLDivElement>(null);
   const terminalInstanceRef = useRef<Terminal | null>(null);
@@ -162,75 +145,9 @@ export default function PlayScreen() {
       }
     }
   };
-
-  // Quick connect from form
-  const handleQuickConnect = async () => {
-    if (!quickHost.trim()) {
-      setConnectError('Host is required');
-      return;
-    }
-    
-    setIsConnecting(true);
-    setConnectError(null);
-    
-    try {
-      await connect(quickHost.trim(), quickPort);
-    } catch (err) {
-      setConnectError(err instanceof Error ? err.message : 'Connection failed');
-    } finally {
-      setIsConnecting(false);
-    }
-  };
-
-  const isDisconnected = connectionState === 'disconnected' || connectionState === 'error';
   
   return (
     <div className="play-screen">
-      {/* Quick Connect Panel - shown when not connected */}
-      {isDisconnected && (
-        <div className="quick-connect-panel">
-          <h3>Connect</h3>
-          <div className="quick-connect-form">
-            <div className="form-row">
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Host (e.g., game.example.com)"
-                value={quickHost}
-                onChange={(e) => setQuickHost(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleQuickConnect();
-                  }
-                }}
-              />
-              <input
-                type="number"
-                className="form-input form-input-port"
-                placeholder="Port"
-                value={quickPort}
-                onChange={(e) => setQuickPort(parseInt(e.target.value) || 23)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleQuickConnect();
-                  }
-                }}
-              />
-              <button
-                className="btn btn-primary"
-                onClick={handleQuickConnect}
-                disabled={isConnecting}
-              >
-                {isConnecting ? 'Connecting...' : 'Connect'}
-              </button>
-            </div>
-            {connectError && (
-              <p className="error-text">{connectError}</p>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Output Panel - Full height terminal */}
       <div className="output-panel output-panel-full">
         <div className="terminal-container" ref={terminalRef} />
@@ -241,7 +158,7 @@ export default function PlayScreen() {
         <input
           type="text"
           className="form-input"
-          placeholder={connectionState === 'connected' ? 'Type command and press Enter...' : 'Connect to a MUD server via Play in sidebar'}
+          placeholder={connectionState === 'connected' ? 'Type command and press Enter...' : 'Click Play in sidebar to connect'}
           disabled={connectionState !== 'connected'}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
