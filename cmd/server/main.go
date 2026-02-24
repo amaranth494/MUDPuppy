@@ -188,48 +188,46 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
+	// Connections API with explicit routes (SP03PH06)
 	mux.HandleFunc("/api/v1/connections/recent", connectionsHandler.GetRecent)
-	mux.HandleFunc("/api/v1/connections/", func(w http.ResponseWriter, r *http.Request) {
-		path := r.URL.Path
-		if strings.Contains(path, "/credentials/status") {
-			// Handle credential status endpoint
-			switch r.Method {
-			case http.MethodGet:
-				connectionsHandler.GetCredentialsStatus(w, r)
-			default:
-				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			}
-		} else if strings.Contains(path, "/credentials") {
-			// Handle credentials endpoints
-			switch r.Method {
-			case http.MethodGet:
-				connectionsHandler.GetCredentialsStatus(w, r)
-			case http.MethodPost, http.MethodPut:
-				connectionsHandler.SetCredentials(w, r)
-			case http.MethodDelete:
-				connectionsHandler.DeleteCredentials(w, r)
-			default:
-				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			}
-		} else if strings.HasSuffix(path, "/connect") {
-			// Handle /connect endpoint - connect to saved connection
-			switch r.Method {
-			case http.MethodPost:
-				connectionsHandler.Connect(w, r)
-			default:
-				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			}
-		} else {
-			switch r.Method {
-			case http.MethodGet:
-				connectionsHandler.Get(w, r)
-			case http.MethodPut:
-				connectionsHandler.Update(w, r)
-			case http.MethodDelete:
-				connectionsHandler.Delete(w, r)
-			default:
-				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			}
+	mux.HandleFunc("/api/v1/connections/{id}/credentials/status", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			connectionsHandler.GetCredentialsStatus(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/api/v1/connections/{id}/credentials", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			connectionsHandler.GetCredentialsStatus(w, r)
+		case http.MethodPost, http.MethodPut:
+			connectionsHandler.SetCredentials(w, r)
+		case http.MethodDelete:
+			connectionsHandler.DeleteCredentials(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/api/v1/connections/{id}/connect", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			connectionsHandler.Connect(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/api/v1/connections/{id}", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			connectionsHandler.Get(w, r)
+		case http.MethodPut:
+			connectionsHandler.Update(w, r)
+		case http.MethodDelete:
+			connectionsHandler.Delete(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
 
