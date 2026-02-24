@@ -455,18 +455,24 @@ func (h *Handler) SetCredentials(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Encrypt password
-	encryptedPassword, version, err := h.crypto.EncryptString(req.Password)
-	if err != nil {
-		log.Printf("[SP03PH05T07] Encrypt password failed: %v", err)
-		h.sendError(w, "Failed to encrypt password")
-		return
-	}
+	// Encrypt password (only if not empty - empty password means "keep existing")
+	var encryptedBytes []byte
+	var version int
+	if req.Password != "" {
+		encryptedPassword, ver, err := h.crypto.EncryptString(req.Password)
+		if err != nil {
+			log.Printf("[SP03PH05T07] Encrypt password failed: %v", err)
+			h.sendError(w, "Failed to encrypt password")
+			return
+		}
 
-	encryptedBytes, err := base64.StdEncoding.DecodeString(encryptedPassword)
-	if err != nil {
-		h.sendError(w, "Failed to encode password")
-		return
+		encBytes, err := base64.StdEncoding.DecodeString(encryptedPassword)
+		if err != nil {
+			h.sendError(w, "Failed to encode password")
+			return
+		}
+		encryptedBytes = encBytes
+		version = ver
 	}
 
 	cred := &store.ConnectionCredential{

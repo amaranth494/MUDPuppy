@@ -194,10 +194,10 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
             await setCredentials(selectedConnection.id, credRequest);
           }
         } else if (credAutoLogin !== selectedConnection.auto_login_enabled) {
-          // Just update auto-login
+          // Just update auto-login - use current username from form (loaded from API)
           const credRequest: SetCredentialsRequest = {
-            username: '',
-            password: '',
+            username: credUsername,
+            password: '', // Empty password means "keep existing"
             auto_login: credAutoLogin,
           };
           await updateCredentials(selectedConnection.id, credRequest);

@@ -83,6 +83,19 @@ func (s *CredentialsStore) GetStatus(connectionID uuid.UUID) (*CredentialStatus,
 
 // Update updates credentials for a connection
 func (s *CredentialsStore) Update(cred *ConnectionCredential) error {
+	// If no password provided, we need to get the existing password to preserve it
+	if len(cred.EncryptedPassword) == 0 {
+		// Get existing credentials
+		existing, err := s.GetByConnectionID(cred.ConnectionID)
+		if err != nil {
+			return err
+		}
+		if existing != nil {
+			cred.EncryptedPassword = existing.EncryptedPassword
+			cred.KeyVersion = existing.KeyVersion
+		}
+	}
+
 	query := `
 		UPDATE connection_credentials
 		SET username = $1, encrypted_password = $2, key_version = $3, auto_login = $4, updated_at = NOW()
