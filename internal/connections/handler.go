@@ -103,8 +103,9 @@ type SetCredentialsRequest struct {
 }
 
 type CredentialStatusResponse struct {
-	HasCredentials   bool `json:"has_credentials"`
-	AutoLoginEnabled bool `json:"auto_login_enabled"`
+	Username         string `json:"username"`
+	HasCredentials   bool   `json:"has_credentials"`
+	AutoLoginEnabled bool   `json:"auto_login_enabled"`
 }
 
 type ErrorResponse struct {
@@ -532,7 +533,15 @@ func (h *Handler) GetCredentialsStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Also get the actual credentials to retrieve username (not password)
+	var username string
+	cred, err := h.credStore.GetByConnectionID(connID)
+	if err == nil && cred != nil {
+		username = cred.Username
+	}
+
 	h.sendJSON(w, CredentialStatusResponse{
+		Username:         username,
 		HasCredentials:   status.HasCredentials,
 		AutoLoginEnabled: status.AutoLoginEnabled,
 	})

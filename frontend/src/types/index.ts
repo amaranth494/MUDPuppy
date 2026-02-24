@@ -116,6 +116,7 @@ export interface SetCredentialsRequest {
 
 // Credential status response
 export interface CredentialStatus {
+  username: string;
   has_credentials: boolean;
   auto_login_enabled: boolean;
 }
