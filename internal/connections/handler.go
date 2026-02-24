@@ -2,9 +2,9 @@ package connections
 
 import (
 	"context"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -701,49 +701,17 @@ func (h *Handler) UpdateLastConnectedAt(connectionID, userID uuid.UUID) error {
 	return h.connStore.UpdateLastConnectedAt(connectionID, userID)
 }
 
-// Helper functions
-
+// getConnectionID extracts the connection ID from the request using PathValue
 func (h *Handler) getConnectionID(r *http.Request) (uuid.UUID, error) {
-	// Extract ID from URL path
-	// URL format: /api/v1/connections/:id
-	path := r.URL.Path
-	var idStr string
-	_, err := parseURL(path, &idStr)
-	if err != nil {
-		return uuid.Nil, err
+	idStr := r.PathValue("id")
+	if idStr == "" {
+		return uuid.Nil, fmt.Errorf("missing connection ID")
 	}
-
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, fmt.Errorf("invalid UUID length: %d", len(idStr))
 	}
 	return id, nil
-}
-
-// parseURL is a simple URL path parser for /api/v1/connections/:id format
-func parseURL(path string, id *string) (bool, error) {
-	// Expected: /api/v1/connections/{uuid} or /api/v1/connections/{uuid}/credentials
-	var connID string
-	if len(path) < 25 { // /api/v1/connections/
-		return false, sql.ErrNoRows
-	}
-
-	// Remove /api/v1/connections/ prefix
-	rest := path[21:] // len("/api/v1/connections/") = 21
-
-	// Find the next slash or end of string
-	for i, c := range rest {
-		if c == '/' {
-			connID = rest[:i]
-			break
-		}
-	}
-	if connID == "" {
-		connID = rest
-	}
-
-	*id = connID
-	return true, nil
 }
 
 func toResponse(conn *store.SavedConnection, hasCreds, autoLogin bool) ConnectionResponse {
