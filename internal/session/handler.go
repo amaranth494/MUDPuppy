@@ -8,26 +8,46 @@ import (
 	"time"
 
 	"github.com/amaranth494/MudPuppy/internal/config"
+	"github.com/google/uuid"
 )
 
 // Handler handles session HTTP requests
 type Handler struct {
-	manager *Manager
-	config  *config.Config
+	manager   *Manager
+	config    *config.Config
+	callbacks *HandlerCallbacks
+}
+
+// HandlerCallbacks provides callbacks for session events
+type HandlerCallbacks struct {
+	OnConnected     func(connectionID, userID uuid.UUID) error
+	GetAutoLogin    func(connectionID uuid.UUID) (username, password string, err error)
+	SendCredentials func(userID, username, password string) error
 }
 
 // NewHandler creates a new session handler
 func NewHandler(manager *Manager, cfg *config.Config) *Handler {
 	return &Handler{
-		manager: manager,
-		config:  cfg,
+		manager:   manager,
+		config:    cfg,
+		callbacks: nil,
+	}
+}
+
+// NewHandlerWithCallbacks creates a new session handler with callbacks
+func NewHandlerWithCallbacks(manager *Manager, cfg *config.Config, callbacks *HandlerCallbacks) *Handler {
+	return &Handler{
+		manager:   manager,
+		config:    cfg,
+		callbacks: callbacks,
 	}
 }
 
 // Request/Response types
 type ConnectRequest struct {
-	Host string `json:"host"`
-	Port int    `json:"port"`
+	Host         string    `json:"host"`
+	Port         int       `json:"port"`
+	ConnectionID uuid.UUID `json:"connection_id,omitempty"`
 }
 
 type ConnectResponse struct {
@@ -71,6 +91,11 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userIDStr := userID.(string)
+	userUUID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		h.sendError(w, "Invalid user ID")
+		return
+	}
 
 	// Parse request body
 	var req ConnectRequest
@@ -98,6 +123,31 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[SP02PH01] Connect failed: user=%s, error=%v", userIDStr, err)
 		h.sendError(w, err.Error())
 		return
+	}
+
+	// If connection_id was provided, update last_connected_at and handle auto-login
+	if req.ConnectionID != uuid.Nil && h.callbacks != nil {
+		// Update last_connected_at
+		if h.callbacks.OnConnected != nil {
+			if err := h.callbacks.OnConnected(req.ConnectionID, userUUID); err != nil {
+				log.Printf("[SP03PH05T03] Failed to update last_connected_at: %v", err)
+				// Don't fail the connection, just log the error
+			}
+		}
+
+		// Handle auto-login
+		if h.callbacks.GetAutoLogin != nil {
+			username, password, err := h.callbacks.GetAutoLogin(req.ConnectionID)
+			if err != nil {
+				log.Printf("[SP03PH05T08] Failed to get auto-login credentials: %v", err)
+			} else if username != "" && password != "" && h.callbacks.SendCredentials != nil {
+				// Wait a bit for the connection to establish before sending credentials
+				time.Sleep(100 * time.Millisecond)
+				if err := h.callbacks.SendCredentials(userIDStr, username, password); err != nil {
+					log.Printf("[SP03PH05T08] Failed to send auto-login credentials: %v", err)
+				}
+			}
+		}
 	}
 
 	// Return success response

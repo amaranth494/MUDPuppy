@@ -157,30 +157,66 @@
 
 ## Phase 5: Backend Migrations + Connections CRUD (PH05)
 
+> **Strategy Note (PH05/PH06):** Before implementing PH06, extract Host/Port form into a reusable component. Quick Connect (PH04) uses it in "ephemeral mode" — Connections Hub (PH06) uses it in "persisted mode." This prevents duplicating validation, connection flow, and error handling logic.
+
 ### SP03PH05T01 — Connections Table Migration
-- [ ] **Task:** Create migration for connections table
+- [x] **Task:** Create migration for connections table
 - **Fields:** id, user_id, name, host, port, protocol, created_at, updated_at, last_connected_at
 - **Storage:** Postgres
-- [ ] **Commit:** "SP03PH05T01: Connections table migration created"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP03PH05T01: Connections table migration created"
+- [x] **Status:** Complete
 
 ### SP03PH05T02 — Connections API Endpoints
-- [ ] **Task:** Implement CRUD API endpoints for connections
+- [x] **Task:** Implement CRUD API endpoints for connections
 - **Endpoints:** POST/GET/PUT/DELETE /api/v1/connections
-- **Acceptance:** No secrets stored
-- [ ] **Commit:** "SP03PH05T02: Connections API endpoints implemented"
-- [ ] **Status:** Pending
+- **Security:** All connection queries are user-scoped; cross-user access returns 404
+- **Acceptance:** Secrets are permitted only via Credential Vault rules — stored in connection_credentials, encrypted at rest (AES-GCM) with server-managed key material, never returned to UI after set, never logged, only used for auto-login on connect
+- [x] **Commit:** "SP03PH05T02: Connections API endpoints implemented"
+- [x] **Status:** Complete
 
 ### SP03PH05T03 — Last Connected Tracking
-- [ ] **Task:** Update last_connected_at on successful connection
-- [ ] **Commit:** "SP03PH05T03: Last connected tracking added"
-- [ ] **Status:** Pending
+- [x] **Task:** Update last_connected_at on successful connection
+- [x] **Commit:** "SP03PH05T03: Last connected tracking added"
+- [x] **Status:** Complete
 
 ### SP03PH05T04 — Recent Connections Query
-- [ ] **Task:** Implement endpoint to fetch recent connections
+- [x] **Task:** Implement endpoint to fetch recent connections
 - **Definition:** Recent connections = top 5 connections ordered by last_connected_at DESC where last_connected_at IS NOT NULL
-- [ ] **Commit:** "SP03PH05T04: Recent connections query implemented"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP03PH05T04: Recent connections query implemented"
+- [x] **Status:** Complete
+
+### SP03PH05T05 — Credential Vault Migration
+- [x] **Task:** Create migration for connection_credentials table
+- **Fields:** id, connection_id, username, encrypted_password, key_version, auto_login, created_at, updated_at
+- **Storage:** Postgres
+- **Hard Line:** No auto-connect on login — credentials only used when user explicitly clicks Connect
+- [x] **Commit:** "SP03PH05T05: Credential vault migration created"
+- [x] **Status:** Complete
+
+### SP03PH05T06 — Credential Encrypt/Decrypt Helpers
+- [x] **Task:** Implement AES-GCM encryption/decryption with key_version support
+- **Key Storage:** Encryption keys stored as environment variables in Railway, versioned via KEY_VERSION mapping in server config; keys are NOT stored in database
+- **Key Management:** Server-managed key material, versioned keys for rotation
+- **Acceptance:** Never log plaintext credentials
+- [x] **Commit:** "SP03PH05T06: Credential encrypt/decrypt helpers implemented"
+- [x] **Status:** Complete
+
+### SP03PH05T07 — Credential API Endpoints
+- [x] **Task:** Implement CRUD API endpoints for credentials
+- **Endpoints:** POST/PUT/DELETE /api/v1/connections/:id/credentials (set/update/clear), GET /api/v1/connections/:id/credentials/status
+- **Security:** All credential queries are user-scoped; cross-user access returns 404; Credentials never returned to UI after set; status only returns boolean (has_credentials, auto_login_enabled)
+- **Hard Line:** No auto-connect on login
+- **Backend Enforcement:** Connect endpoint must return error if active session exists — never rely only on UI enforcement
+- [x] **Commit:** "SP03PH05T07: Credential API endpoints implemented"
+- [x] **Status:** Complete
+
+### SP03PH05T08 — Connect Path Credential Integration
+- [x] **Task:** Ensure connect flow can retrieve and use credentials by connection_id
+- **Auto-Login Timing:** Write credentials to TCP stream AFTER connection established; do NOT inject during Telnet (IAC) negotiation — credentials are sent after login prompt detected or blindly after connection
+- **Hard Line:** No auto-connect on login — user must explicitly click Connect
+- **Multi-Session:** Design compatible with single active session per user; do NOT assume multiple concurrent sessions
+- [x] **Commit:** "SP03PH05T08: Connect path credential integration complete"
+- [x] **Status:** Complete
 
 > **Staging Push:** To deploy this phase to staging, run:
 > `git push origin sp03-persistent-shell-connections:staging`
@@ -188,6 +224,15 @@
 ---
 
 ## Phase 6: Connections Hub UI (PH06)
+
+> **Connect-While-Connected Rule:** If a session is active, user must disconnect before connecting to a saved connection. No auto-disconnect. No silent switch. This keeps session semantics simple and predictable.
+
+### SP03PH06T00 — Extract Host/Port Reusable Component
+- [ ] **Task:** Extract Host/Port form fields into a shared component
+- **Purpose:** Reuse in Quick Connect (ephemeral) and Connections Hub (persisted)
+- **Acceptance:** Single validation, single error handling, single connection flow
+- [ ] **Commit:** "SP03PH06T00: Host/Port reusable component extracted"
+- [ ] **Status:** Pending
 
 ### SP03PH06T01 — Connections List View
 - [ ] **Task:** Create saved connections list in modal
@@ -198,11 +243,14 @@
 ### SP03PH06T02 — Create Connection Form
 - [ ] **Task:** Create form for new connection
 - **Fields:** Name, Host, Port, Protocol (default telnet)
+- **Credentials:** Username, Password ("Set / Update" button — never display stored), Toggle "Use auto-login", Indicator "Credentials stored"
+- **Quick Connect Note:** Quick Connect (PH04) remains ephemeral — no credential persistence; optionally add "Save as connection" later
 - [ ] **Commit:** "SP03PH06T02: Create connection form created"
 - [ ] **Status:** Pending
 
 ### SP03PH06T03 — Edit Connection Form
 - [ ] **Task:** Create form for editing existing connection
+- **Credentials:** Username, Password ("Set / Update" — never display), Toggle "Use auto-login", Indicator "Credentials stored", "Clear credentials" button
 - [ ] **Commit:** "SP03PH06T03: Edit connection form created"
 - [ ] **Status:** Pending
 
@@ -214,6 +262,8 @@
 
 ### SP03PH06T05 — Connect from Hub
 - [ ] **Task:** Add connect button to saved connections
+- **Connect-While-Connected Rule:** If session is active, show clear error: "Disconnect from current session before connecting to saved connection"
+- **No auto-disconnect. No silent switch.**
 - [ ] **Commit:** "SP03PH06T05: Connect from hub implemented"
 - [ ] **Status:** Pending
 
@@ -311,7 +361,21 @@
 - [ ] **Commit:** N/A
 - [ ] **Status:** Pending
 
-### SP03PH07T07 — QA Sign-Off
+### SP03PH07T07 — Credential Security Tests
+- [ ] **Task:** QA validates credential security and functionality
+- **Tests:**
+  - Verify credentials never appear in browser console
+  - Verify credentials never appear in network payloads except initial set/update call
+  - Verify credentials never appear in server logs
+  - Verify connect succeeds using stored credentials (auto-login)
+  - Verify disconnect/reconnect uses credentials correctly
+  - Verify changing credentials works
+  - Verify clearing credentials disables auto-login
+- **Hard Line:** Stored credentials only used when user explicitly clicks Connect — no auto-connect on login
+- [ ] **Commit:** N/A
+- [ ] **Status:** Pending
+
+### SP03PH07T08 — QA Sign-Off
 - [ ] **Task:** Produce pass/fail report referencing SP03 task IDs
 - **Acceptance:** All tests pass
 - [ ] **Commit:** N/A
@@ -386,11 +450,11 @@
 | PH02 | 4 | 4/4 |
 | PH03 | 4 | 4/4 |
 | PH04 | 3 | 3/3 |
-| PH05 | 4 | 0/4 |
+| PH05 | 8 | 8/8 |
 | PH06 | 6 | 0/6 |
 | PH07 | 7 | 0/7 |
 | PH08 | 6 | 0/6 |
-| **Total** | **42** | **22/42** |
+| **Total** | **42** | **30/42** |
 
 ---
 

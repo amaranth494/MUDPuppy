@@ -375,6 +375,42 @@ func (m *Manager) SendCommand(userID, command string) error {
 	return nil
 }
 
+// SendCredentials sends username and password to the MUD server for auto-login
+// This sends the credentials followed by a newline, suitable for login prompts
+func (m *Manager) SendCredentials(userID, username, password string) error {
+	m.mu.RLock()
+	conn, ok := m.conns[userID]
+	m.mu.RUnlock()
+
+	if !ok {
+		return fmt.Errorf("no active connection")
+	}
+
+	// Reset idle timer
+	m.ResetIdleTimer(userID)
+
+	// Send username then password (each followed by newline)
+	// Common login flow: username -> enter -> password -> enter
+	if username != "" {
+		_, err := conn.Write([]byte(username + "\r\n"))
+		if err != nil {
+			log.Printf("[SP03PH05T08] Failed to send username: %v", err)
+			return fmt.Errorf("failed to send username: %v", err)
+		}
+	}
+
+	if password != "" {
+		_, err := conn.Write([]byte(password + "\r\n"))
+		if err != nil {
+			log.Printf("[SP03PH05T08] Failed to send password: %v", err)
+			return fmt.Errorf("failed to send password: %v", err)
+		}
+	}
+
+	log.Printf("[SP03PH05T08] Credentials sent for user=%s", userID)
+	return nil
+}
+
 // ReadOutput reads output from the MUD server (non-blocking for now)
 // This will be called by the WebSocket handler in PH02
 func (m *Manager) ReadOutput(userID string, buffer []byte) (int, error) {

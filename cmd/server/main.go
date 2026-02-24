@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"log"
@@ -15,6 +16,8 @@ import (
 
 	"github.com/amaranth494/MudPuppy/internal/auth"
 	"github.com/amaranth494/MudPuppy/internal/config"
+	"github.com/amaranth494/MudPuppy/internal/connections"
+	"github.com/amaranth494/MudPuppy/internal/crypto"
 	"github.com/amaranth494/MudPuppy/internal/metrics"
 	"github.com/amaranth494/MudPuppy/internal/redis"
 	"github.com/amaranth494/MudPuppy/internal/session"
@@ -22,6 +25,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 )
 
@@ -117,6 +121,29 @@ func main() {
 	userStore := store.NewUserStore(db)
 	authHandler := auth.NewHandler(userStore, redisClient, cfg)
 
+	// Initialize connections handler FIRST (SP03PH05) - needed for session callbacks
+	connectionStore := store.NewConnectionStore(db)
+	credentialsStore := store.NewCredentialsStore(db)
+	// Create encryption key store from config
+	encryptionKeys := make(map[int][]byte)
+	if cfg.EncryptionKeyV1 != "" {
+		if key, err := base64.StdEncoding.DecodeString(cfg.EncryptionKeyV1); err == nil && len(key) == 32 {
+			encryptionKeys[1] = key
+		}
+	}
+	if cfg.EncryptionKeyV2 != "" {
+		if key, err := base64.StdEncoding.DecodeString(cfg.EncryptionKeyV2); err == nil && len(key) == 32 {
+			encryptionKeys[2] = key
+		}
+	}
+	if cfg.EncryptionKeyV3 != "" {
+		if key, err := base64.StdEncoding.DecodeString(cfg.EncryptionKeyV3); err == nil && len(key) == 32 {
+			encryptionKeys[3] = key
+		}
+	}
+	keyStore := crypto.NewKeyStore(encryptionKeys)
+	connectionsHandler := connections.NewHandler(connectionStore, credentialsStore, keyStore)
+
 	// Initialize session manager and handler (SP02PH01)
 	sessionManager := session.NewManager(
 		cfg.PortWhitelist,
@@ -125,7 +152,19 @@ func main() {
 		cfg.IdleTimeoutMinutes,
 		cfg.HardSessionCapHours,
 	)
-	sessionHandler := session.NewHandler(sessionManager, cfg)
+
+	// Create session handler with callbacks for SP03PH05 (connections integration)
+	sessionHandler := session.NewHandlerWithCallbacks(sessionManager, cfg, &session.HandlerCallbacks{
+		OnConnected: func(connectionID, userID uuid.UUID) error {
+			return connectionsHandler.UpdateLastConnectedAt(connectionID, userID)
+		},
+		GetAutoLogin: func(connectionID uuid.UUID) (string, string, error) {
+			return connectionsHandler.GetCredentialsForAutoLogin(connectionID)
+		},
+		SendCredentials: func(userID, username, password string) error {
+			return sessionManager.SendCredentials(userID, username, password)
+		},
+	})
 
 	// Initialize WebSocket handler (SP02PH02)
 	wsHandler := session.NewWebSocketHandler(sessionManager, cfg)
@@ -135,6 +174,46 @@ func main() {
 
 	// Create router with session middleware
 	mux := http.NewServeMux()
+
+	// Add connections endpoints to mux (SP03PH05)
+	mux.HandleFunc("/api/v1/connections", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			connectionsHandler.List(w, r)
+		case http.MethodPost:
+			connectionsHandler.Create(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/api/v1/connections/recent", connectionsHandler.GetRecent)
+	mux.HandleFunc("/api/v1/connections/", func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if strings.Contains(path, "/credentials") {
+			// Handle credentials endpoints
+			switch r.Method {
+			case http.MethodGet:
+				connectionsHandler.GetCredentialsStatus(w, r)
+			case http.MethodPost, http.MethodPut:
+				connectionsHandler.SetCredentials(w, r)
+			case http.MethodDelete:
+				connectionsHandler.DeleteCredentials(w, r)
+			default:
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		} else {
+			switch r.Method {
+			case http.MethodGet:
+				connectionsHandler.Get(w, r)
+			case http.MethodPut:
+				connectionsHandler.Update(w, r)
+			case http.MethodDelete:
+				connectionsHandler.Delete(w, r)
+			default:
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		}
+	})
 
 	// Public endpoints
 	mux.HandleFunc("/health", healthHandler)

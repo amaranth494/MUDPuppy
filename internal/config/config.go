@@ -34,6 +34,11 @@ type Config struct {
 	MaxMessageSizeBytes    int
 	CommandRateLimitPerSec int
 
+	// Encryption (SP03PH05)
+	EncryptionKeyV1 string
+	EncryptionKeyV2 string
+	EncryptionKeyV3 string
+
 	// Admin
 	AdminMetricsSecret string
 }
@@ -147,6 +152,12 @@ func Load() (*Config, error) {
 
 	// Admin metrics endpoint secret (required for /api/v1/admin/metrics)
 	cfg.AdminMetricsSecret = os.Getenv("ADMIN_METRICS_SECRET")
+
+	// Encryption keys for credential vault (SP03PH05)
+	// Base64-encoded 32-byte keys for AES-256-GCM
+	cfg.EncryptionKeyV1 = os.Getenv("ENCRYPTION_KEY_V1")
+	cfg.EncryptionKeyV2 = os.Getenv("ENCRYPTION_KEY_V2")
+	cfg.EncryptionKeyV3 = os.Getenv("ENCRYPTION_KEY_V3")
 
 	return cfg, nil
 }
