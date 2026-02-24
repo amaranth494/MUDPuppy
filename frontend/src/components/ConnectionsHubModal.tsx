@@ -412,7 +412,7 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
             id="cred-username"
             type="text"
             className="form-input"
-            placeholder="Username for auto-login"
+            placeholder={hasCredentials && credUsername ? credUsername : 'Username for auto-login'}
             value={credUsername}
             onChange={(e) => setCredUsername(e.target.value)}
           />
