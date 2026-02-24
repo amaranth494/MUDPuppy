@@ -73,6 +73,7 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
     setIsLoadingCredStatus(true);
     try {
       const status = await getCredentialStatus(connectionId);
+      console.log('[ConnectionsHub] Credential status loaded:', status);
       setHasCredentials(status.has_credentials);
       setCredAutoLogin(status.auto_login_enabled);
       setCredUsername(status.username || '');
