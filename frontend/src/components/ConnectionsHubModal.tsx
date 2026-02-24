@@ -116,6 +116,7 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
 
   // Handle edit connection
   const handleEdit = (conn: SavedConnection) => {
+    console.log('[ConnectionsHub] handleEdit called with:', conn);
     setSelectedConnection(conn);
     setFormName(conn.name);
     setFormHost(conn.host);
