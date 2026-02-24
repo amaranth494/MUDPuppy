@@ -24,7 +24,7 @@ interface ConnectionsHubModalProps {
 type ViewType = 'list' | 'create' | 'edit';
 
 export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubModalProps) {
-  const { connectionState } = useSession();
+  const { connectionState, refreshStatus } = useSession();
   
   // State
   const [view, setView] = useState<ViewType>('list');
@@ -256,6 +256,8 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
     try {
       // Use the saved connection connect endpoint
       await connectToSavedConnection(conn.id);
+      // Refresh session status to update UI
+      await refreshStatus();
       // Close modal after successful connect
       onClose();
     } catch (err) {
