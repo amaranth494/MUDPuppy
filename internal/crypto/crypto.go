@@ -118,9 +118,7 @@ func (ks *KeyStore) Decrypt(ciphertext []byte) ([]byte, error) {
 		return nil, errors.New("ciphertext too short")
 	}
 
-	// Try each key version to decrypt
-	// In a proper implementation, we'd encode the version in the ciphertext
-	// For now, try the current version first, then all others
+	// Try each key version to decrypt (for backward compatibility)
 	versions := []int{ks.CurrentKeyVersion()}
 	for v := range ks.keys {
 		found := false
@@ -137,31 +135,7 @@ func (ks *KeyStore) Decrypt(ciphertext []byte) ([]byte, error) {
 
 	var lastErr error
 	for _, version := range versions {
-		key, ok := ks.keys[version]
-		if !ok {
-			continue
-		}
-
-		block, err := aes.NewCipher(key)
-		if err != nil {
-			lastErr = err
-			continue
-		}
-
-		gcm, err := cipher.NewGCM(block)
-		if err != nil {
-			lastErr = err
-			continue
-		}
-
-		nonceSize := gcm.NonceSize()
-		if len(ciphertext) < nonceSize {
-			lastErr = errors.New("ciphertext too short for nonce")
-			continue
-		}
-
-		nonce, ciphertextBytes := ciphertext[:nonceSize], ciphertext[nonceSize:]
-		plaintext, err := gcm.Open(nil, nonce, ciphertextBytes, nil)
+		plaintext, err := ks.DecryptWithVersion(ciphertext, version)
 		if err == nil {
 			return plaintext, nil
 		}
@@ -172,6 +146,42 @@ func (ks *KeyStore) Decrypt(ciphertext []byte) ([]byte, error) {
 		return nil, lastErr
 	}
 	return nil, errors.New("failed to decrypt with any key version")
+}
+
+// DecryptWithVersion decrypts ciphertext using a specific key version
+// Returns error if the key version is not available
+func (ks *KeyStore) DecryptWithVersion(ciphertext []byte, version int) ([]byte, error) {
+	key, ok := ks.keys[version]
+	if !ok {
+		return nil, ErrInvalidKeyVersion
+	}
+
+	if len(ciphertext) < 12 { // Minimum: nonce size (12) + at least 1 byte
+		return nil, errors.New("ciphertext too short")
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	nonceSize := gcm.NonceSize()
+	if len(ciphertext) < nonceSize {
+		return nil, errors.New("ciphertext too short for nonce")
+	}
+
+	nonce, ciphertextBytes := ciphertext[:nonceSize], ciphertext[nonceSize:]
+	plaintext, err := gcm.Open(nil, nonce, ciphertextBytes, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return plaintext, nil
 }
 
 // EncryptString encrypts a string and returns base64-encoded ciphertext

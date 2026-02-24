@@ -52,10 +52,10 @@ func (h *Handler) GetCredentialsForAutoLogin(connectionID uuid.UUID) (username, 
 		return "", "", nil
 	}
 
-	// Decrypt the password
-	passwordBytes, err := h.crypto.Decrypt(cred.EncryptedPassword)
+	// Decrypt the password using the specific key version stored with the credential
+	passwordBytes, err := h.crypto.DecryptWithVersion(cred.EncryptedPassword, cred.KeyVersion)
 	if err != nil {
-		log.Printf("[SP03PH05T08] Failed to decrypt password: %v", err)
+		log.Printf("[SP03PH05T08] Failed to decrypt password with key version %d: %v", cred.KeyVersion, err)
 		return "", "", err
 	}
 
