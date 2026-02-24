@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/amaranth494/MudPuppy/internal/crypto"
 	"github.com/amaranth494/MudPuppy/internal/session"
@@ -605,9 +606,23 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	connID, err := h.getConnectionID(r)
+	// Extract connection ID manually from URL path to handle /connect suffix
+	// URL format: /api/v1/connections/{uuid}/connect
+	path := r.URL.Path
+	prefix := "/api/v1/connections/"
+	if len(path) <= len(prefix) {
+		h.sendError(w, "Invalid connection ID")
+		return
+	}
+	rest := path[len(prefix):]
+	// Remove /connect suffix if present
+	if strings.HasSuffix(rest, "/connect") {
+		rest = strings.TrimSuffix(rest, "/connect")
+	}
+
+	connID, err := uuid.Parse(rest)
 	if err != nil {
-		h.sendError(w, err.Error())
+		h.sendError(w, "Invalid connection ID")
 		return
 	}
 
