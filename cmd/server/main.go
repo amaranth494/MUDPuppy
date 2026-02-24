@@ -142,9 +142,8 @@ func main() {
 		}
 	}
 	keyStore := crypto.NewKeyStore(encryptionKeys)
-	connectionsHandler := connections.NewHandler(connectionStore, credentialsStore, keyStore)
 
-	// Initialize session manager and handler (SP02PH01)
+	// Initialize session manager first (SP02PH01)
 	sessionManager := session.NewManager(
 		cfg.PortWhitelist,
 		cfg.PortDenylist,
@@ -152,6 +151,9 @@ func main() {
 		cfg.IdleTimeoutMinutes,
 		cfg.HardSessionCapHours,
 	)
+
+	// Initialize connections handler with session manager (SP03PH06)
+	connectionsHandler := connections.NewHandler(connectionStore, credentialsStore, keyStore, sessionManager)
 
 	// Create session handler with callbacks for SP03PH05 (connections integration)
 	sessionHandler := session.NewHandlerWithCallbacks(sessionManager, cfg, &session.HandlerCallbacks{
@@ -198,6 +200,14 @@ func main() {
 				connectionsHandler.SetCredentials(w, r)
 			case http.MethodDelete:
 				connectionsHandler.DeleteCredentials(w, r)
+			default:
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		} else if strings.HasSuffix(path, "/connect") {
+			// Handle /connect endpoint - connect to saved connection
+			switch r.Method {
+			case http.MethodPost:
+				connectionsHandler.Connect(w, r)
 			default:
 				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			}

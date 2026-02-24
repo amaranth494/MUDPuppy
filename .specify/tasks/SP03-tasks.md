@@ -227,50 +227,59 @@
 
 > **Connect-While-Connected Rule:** If a session is active, user must disconnect before connecting to a saved connection. No auto-disconnect. No silent switch. This keeps session semantics simple and predictable.
 
+> **PH06 Regression Protections:**
+> - **No credential echo:** Never preload password field with decrypted value. Only show "Credentials stored" indicator, toggle auto-login, and Set/Update button.
+> - **No auto-connect on modal open:** Saved connection modal must not connect until user explicitly clicks Connect.
+> - **No silent disconnect + reconnect:** Backend enforces "disconnect first" rule (PH05 already specifies this).
+> - **No duplicate connect race:** When wiring connect-from-hub, disable button while connecting.
+
 ### SP03PH06T00 — Extract Host/Port Reusable Component
-- [ ] **Task:** Extract Host/Port form fields into a shared component
+- [x] **Task:** Extract Host/Port form fields into a shared component
 - **Purpose:** Reuse in Quick Connect (ephemeral) and Connections Hub (persisted)
 - **Acceptance:** Single validation, single error handling, single connection flow
-- [ ] **Commit:** "SP03PH06T00: Host/Port reusable component extracted"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP03PH06T00: Host/Port reusable component extracted"
+- [x] **Status:** Complete
 
 ### SP03PH06T01 — Connections List View
-- [ ] **Task:** Create saved connections list in modal
+- [x] **Task:** Create saved connections list in modal
 - **Acceptance:** Displays all user connections
-- [ ] **Commit:** "SP03PH06T01: Connections list view created"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP03PH06T01: Connections list view created"
+- [x] **Status:** Complete
 
 ### SP03PH06T02 — Create Connection Form
-- [ ] **Task:** Create form for new connection
+- [x] **Task:** Create form for new connection
 - **Fields:** Name, Host, Port, Protocol (default telnet)
 - **Credentials:** Username, Password ("Set / Update" button — never display stored), Toggle "Use auto-login", Indicator "Credentials stored"
 - **Quick Connect Note:** Quick Connect (PH04) remains ephemeral — no credential persistence; optionally add "Save as connection" later
-- [ ] **Commit:** "SP03PH06T02: Create connection form created"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP03PH06T02: Create connection form created"
+- [x] **Status:** Complete
 
 ### SP03PH06T03 — Edit Connection Form
-- [ ] **Task:** Create form for editing existing connection
+- [x] **Task:** Create form for editing existing connection
 - **Credentials:** Username, Password ("Set / Update" — never display), Toggle "Use auto-login", Indicator "Credentials stored", "Clear credentials" button
-- [ ] **Commit:** "SP03PH06T03: Edit connection form created"
-- [ ] **Status:** Pending
+- **No Credential Echo:** Never preload password field with decrypted value; password field must always be empty or masked
+- [x] **Commit:** "SP03PH06T03: Edit connection form created"
+- [x] **Status:** Complete
 
 ### SP03PH06T04 — Delete Connection
-- [ ] **Task:** Implement delete with confirmation
+- [x] **Task:** Implement delete with confirmation
 - **Rule:** Does not affect active session
-- [ ] **Commit:** "SP03PH06T04: Delete connection implemented"
-- [ ] **Status:** Pending
+- [x] **Commit:** "SP03PH06T04: Delete connection implemented"
+- [x] **Status:** Complete
 
 ### SP03PH06T05 — Connect from Hub
-- [ ] **Task:** Add connect button to saved connections
+- [x] **Task:** Add connect button to saved connections
 - **Connect-While-Connected Rule:** If session is active, show clear error: "Disconnect from current session before connecting to saved connection"
 - **No auto-disconnect. No silent switch.**
-- [ ] **Commit:** "SP03PH06T05: Connect from hub implemented"
-- [ ] **Status:** Pending
+- **No duplicate connect race:** Disable button while connecting to prevent race conditions
+- **No auto-connect:** Modal must not connect until user explicitly clicks Connect
+- [x] **Commit:** "SP03PH06T05: Connect from hub implemented"
+- [x] **Status:** Complete
 
 ### SP03PH06T06 — Recent Connections Display
-- [ ] **Task:** Show recent connections from server
-- [ ] **Commit:** "SP03PH06T06: Recent connections display added"
-- [ ] **Status:** Pending
+- [x] **Task:** Show recent connections from server
+- [x] **Commit:** "SP03PH06T06: Recent connections display added"
+- [x] **Status:** Complete
 
 > **Staging Push:** To deploy this phase to staging, run:
 > `git push origin sp03-persistent-shell-connections:staging`
@@ -451,10 +460,10 @@
 | PH03 | 4 | 4/4 |
 | PH04 | 3 | 3/3 |
 | PH05 | 8 | 8/8 |
-| PH06 | 6 | 0/6 |
+| PH06 | 6 | 6/6 |
 | PH07 | 7 | 0/7 |
 | PH08 | 6 | 0/6 |
-| **Total** | **42** | **30/42** |
+| **Total** | **42** | **36/42** |
 
 ---
 

@@ -75,3 +75,47 @@ export function mapBackendError(error: string): string {
   }
   return error;
 }
+
+// Saved Connection type (from backend)
+export interface SavedConnection {
+  id: string;
+  user_id: string;
+  name: string;
+  host: string;
+  port: number;
+  protocol: string;
+  created_at: string;
+  updated_at: string;
+  last_connected_at?: string;
+  has_credentials: boolean;
+  auto_login_enabled: boolean;
+}
+
+// Create connection request
+export interface CreateConnectionRequest {
+  name: string;
+  host: string;
+  port: number;
+  protocol?: string;
+}
+
+// Update connection request
+export interface UpdateConnectionRequest {
+  name: string;
+  host: string;
+  port: number;
+  protocol?: string;
+}
+
+// Set credentials request
+export interface SetCredentialsRequest {
+  username: string;
+  password: string;
+  auto_login: boolean;
+}
+
+// Credential status response
+export interface CredentialStatus {
+  has_credentials: boolean;
+  auto_login_enabled: boolean;
+}

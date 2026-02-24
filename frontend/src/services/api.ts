@@ -1,4 +1,4 @@
-import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage } from '../types';
+import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus } from '../types';
 
 const API_BASE = '/api/v1';
 
@@ -203,4 +203,155 @@ export class WebSocketManager {
   isConnected(): boolean {
     return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
   }
+}
+
+// Connection API endpoints
+
+// Get all connections for the current user
+export async function getConnections(): Promise<SavedConnection[]> {
+  const response = await fetch(`${API_BASE}/connections`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to get connections');
+  }
+  return await response.json();
+}
+
+// Get a single connection by ID
+export async function getConnection(id: string): Promise<SavedConnection> {
+  const response = await fetch(`${API_BASE}/connections/${id}`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to get connection');
+  }
+  return await response.json();
+}
+
+// Create a new connection
+export async function createConnection(request: CreateConnectionRequest): Promise<SavedConnection> {
+  const response = await fetch(`${API_BASE}/connections`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(request),
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to create connection');
+  }
+  return await response.json();
+}
+
+// Update an existing connection
+export async function updateConnection(id: string, request: UpdateConnectionRequest): Promise<SavedConnection> {
+  const response = await fetch(`${API_BASE}/connections/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(request),
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to update connection');
+  }
+  return await response.json();
+}
+
+// Delete a connection
+export async function deleteConnection(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/connections/${id}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to delete connection');
+  }
+}
+
+// Get credential status for a connection
+export async function getCredentialStatus(connectionId: string): Promise<CredentialStatus> {
+  const response = await fetch(`${API_BASE}/connections/${connectionId}/credentials/status`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to get credential status');
+  }
+  return await response.json();
+}
+
+// Set credentials for a connection
+export async function setCredentials(connectionId: string, request: SetCredentialsRequest): Promise<void> {
+  const response = await fetch(`${API_BASE}/connections/${connectionId}/credentials`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(request),
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to set credentials');
+  }
+}
+
+// Update credentials for a connection
+export async function updateCredentials(connectionId: string, request: SetCredentialsRequest): Promise<void> {
+  const response = await fetch(`${API_BASE}/connections/${connectionId}/credentials`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(request),
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to update credentials');
+  }
+}
+
+// Delete credentials for a connection
+export async function deleteCredentials(connectionId: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/connections/${connectionId}/credentials`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to delete credentials');
+  }
+}
+
+// Connect to a saved connection (with optional credentials)
+export async function connectToSavedConnection(connectionId: string): Promise<ConnectResponse> {
+  const response = await fetch(`${API_BASE}/connections/${connectionId}/connect`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to connect');
+  }
+  return data;
 }

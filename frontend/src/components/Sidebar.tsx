@@ -10,11 +10,13 @@ interface SidebarProps {
   onToggle?: () => void;
   /** Callback when Play is clicked - opens Quick Connect modal */
   onPlayClick?: () => void;
+  /** Callback when Connections is clicked - opens Connections Hub modal */
+  onConnectionsClick?: () => void;
   /** Whether Play button should be disabled (when route modal is open) */
   isPlayDisabled?: boolean;
 }
 
-export default function Sidebar({ isCollapsed = false, onToggle, onPlayClick, isPlayDisabled }: SidebarProps) {
+export default function Sidebar({ isCollapsed = false, onToggle, onPlayClick, onConnectionsClick, isPlayDisabled }: SidebarProps) {
   const { user } = useSession();
   const [showDropdown, setShowDropdown] = useState(false);
   const location = useLocation();
@@ -67,17 +69,17 @@ export default function Sidebar({ isCollapsed = false, onToggle, onPlayClick, is
           )}
         </button>
         
-        {/* Connections - navigates to Connections Hub */}
-        <Link
-          to="/connections"
+        {/* Connections - opens Connections Hub modal */}
+        <button
           className={`sidebar-nav-item ${isActive('/connections') ? 'active' : ''}`}
           title={isCollapsed ? 'Connections' : undefined}
+          onClick={onConnectionsClick}
         >
           <span className="sidebar-nav-icon">⚡</span>
           {!isCollapsed && (
             <span className="sidebar-nav-label">Connections</span>
           )}
-        </Link>
+        </button>
         
         {/* Help - navigates to Help */}
         <Link

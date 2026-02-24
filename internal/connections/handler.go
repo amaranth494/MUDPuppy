@@ -9,23 +9,26 @@ import (
 	"net/http"
 
 	"github.com/amaranth494/MudPuppy/internal/crypto"
+	"github.com/amaranth494/MudPuppy/internal/session"
 	"github.com/amaranth494/MudPuppy/internal/store"
 	"github.com/google/uuid"
 )
 
 // Handler handles connections HTTP requests
 type Handler struct {
-	connStore *store.ConnectionStore
-	credStore *store.CredentialsStore
-	crypto    *crypto.KeyStore
+	connStore  *store.ConnectionStore
+	credStore  *store.CredentialsStore
+	crypto     *crypto.KeyStore
+	sessionMgr *session.Manager
 }
 
 // NewHandler creates a new connections handler
-func NewHandler(connStore *store.ConnectionStore, credStore *store.CredentialsStore, crypto *crypto.KeyStore) *Handler {
+func NewHandler(connStore *store.ConnectionStore, credStore *store.CredentialsStore, crypto *crypto.KeyStore, sessionMgr *session.Manager) *Handler {
 	return &Handler{
-		connStore: connStore,
-		credStore: credStore,
-		crypto:    crypto,
+		connStore:  connStore,
+		credStore:  credStore,
+		crypto:     crypto,
+		sessionMgr: sessionMgr,
 	}
 }
 
@@ -579,6 +582,100 @@ func (h *Handler) DeleteCredentials(w http.ResponseWriter, r *http.Request) {
 	h.sendJSON(w, CredentialStatusResponse{
 		HasCredentials:   false,
 		AutoLoginEnabled: false,
+	})
+}
+
+// Connect handles POST /api/v1/connections/:id/connect
+// This connects to a saved connection using the session manager
+func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := r.Context().Value("user_id")
+	if userID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userIDStr := userID.(string)
+	userUUID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		h.sendError(w, "Invalid user ID")
+		return
+	}
+
+	connID, err := h.getConnectionID(r)
+	if err != nil {
+		h.sendError(w, err.Error())
+		return
+	}
+
+	// Get connection details
+	conn, err := h.connStore.GetByID(connID, userUUID)
+	if err != nil {
+		log.Printf("[SP03PH06T05] Get connection failed: %v", err)
+		h.sendError(w, "Failed to get connection")
+		return
+	}
+	if conn == nil {
+		h.sendError(w, "Connection not found")
+		return
+	}
+
+	// Check if session manager is available
+	if h.sessionMgr == nil {
+		h.sendError(w, "Session manager not available")
+		return
+	}
+
+	// Check if user already has an active session
+	existingSession, _ := h.sessionMgr.GetSession(userUUID.String())
+	if existingSession != nil && existingSession.State == session.StateConnected {
+		h.sendError(w, "user already has active session")
+		return
+	}
+
+	// Get credentials for auto-login (if available)
+	var username, password string
+	autoLogin := false
+
+	status, err := h.credStore.GetStatus(connID)
+	if err == nil && status != nil && status.AutoLoginEnabled {
+		username, password, _ = h.GetCredentialsForAutoLogin(connID)
+		autoLogin = true
+	}
+
+	// Connect to the MUD server using session manager
+	ctx := context.Background()
+	_, err = h.sessionMgr.Connect(ctx, userUUID.String(), conn.Host, conn.Port)
+	if err != nil {
+		log.Printf("[SP03PH06T05] Connect failed: %v", err)
+		h.sendError(w, err.Error())
+		return
+	}
+
+	// If auto-login is enabled, send credentials
+	if autoLogin && username != "" && password != "" {
+		err = h.sessionMgr.SendCredentials(userUUID.String(), username, password)
+		if err != nil {
+			log.Printf("[SP03PH06T05] Send credentials failed: %v", err)
+			// Don't fail the connection for this
+		}
+	}
+
+	// Update last_connected_at
+	if err := h.connStore.UpdateLastConnectedAt(connID, userUUID); err != nil {
+		log.Printf("[SP03PH06T05] Update last_connected_at failed: %v", err)
+		// Don't fail the connection for this
+	}
+
+	// Return success response
+	h.sendJSON(w, map[string]interface{}{
+		"state":      "connected",
+		"host":       conn.Host,
+		"port":       conn.Port,
+		"auto_login": autoLogin,
 	})
 }
 

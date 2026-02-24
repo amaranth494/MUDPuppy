@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
+	"os"
 )
 
 // ErrInvalidKeyVersion is returned when an invalid key version is used
@@ -65,6 +66,9 @@ func getKeyEnv(version int) string {
 func getEnvOrDefault(key, defaultValue string) string {
 	// In a real implementation, this would read from os.Getenv
 	// For now, return the default value
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
 	return defaultValue
 }
 

@@ -9,6 +9,7 @@ import LoginScreen from './pages/LoginScreen';
 import Sidebar from './components/Sidebar';
 import Modal from './components/Modal';
 import QuickConnectModal from './components/QuickConnectModal';
+import ConnectionsHubModal from './components/ConnectionsHubModal';
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useSession();
@@ -34,6 +35,7 @@ function AppContent() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isQuickConnectOpen, setIsQuickConnectOpen] = useState(false);
+  const [isConnectionsHubOpen, setIsConnectionsHubOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -85,6 +87,7 @@ function AppContent() {
           isCollapsed={isSidebarCollapsed}
           onToggle={handleToggleCollapse}
           onPlayClick={() => setIsQuickConnectOpen(true)}
+          onConnectionsClick={() => setIsConnectionsHubOpen(true)}
           isPlayDisabled={isOverlayPage}
         />
       )}
@@ -126,6 +129,12 @@ function AppContent() {
         <QuickConnectModal
           isOpen={isQuickConnectOpen}
           onClose={() => setIsQuickConnectOpen(false)}
+        />
+        
+        {/* Connections Hub Modal (SP03PH06) */}
+        <ConnectionsHubModal
+          isOpen={isConnectionsHubOpen}
+          onClose={() => setIsConnectionsHubOpen(false)}
         />
       </main>
     </div>

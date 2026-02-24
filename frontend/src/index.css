@@ -866,6 +866,224 @@ body {
   flex: 1;
 }
 
+/* Connections Hub Modal (SP03PH06) */
+.connections-hub-list {
+  padding: var(--spacing-md);
+  min-width: 400px;
+  max-width: 600px;
+}
+
+.connections-section {
+  margin-bottom: var(--spacing-lg);
+}
+
+.connections-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+}
+
+.connections-section-title {
+  font-size: var(--font-size-lg);
+  color: var(--color-text);
+  margin-bottom: var(--spacing-md);
+}
+
+.connections-section-header .connections-section-title {
+  margin-bottom: 0;
+}
+
+.connections-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.connection-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.connection-item.recent {
+  border-style: dashed;
+}
+
+.connection-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.connection-name {
+  font-weight: bold;
+  color: var(--color-text);
+}
+
+.connection-address {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-dim);
+}
+
+.connection-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-dim);
+  margin-top: var(--spacing-xs);
+}
+
+.connection-badge.badge-auto {
+  background: var(--color-success);
+  color: var(--color-bg);
+  border-color: var(--color-success);
+}
+
+.connection-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+}
+
+.delete-confirm {
+  display: flex;
+  gap: var(--spacing-xs);
+  align-items: center;
+}
+
+.delete-confirm span {
+  color: var(--color-error);
+  font-size: var(--font-size-sm);
+}
+
+.connections-loading,
+.connections-empty {
+  padding: var(--spacing-lg);
+  text-align: center;
+  color: var(--color-text-dim);
+}
+
+/* Connections Hub Form */
+.connections-hub-form {
+  padding: var(--spacing-md);
+  min-width: 400px;
+  max-width: 500px;
+}
+
+.connections-hub-form .form-title {
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.connections-hub-form .form-group {
+  margin-bottom: var(--spacing-md);
+}
+
+.credentials-section {
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+.credentials-title {
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  margin-bottom: var(--spacing-md);
+}
+
+.credentials-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  padding: var(--spacing-sm);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
+}
+
+.credential-indicator {
+  font-size: var(--font-size-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.credential-indicator.stored {
+  color: var(--color-success);
+}
+
+.credential-indicator.auto {
+  color: var(--color-warning);
+}
+
+.credentials-loading {
+  padding: var(--spacing-sm);
+  color: var(--color-text-dim);
+  font-size: var(--font-size-sm);
+}
+
+.form-checkbox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.form-checkbox label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  cursor: pointer;
+}
+
+.form-checkbox input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
+.form-hint {
+  display: block;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-dim);
+  margin-top: var(--spacing-xs);
+}
+
+.form-actions {
+  display: flex;
+  gap: var(--spacing-md);
+  justify-content: flex-end;
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+/* Host/Port Form Reusable Component */
+.host-port-form {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.host-port-form .form-group {
+  flex: 1;
+}
+
+.host-port-form .form-group:first-child {
+  flex: 2;
+}
+
+.message-success {
+  background: rgba(0, 255, 0, 0.1);
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
 .output-panel {
   flex: 1;
   background: var(--color-bg-secondary);

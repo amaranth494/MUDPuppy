@@ -184,6 +184,12 @@ This plan outlines the execution path for SP03, establishing a persistent applic
 
 > **Connect-While-Connected Rule:** If a session is active, user must disconnect before connecting to a saved connection. No auto-disconnect. No silent switch. This keeps session semantics simple and predictable.
 
+> **PH06 Regression Protections:**
+> - **No credential echo:** Never preload password field with decrypted value. Only show "Credentials stored" indicator, toggle auto-login, and Set/Update button.
+> - **No auto-connect on modal open:** Saved connection modal must not connect until user explicitly clicks Connect.
+> - **No silent disconnect + reconnect:** Backend enforces "disconnect first" rule (PH05 already specifies this).
+> - **No duplicate connect race:** When wiring connect-from-hub, disable button while connecting.
+
 ### SP03PH06T00 — Extract Host/Port Reusable Component
 - [ ] **Task:** Extract Host/Port form fields into a shared component
 - **Purpose:** Reuse in Quick Connect (ephemeral) and Connections Hub (persisted)
@@ -205,6 +211,7 @@ This plan outlines the execution path for SP03, establishing a persistent applic
 ### SP03PH06T03 — Edit Connection Form
 - [ ] **Task:** Create form for editing existing connection
 - **Credentials:** Username, Password ("Set / Update" — never display), Toggle "Use auto-login", Indicator "Credentials stored", "Clear credentials" button
+- **No Credential Echo:** Never preload password field with decrypted value; password field must always be empty or masked
 - [ ] **Commit:** "SP03PH06T03: Edit connection form created"
 
 ### SP03PH06T04 — Delete Connection
@@ -216,6 +223,8 @@ This plan outlines the execution path for SP03, establishing a persistent applic
 - [ ] **Task:** Add connect button to saved connections
 - **Connect-While-Connected Rule:** If session is active, show clear error: "Disconnect from current session before connecting to saved connection"
 - **No auto-disconnect. No silent switch.**
+- **No duplicate connect race:** Disable button while connecting to prevent race conditions
+- **No auto-connect:** Modal must not connect until user explicitly clicks Connect
 - [ ] **Commit:** "SP03PH06T05: Connect from hub implemented"
 
 ### SP03PH06T06 — Recent Connections Display
