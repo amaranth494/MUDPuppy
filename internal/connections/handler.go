@@ -615,10 +615,7 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rest := path[len(prefix):]
-	// Remove /connect suffix if present
-	if strings.HasSuffix(rest, "/connect") {
-		rest = strings.TrimSuffix(rest, "/connect")
-	}
+	rest = strings.TrimSuffix(rest, "/connect")
 
 	connID, err := uuid.Parse(rest)
 	if err != nil {

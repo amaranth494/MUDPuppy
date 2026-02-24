@@ -11,7 +11,6 @@ import {
   setCredentials,
   updateCredentials,
   deleteCredentials,
-  connectToSavedConnection,
 } from '../services/api';
 import { SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, mapBackendError } from '../types';
 
@@ -24,7 +23,7 @@ interface ConnectionsHubModalProps {
 type ViewType = 'list' | 'create' | 'edit';
 
 export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubModalProps) {
-  const { connectionState, refreshStatus } = useSession();
+  const { connectionState, connect: sessionConnect } = useSession();
   
   // State
   const [view, setView] = useState<ViewType>('list');
@@ -254,10 +253,8 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
     setConnectingId(conn.id);
     setError(null);
     try {
-      // Use the saved connection connect endpoint
-      await connectToSavedConnection(conn.id);
-      // Refresh session status to update UI
-      await refreshStatus();
+      // Use session connect which handles both API and WebSocket
+      await sessionConnect(conn.host, conn.port);
       // Close modal after successful connect
       onClose();
     } catch (err) {
