@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { useSession } from '../context/SessionContext';
+import { getRecentConnections } from '../services/api';
+import { SavedConnection } from '../types';
 
 interface QuickConnectModalProps {
   isOpen: boolean;
@@ -14,6 +16,8 @@ export default function QuickConnectModal({ isOpen, onClose }: QuickConnectModal
   const [inputPort, setInputPort] = useState(23);
   const [isConnecting, setIsConnecting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [recentConnections, setRecentConnections] = useState<SavedConnection[]>([]);
+  const [, setLoadingRecent] = useState(false);
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -27,8 +31,24 @@ export default function QuickConnectModal({ isOpen, onClose }: QuickConnectModal
         setInputPort(23);
       }
       setLocalError(null);
+      
+      // Load recent connections
+      loadRecentConnections();
     }
   }, [isOpen, connectionState, host, port]);
+
+  // Load recent connections
+  const loadRecentConnections = async () => {
+    setLoadingRecent(true);
+    try {
+      const recent = await getRecentConnections();
+      setRecentConnections(recent);
+    } catch (err) {
+      console.error('Failed to load recent connections:', err);
+    } finally {
+      setLoadingRecent(false);
+    }
+  };
 
   // Sync error from session context
   useEffect(() => {
@@ -86,6 +106,13 @@ export default function QuickConnectModal({ isOpen, onClose }: QuickConnectModal
     }
   };
 
+  // Handle clicking on a recent connection
+  const handleRecentConnectionClick = (conn: SavedConnection) => {
+    setInputHost(conn.host);
+    setInputPort(conn.port);
+    setLocalError(null);
+  };
+
   // State machine for UI
   const canConnect = (connectionState === 'disconnected' || connectionState === 'error') && !isConnecting;
   const canDisconnect = connectionState === 'connected' || connectionState === 'error';
@@ -106,6 +133,27 @@ export default function QuickConnectModal({ isOpen, onClose }: QuickConnectModal
       title="Quick Connect"
     >
       <div className="quick-connect-form">
+        {/* Recent Connections */}
+        {recentConnections.length > 0 && (
+          <div className="recent-connections">
+            <div className="recent-connections-label">Recent</div>
+            <div className="recent-connections-list">
+              {recentConnections.map((conn) => (
+                <button
+                  key={conn.id}
+                  className="recent-connection-item"
+                  onClick={() => handleRecentConnectionClick(conn)}
+                  disabled={!canConnect && !isConnectingState}
+                  title={`${conn.host}:${conn.port}`}
+                >
+                  <span className="recent-connection-name">{conn.name}</span>
+                  <span className="recent-connection-address">{conn.host}:{conn.port}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="form-group">
           <label className="form-label" htmlFor="quick-connect-host">
             Host
