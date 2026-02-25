@@ -53,7 +53,7 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
   const [credAutoLogin, setCredAutoLogin] = useState(false);
   const [hasCredentials, setHasCredentials] = useState(false);
   const [isLoadingCredStatus, setIsLoadingCredStatus] = useState(false);
-  
+
   // Load connections when modal opens
   const loadConnections = useCallback(async () => {
     setIsLoading(true);
@@ -84,6 +84,13 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
       setIsLoadingCredStatus(false);
     }
   }, []);
+
+  // Load credential status when view changes to edit
+  useEffect(() => {
+    if (view === 'edit' && selectedConnection) {
+      loadCredentialStatus(selectedConnection.id);
+    }
+  }, [view, selectedConnection, loadCredentialStatus]);
 
   // Reset form when modal opens
   useEffect(() => {
@@ -116,14 +123,12 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
 
   // Handle edit connection
   const handleEdit = (conn: SavedConnection) => {
-    alert('[ConnectionsHub] handleEdit called with ID: ' + conn.id);
     console.log('[ConnectionsHub] handleEdit called with:', conn);
     setSelectedConnection(conn);
     setFormName(conn.name);
     setFormHost(conn.host);
     setFormPort(conn.port);
     setFormProtocol(conn.protocol || 'telnet');
-    loadCredentialStatus(conn.id);
     setView('edit');
   };
 
@@ -415,7 +420,7 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
             id="cred-username"
             type="text"
             className="form-input"
-            placeholder={hasCredentials && credUsername ? credUsername : 'Username for auto-login'}
+            placeholder="Username for auto-login"
             value={credUsername}
             onChange={(e) => setCredUsername(e.target.value)}
           />
