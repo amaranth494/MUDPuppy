@@ -76,14 +76,16 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
       console.log('[useEffect] Loading credential status for:', connectionId);
       setIsLoadingCredStatus(true);
       getCredentialStatus(connectionId).then(status => {
-        window.alert('[useEffect] Credential status loaded: username=' + status.username);
-        console.log('[useEffect] Credential status loaded:', status);
-        console.log('[useEffect] About to set credUsername to:', status.username);
-        setHasCredentials(status.has_credentials);
-        setCredAutoLogin(status.auto_login_enabled);
-        setCredUsername(status.username || '');
-        window.alert('[useEffect] Just called setCredUsername with: ' + status.username);
-        console.log('[useEffect] Just called setCredUsername, state should update');
+        console.error('[useEffect] Credential status loaded:', status);
+        try {
+          console.error('[useEffect] About to set credUsername to:', status.username);
+          setHasCredentials(status.has_credentials);
+          setCredAutoLogin(status.auto_login_enabled);
+          setCredUsername(status.username || '');
+          console.error('[useEffect] setCredUsername called with:', status.username);
+        } catch (e) {
+          console.error('[useEffect] Error setting state:', e);
+        }
       }).catch(err => {
         console.error('[useEffect] Failed to load credential status:', err);
       }).finally(() => {
