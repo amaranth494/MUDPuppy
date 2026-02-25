@@ -71,17 +71,17 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
   // Load credential status when view changes to edit
   useEffect(() => {
     const connectionId = selectedConnection?.id;
-    alert('[useEffect] view=' + view + ', connectionId=' + connectionId);
+    console.log('[useEffect] view=' + view + ', connectionId=' + connectionId);
     if (view === 'edit' && connectionId) {
       console.log('[useEffect] Loading credential status for:', connectionId);
       setIsLoadingCredStatus(true);
       getCredentialStatus(connectionId).then(status => {
         console.log('[useEffect] Credential status loaded:', status);
-        alert('[useEffect] Setting credUsername to: ' + status.username);
+        console.log('[useEffect] About to set credUsername to:', status.username);
         setHasCredentials(status.has_credentials);
         setCredAutoLogin(status.auto_login_enabled);
         setCredUsername(status.username || '');
-        alert('[useEffect] After setCredUsername, credUsername=' + status.username);
+        console.log('[useEffect] Just called setCredUsername, state should update');
       }).catch(err => {
         console.error('[useEffect] Failed to load credential status:', err);
       }).finally(() => {
@@ -121,15 +121,19 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
 
   // Handle edit connection
   const handleEdit = (conn: SavedConnection) => {
-    alert('[handleEdit] Called with connection: ' + conn.name);
-    console.log('[ConnectionsHub] handleEdit called with:', conn);
+    console.log('[handleEdit] Called with connection:', conn.name);
     setSelectedConnection(conn);
     setFormName(conn.name);
     setFormHost(conn.host);
     setFormPort(conn.port);
     setFormProtocol(conn.protocol || 'telnet');
+    // Reset credential fields before loading fresh status
+    setCredUsername('');
+    setCredPassword('');
+    setCredAutoLogin(false);
+    setHasCredentials(false);
     setView('edit');
-    alert('[handleEdit] After setting view=edit');
+    console.log('[handleEdit] After setting view=edit');
   };
 
   // Handle save create
