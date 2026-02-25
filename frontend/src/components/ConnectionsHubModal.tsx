@@ -121,6 +121,7 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
 
   // Handle edit connection
   const handleEdit = (conn: SavedConnection) => {
+    alert('[handleEdit] Called with connection: ' + conn.name);
     console.log('[ConnectionsHub] handleEdit called with:', conn);
     setSelectedConnection(conn);
     setFormName(conn.name);
@@ -128,6 +129,7 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
     setFormPort(conn.port);
     setFormProtocol(conn.protocol || 'telnet');
     setView('edit');
+    alert('[handleEdit] After setting view=edit');
   };
 
   // Handle save create
