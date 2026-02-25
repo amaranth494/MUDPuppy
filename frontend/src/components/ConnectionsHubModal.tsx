@@ -71,14 +71,17 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
   // Load credential status when view changes to edit
   useEffect(() => {
     const connectionId = selectedConnection?.id;
+    alert('[useEffect] view=' + view + ', connectionId=' + connectionId);
     if (view === 'edit' && connectionId) {
       console.log('[useEffect] Loading credential status for:', connectionId);
       setIsLoadingCredStatus(true);
       getCredentialStatus(connectionId).then(status => {
         console.log('[useEffect] Credential status loaded:', status);
+        alert('[useEffect] Setting credUsername to: ' + status.username);
         setHasCredentials(status.has_credentials);
         setCredAutoLogin(status.auto_login_enabled);
         setCredUsername(status.username || '');
+        alert('[useEffect] After setCredUsername, credUsername=' + status.username);
       }).catch(err => {
         console.error('[useEffect] Failed to load credential status:', err);
       }).finally(() => {
