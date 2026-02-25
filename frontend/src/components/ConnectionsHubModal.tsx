@@ -92,7 +92,7 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
 
   // Load credential status when view changes to edit
   useEffect(() => {
-    alert('[useEffect] view=' + view + ', selectedConnection=' + (selectedConnection ? 'yes' : 'no'));
+    console.log('[useEffect] view=' + view + ', selectedConnection=' + (selectedConnection ? 'yes' : 'no'));
     if (view === 'edit' && selectedConnection) {
       console.log('[DEBUG] Edit modal opened for connection:', selectedConnection.id);
       loadCredentialStatus(selectedConnection.id);
@@ -196,27 +196,22 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
       await updateConnection(selectedConnection.id, request);
       
       // Handle credentials if password provided or auto-login changed
-      if (credPassword || credAutoLogin !== selectedConnection.auto_login_enabled) {
-        if (credPassword) {
-          const credRequest: SetCredentialsRequest = {
-            username: credUsername,
-            password: credPassword,
-            auto_login: credAutoLogin,
-          };
-          if (hasCredentials) {
-            await updateCredentials(selectedConnection.id, credRequest);
-          } else {
-            await setCredentials(selectedConnection.id, credRequest);
-          }
-        } else if (credAutoLogin !== selectedConnection.auto_login_enabled) {
-          // Just update auto-login - use current username from form (loaded from API)
-          const credRequest: SetCredentialsRequest = {
-            username: credUsername,
-            password: '', // Empty password means "keep existing"
-            auto_login: credAutoLogin,
-          };
+      if (credPassword || credAutoLogin !== selectedConnection.auto_login_enabled || credUsername) {
+        const credRequest: SetCredentialsRequest = {
+          username: credUsername,
+          password: credPassword,
+          auto_login: credAutoLogin,
+        };
+        if (hasCredentials) {
           await updateCredentials(selectedConnection.id, credRequest);
+        } else {
+          await setCredentials(selectedConnection.id, credRequest);
         }
+        // Refresh credential status after saving
+        const status = await getCredentialStatus(selectedConnection.id);
+        setHasCredentials(status.has_credentials);
+        setCredAutoLogin(status.auto_login_enabled);
+        setCredUsername(status.username || '');
       }
       
       setSuccessMessage('Connection updated');
