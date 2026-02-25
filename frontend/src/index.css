@@ -226,7 +226,7 @@ body {
   transition: width var(--transition-normal);
 }
 
-.sidebar-collapsed {
+.sidebar.sidebar-collapsed {
   width: 60px;
 }
 
@@ -432,10 +432,11 @@ body {
   position: relative;
   margin-left: 220px;
   transition: margin-left var(--transition-normal);
+  overflow: hidden;
 }
 
 .app-main-with-sidebar.sidebar-collapsed {
-  margin-left: 60px;
+  margin-left: 60px !important;
 }
 
 /* Drawer toggle button - opens/closes sidebar (SP03PH02T02) */

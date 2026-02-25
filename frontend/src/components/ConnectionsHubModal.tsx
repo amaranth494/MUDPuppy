@@ -71,21 +71,12 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
   // Load credential status when view changes to edit
   useEffect(() => {
     const connectionId = selectedConnection?.id;
-    console.log('[useEffect] view=' + view + ', connectionId=' + connectionId);
     if (view === 'edit' && connectionId) {
-      console.log('[useEffect] Loading credential status for:', connectionId);
       setIsLoadingCredStatus(true);
       getCredentialStatus(connectionId).then(status => {
-        console.error('[useEffect] Credential status loaded:', status);
-        try {
-          console.error('[useEffect] About to set credUsername to:', status.username);
-          setHasCredentials(status.has_credentials);
-          setCredAutoLogin(status.auto_login_enabled);
-          setCredUsername(status.username || '');
-          console.error('[useEffect] setCredUsername called with:', status.username);
-        } catch (e) {
-          console.error('[useEffect] Error setting state:', e);
-        }
+        setHasCredentials(status.has_credentials);
+        setCredAutoLogin(status.auto_login_enabled);
+        setCredUsername(status.username || '');
       }).catch(err => {
         console.error('[useEffect] Failed to load credential status:', err);
       }).finally(() => {
@@ -125,7 +116,6 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
 
   // Handle edit connection
   const handleEdit = (conn: SavedConnection) => {
-    console.log('[handleEdit] Called with connection:', conn.name);
     setSelectedConnection(conn);
     setFormName(conn.name);
     setFormHost(conn.host);
@@ -137,7 +127,6 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
     setCredAutoLogin(false);
     setHasCredentials(false);
     setView('edit');
-    console.log('[handleEdit] After setting view=edit');
   };
 
   // Handle save create
@@ -427,7 +416,7 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
             value={credUsername}
             onChange={(e) => setCredUsername(e.target.value)}
           />
-          <span style={{color: 'red', fontSize: '10px'}}>DEBUG: credUsername="{credUsername}"</span>
+
         </div>
 
         <div className="form-group">
