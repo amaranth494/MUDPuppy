@@ -88,6 +88,8 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
   // Load credential status when view changes to edit
   useEffect(() => {
     if (view === 'edit' && selectedConnection) {
+      alert('[useEffect] Loading credentials for: ' + selectedConnection.id);
+      console.log('[useEffect] Loading credentials for:', selectedConnection.id);
       loadCredentialStatus(selectedConnection.id);
     }
   }, [view, selectedConnection, loadCredentialStatus]);
