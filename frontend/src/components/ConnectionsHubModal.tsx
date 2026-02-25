@@ -68,36 +68,24 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
     }
   }, []);
 
-  // Load credential status for selected connection
-  const loadCredentialStatus = useCallback(async (connectionId: string) => {
-    setIsLoadingCredStatus(true);
-    try {
-      const status = await getCredentialStatus(connectionId);
-      console.log('[DEBUG] Credential status response:', {
-        hasCredentials: status.has_credentials,
-        autoLogin: status.auto_login_enabled,
-        usernamePresent: !!status.username,
-        usernameValue: status.username ?? null,
-      });
-      setHasCredentials(status.has_credentials);
-      setCredAutoLogin(status.auto_login_enabled);
-      setCredUsername(status.username || '');
-    } catch (err) {
-      console.error('Failed to load credential status:', err);
-      setHasCredentials(false);
-    } finally {
-      setIsLoadingCredStatus(false);
-    }
-  }, []);
-
   // Load credential status when view changes to edit
   useEffect(() => {
-    console.log('[useEffect] view=' + view + ', selectedConnection=' + (selectedConnection ? 'yes' : 'no'));
-    if (view === 'edit' && selectedConnection) {
-      console.log('[DEBUG] Edit modal opened for connection:', selectedConnection.id);
-      loadCredentialStatus(selectedConnection.id);
+    const connectionId = selectedConnection?.id;
+    if (view === 'edit' && connectionId) {
+      console.log('[useEffect] Loading credential status for:', connectionId);
+      setIsLoadingCredStatus(true);
+      getCredentialStatus(connectionId).then(status => {
+        console.log('[useEffect] Credential status loaded:', status);
+        setHasCredentials(status.has_credentials);
+        setCredAutoLogin(status.auto_login_enabled);
+        setCredUsername(status.username || '');
+      }).catch(err => {
+        console.error('[useEffect] Failed to load credential status:', err);
+      }).finally(() => {
+        setIsLoadingCredStatus(false);
+      });
     }
-  }, [view, selectedConnection, loadCredentialStatus]);
+  }, [view, selectedConnection?.id]);
 
   // Reset form when modal opens
   useEffect(() => {
