@@ -92,6 +92,7 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
 
   // Load credential status when view changes to edit
   useEffect(() => {
+    alert('[useEffect] view=' + view + ', selectedConnection=' + (selectedConnection ? 'yes' : 'no'));
     if (view === 'edit' && selectedConnection) {
       console.log('[DEBUG] Edit modal opened for connection:', selectedConnection.id);
       loadCredentialStatus(selectedConnection.id);
