@@ -427,6 +427,7 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
             value={credUsername}
             onChange={(e) => setCredUsername(e.target.value)}
           />
+          <span style={{color: 'red', fontSize: '10px'}}>DEBUG: credUsername="{credUsername}"</span>
         </div>
 
         <div className="form-group">
