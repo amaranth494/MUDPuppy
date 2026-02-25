@@ -503,6 +503,8 @@ func (h *Handler) GetCredentialsStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("[DEBUG] Credential status requested - connection=%s", r.PathValue("id"))
+
 	userID := r.Context().Value("user_id")
 	if userID == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -542,6 +544,7 @@ func (h *Handler) GetCredentialsStatus(w http.ResponseWriter, r *http.Request) {
 	// Also get the actual credentials to retrieve username (not password)
 	var username string
 	cred, err := h.credStore.GetByConnectionID(connID)
+	log.Printf("[DEBUG] Credential row found - connection=%s username_present=%t", connID, cred != nil && cred.Username != "")
 	if err == nil && cred != nil {
 		username = cred.Username
 	}
