@@ -490,7 +490,14 @@ func (h *Handler) SetCredentials(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return status only, never the actual credentials
+	// Fetch the latest status to get the username
+	status, _ := h.credStore.GetStatus(connID)
+	username := ""
+	if status != nil {
+		username = status.Username
+	}
 	h.sendJSON(w, CredentialStatusResponse{
+		Username:         username,
 		HasCredentials:   true,
 		AutoLoginEnabled: req.AutoLogin,
 	})

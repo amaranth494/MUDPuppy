@@ -20,8 +20,9 @@ type ConnectionCredential struct {
 
 // CredentialStatus represents the status of credentials (returned to UI, never the actual credentials)
 type CredentialStatus struct {
-	HasCredentials   bool `json:"has_credentials"`
-	AutoLoginEnabled bool `json:"auto_login_enabled"`
+	HasCredentials   bool   `json:"has_credentials"`
+	AutoLoginEnabled bool   `json:"auto_login_enabled"`
+	Username         string `json:"username,omitempty"`
 }
 
 // CredentialsStore handles connection credentials database operations
@@ -63,22 +64,23 @@ func (s *CredentialsStore) GetByConnectionID(connectionID uuid.UUID) (*Connectio
 	return cred, err
 }
 
-// GetStatus returns the credential status (has_credentials, auto_login_enabled) without exposing credentials
+// GetStatus returns the credential status (has_credentials, auto_login_enabled, username) without exposing password
 func (s *CredentialsStore) GetStatus(connectionID uuid.UUID) (*CredentialStatus, error) {
 	query := `
-		SELECT auto_login
+		SELECT auto_login, COALESCE(username, '')
 		FROM connection_credentials
 		WHERE connection_id = $1
 	`
 	var autoLogin bool
-	err := s.db.QueryRow(query, connectionID).Scan(&autoLogin)
+	var username string
+	err := s.db.QueryRow(query, connectionID).Scan(&autoLogin, &username)
 	if err == sql.ErrNoRows {
-		return &CredentialStatus{HasCredentials: false, AutoLoginEnabled: false}, nil
+		return &CredentialStatus{HasCredentials: false, AutoLoginEnabled: false, Username: ""}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return &CredentialStatus{HasCredentials: true, AutoLoginEnabled: autoLogin}, nil
+	return &CredentialStatus{HasCredentials: true, AutoLoginEnabled: autoLogin, Username: username}, nil
 }
 
 // Update updates credentials for a connection
@@ -93,6 +95,10 @@ func (s *CredentialsStore) Update(cred *ConnectionCredential) error {
 		if existing != nil {
 			cred.EncryptedPassword = existing.EncryptedPassword
 			cred.KeyVersion = existing.KeyVersion
+			// Preserve existing username if not provided
+			if cred.Username == "" {
+				cred.Username = existing.Username
+			}
 		}
 	}
 
