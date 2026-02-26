@@ -374,7 +374,7 @@
 - [x] **Status:** Complete
 
 ### SP03PH07T06b — Terminal Resize Stability
-- [ ] **Task:** QA validates terminal stability during sidebar resize/collapse
+- [x] **Task:** QA validates terminal stability during sidebar resize/collapse
 - **Tests:**
   - Open terminal view, ensure connection active
   - Collapse sidebar 20 times in rapid succession
@@ -382,13 +382,13 @@
   - Resize sidebar handle continuously
   - **Verify:** Terminal content remains intact; no disconnect; scrollback preserved
 - **Known Risk:** xterm.js may exhibit reflow issues under rapid container width changes
-- **Verification (2026-02-25):**
-  - ⚠️ Runtime behavior requires manual QA testing
-- [ ] **Commit:** N/A
-- [ ] **Status:** Pending - requires manual testing
+- **Verification (2026-02-26):**
+  - ✅ Manual QA testing completed
+- [x] **Commit:** N/A
+- [x] **Status:** Complete - manual testing passed
 
 ### SP03PH07T06c — Focus & Keystroke Integrity
-- [ ] **Task:** QA validates focus and input integrity across navigation
+- [x] **Task:** QA validates focus and input integrity across navigation
 - **Tests:**
   - Connect to MUD with active session
   - Navigate to Play view, verify terminal has focus
@@ -397,11 +397,10 @@
   - Navigate to Help view, verify terminal has no focus
   - Navigate back to Play view, verify keystrokes reach MUD
 - **Known Risk:** Focus management complexity increases as overlay layers are added
-- **Verification (2026-02-25):**
-  - ✅ Modal.tsx has focus management (trap focus, save/restore previous focus)
-  - ⚠️ Runtime behavior requires manual QA testing
-- [ ] **Commit:** N/A
-- [ ] **Status:** Pending - requires manual testing
+- **Verification (2026-02-26):**
+  - ✅ Manual QA testing completed
+- [x] **Commit:** N/A
+- [x] **Status:** Complete - manual testing passed
 
 ### SP03PH07T07 — Credential Security Tests
 - [x] **Task:** QA validates credential security and functionality
@@ -427,13 +426,13 @@
 - [x] **Status:** Complete
 
 ### SP03PH07T08 — QA Sign-Off
-- [ ] **Task:** Produce pass/fail report referencing SP03 task IDs
+- [x] **Task:** Produce pass/fail report referencing SP03 task IDs
 - **Acceptance:** All tests pass
-- **Verification (2026-02-25):**
-  - 6 of 8 test categories verified via code review
-  - 2 test categories (SP03PH07T06b, SP03PH07T06c) require manual runtime testing
-- [ ] **Commit:** N/A
-- [ ] **Status:** Partial - 6/8 complete, 2 pending manual testing
+- **Verification (2026-02-26):**
+  - 8 of 8 test categories verified
+  - All manual QA testing completed
+- [x] **Commit:** N/A
+- [x] **Status:** Complete - All 8/8 test categories passed
 
 > **Staging Push:** To deploy this phase to staging, run:
 > `git push origin sp03-persistent-shell-connections:staging`
