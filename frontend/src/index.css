@@ -319,6 +319,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   font-family: inherit;
+  font-size: var(--font-size-base);
 }
 
 .sidebar-status {
