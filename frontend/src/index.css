@@ -318,6 +318,7 @@ body {
 .sidebar-nav-label {
   overflow: hidden;
   text-overflow: ellipsis;
+  font-family: inherit;
 }
 
 .sidebar-status {
