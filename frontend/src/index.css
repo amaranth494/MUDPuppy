@@ -544,7 +544,8 @@ body {
 .modal-title {
   font-size: var(--font-size-lg);
   font-weight: bold;
-  margin: 0 0 var(--spacing-md) 0;
+  margin: 0;
+  padding: var(--spacing-md) var(--spacing-xl) 0 var(--spacing-xl);
   color: var(--color-text);
 }
 
