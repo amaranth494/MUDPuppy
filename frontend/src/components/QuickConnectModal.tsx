@@ -146,32 +146,6 @@ export default function QuickConnectModal({ isOpen, onClose }: QuickConnectModal
       title="Quick Play"
     >
       <div className="quick-connect-form">
-        {/* Recent Connections - Show last 5 with Connect buttons or placeholder */}
-        <div className="recent-connections">
-          <div className="recent-connections-label">Recent Connections</div>
-          {recentConnections.length > 0 ? (
-            <div className="recent-connections-list">
-              {recentConnections.slice(0, 5).map((conn) => (
-                <div key={conn.id} className="recent-connection-row">
-                  <span className="recent-connection-name">{conn.name}</span>
-                  <button
-                    className="btn btn-small btn-primary"
-                    onClick={() => handleRecentConnectionClick(conn)}
-                    disabled={!canConnect && !isConnectingState}
-                    title={`Connect to ${conn.host}:${conn.port}`}
-                  >
-                    Connect
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="recent-connections-empty">
-              No Recent Connections
-            </div>
-          )}
-        </div>
-
         <div className="form-group">
           <label className="form-label" htmlFor="quick-connect-host">
             Host
@@ -249,6 +223,32 @@ export default function QuickConnectModal({ isOpen, onClose }: QuickConnectModal
                 Currently connected to {host}:{port}
               </div>
             </>
+          )}
+        </div>
+
+        {/* Recent Connections - Show last 5 with Connect buttons or placeholder */}
+        <div className="recent-connections">
+          <div className="recent-connections-label">Recent Connections</div>
+          {recentConnections.length > 0 ? (
+            <div className="recent-connections-list">
+              {recentConnections.slice(0, 5).map((conn) => (
+                <div key={conn.id} className="recent-connection-row">
+                  <span className="recent-connection-name">{conn.name}</span>
+                  <button
+                    className="btn btn-small btn-primary"
+                    onClick={() => handleRecentConnectionClick(conn)}
+                    disabled={!canConnect && !isConnectingState}
+                    title={`Connect to ${conn.host}:${conn.port}`}
+                  >
+                    Connect
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="recent-connections-empty">
+              No Recent Connections
+            </div>
           )}
         </div>
       </div>

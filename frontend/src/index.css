@@ -875,7 +875,7 @@ body {
   color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: var(--spacing-sm);
+  margin-bottom: var(--spacing-xs);
 }
 
 .recent-connections-list {
