@@ -326,6 +326,16 @@ body {
   padding: var(--spacing-md);
   border-top: 1px solid var(--color-border);
   display: flex;
+  justify-content: flex-start;
+}
+
+/* When sidebar is collapsed, hide status text and show only dot */
+.sidebar.sidebar-collapsed .session-badge-text {
+  display: none;
+}
+
+.sidebar.sidebar-collapsed .session-badge {
+  padding: var(--spacing-xs);
   justify-content: center;
 }
 

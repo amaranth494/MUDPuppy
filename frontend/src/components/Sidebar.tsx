@@ -94,13 +94,13 @@ export default function Sidebar({ isCollapsed = false, onToggle, onPlayClick, on
         </Link>
       </nav>
 
-      {/* Session Status Badge - always visible */}
+      {/* Spacer to push user menu to bottom */}
+      <div className="sidebar-spacer" />
+
+      {/* Session Status Badge - always visible, above user menu */}
       <div className="sidebar-status">
         <SessionBadge />
       </div>
-
-      {/* Spacer to push user menu to bottom */}
-      <div className="sidebar-spacer" />
 
       {/* User Menu */}
       <div className="sidebar-user">
