@@ -542,22 +542,16 @@ body {
 }
 
 .modal-title {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
+  font-size: var(--font-size-lg);
+  font-weight: bold;
+  margin: 0 0 var(--spacing-md) 0;
+  color: var(--color-text);
 }
 
 .modal-content {
   flex: 1;
   overflow-y: auto;
   padding: var(--spacing-xl);
-  padding-top: calc(var(--spacing-xl) + 40px); /* Account for close button */
 }
 
 /* Full-height modal variant for complex tools */
