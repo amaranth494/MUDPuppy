@@ -884,6 +884,13 @@ body {
   gap: var(--spacing-xs);
 }
 
+.recent-connections-empty {
+  color: var(--color-text-dim);
+  font-size: var(--font-size-sm);
+  font-style: italic;
+  padding: var(--spacing-sm) 0;
+}
+
 .recent-connection-item {
   display: flex;
   justify-content: space-between;
