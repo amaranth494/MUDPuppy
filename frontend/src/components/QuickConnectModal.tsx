@@ -106,11 +106,24 @@ export default function QuickConnectModal({ isOpen, onClose }: QuickConnectModal
     }
   };
 
-  // Handle clicking on a recent connection
-  const handleRecentConnectionClick = (conn: SavedConnection) => {
+  // Handle clicking on a recent connection - auto-connect
+  const handleRecentConnectionClick = async (conn: SavedConnection) => {
+    if (!canConnect && !isConnectingState) return;
+    
     setInputHost(conn.host);
     setInputPort(conn.port);
     setLocalError(null);
+    
+    // Auto-connect
+    setIsConnecting(true);
+    try {
+      await connect(conn.host, conn.port);
+      onClose();
+    } catch (err) {
+      setLocalError(err instanceof Error ? err.message : 'Connection failed');
+    } finally {
+      setIsConnecting(false);
+    }
   };
 
   // State machine for UI
@@ -130,25 +143,26 @@ export default function QuickConnectModal({ isOpen, onClose }: QuickConnectModal
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Quick Connect"
+      title="Quick Play"
     >
       <div className="quick-connect-form">
-        {/* Recent Connections */}
+        {/* Recent Connections - Show last 5 with Connect buttons */}
         {recentConnections.length > 0 && (
           <div className="recent-connections">
-            <div className="recent-connections-label">Recent</div>
+            <div className="recent-connections-label">Recent Connections</div>
             <div className="recent-connections-list">
-              {recentConnections.map((conn) => (
-                <button
-                  key={conn.id}
-                  className="recent-connection-item"
-                  onClick={() => handleRecentConnectionClick(conn)}
-                  disabled={!canConnect && !isConnectingState}
-                  title={`${conn.host}:${conn.port}`}
-                >
+              {recentConnections.slice(0, 5).map((conn) => (
+                <div key={conn.id} className="recent-connection-row">
                   <span className="recent-connection-name">{conn.name}</span>
-                  <span className="recent-connection-address">{conn.host}:{conn.port}</span>
-                </button>
+                  <button
+                    className="btn btn-small btn-primary"
+                    onClick={() => handleRecentConnectionClick(conn)}
+                    disabled={!canConnect && !isConnectingState}
+                    title={`Connect to ${conn.host}:${conn.port}`}
+                  >
+                    Connect
+                  </button>
+                </div>
               ))}
             </div>
           </div>
