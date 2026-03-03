@@ -1,11 +1,12 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { ConnectionState, User } from '../types';
+import { ConnectionState, User, Profile } from '../types';
 import { 
   checkAuth, 
   getSessionStatus, 
   connectToMud, 
   disconnectFromMud,
-  WebSocketManager 
+  WebSocketManager,
+  getProfileByConnection
 } from '../services/api';
 import { mapBackendError } from '../types';
 
@@ -16,13 +17,16 @@ interface SessionContextType {
   isLoading: boolean;
   host?: string;
   port?: number;
-  connect: (host: string, port: number) => Promise<void>;
+  connect: (host: string, port: number, connectionId?: string) => Promise<void>;
   disconnect: () => Promise<void>;
   refreshStatus: () => Promise<void>;
   wsManager: WebSocketManager | null;
   // Input lock state for modal (SP03PH03)
   isInputLocked: boolean;
   setInputLocked: (locked: boolean) => void;
+  // Profile state (SP04)
+  profile: Profile | null;
+  currentConnectionId: string | null;
 }
 
 const SessionContext = createContext<SessionContextType | null>(null);
@@ -51,6 +55,10 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   // Input lock state for modal (SP03PH03)
   // When true, terminal input is locked and commands cannot be sent to MUD
   const [isInputLocked, setInputLocked] = useState(false);
+
+  // Profile state (SP04) - fetched on connect
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [currentConnectionId, setCurrentConnectionId] = useState<string | null>(null);
 
   // Check authentication on mount
   useEffect(() => {
@@ -81,9 +89,28 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
     }
   }, []);
 
-  const connect = useCallback(async (mudHost: string, mudPort: number) => {
+  const connect = useCallback(async (mudHost: string, mudPort: number, connectionId?: string) => {
     setError(null);
     setConnectionState('connecting');
+    
+    // SP04: Fetch profile BEFORE connecting WebSocket
+    // This ensures keybindings are available immediately after connect
+    if (connectionId) {
+      try {
+        const fetchedProfile = await getProfileByConnection(connectionId);
+        setProfile(fetchedProfile);
+        setCurrentConnectionId(connectionId);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load profile';
+        setError(mapBackendError(errorMessage));
+        setConnectionState('error');
+        return; // Do NOT proceed with connection if profile fails
+      }
+    } else {
+      // Quick connect without saved connection - use defaults
+      setProfile(null);
+      setCurrentConnectionId(null);
+    }
     
     try {
       // Call REST API to initiate connection
@@ -150,6 +177,9 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       setConnectionState('disconnected');
       setHost('');
       setPort(23);
+      // Clear profile on disconnect (SP04)
+      setProfile(null);
+      setCurrentConnectionId(null);
       // Event-driven: refresh status after disconnect action completes
       await refreshStatus();
     } catch (err) {
@@ -175,6 +205,8 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
         wsManager,
         isInputLocked,
         setInputLocked,
+        profile,
+        currentConnectionId,
       }}
     >
       {children}

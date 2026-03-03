@@ -1,4 +1,4 @@
-import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus } from '../types';
+import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, Profile, UpdateProfileRequest } from '../types';
 
 const API_BASE = '/api/v1';
 
@@ -367,4 +367,50 @@ export async function connectToSavedConnection(connectionId: string): Promise<Co
     throw new Error(data.error || 'Failed to connect');
   }
   return data;
+}
+
+// Profile API endpoints (SP04)
+
+// Get a profile by ID
+export async function getProfile(profileId: string): Promise<Profile> {
+  const response = await fetch(`${API_BASE}/profiles/${profileId}`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to get profile');
+  }
+  return await response.json();
+}
+
+// Get a profile by connection ID
+export async function getProfileByConnection(connectionId: string): Promise<Profile> {
+  const response = await fetch(`${API_BASE}/connections/${connectionId}/profile`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to get profile');
+  }
+  return await response.json();
+}
+
+// Update a profile
+export async function updateProfile(profileId: string, request: UpdateProfileRequest): Promise<Profile> {
+  const response = await fetch(`${API_BASE}/profiles/${profileId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(request),
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to update profile');
+  }
+  return await response.json();
 }

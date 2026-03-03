@@ -120,3 +120,28 @@ export interface CredentialStatus {
   has_credentials: boolean;
   auto_login_enabled: boolean;
 }
+
+// Profile settings (SP04)
+export interface ProfileSettings {
+  scrollback_limit: number;
+  echo_input: boolean;
+  timestamp_output: boolean;
+  word_wrap: boolean;
+}
+
+// Profile type (SP04)
+export interface Profile {
+  id: string;
+  user_id: string;
+  connection_id: string;
+  keybindings: Record<string, string>;
+  settings: ProfileSettings;
+  created_at: string;
+  updated_at: string;
+}
+
+// Update profile request (SP04)
+export interface UpdateProfileRequest {
+  keybindings?: Record<string, string>;
+  settings?: ProfileSettings;
+}
