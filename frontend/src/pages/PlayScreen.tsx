@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { useSession } from '../context/SessionContext';
 import { useInputInterceptor } from '../hooks/useInputInterceptor';
+import { ProfileSettings } from '../types';
 
 // Enable text selection in terminal
 const terminalSelectionStyle = {
@@ -16,11 +17,30 @@ export default function PlayScreen() {
     connectionState, 
     wsManager,
     isInputLocked,
+    profile,
   } = useSession();
   
   const terminalRef = useRef<HTMLDivElement>(null);
   const terminalInstanceRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  
+  // SP04PH05: Apply profile settings when profile changes
+  // This effect applies settings when a connection is established
+  useEffect(() => {
+    if (!terminalInstanceRef.current || !profile) return;
+    
+    const terminal = terminalInstanceRef.current;
+    const settings = profile.settings as ProfileSettings;
+    
+    // Apply scrollback limit (min 100, max 10000)
+    const scrollbackLimit = Math.max(100, Math.min(10000, settings.scrollback_limit || 1000));
+    terminal.options.scrollback = scrollbackLimit;
+    
+    // Apply word wrap (xterm handles this via renderer)
+    // Note: word_wrap is a setting we track for future use
+    // xterm.js v5+ handles wrapping automatically based on terminal width
+    
+  }, [profile]);
 
   // Initialize terminal
   useEffect(() => {
@@ -146,13 +166,14 @@ export default function PlayScreen() {
       // Send to WebSocket
       wsManager.sendCommand(trimmedCommand + '\n');
       
-      // Local echo - controlled by profile settings (future SP04PH05)
-      // For now, always echo
-      if (terminalInstanceRef.current) {
+      // SP04PH05: Local echo - controlled by profile settings.echo_input
+      // If echo_input is true, locally echo the command
+      const shouldEcho = profile?.settings?.echo_input ?? true;
+      if (shouldEcho && terminalInstanceRef.current) {
         terminalInstanceRef.current.write(trimmedCommand + '\r\n');
       }
     }
-  }, [wsManager, connectionState, isInputLocked]);
+  }, [wsManager, connectionState, isInputLocked, profile]);
 
   // SP04: Set up keybinding interceptor
   useInputInterceptor({
