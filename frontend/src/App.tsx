@@ -10,6 +10,7 @@ import Sidebar from './components/Sidebar';
 import Modal from './components/Modal';
 import QuickConnectModal from './components/QuickConnectModal';
 import ConnectionsHubModal from './components/ConnectionsHubModal';
+import ProfileModal from './components/ProfileModal';
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useSession();
@@ -36,6 +37,8 @@ function AppContent() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isQuickConnectOpen, setIsQuickConnectOpen] = useState(false);
   const [isConnectionsHubOpen, setIsConnectionsHubOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [profileConnectionId, setProfileConnectionId] = useState<string | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -135,6 +138,17 @@ function AppContent() {
         <ConnectionsHubModal
           isOpen={isConnectionsHubOpen}
           onClose={() => setIsConnectionsHubOpen(false)}
+          onEditProfile={(connectionId) => {
+            setProfileConnectionId(connectionId);
+            setIsProfileModalOpen(true);
+          }}
+        />
+        
+        {/* Profile Modal (SP04PH06) */}
+        <ProfileModal
+          isOpen={isProfileModalOpen}
+          onClose={() => setIsProfileModalOpen(false)}
+          connectionId={profileConnectionId || ''}
         />
       </main>
     </div>

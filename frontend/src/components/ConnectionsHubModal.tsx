@@ -17,12 +17,13 @@ import { SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetC
 interface ConnectionsHubModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onEditProfile?: (connectionId: string) => void;
 }
 
 // View types for the modal
 type ViewType = 'list' | 'create' | 'edit';
 
-export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubModalProps) {
+export default function ConnectionsHubModal({ isOpen, onClose, onEditProfile }: ConnectionsHubModalProps) {
   const { connectionState, connect: sessionConnect } = useSession();
   
   // State
@@ -127,6 +128,13 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
     setCredAutoLogin(false);
     setHasCredentials(false);
     setView('edit');
+  };
+
+  // Handle profile settings (SP04)
+  const handleEditProfile = (conn: SavedConnection) => {
+    if (onEditProfile) {
+      onEditProfile(conn.id);
+    }
   };
 
   // Handle save create
@@ -311,6 +319,13 @@ export default function ConnectionsHubModal({ isOpen, onClose }: ConnectionsHubM
                     onClick={() => handleEdit(conn)}
                   >
                     Edit
+                  </button>
+                  <button
+                    className="btn btn-sm btn-secondary"
+                    onClick={() => handleEditProfile(conn)}
+                    title="Profile settings"
+                  >
+                    Profile
                   </button>
                   {deleteConfirmId === conn.id ? (
                     <div className="delete-confirm">
