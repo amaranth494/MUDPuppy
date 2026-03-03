@@ -36,6 +36,20 @@ func DefaultProfileSettings() ProfileSettings {
 	}
 }
 
+// normalizeSettings ensures all settings fields are populated with defaults if empty/zero
+func normalizeSettings(s ProfileSettings) ProfileSettings {
+	if s.ScrollbackLimit == 0 {
+		s.ScrollbackLimit = DefaultProfileSettings().ScrollbackLimit
+	}
+	// Note: bool fields default to false which matches DefaultProfileSettings for EchoInput, TimestampOutput
+	// but WordWrap should be true - handle explicitly
+	if !s.WordWrap && s.ScrollbackLimit == 0 {
+		// Only set WordWrap default if we also would set scrollback (indicates empty settings)
+		s.WordWrap = true
+	}
+	return s
+}
+
 // ProfileUpdate represents fields that can be updated on a profile
 type ProfileUpdate struct {
 	Keybindings *map[string]string `json:"keybindings,omitempty"`
@@ -114,6 +128,9 @@ func (s *ProfileStore) GetProfile(userID, profileID uuid.UUID) (*Profile, error)
 		return nil, err
 	}
 
+	// Normalize settings to defaults if empty/partial
+	profile.Settings = normalizeSettings(profile.Settings)
+
 	return &profile, nil
 }
 
@@ -151,6 +168,9 @@ func (s *ProfileStore) GetProfileByConnection(userID, connectionID uuid.UUID) (*
 	if err := json.Unmarshal(settingsJSON, &profile.Settings); err != nil {
 		return nil, err
 	}
+
+	// Normalize settings to defaults if empty/partial
+	profile.Settings = normalizeSettings(profile.Settings)
 
 	return &profile, nil
 }
