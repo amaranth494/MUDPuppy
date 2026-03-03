@@ -1,0 +1,3 @@
+-- +migrate Down
+-- No down migration needed - profiles table remains with existing connections
+-- If profiles need to be removed, use 006_create_profiles.down.sql

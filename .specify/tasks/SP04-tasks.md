@@ -12,35 +12,35 @@
 
 ### SP04PH00T01 — Create spec branch
 
-- [ ] **Task:** Create branch `sp04-connection-profiles` from staging
+- [x] **Task:** Create branch `sp04-connection-profiles` from staging
 - **Command:** `git checkout -b sp04-connection-profiles staging`
 - **Commit:** "SP04PH00: Branch created from staging"
-- [ ] **Status:** Pending
+- [x] **Status:** Completed
 
 ### SP04PH00T02 — Commit spec document
 
-- [ ] **Task:** Commit SP04.md, SP04-plan.md, SP04-tasks.md to branch
+- [x] **Task:** Commit SP04.md, SP04-plan.md, SP04-tasks.md to branch
 - **Acceptance:** Spec documents present in git history
 - **Commit:** "SP04PH00: Spec documents committed"
-- [ ] **Status:** Pending
+- [x] **Status:** Completed
 
 ### SP04PH00T03 — Push to origin
 
-- [ ] **Task:** Push branch to origin
+- [x] **Task:** Push branch to origin
 - **Command:** `git push origin sp04-connection-profiles`
 - **Commit:** "SP04PH00: Branch pushed to origin"
-- [ ] **Status:** Pending
+- [x] **Status:** Completed
 
 ### SP04PH00T04 — Verify CI passes
 
-- [ ] **Task:** Verify CI passes on branch
+- [x] **Task:** Verify CI passes on branch
 - **Acceptance:** CI green before proceeding
-- [ ] **Status:** Pending
+- [x] **Status:** Completed
 
 ### SP04PH00T05 — Phase 0 complete
 
-- [ ] **Task:** Confirm Phase 0 complete before feature work
-- [ ] **Status:** Pending
+- [x] **Task:** Confirm Phase 0 complete before feature work
+- [x] **Status:** Completed
 
 > **Staging Push:** Before pushing to staging:
 > - **Frontend:** `npm ci && npm run build`
@@ -555,7 +555,7 @@
 
 | Phase | Tasks | Status |
 |-------|-------|--------|
-| SP04PH00 | T01-T05 | Pending |
+| SP04PH00 | T01-T05 | Completed |
 | SP04PH01 | T01-T07 | Pending |
 | SP04PH02 | T01-T08 | Pending |
 | SP04PH03 | T01-T06 | Pending |

@@ -161,7 +161,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		Protocol: req.Protocol,
 	}
 
-	if err := h.connStore.Create(conn); err != nil {
+	if err := h.connStore.CreateWithProfile(conn); err != nil {
 		log.Printf("[SP03PH05T02] Create connection failed: %v", err)
 		h.sendError(w, "Failed to create connection")
 		return

@@ -46,6 +46,53 @@ func (s *ConnectionStore) Create(conn *SavedConnection) error {
 		Scan(&conn.ID, &conn.CreatedAt, &conn.UpdatedAt)
 }
 
+// CreateWithProfile creates a new connection with a default profile in a single transaction
+// If profile creation fails, the entire transaction is rolled back
+func (s *ConnectionStore) CreateWithProfile(conn *SavedConnection) error {
+	// Default protocol to telnet if not specified
+	if conn.Protocol == "" {
+		conn.Protocol = "telnet"
+	}
+
+	// Start a transaction
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Create the connection
+	query := `
+		INSERT INTO saved_connections (user_id, name, host, port, protocol)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, created_at, updated_at
+	`
+	err = tx.QueryRow(query, conn.UserID, conn.Name, conn.Host, conn.Port, conn.Protocol).
+		Scan(&conn.ID, &conn.CreatedAt, &conn.UpdatedAt)
+	if err != nil {
+		return err
+	}
+
+	// Create the default profile with the connection
+	profileQuery := `
+		INSERT INTO profiles (user_id, connection_id, keybindings, settings)
+		VALUES ($1, $2, $3, $4)
+	`
+	defaultKeybindings := "{}"
+	defaultSettings := "{\"scrollback_limit\": 1000, \"echo_input\": false, \"timestamp_output\": false, \"word_wrap\": true}"
+	_, err = tx.Exec(profileQuery, conn.UserID, conn.ID, defaultKeybindings, defaultSettings)
+	if err != nil {
+		return err
+	}
+
+	// Commit the transaction
+	return tx.Commit()
+}
+
 // GetByID retrieves a connection by ID (for a specific user)
 func (s *ConnectionStore) GetByID(id, userID uuid.UUID) (*SavedConnection, error) {
 	query := `

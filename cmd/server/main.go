@@ -18,6 +18,7 @@ import (
 	"github.com/amaranth494/MudPuppy/internal/connections"
 	"github.com/amaranth494/MudPuppy/internal/crypto"
 	"github.com/amaranth494/MudPuppy/internal/metrics"
+	"github.com/amaranth494/MudPuppy/internal/profiles"
 	"github.com/amaranth494/MudPuppy/internal/redis"
 	"github.com/amaranth494/MudPuppy/internal/session"
 	"github.com/amaranth494/MudPuppy/internal/store"
@@ -123,6 +124,7 @@ func main() {
 	// Initialize connections handler FIRST (SP03PH05) - needed for session callbacks
 	connectionStore := store.NewConnectionStore(db)
 	credentialsStore := store.NewCredentialsStore(db)
+	profileStore := store.NewProfileStore(db)
 	// Create encryption key store - uses DefaultKeyStore to generate default key if none configured
 	keyStore, err := crypto.DefaultKeyStore()
 	if err != nil {
@@ -140,6 +142,9 @@ func main() {
 
 	// Initialize connections handler with session manager (SP03PH06)
 	connectionsHandler := connections.NewHandler(connectionStore, credentialsStore, keyStore, sessionManager)
+
+	// Initialize profiles handler (SP04PH02)
+	profilesHandler := profiles.NewHandler(profileStore)
 
 	// Create session handler with callbacks for SP03PH05 (connections integration)
 	sessionHandler := session.NewHandlerWithCallbacks(sessionManager, cfg, &session.HandlerCallbacks{
@@ -229,6 +234,26 @@ func main() {
 	mux.HandleFunc("/api/v1/session/connect", sessionHandler.Connect)
 	mux.HandleFunc("/api/v1/session/disconnect", sessionHandler.Disconnect)
 	mux.HandleFunc("/api/v1/session/status", sessionHandler.Status)
+
+	// Add profiles endpoints to mux (SP04PH02)
+	mux.HandleFunc("/api/v1/profiles/{id}", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			profilesHandler.Get(w, r)
+		case http.MethodPut:
+			profilesHandler.Update(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/api/v1/connections/{id}/profile", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			profilesHandler.GetByConnection(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
 
 	// WebSocket endpoint (SP02PH02)
 	mux.HandleFunc("/api/v1/session/stream", wsHandler.HandleWebSocket)

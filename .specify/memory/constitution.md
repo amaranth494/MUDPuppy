@@ -419,7 +419,9 @@ Frontend and backend evolve independently. Versioning ensures compatibility:
 - Feature flags allow server-side enablement for newer API features
 - Breaking changes only in major version bumps
 
-**Version**: 1.13.0 | **Ratified**: 2026-02-23 | **Last Amended**: 2026-02-23
+**Version**: 1.15.0 | **Ratified**: 2026-02-23 | **Last Amended**: 2026-03-03
+
+**Amendment v1.15.0:** Added Section X - Pre-Push Build Requirements. All staging pushes must be preceded by `npm ci && npm run build` (frontend) and `go build ./...` (backend) to ensure hashed assets are regenerated and builds succeed before deployment.
 
 **Amendment v1.13.0:** Updated Spec branch to originate from staging (not master). Added VIII.A Branch-Environment Mapping, VIII.B Spec Development Deployment Flow (Single-Admin Model), VIII.C Direct Push Policy (Clarified), VIII.D Audit Requirements.
 
@@ -812,3 +814,28 @@ Each Spec must produce:
 - Release notes
 
 Specs must remain archived and traceable for audit purposes.
+
+---
+
+## X. Pre-Push Build Requirements
+
+**Before every push to staging, the following local builds must succeed:**
+
+```
+Frontend: npm ci && npm run build
+Backend:  go build ./...
+```
+
+These builds must complete successfully before executing:
+
+```
+git push origin sp04-connection-profiles:staging
+```
+
+**Rationale:**
+- Ensures hashed assets are regenerated
+- Verifies no compile errors exist
+- Prevents stale code from deploying
+- Maintains deployment integrity
+
+**This applies to ALL staging pushes, regardless of which phase is being deployed.**
