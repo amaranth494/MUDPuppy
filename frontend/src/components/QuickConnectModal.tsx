@@ -114,10 +114,10 @@ export default function QuickConnectModal({ isOpen, onClose }: QuickConnectModal
     setInputPort(conn.port);
     setLocalError(null);
     
-    // Auto-connect
+    // Auto-connect - pass connectionId so profile can be fetched (SP04)
     setIsConnecting(true);
     try {
-      await connect(conn.host, conn.port);
+      await connect(conn.host, conn.port, conn.id);
       onClose();
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : 'Connection failed');

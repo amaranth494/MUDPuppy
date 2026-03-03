@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { useSession } from '../context/SessionContext';
+import { useInputInterceptor } from '../hooks/useInputInterceptor';
 
 // Enable text selection in terminal
 const terminalSelectionStyle = {
@@ -130,21 +131,37 @@ export default function PlayScreen() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const handleCommand = (command: string) => {
+  // SP04: Single submitCommand function - canonical entry point for all commands
+  // Both typing and keybindings route through this same function
+  const submitCommand = useCallback((_source: 'typing' | 'keybinding', text: string) => {
     // SP03PH03: Gate command submission when modal is open
-    // This prevents keystrokes from leaking to MUD while modal is active
     if (isInputLocked) {
       return;
     }
     
+    // Trim the command (SP04 requirement)
+    const trimmedCommand = text.trim();
+    
     if (wsManager && connectionState === 'connected') {
-      wsManager.sendCommand(command + '\n');
-      // Echo command locally
+      // Send to WebSocket
+      wsManager.sendCommand(trimmedCommand + '\n');
+      
+      // Local echo - controlled by profile settings (future SP04PH05)
+      // For now, always echo
       if (terminalInstanceRef.current) {
-        terminalInstanceRef.current.write(command + '\r\n');
+        terminalInstanceRef.current.write(trimmedCommand + '\r\n');
       }
     }
-  };
+  }, [wsManager, connectionState, isInputLocked]);
+
+  // SP04: Set up keybinding interceptor
+  useInputInterceptor({
+    onKeybindingDispatch: (command: string) => {
+      // Route through submitCommand for consistent behavior
+      submitCommand('keybinding', command);
+    },
+    enabled: connectionState === 'connected' && !isInputLocked,
+  });
   
   return (
     <div className="play-screen">
@@ -164,7 +181,7 @@ export default function PlayScreen() {
             if (e.key === 'Enter') {
               const input = e.currentTarget;
               const command = input.value; // Don't trim - allow blank lines for MUDs
-              handleCommand(command); // Always send (even empty = just CR)
+              submitCommand('typing', command); // Use canonical submitCommand
               input.value = '';
             }
           }}
