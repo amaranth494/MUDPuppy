@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Modal from './Modal';
 import { getProfileByConnection, updateProfile } from '../services/api';
 import { Profile, ProfileSettings, UpdateProfileRequest } from '../types';
+import { canonicalizeKeybinding, isValidKeybindingFormat, isValidCommand, normalizeKeybindings } from '../services/keybindings';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -36,7 +37,8 @@ export default function ProfileModal({ isOpen, onClose, connectionId }: ProfileM
     try {
       const data = await getProfileByConnection(connectionId);
       setProfile(data);
-      setKeybindings(data.keybindings || {});
+      // Normalize keybindings to canonical format on load
+      setKeybindings(normalizeKeybindings(data.keybindings || {}));
       setSettings(data.settings || {
         scrollback_limit: 1000,
         echo_input: false,
@@ -71,21 +73,34 @@ export default function ProfileModal({ isOpen, onClose, connectionId }: ProfileM
       return;
     }
 
+    // Validate keybinding format
+    if (!isValidKeybindingFormat(newKey.trim())) {
+      setError('Invalid keybinding format. Use format like F1, Ctrl+1, Alt+W');
+      return;
+    }
+
+    // Validate command
+    if (!isValidCommand(newCommand.trim())) {
+      setError('Invalid command. Must be 1-500 characters');
+      return;
+    }
+
     // Check max 50 keybindings
     if (Object.keys(keybindings).length >= 50) {
       setError('Maximum 50 keybindings allowed');
       return;
     }
 
-    // Check command max 500 chars
-    if (newCommand.length > 500) {
-      setError('Command must be 500 characters or less');
+    // Canonicalize the keybinding before storing
+    const canonicalKey = canonicalizeKeybinding(newKey.trim());
+    if (!canonicalKey) {
+      setError('Could not canonicalize keybinding');
       return;
     }
 
     setKeybindings(prev => ({
       ...prev,
-      [newKey.trim()]: newCommand.trim(),
+      [canonicalKey]: newCommand.trim(),
     }));
     setNewKey('');
     setNewCommand('');

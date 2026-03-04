@@ -9,6 +9,7 @@ import {
   getProfileByConnection
 } from '../services/api';
 import { mapBackendError } from '../types';
+import { normalizeKeybindings } from '../services/keybindings';
 
 interface SessionContextType {
   user: User | null;
@@ -98,7 +99,12 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
     if (connectionId) {
       try {
         const fetchedProfile = await getProfileByConnection(connectionId);
-        setProfile(fetchedProfile);
+        // Normalize keybindings to canonical format
+        const normalizedProfile: Profile = {
+          ...fetchedProfile,
+          keybindings: normalizeKeybindings(fetchedProfile.keybindings || {}),
+        };
+        setProfile(normalizedProfile);
         setCurrentConnectionId(connectionId);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load profile';
