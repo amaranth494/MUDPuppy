@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Modal from './Modal';
 import { getProfileByConnection, updateProfile } from '../services/api';
 import { Profile, ProfileSettings, UpdateProfileRequest } from '../types';
-import { canonicalizeKeybinding, isValidKeybindingFormat, isValidCommand, normalizeKeybindings } from '../services/keybindings';
+import { canonicalizeKeybinding, isValidKeybindingFormat, isValidCommand, normalizeKeybindings, eventToCanonicalKey } from '../services/keybindings';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -21,6 +21,8 @@ export default function ProfileModal({ isOpen, onClose, connectionId }: ProfileM
   const [keybindings, setKeybindings] = useState<Record<string, string>>({});
   const [newKey, setNewKey] = useState('');
   const [newCommand, setNewCommand] = useState('');
+  const [isCapturingKey, setIsCapturingKey] = useState(false);
+  const keyInputRef = useRef<HTMLInputElement>(null);
   const [settings, setSettings] = useState<ProfileSettings>({
     scrollback_limit: 1000,
     echo_input: false,
@@ -64,8 +66,23 @@ export default function ProfileModal({ isOpen, onClose, connectionId }: ProfileM
       setNewCommand('');
       setError(null);
       setSuccessMessage(null);
+      setIsCapturingKey(false);
     }
   }, [isOpen]);
+
+  // Handle key capture for keybinding input
+  const handleKeyCapture = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    
+    // Get the canonical key from the event
+    const canonicalKey = eventToCanonicalKey(e.nativeEvent as KeyboardEvent);
+    if (canonicalKey) {
+      setNewKey(canonicalKey);
+      setIsCapturingKey(false);
+    }
+  };
+
+  // Start key capture mode
 
   // Add a new keybinding
   const handleAddKeybinding = () => {
@@ -217,13 +234,32 @@ export default function ProfileModal({ isOpen, onClose, connectionId }: ProfileM
             <div className="form-row">
               <div className="form-group">
                 <label className="form-label">Key</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g., F1, Ctrl+1, Alt+W"
-                  value={newKey}
-                  onChange={(e) => setNewKey(e.target.value)}
-                />
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder={isCapturingKey ? 'Press a key...' : 'Click Capture then press a key'}
+                    value={newKey}
+                    onChange={(e) => !isCapturingKey && setNewKey(e.target.value)}
+                    onKeyDown={isCapturingKey ? handleKeyCapture : undefined}
+                    style={{ flex: 1 }}
+                    ref={keyInputRef}
+                  />
+                  <button
+                    type="button"
+                    className={`btn btn-small ${isCapturingKey ? 'btn-secondary' : 'btn-outline'}`}
+                    onClick={() => {
+                      setIsCapturingKey(!isCapturingKey);
+                      if (!isCapturingKey) {
+                        setNewKey('');
+                        // Focus the input after state update
+                        setTimeout(() => keyInputRef.current?.focus(), 0);
+                      }
+                    }}
+                  >
+                    {isCapturingKey ? 'Cancel' : 'Capture'}
+                  </button>
+                </div>
               </div>
               <div className="form-group">
                 <label className="form-label">Command</label>
