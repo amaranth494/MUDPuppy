@@ -291,9 +291,9 @@ export default function ProfileModal({ isOpen, onClose, connectionId }: ProfileM
               <button
                 className="btn btn-small btn-primary"
                 onClick={handleAddKeybinding}
-                disabled={!newKey.trim() || !newCommand.trim()}
+                disabled={isCapturingKey || !newKey.trim() || !newCommand.trim()}
               >
-                Add
+                {isCapturingKey ? 'Press a key...' : newKey.trim() ? 'Add' : 'Capture Key'}
               </button>
             </div>
             <p className="profile-hint">
