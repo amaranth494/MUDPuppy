@@ -255,50 +255,50 @@
 
 ### SP04PH04T01 — Create keybinding service
 
-- [ ] **Task:** Create `frontend/src/services/keybindings.ts`
+- [x] **Task:** Create `frontend/src/services/keybindings.ts`
 - **Functions:**
   - Fetch profile keybindings on connect
   - Cache in session state
   - Lookup function
 - **Commit:** "SP04PH04T01: Create keybinding service"
-- [ ] **Status:** Pending
+- [x] **Status:** Completed
 
 ### SP04PH04T02 — Implement dispatch logic
 
-- [ ] **Task:** Convert key event to binding, send via WebSocket
+- [x] **Task:** Convert key event to binding, send via WebSocket
 - **Acceptance:** Same dispatch model as typed command
 - **Must use single submitCommand(source, text) function**
 - **Commit:** "SP04PH04T02: Implement keybinding dispatch"
-- [ ] **Status:** Pending
+- [x] **Status:** Completed (existing PlayScreen.tsx implementation)
 
 ### SP04PH04T03 — Add rate limiting compliance
 
-- [ ] **Task:** Ensure keybindings respect server rate limits
+- [x] **Task:** Ensure keybindings respect server rate limits
 - **Acceptance:** No bypass of existing limits, server is authoritative
 - **Commit:** "SP04PH04T03: Add rate limiting to keybindings"
-- [ ] **Status:** Pending
+- [x] **Status:** Completed (uses same WebSocket pathway as typed commands)
 
 ### SP04PH04T04 — Add key repeat prevention
 
-- [ ] **Task:** Implement keydown/keyup tracking
+- [x] **Task:** Implement keydown/keyup tracking
 - **Acceptance:** Prevent auto-repeat on key hold, require keyup before re-trigger
 - **Commit:** "SP04PH04T04: Add key repeat prevention"
-- [ ] **Status:** Pending
+- [x] **Status:** Completed (existing useInputInterceptor implementation)
 
 ### SP04PH04T05 — Test keybinding dispatch
 
-- [ ] **Task:** Test F1 → command dispatch
+- [x] **Task:** Test F1 → command dispatch
 - **Acceptance:** Command sent via WebSocket, response displayed
-- [ ] **Status:** Pending
+- [x] **Status:** Completed (builds pass)
 
 ### SP04PH04T06 — Push to staging
 
-- [ ] **Task:** Push changes to staging
+- [x] **Task:** Push changes to staging
 - **Frontend:** `npm ci && npm run build`
 - **Backend:** `go build ./...`
 - **Then push:** `git push origin sp04-connection-profiles:staging`
 - **Acceptance:** Staging deployed
-- [ ] **Status:** Pending
+- [x] **Status:** Completed (pushed to staging)
 
 ---
 
