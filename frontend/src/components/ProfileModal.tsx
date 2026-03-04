@@ -23,6 +23,7 @@ export default function ProfileModal({ isOpen, onClose, connectionId }: ProfileM
   const [newCommand, setNewCommand] = useState('');
   const [isCapturingKey, setIsCapturingKey] = useState(false);
   const keyInputRef = useRef<HTMLInputElement>(null);
+  const commandInputRef = useRef<HTMLInputElement>(null);
   const [settings, setSettings] = useState<ProfileSettings>({
     scrollback_limit: 1000,
     echo_input: false,
@@ -79,6 +80,8 @@ export default function ProfileModal({ isOpen, onClose, connectionId }: ProfileM
     if (canonicalKey) {
       setNewKey(canonicalKey);
       setIsCapturingKey(false);
+      // Move focus to command input
+      setTimeout(() => commandInputRef.current?.focus(), 0);
     }
   };
 
@@ -86,6 +89,14 @@ export default function ProfileModal({ isOpen, onClose, connectionId }: ProfileM
 
   // Add a new keybinding
   const handleAddKeybinding = () => {
+    // If no key is set and we're not capturing, start key capture mode
+    if (!newKey.trim() && !isCapturingKey) {
+      setIsCapturingKey(true);
+      setTimeout(() => keyInputRef.current?.focus(), 0);
+      return;
+    }
+    
+    // If we're in capture mode, the key should already be set by handleKeyCapture
     if (!newKey.trim() || !newCommand.trim()) {
       return;
     }
@@ -234,32 +245,15 @@ export default function ProfileModal({ isOpen, onClose, connectionId }: ProfileM
             <div className="form-row">
               <div className="form-group">
                 <label className="form-label">Key</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder={isCapturingKey ? 'Press a key...' : 'Click Capture then press a key'}
-                    value={newKey}
-                    onChange={(e) => !isCapturingKey && setNewKey(e.target.value)}
-                    onKeyDown={isCapturingKey ? handleKeyCapture : undefined}
-                    style={{ flex: 1 }}
-                    ref={keyInputRef}
-                  />
-                  <button
-                    type="button"
-                    className={`btn btn-small ${isCapturingKey ? 'btn-secondary' : 'btn-outline'}`}
-                    onClick={() => {
-                      setIsCapturingKey(!isCapturingKey);
-                      if (!isCapturingKey) {
-                        setNewKey('');
-                        // Focus the input after state update
-                        setTimeout(() => keyInputRef.current?.focus(), 0);
-                      }
-                    }}
-                  >
-                    {isCapturingKey ? 'Cancel' : 'Capture'}
-                  </button>
-                </div>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder={isCapturingKey ? 'Press any key...' : 'Click Add then press a key'}
+                  value={newKey}
+                  onChange={(e) => !isCapturingKey && setNewKey(e.target.value)}
+                  onKeyDown={isCapturingKey ? handleKeyCapture : undefined}
+                  ref={keyInputRef}
+                />
               </div>
               <div className="form-group">
                 <label className="form-label">Command</label>
@@ -269,6 +263,7 @@ export default function ProfileModal({ isOpen, onClose, connectionId }: ProfileM
                   placeholder="e.g., score, cast heal"
                   value={newCommand}
                   onChange={(e) => setNewCommand(e.target.value)}
+                  ref={commandInputRef}
                 />
               </div>
               <button
