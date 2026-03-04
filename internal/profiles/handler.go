@@ -243,10 +243,10 @@ func (h *Handler) getConnectionID(r *http.Request) (uuid.UUID, error) {
 	// Extract ID from path - format is /api/v1/connections/:connectionID/profile
 	path := r.URL.Path
 	parts := strings.Split(path, "/")
-	if len(parts) < 4 {
+	if len(parts) < 5 {
 		return uuid.Nil, &ValidationError{Message: "Connection ID not found"}
 	}
-	return uuid.Parse(parts[3])
+	return uuid.Parse(parts[4])
 }
 
 // sendJSON sends a JSON response
