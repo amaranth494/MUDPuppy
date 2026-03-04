@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     connection_id UUID NOT NULL REFERENCES saved_connections(id) ON DELETE CASCADE,
     keybindings JSONB NOT NULL DEFAULT '{}'::jsonb,
-    settings JSONB NOT NULL DEFAULT '{"scrollback_limit": 1000, "echo_input": false, "timestamp_output": false, "word_wrap": true}'::jsonb,
+    settings JSONB NOT NULL DEFAULT '{"scrollback_limit": 1000, "echo_input": false, "timestamp_input_echo": false, "word_wrap": true}'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

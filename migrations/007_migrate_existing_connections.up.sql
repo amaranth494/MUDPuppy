@@ -9,7 +9,7 @@ SELECT
     user_id,
     id,
     '{}'::jsonb,
-    '{"scrollback_limit": 1000, "echo_input": false, "timestamp_output": false, "word_wrap": true}'::jsonb,
+    '{"scrollback_limit": 1000, "echo_input": false, "timestamp_input_echo": false, "word_wrap": true}'::jsonb,
     NOW(),
     NOW()
 FROM saved_connections

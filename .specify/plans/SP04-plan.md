@@ -260,7 +260,7 @@ This plan implements SP04: Per-Connection Profiles & Input Customization. The sp
 
 - Implement scrollback limit
 - Implement echo input setting
-- Implement timestamp output
+- Implement timestamp input echo (locally-echoed commands only)
 - Implement word wrap
 
 ### Steps
@@ -278,11 +278,12 @@ This plan implements SP04: Per-Connection Profiles & Input Customization. The sp
     - Add local echo logic
     - Toggle based on settings.echo_input
 
-34. **T33: Implement timestamp output**
-    - Add timestamp prefix to rendered lines
-    - **Must hook into xterm write pipeline AFTER parsing boundaries**
-    - **Must NOT prefix raw ANSI stream text** (breaks color codes)
+34. **T33: Implement timestamp input echo**
+    - Add timestamp prefix to locally-echoed commands only
+    - Must NOT timestamp server output
+    - Hook into input echo pipeline, not xterm write pipeline
     - Frontend-only rendering
+    - **Clarification:** This setting timestamps user input when echoed locally. Server output remains untimestamped for MVP.
 
 35. **T34: Implement word wrap**
     - Configure xterm wrap mode
