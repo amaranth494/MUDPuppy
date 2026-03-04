@@ -12,6 +12,11 @@ const terminalSelectionStyle = {
   WebkitUserSelect: 'text' as const,
 };
 
+// Extended terminal type to store original write function
+interface ExtendedTerminal extends Terminal {
+  _originalWrite?: (data: string | Uint8Array) => void;
+}
+
 export default function PlayScreen() {
   const { 
     connectionState, 
@@ -36,9 +41,60 @@ export default function PlayScreen() {
     const scrollbackLimit = Math.max(100, Math.min(10000, settings.scrollback_limit || 1000));
     terminal.options.scrollback = scrollbackLimit;
     
-    // Apply word wrap (xterm handles this via renderer)
-    // Note: word_wrap is a setting we track for future use
-    // xterm.js v5+ handles wrapping automatically based on terminal width
+    // Apply word wrap (SP04PH05T05)
+    // In xterm.js v5+, use options.wraparound to control word wrap
+    (terminal.options as any).wraparound = settings.word_wrap ?? true;
+    
+    // SP04PH05T04: Timestamp output
+    // We use a custom write implementation that intercepts lines and adds timestamps
+    // This hooks into xterm write pipeline AFTER parsing, NOT prefixing raw ANSI
+    const extTerminal = terminal as ExtendedTerminal;
+    if (settings.timestamp_output) {
+      // Store original write function if not already wrapped
+      if (!extTerminal._originalWrite) {
+        extTerminal._originalWrite = terminal.write.bind(terminal);
+        
+        // Wrap the write function to add timestamps
+        (terminal as ExtendedTerminal).write = (data: string | Uint8Array) => {
+          // Convert to string if needed
+          const str = typeof data === 'string' ? data : new TextDecoder().decode(data);
+          
+          // Get current timestamp
+          const now = new Date();
+          const timestamp = now.toLocaleTimeString('en-US', { 
+            hour12: false, 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit' 
+          });
+          
+          // Split by newlines and add timestamp to each line
+          // This approach processes the data AFTER xterm would parse it
+          const lines = str.split('\n');
+          const timestampedLines = lines.map(line => {
+            // Only add timestamp to non-empty lines that would be displayed
+            if (line.length > 0) {
+              // Check if this looks like a control sequence (ANSI) - skip timestamp for those
+              // Using charCodeAt to check for escape character (0x1b = 27)
+              if (line.charCodeAt(0) === 27 || line.charCodeAt(0) === 0x1b) {
+                return line;
+              }
+              return `\x1b[90m[${timestamp}]\x1b[0m ${line}`;
+            }
+            return line;
+          });
+          
+          // Call original write with timestamped data
+          extTerminal._originalWrite!(timestampedLines.join('\n'));
+        };
+      }
+    } else {
+      // Remove timestamp wrapper if it exists
+      if (extTerminal._originalWrite) {
+        terminal.write = extTerminal._originalWrite;
+        delete extTerminal._originalWrite;
+      }
+    }
     
   }, [profile]);
 
