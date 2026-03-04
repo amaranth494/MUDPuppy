@@ -257,9 +257,13 @@
 
 - [x] **Task:** Create `frontend/src/services/keybindings.ts`
 - **Functions:**
-  - Fetch profile keybindings on connect
-  - Cache in session state
-  - Lookup function
+  - Key normalization and canonicalization
+  - Lookup function with collision resolution
+  - (Fetch/cache handled by SessionContext - see note)
+- **Implementation Notes:**
+  - Fetch: SessionContext calls getProfileByConnection on connect
+  - Cache: SessionContext stores profile in React state
+  - Lookup: keybindings.ts provides findMatchingBinding()
 - **Commit:** "SP04PH04T01: Create keybinding service"
 - [x] **Status:** Completed
 
