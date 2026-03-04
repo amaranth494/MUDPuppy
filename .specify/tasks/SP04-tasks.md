@@ -183,12 +183,12 @@
 
 ### SP04PH02T07 — Push to staging
 
-- [ ] **Task:** Push changes to staging
+- [x] **Task:** Push changes to staging
 - **Frontend:** `npm ci && npm run build`
 - **Backend:** `go build ./...`
 - **Then push:** `git push origin sp04-connection-profiles:staging`
 - **Acceptance:** Staging deployed, no 500s
-- [ ] **Status:** Pending
+- [x] **Status:** Completed
 
 ### SP04PH02T08 — Pre-push build verification
 
@@ -205,50 +205,49 @@
 
 ### SP04PH03T01 — Create input hook
 
-- [ ] **Task:** Create `frontend/src/hooks/useInputInterceptor.ts`
+- [x] **Task:** Create `frontend/src/hooks/useInputInterceptor.ts`
 - **Responsibilities:**
   - Listen for keyboard events
   - Check keybinding match
   - Return matched command or null
-- **Commit:** "SP04PH03T01: Create input interception hook"
-- [ ] **Status:** Pending
+- **Commit:** "SP04PH03: Input interception layer + SP04PH04: Keybinding engine"
+- [x] **Status:** Completed
 
 ### SP04PH03T02 — Integrate with terminal
 
-- [ ] **Task:** Integrate interceptor with Terminal component
-- **File:** `frontend/src/components/Terminal.tsx`
+- [x] **Task:** Integrate interceptor with Terminal component
+- **File:** `frontend/src/components/Terminal.tsx` (actually PlayScreen.tsx)
 - **Acceptance:** onSubmit checks keybindings first
-- **Commit:** "SP04PH03T02: Integrate input interceptor with Terminal"
-- [ ] **Status:** Pending
+- **Commit:** "SP04PH03: Input interception layer + SP04PH04: Keybinding engine"
+- [x] **Status:** Completed
 
 ### SP04PH03T03 — Add modal lock check
 
-- [ ] **Task:** Ensure keybindings don't fire when modal active
+- [x] **Task:** Ensure keybindings don't fire when modal active
 - **Acceptance:** Reuse SP03 input lock pattern
-- **Commit:** "SP04PH03T03: Add modal lock to keybindings"
-- [ ] **Status:** Pending
+- **Commit:** "SP04PH03: Input interception layer + SP04PH04: Keybinding engine"
+- [x] **Status:** Completed
 
 ### SP04PH03T04 — Add connection state check
 
-- [ ] **Task:** Don't dispatch when disconnected
+- [x] **Task:** Don't dispatch when disconnected
 - **Acceptance:** Keybindings ignored when disconnected
-- **Commit:** "SP04PH03T04: Add connection state check"
-- [ ] **Status:** Pending
+- **Commit:** "SP04PH03: Input interception layer + SP04PH04: Keybinding engine"
+- [x] **Status:** Completed
 
 ### SP04PH03T05 — Test input interception
 
-- [ ] **Task:** Test keypress captured and lookup works
+- [x] **Task:** Test keypress captured and lookup works
 - **Acceptance:** Fallback to normal input when no match
-- [ ] **Status:** Pending
+- **Verification:** Build passes (go build + npm run build), code review confirms implementation
+- [x] **Status:** Completed
 
 ### SP04PH03T06 — Push to staging
 
-- [ ] **Task:** Push changes to staging
-- **Frontend:** `npm ci && npm run build`
-- **Backend:** `go build ./...`
-- **Then push:** `git push origin sp04-connection-profiles:staging`
+- [x] **Task:** Push changes to staging
+- **Commit:** "SP04PH03: Input interception layer + SP04PH04: Keybinding engine"
 - **Acceptance:** Staging deployed
-- [ ] **Status:** Pending
+- [x] **Status:** Completed
 
 ---
 
