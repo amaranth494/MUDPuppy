@@ -32,6 +32,16 @@ const SPECIAL_KEY_MAP: Record<string, string> = {
   'insert': 'insert',
 };
 
+// Modifier keys that should be ignored when capturing keybindings
+const MODIFIER_KEYS = new Set(['control', 'ctrl', 'alt', 'shift', 'meta', 'control', 'shift', 'alt', 'meta']);
+
+/**
+ * Check if a key is a modifier-only key (no actual key pressed)
+ */
+export function isModifierOnly(key: string): boolean {
+  return MODIFIER_KEYS.has(key.toLowerCase());
+}
+
 /**
  * Normalize a modifier string to canonical form
  */

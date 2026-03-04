@@ -24,6 +24,9 @@ export function useInputInterceptor(options: UseInputInterceptorOptions = {}) {
   
   // Handle keyboard events
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    // Debug: log key events when debugging
+    // console.log('Keybind event:', event.key, 'locked:', isInputLocked, 'connected:', connectionState);
+    
     // Don't intercept if:
     // 1. Input is locked (modal active)
     // 2. Not connected
@@ -53,6 +56,9 @@ export function useInputInterceptor(options: UseInputInterceptorOptions = {}) {
     // Look up the binding
     const command = findMatchingBinding(bindingKey, profile.keybindings);
     if (command) {
+      // Debug: log when binding fires
+      // console.log('Keybind match:', bindingKey, '->', command);
+      
       // Prevent default browser behavior
       event.preventDefault();
       

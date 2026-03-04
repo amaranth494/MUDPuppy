@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Modal from './Modal';
 import { getProfileByConnection, updateProfile } from '../services/api';
 import { Profile, ProfileSettings, UpdateProfileRequest } from '../types';
-import { canonicalizeKeybinding, isValidKeybindingFormat, isValidCommand, normalizeKeybindings, eventToCanonicalKey } from '../services/keybindings';
+import { canonicalizeKeybinding, isValidKeybindingFormat, isValidCommand, normalizeKeybindings, eventToCanonicalKey, isModifierOnly } from '../services/keybindings';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -71,19 +71,42 @@ export default function ProfileModal({ isOpen, onClose, connectionId }: ProfileM
     }
   }, [isOpen]);
 
-  // Handle key capture for keybinding input
-  const handleKeyCapture = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    
-    // Get the canonical key from the event
-    const canonicalKey = eventToCanonicalKey(e.nativeEvent as KeyboardEvent);
-    if (canonicalKey) {
-      setNewKey(canonicalKey);
+  // Handle key capture for keybinding using capture phase event listener
+  // This uses window event listener to capture keys regardless of focused element
+  useEffect(() => {
+    if (!isCapturingKey) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Get the canonical key from the event
+      const key = eventToCanonicalKey(e);
+      
+      // Ignore modifier-only keys
+      if (!key || isModifierOnly(key)) {
+        return;
+      }
+      
+      // Escape cancels capture
+      if (key === 'escape') {
+        setIsCapturingKey(false);
+        return;
+      }
+      
+      setNewKey(key);
       setIsCapturingKey(false);
       // Move focus to command input
       setTimeout(() => commandInputRef.current?.focus(), 0);
-    }
-  };
+    };
+
+    // Use capture phase to get the event before other handlers
+    window.addEventListener('keydown', handleKeyDown, true);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, [isCapturingKey]);
 
   // Start key capture mode
 
@@ -251,7 +274,6 @@ export default function ProfileModal({ isOpen, onClose, connectionId }: ProfileM
                   placeholder={isCapturingKey ? 'Press any key...' : 'Click Add then press a key'}
                   value={newKey}
                   onChange={(e) => !isCapturingKey && setNewKey(e.target.value)}
-                  onKeyDown={isCapturingKey ? handleKeyCapture : undefined}
                   ref={keyInputRef}
                 />
               </div>
