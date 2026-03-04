@@ -232,10 +232,10 @@ func (h *Handler) getProfileID(r *http.Request) (uuid.UUID, error) {
 	// Extract ID from path - format is /api/v1/profiles/:id
 	path := r.URL.Path
 	parts := strings.Split(path, "/")
-	if len(parts) < 4 {
+	if len(parts) < 5 {
 		return uuid.Nil, &ValidationError{Message: "Profile ID not found"}
 	}
-	return uuid.Parse(parts[3])
+	return uuid.Parse(parts[4])
 }
 
 // getConnectionID extracts connection ID from URL
