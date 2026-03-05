@@ -1044,8 +1044,17 @@ body {
 
 .connection-actions {
   display: flex;
-  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
   align-items: center;
+  justify-content: flex-end;
+  max-width: 140px;
+}
+
+.connection-actions .btn {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  min-width: auto;
 }
 
 .delete-confirm {
