@@ -132,6 +132,7 @@ function AppContent() {
         <QuickConnectModal
           isOpen={isQuickConnectOpen}
           onClose={() => setIsQuickConnectOpen(false)}
+          onInputLockChange={setInputLocked}
         />
         
         {/* Connections Hub Modal (SP03PH06) */}
@@ -149,6 +150,7 @@ function AppContent() {
           isOpen={isProfileModalOpen}
           onClose={() => setIsProfileModalOpen(false)}
           connectionId={profileConnectionId || ''}
+          onInputLockChange={setInputLocked}
         />
       </main>
     </div>

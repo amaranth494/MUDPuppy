@@ -8,9 +8,10 @@ interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   connectionId: string;
+  onInputLockChange?: (locked: boolean) => void;
 }
 
-export default function ProfileModal({ isOpen, onClose, connectionId }: ProfileModalProps) {
+export default function ProfileModal({ isOpen, onClose, connectionId, onInputLockChange }: ProfileModalProps) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -213,7 +214,7 @@ export default function ProfileModal({ isOpen, onClose, connectionId }: ProfileM
 
   if (isLoading) {
     return (
-      <Modal isOpen={isOpen} onClose={onClose} title="Profile Settings">
+      <Modal isOpen={isOpen} onClose={onClose} title="Profile Settings" onInputLockChange={onInputLockChange}>
         <div className="profile-modal-loading">
           Loading profile...
         </div>
@@ -222,7 +223,7 @@ export default function ProfileModal({ isOpen, onClose, connectionId }: ProfileM
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Profile Settings">
+    <Modal isOpen={isOpen} onClose={onClose} title="Profile Settings" onInputLockChange={onInputLockChange}>
       <div className="profile-modal">
         {error && (
           <div className="message message-error">

@@ -7,9 +7,10 @@ import { SavedConnection } from '../types';
 interface QuickConnectModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onInputLockChange?: (locked: boolean) => void;
 }
 
-export default function QuickConnectModal({ isOpen, onClose }: QuickConnectModalProps) {
+export default function QuickConnectModal({ isOpen, onClose, onInputLockChange }: QuickConnectModalProps) {
   const { connect, disconnect, connectionState, error, host, port } = useSession();
   
   const [inputHost, setInputHost] = useState('');
@@ -144,6 +145,7 @@ export default function QuickConnectModal({ isOpen, onClose }: QuickConnectModal
       isOpen={isOpen}
       onClose={onClose}
       title="Quick Play"
+      onInputLockChange={onInputLockChange}
     >
       <div className="quick-connect-form">
         <div className="form-group">
