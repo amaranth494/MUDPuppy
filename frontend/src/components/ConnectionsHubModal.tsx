@@ -18,12 +18,13 @@ interface ConnectionsHubModalProps {
   isOpen: boolean;
   onClose: () => void;
   onEditProfile?: (connectionId: string) => void;
+  onInputLockChange?: (locked: boolean) => void;
 }
 
 // View types for the modal
 type ViewType = 'list' | 'create' | 'edit';
 
-export default function ConnectionsHubModal({ isOpen, onClose, onEditProfile }: ConnectionsHubModalProps) {
+export default function ConnectionsHubModal({ isOpen, onClose, onEditProfile, onInputLockChange }: ConnectionsHubModalProps) {
   const { connectionState, connect: sessionConnect } = useSession();
   
   // State
@@ -509,6 +510,7 @@ export default function ConnectionsHubModal({ isOpen, onClose, onEditProfile }: 
       isOpen={isOpen}
       onClose={onClose}
       title="Connections"
+      onInputLockChange={onInputLockChange}
     >
       {view === 'list' ? renderListView() : renderFormView()}
     </Modal>

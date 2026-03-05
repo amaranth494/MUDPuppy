@@ -143,6 +143,7 @@ function AppContent() {
             setProfileConnectionId(connectionId);
             setIsProfileModalOpen(true);
           }}
+          onInputLockChange={setInputLocked}
         />
         
         {/* Profile Modal (SP04PH06) */}
