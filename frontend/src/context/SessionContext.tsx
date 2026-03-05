@@ -28,6 +28,7 @@ interface SessionContextType {
   // Profile state (SP04)
   profile: Profile | null;
   currentConnectionId: string | null;
+  updateProfile: (profile: Profile) => void;
 }
 
 const SessionContext = createContext<SessionContextType | null>(null);
@@ -60,6 +61,11 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   // Profile state (SP04) - fetched on connect
   const [profile, setProfile] = useState<Profile | null>(null);
   const [currentConnectionId, setCurrentConnectionId] = useState<string | null>(null);
+  
+  // Update profile in real-time while connected (SP04PH07)
+  const updateProfile = useCallback((updatedProfile: Profile) => {
+    setProfile(updatedProfile);
+  }, []);
 
   // Check authentication on mount
   useEffect(() => {
@@ -213,6 +219,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
         setInputLocked,
         profile,
         currentConnectionId,
+        updateProfile,
       }}
     >
       {children}

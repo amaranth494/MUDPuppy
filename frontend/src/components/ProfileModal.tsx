@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Modal from './Modal';
 import { getProfileByConnection, updateProfile } from '../services/api';
+import { useSession } from '../context/SessionContext';
 import { Profile, ProfileSettings, UpdateProfileRequest } from '../types';
 import { canonicalizeKeybinding, isValidKeybindingFormat, isValidCommand, normalizeKeybindings, eventToCanonicalKey, isModifierOnly } from '../services/keybindings';
 
@@ -12,6 +13,7 @@ interface ProfileModalProps {
 }
 
 export default function ProfileModal({ isOpen, onClose, connectionId, onInputLockChange }: ProfileModalProps) {
+  const { updateProfile: updateSessionProfile } = useSession();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -183,6 +185,13 @@ export default function ProfileModal({ isOpen, onClose, connectionId, onInputLoc
       await updateProfile(profile.id, updateRequest);
       setSuccessMessage('Profile saved successfully');
       
+      // Update session context for real-time keybinding updates
+      updateSessionProfile({
+        ...profile,
+        keybindings,
+        settings,
+      });
+
       // Close after brief delay
       setTimeout(() => {
         onClose();
