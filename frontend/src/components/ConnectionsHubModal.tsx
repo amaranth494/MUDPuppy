@@ -256,7 +256,8 @@ export default function ConnectionsHubModal({ isOpen, onClose, onEditProfile }: 
     setError(null);
     try {
       // Use session connect which handles both API and WebSocket
-      await sessionConnect(conn.host, conn.port);
+      // Pass connectionId to fetch profile with keybindings
+      await sessionConnect(conn.host, conn.port, conn.id);
       // Close modal after successful connect
       onClose();
     } catch (err) {
