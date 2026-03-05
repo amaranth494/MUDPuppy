@@ -1048,13 +1048,14 @@ body {
   gap: var(--spacing-xs);
   align-items: center;
   justify-content: flex-end;
-  width: 110px;
+  width: 100px;
 }
 
 .connection-actions .btn {
-  padding: var(--spacing-xs) var(--spacing-sm);
-  font-size: var(--font-size-sm);
-  min-width: 45px;
+  padding: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+  min-width: 42px;
+  flex: 0 0 auto;
 }
 
 .delete-confirm {
