@@ -25,7 +25,7 @@ export function useInputInterceptor(options: UseInputInterceptorOptions = {}) {
   // Handle keyboard events
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     // Debug: log key events when debugging
-    console.log('[Keybind] Key pressed:', event.key, 'locked:', isInputLocked, 'connected:', connectionState, 'hasProfile:', !!profile, 'hasKeybindings:', !!profile?.keybindings);
+    // console.log('Keybind event:', event.key, 'locked:', isInputLocked, 'connected:', connectionState);
     
     // Don't intercept if:
     // 1. Input is locked (modal active)
@@ -77,21 +77,14 @@ export function useInputInterceptor(options: UseInputInterceptorOptions = {}) {
   
   // Set up event listeners
   useEffect(() => {
-    // Debug: log current state
-    console.log('[Keybind] Effect running - connectionState:', connectionState, 'profile:', profile ? 'exists' : 'null', 'keybindings:', profile?.keybindings);
-    
     // Only add listener when connected and profile has keybindings
     if (connectionState !== 'connected') {
-      console.log('[Keybind] Not adding listener - not connected, state:', connectionState);
       return;
     }
     
     if (!profile?.keybindings) {
-      console.log('[Keybind] Not adding listener - no keybindings, profile:', profile);
       return;
     }
-    
-    console.log('[Keybind] Adding keydown listener with keybindings:', profile.keybindings);
     
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
