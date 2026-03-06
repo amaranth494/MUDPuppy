@@ -2,8 +2,10 @@
 /node_modules
 frontend/node_modules
 /public/build
+/public/assets
 *.exe
 mudpuppy
+mudpuppy-server
 mudpuppy_test
 *.dll
 *.so

@@ -81,18 +81,6 @@ export default function Sidebar({ isCollapsed = false, onToggle, onPlayClick, on
           )}
         </button>
         
-        {/* Connection Settings - navigates to settings page */}
-        <Link
-          to="/connections"
-          className={`sidebar-nav-item ${location.pathname.startsWith('/connections/') ? 'active' : ''}`}
-          title={isCollapsed ? 'Connection Settings' : undefined}
-        >
-          <span className="sidebar-nav-icon">⚙</span>
-          {!isCollapsed && (
-            <span className="sidebar-nav-label">Connection Settings</span>
-          )}
-        </Link>
-        
         {/* Help - navigates to Help */}
         <Link
           to="/help"
@@ -102,6 +90,76 @@ export default function Sidebar({ isCollapsed = false, onToggle, onPlayClick, on
           <span className="sidebar-nav-icon">?</span>
           {!isCollapsed && (
             <span className="sidebar-nav-label">Help</span>
+          )}
+        </Link>
+      </nav>
+
+      {/* Connection Settings Section */}
+      <div className="sidebar-section-divider" />
+      
+      {!isCollapsed && (
+        <div className="sidebar-section-header">Connection Settings</div>
+      )}
+      <div className="sidebar-section-divider" />
+      
+      <nav className="sidebar-nav sidebar-settings-nav">
+        {/* General */}
+        <Link
+          to="/settings/general"
+          className={`sidebar-nav-item ${location.pathname === '/settings/general' ? 'active' : ''}`}
+          title={isCollapsed ? 'General' : undefined}
+        >
+          <span className="sidebar-nav-icon">⚙</span>
+          {!isCollapsed && (
+            <span className="sidebar-nav-label">General</span>
+          )}
+        </Link>
+        
+        {/* Key Bindings */}
+        <Link
+          to="/settings/keybindings"
+          className={`sidebar-nav-item ${location.pathname === '/settings/keybindings' ? 'active' : ''}`}
+          title={isCollapsed ? 'Key Bindings' : undefined}
+        >
+          <span className="sidebar-nav-icon">⌨</span>
+          {!isCollapsed && (
+            <span className="sidebar-nav-label">Key Bindings</span>
+          )}
+        </Link>
+        
+        {/* Aliases */}
+        <Link
+          to="/settings/aliases"
+          className={`sidebar-nav-item ${location.pathname === '/settings/aliases' ? 'active' : ''}`}
+          title={isCollapsed ? 'Aliases' : undefined}
+        >
+          <span className="sidebar-nav-icon">⚡</span>
+          {!isCollapsed && (
+            <span className="sidebar-nav-label">Aliases</span>
+          )}
+        </Link>
+        
+        {/* Triggers */}
+        <Link
+          to="/settings/triggers"
+          className={`sidebar-nav-item ${location.pathname === '/settings/triggers' ? 'active' : ''}`}
+          title={isCollapsed ? 'Triggers' : undefined}
+        >
+          <span className="sidebar-nav-icon">⚓</span>
+          {!isCollapsed && (
+            <span className="sidebar-nav-label">Triggers</span>
+          )}
+        </Link>
+        
+        {/* Environment */}
+        <Link
+          to="/settings/environment"
+          className={`sidebar-nav-item ${location.pathname === '/settings/environment' ? 'active' : ''}`}
+          title={isCollapsed ? 'Environment' : undefined}
+        >
+          <span className="sidebar-nav-icon">📦</span>
+          {!isCollapsed && (
+            <span className="sidebar-nav-label">Environment</span>
           )}
         </Link>
       </nav>

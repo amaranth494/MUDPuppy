@@ -3,6 +3,7 @@ import { SessionProvider, useSession } from './context/SessionContext';
 import PlayScreen from './pages/PlayScreen';
 import ConnectionsPage from './pages/ConnectionsPage';
 import ConnectionSettingsPage from './pages/ConnectionSettingsPage';
+import SettingsPage from './pages/SettingsPage';
 import AccountPage from './pages/AccountPage';
 import HelpPage from './pages/HelpPage';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
@@ -59,8 +60,14 @@ function AppContent() {
     location.pathname === '/account' || 
     location.pathname === '/help';
   
-  // Connection Settings page is a full page (not a modal)
-  const isConnectionSettingsPage = location.pathname.startsWith('/connections/') && location.pathname.includes('/settings');
+  // Connection Settings pages are full pages (not modals)
+  // Supports both /connections/:id/settings and /settings/:section
+  const isConnectionSettingsPage = 
+    (location.pathname.startsWith('/connections/') && location.pathname.includes('/settings')) ||
+    location.pathname.startsWith('/settings/');
+  
+  // Check for new /settings/:section route (uses SettingsPage)
+  const isNewSettingsPage = location.pathname.startsWith('/settings/');
   
   // Play button should be disabled when viewing settings or overlay pages
   const isPlayDisabled = isOverlayPage || isConnectionSettingsPage;
@@ -115,9 +122,16 @@ function AppContent() {
         </div>
         
         {/* Connection Settings page - full page (not modal) */}
-        {isConnectionSettingsPage && (
+        {isConnectionSettingsPage && !isNewSettingsPage && (
           <div className="settings-overlay">
             <ConnectionSettingsPage />
+          </div>
+        )}
+        
+        {/* New Settings page - uses current connection or prompts to select (SP05PH04) */}
+        {isNewSettingsPage && (
+          <div className="settings-overlay">
+            <SettingsPage />
           </div>
         )}
         

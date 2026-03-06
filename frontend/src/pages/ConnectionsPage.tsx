@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { getConnections } from '../services/api';
 import { SavedConnection } from '../types';
 
 export default function ConnectionsPage() {
   const [connections, setConnections] = useState<SavedConnection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const location = useLocation();
+  const showSettingsBanner = location.state?.fromSettings === true;
 
   useEffect(() => {
     const loadConnections = async () => {
@@ -32,6 +34,14 @@ export default function ConnectionsPage() {
   return (
     <div style={{ padding: '2rem' }}>
       <h2>Connections</h2>
+      
+      {showSettingsBanner && (
+        <div className="message message-info" style={{ marginTop: '1rem' }}>
+          <strong>Active Settings require an active connection</strong>
+          <p>You can edit the saved settings from here. Select a connection below to edit its settings, or connect to a session first.</p>
+        </div>
+      )}
+      
       <p style={{ marginTop: '1rem', opacity: 0.7 }}>
         Select a connection to configure its settings.
       </p>
