@@ -258,6 +258,40 @@ func main() {
 		}
 	})
 
+	// Add automation endpoints to mux (SP05PH00)
+	mux.HandleFunc("/api/v1/profiles/{connection_id}/aliases", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			profilesHandler.GetAliases(w, r)
+		case http.MethodPut:
+			profilesHandler.PutAliases(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	mux.HandleFunc("/api/v1/profiles/{connection_id}/triggers", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			profilesHandler.GetTriggers(w, r)
+		case http.MethodPut:
+			profilesHandler.PutTriggers(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	mux.HandleFunc("/api/v1/profiles/{connection_id}/environment", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			profilesHandler.GetEnvironment(w, r)
+		case http.MethodPut:
+			profilesHandler.PutEnvironment(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
 	// WebSocket endpoint (SP02PH02)
 	mux.HandleFunc("/api/v1/session/stream", wsHandler.HandleWebSocket)
 

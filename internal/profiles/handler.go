@@ -201,7 +201,7 @@ func (h *Handler) GetAliases(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, profile, err := h.getProfileByConnectionID(w, r)
+	_, profile, err := h.getProfileByConnectionID(r)
 	if err != nil {
 		h.sendError(w, err.Error())
 		return
@@ -217,7 +217,7 @@ func (h *Handler) PutAliases(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userUUID, profile, err := h.getProfileByConnectionID(w, r)
+	userUUID, profile, err := h.getProfileByConnectionID(r)
 	if err != nil {
 		h.sendError(w, err.Error())
 		return
@@ -272,7 +272,7 @@ func (h *Handler) GetTriggers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, profile, err := h.getProfileByConnectionID(w, r)
+	_, profile, err := h.getProfileByConnectionID(r)
 	if err != nil {
 		h.sendError(w, err.Error())
 		return
@@ -288,7 +288,7 @@ func (h *Handler) PutTriggers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userUUID, profile, err := h.getProfileByConnectionID(w, r)
+	userUUID, profile, err := h.getProfileByConnectionID(r)
 	if err != nil {
 		h.sendError(w, err.Error())
 		return
@@ -347,7 +347,7 @@ func (h *Handler) GetEnvironment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, profile, err := h.getProfileByConnectionID(w, r)
+	_, profile, err := h.getProfileByConnectionID(r)
 	if err != nil {
 		h.sendError(w, err.Error())
 		return
@@ -363,7 +363,7 @@ func (h *Handler) PutEnvironment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userUUID, profile, err := h.getProfileByConnectionID(w, r)
+	userUUID, profile, err := h.getProfileByConnectionID(r)
 	if err != nil {
 		h.sendError(w, err.Error())
 		return
@@ -415,7 +415,7 @@ func (h *Handler) PutEnvironment(w http.ResponseWriter, r *http.Request) {
 }
 
 // getProfileByConnectionID is a helper that validates the user and fetches the profile by connection ID
-func (h *Handler) getProfileByConnectionID(w http.ResponseWriter, r *http.Request) (uuid.UUID, *store.Profile, error) {
+func (h *Handler) getProfileByConnectionID(r *http.Request) (uuid.UUID, *store.Profile, error) {
 	userID := r.Context().Value("user_id")
 	if userID == nil {
 		return uuid.Nil, nil, &ValidationError{Message: "Unauthorized"}
