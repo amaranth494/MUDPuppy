@@ -136,12 +136,80 @@ export interface Profile {
   connection_id: string;
   keybindings: Record<string, string>;
   settings: ProfileSettings;
+  aliases?: AutomationAliases;
+  triggers?: AutomationTriggers;
+  variables?: AutomationVariables;
   created_at: string;
   updated_at: string;
+}
+
+// Helper to normalize automation fields (handles legacy profiles created before SP05)
+export function normalizeAutomationFields(profile: Profile): { aliases: AutomationAliases; triggers: AutomationTriggers; variables: AutomationVariables } {
+  return {
+    aliases: profile.aliases ?? { items: [] },
+    triggers: profile.triggers ?? { items: [] },
+    variables: profile.variables ?? { items: [] },
+  };
 }
 
 // Update profile request (SP04)
 export interface UpdateProfileRequest {
   keybindings?: Record<string, string>;
   settings?: ProfileSettings;
+}
+
+// ============================================
+// Automation Types (SP05)
+// ============================================
+
+// Alias type - transforms user input commands
+export interface Alias {
+  id: string;
+  pattern: string;
+  type: 'exact' | 'prefix';
+  replacement: string;
+  enabled: boolean;
+}
+
+// Trigger type - executes commands based on output
+export interface Trigger {
+  id: string;
+  match: string;
+  type: 'contains';
+  action: string;
+  cooldown_ms: number;
+  enabled: boolean;
+}
+
+// Variable type - reusable values for automation
+export interface Variable {
+  id: string;
+  name: string;
+  value: string;
+}
+
+// Automation response wrappers
+export interface AliasesResponse {
+  items: Alias[];
+}
+
+export interface TriggersResponse {
+  items: Trigger[];
+}
+
+export interface VariablesResponse {
+  items: Variable[];
+}
+
+// Automation wrapper types (SP05)
+export interface AutomationAliases {
+  items: Alias[];
+}
+
+export interface AutomationTriggers {
+  items: Trigger[];
+}
+
+export interface AutomationVariables {
+  items: Variable[];
 }

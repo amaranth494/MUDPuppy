@@ -6,10 +6,14 @@ import {
   connectToMud, 
   disconnectFromMud,
   WebSocketManager,
-  getProfileByConnection
+  getProfileByConnection,
+  getAliases,
+  getTriggers,
+  getEnvironment
 } from '../services/api';
 import { mapBackendError } from '../types';
 import { normalizeKeybindings } from '../services/keybindings';
+import { getAutomationEngine, AutomationEngine } from '../services/automation';
 
 interface SessionContextType {
   user: User | null;
@@ -29,6 +33,10 @@ interface SessionContextType {
   profile: Profile | null;
   currentConnectionId: string | null;
   updateProfile: (profile: Profile) => void;
+  // Automation state (SP05)
+  automationEngine: AutomationEngine | null;
+  automationError: string | null;
+  resumeAutomation: () => void;
 }
 
 const SessionContext = createContext<SessionContextType | null>(null);
@@ -62,10 +70,22 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   const [profile, setProfile] = useState<Profile | null>(null);
   const [currentConnectionId, setCurrentConnectionId] = useState<string | null>(null);
   
+  // Automation state (SP05)
+  const [automationEngine, setAutomationEngine] = useState<AutomationEngine | null>(null);
+  const [automationError, setAutomationError] = useState<string | null>(null);
+  
   // Update profile in real-time while connected (SP04PH07)
   const updateProfile = useCallback((updatedProfile: Profile) => {
     setProfile(updatedProfile);
   }, []);
+  
+  // Resume automation after circuit breaker trip (SP05PH03T13)
+  const resumeAutomation = useCallback(() => {
+    if (automationEngine) {
+      automationEngine.resume();
+      setAutomationError(null);
+    }
+  }, [automationEngine]);
 
   // Check authentication on mount
   useEffect(() => {
@@ -124,6 +144,47 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       setCurrentConnectionId(null);
     }
     
+    // SP05: Initialize automation engine after profile is loaded
+    try {
+      const engine = getAutomationEngine();
+      
+      // Fetch automation data if we have a connection ID
+      if (connectionId) {
+        const [aliases, triggers, variables] = await Promise.all([
+          getAliases(connectionId),
+          getTriggers(connectionId),
+          getEnvironment(connectionId),
+        ]);
+        
+        engine.configure({
+          aliases,
+          triggers,
+          variables,
+          connectionId,
+        });
+      } else {
+        // Quick connect - use empty automation
+        engine.configure({
+          aliases: { items: [] },
+          triggers: { items: [] },
+          variables: { items: [] },
+          connectionId: '',
+        });
+      }
+      
+      // Set up circuit breaker callback
+      engine.setCircuitBreakerCallback((reason: string) => {
+        setAutomationError(reason);
+      });
+      
+      setAutomationEngine(engine);
+      setAutomationError(null);
+    } catch (err) {
+      console.error('Failed to initialize automation:', err);
+      // Don't fail connection, just disable automation
+      setAutomationEngine(null);
+    }
+    
     try {
       // Call REST API to initiate connection
       await connectToMud({ host: mudHost, port: mudPort });
@@ -162,6 +223,11 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       // Send connect message via WebSocket
       manager.sendConnect(mudHost, mudPort);
       
+      // SP05: Mark automation engine as connected
+      if (automationEngine) {
+        automationEngine.connect();
+      }
+      
       // Event-driven: verify connection status after connect action
       await refreshStatus();
     } catch (err) {
@@ -171,7 +237,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       // Event-driven: refresh status on connect failure
       await refreshStatus();
     }
-  }, [refreshStatus]);
+  }, [refreshStatus, automationEngine]);
 
   const disconnect = useCallback(async () => {
     setError(null);
@@ -185,6 +251,11 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       
       // Call REST API to disconnect
       await disconnectFromMud('user');
+      
+      // SP05: Disconnect automation engine
+      if (automationEngine) {
+        automationEngine.disconnect();
+      }
       
       setConnectionState('disconnected');
       setHost('');
@@ -200,7 +271,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       // Event-driven: refresh status on disconnect failure
       await refreshStatus();
     }
-  }, [wsManager, refreshStatus]);
+  }, [wsManager, refreshStatus, automationEngine]);
 
   return (
     <SessionContext.Provider
@@ -220,6 +291,9 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
         profile,
         currentConnectionId,
         updateProfile,
+        automationEngine,
+        automationError,
+        resumeAutomation,
       }}
     >
       {children}

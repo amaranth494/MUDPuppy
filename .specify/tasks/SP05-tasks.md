@@ -467,12 +467,64 @@
 - **Commit:** "SP05PH08T01: Test alias flow"
 - [x] **Status:** Completed (Code integration verified: processUserInput() correctly routes through automation engine)
 
+---
+
+### Manual QA: Alias Testing Scenarios
+
+| ID | Scenario | Steps | Expected Result | PASS/FAIL | QA Notes |
+|----|----------|-------|----------------|-----------|----------|
+|----|----------|-------|----------------|
+| QA-ALIAS-01 | Exact alias match | 1. Create alias: pattern=`l`, type=`exact`, replacement=`look`
+2. Connect to MUD
+3. Type `l` in command input | Command `look` sent to MUD |
+| QA-ALIAS-02 | Prefix alias with arguments | 1. Create alias: pattern=`k`, type=`prefix`, replacement=`kill {args}`
+2. Connect to MUD
+3. Type `k goblin` | Command `kill goblin` sent to MUD |
+| QA-ALIAS-03 | Multiple aliases | 1. Create aliases: `l→look`, `i→inv`
+2. Connect to MUD
+3. Type `l` | Only `look` sent (exact matches take precedence) |
+| QA-ALIAS-04 | Disabled alias | 1. Create alias, disable it
+2. Connect to MUD
+3. Type alias pattern | Original command sent (no transformation) |
+| QA-ALIAS-05 | Alias with variable | 1. Create variable `target=goblin`
+2. Create alias: pattern=`cast`, replacement=`cast ${target}`
+3. Connect to MUD
+4. Type `cast` | Command `cast goblin` sent to MUD |
+
 ### SP05PH08T02 — Test trigger flow
 
 - [x] **Task:** Create trigger, receive matching output, verify action fires
 - **Acceptance:** Trigger responds to output
 - **Commit:** "SP05PH08T02: Test trigger flow"
 - [x] **Status:** Completed (Code integration verified: processServerOutput() correctly triggers on matches)
+
+---
+
+### Manual QA: Trigger Testing Scenarios
+
+| ID | Scenario | Steps | Expected Result | PASS/FAIL | QA Notes |
+|----|----------|-------|----------------|-----------|----------|
+|----|----------|-------|----------------|
+| QA-TRIGGER-01 | Basic substring match | 1. Create trigger: match=`hungry`, action=`eat bread`
+2. Connect to MUD
+3. Server sends "You are hungry." | Command `eat bread` sent to MUD |
+| QA-TRIGGER-02 | Trigger disabled | 1. Create trigger, disable it
+2. Connect to MUD
+3. Server sends matching text | No action sent to MUD |
+| QA-TRIGGER-03 | Multiple triggers | 1. Create two triggers for different matches
+2. Connect to MUD
+3. Server sends text matching first trigger | Only first trigger's action fires |
+| QA-TRIGGER-04 | Trigger with variable | 1. Create variable `food=bread`
+2. Create trigger: match=`hungry`, action=`eat ${food}`
+3. Connect to MUD
+4. Server sends "You are hungry." | Command `eat bread` sent to MUD |
+| QA-TRIGGER-05 | Trigger with explicit alias | 1. Create alias `eat→eat bread`
+2. Create trigger: match=`hungry`, action=`@eat`
+3. Connect to MUD
+4. Server sends "You are hungry." | Alias expanded, `eat bread` sent to MUD |
+| QA-TRIGGER-06 | Cooldown enforcement | 1. Create trigger with cooldown=5000ms
+2. Connect to MUD
+3. Server sends matching text twice within 5 seconds | Second trigger fires after cooldown expires |
 
 ### SP05PH08T03 — Test variable substitution
 
@@ -481,12 +533,57 @@
 - **Commit:** "SP05PH08T03: Test variable substitution"
 - [x] **Status:** Completed (Code integration verified: variable substitution implemented in automation engine)
 
+---
+
+### Manual QA: Variable Testing Scenarios
+
+| ID | Scenario | Steps | Expected Result | PASS/FAIL | QA Notes |
+|----|----------|-------|----------------|-----------|----------|
+|----|----------|-------|----------------|
+| QA-VAR-01 | Basic variable in alias | 1. Create variable `target=goblin`
+2. Create alias: pattern=`attack`, replacement=`kill ${target}`
+3. Connect to MUD
+4. Type `attack` | Command `kill goblin` sent to MUD |
+| QA-VAR-02 | Variable in trigger action | 1. Create variable `heal=potion`
+2. Create trigger: match=`health low`, action=`drink ${heal}`
+3. Connect to MUD
+4. Server sends "Your health is low." | Command `drink potion` sent to MUD |
+| QA-VAR-03 | Undefined variable | 1. Create alias: pattern=`cast`, replacement=`cast ${target}`
+2. (Do NOT create target variable)
+3. Connect to MUD
+4. Type `cast` | Command `cast ${target}` sent literally (no substitution) |
+| QA-VAR-04 | Variable persistence | 1. Create variable `x=test`
+2. Disconnect and reconnect
+3. Create alias using `x`
+4. Use alias | Variable value persists across sessions |
+
 ### SP05PH08T04 — Test trigger safeguards
 
 - [x] **Task:** Rapid output triggers, verify throttle works
 - **Acceptance:** Throttle prevents runaway triggers
 - **Commit:** "SP05PH08T04: Test trigger safeguards"
 - [x] **Status:** Completed (Code integration verified: cooldown, rate limiting, loop detection implemented)
+
+---
+
+### Manual QA: Safeguard Testing Scenarios
+
+| ID | Scenario | Steps | Expected Result | PASS/FAIL | QA Notes |
+|----|----------|-------|----------------|-----------|----------|
+|----|----------|-------|----------------|
+| QA-SAFE-01 | Internal expansion loop detection | 1. Create alias `a→@b`
+2. Create alias `b→@a`
+3. Connect to MUD
+4. Type command that triggers `a` | System detects loop, expansion halts after max recursion depth (3) |
+| QA-SAFE-02 | Max commands per dispatch | 1. Create alias generating many commands
+2. Connect to MUD
+3. Trigger alias | System enforces max_commands_per_dispatch (200) |
+| QA-SAFE-03 | Command queue backpressure | 1. Create trigger with slow action
+2. Queue many triggers
+3. Observe behavior | Commands process sequentially with backpressure |
+| QA-SAFE-04 | Circuit breaker activation | 1. Create automation that loops
+2. Trigger loop condition
+3. Observe | Circuit breaker halts automation, user notified |
 
 ### SP05PH08T05 — Test disconnection handling
 
@@ -495,12 +592,51 @@
 - **Commit:** "SP05PH08T05: Test disconnection handling"
 - [x] **Status:** Completed (Code integration verified: disconnect() called in SessionContext)
 
+---
+
+### Manual QA: Disconnection Testing Scenarios
+
+| ID | Scenario | Steps | Expected Result | PASS/FAIL | QA Notes |
+|----|----------|-------|----------------|-----------|----------|
+|----|----------|-------|----------------|
+| QA-DISC-01 | Trigger after disconnect | 1. Create trigger
+2. Connect to MUD
+3. Disconnect
+4. Server sends matching text | No trigger fires (triggers disabled on disconnect) |
+| QA-DISC-02 | Reconnect preserves automation | 1. Create aliases/triggers/variables
+2. Disconnect
+3. Reconnect to same connection
+4. Verify automation still works | Automation persists and functions after reconnect |
+
 ### SP05PH08T06 — Test persistence
 
 - [x] **Task:** Create automation, reconnect, verify loads
 - **Acceptance:** Automation persists across sessions
 - **Commit:** "SP05PH08T06: Test persistence"
 - [x] **Status:** Completed (Code integration verified: API endpoints fetch automation on connect)
+
+---
+
+### Manual QA: Persistence Testing Scenarios
+
+| ID | Scenario | Steps | Expected Result | PASS/FAIL | QA Notes |
+|----|----------|-------|----------------|-----------|----------|
+|----|----------|-------|----------------|
+| QA-PERSIST-01 | Aliases persist | 1. Create aliases
+2. Log out
+3. Log back in
+4. Connect to same MUD | Aliases loaded and functional |
+| QA-PERSIST-02 | Triggers persist | 1. Create triggers
+2. Log out
+3. Log back in
+4. Connect | Triggers loaded and functional |
+| QA-PERSIST-03 | Variables persist | 1. Create variables
+2. Log out
+3. Log back in
+4. Connect | Variables loaded and functional |
+| QA-PERSIST-04 | Different connection, same user | 1. Create automation for connection A
+2. Connect to connection B
+3. Verify automation not shared | Automation per-connection, not per-user |
 
 ### SP05PH08T07 — Run build checks
 

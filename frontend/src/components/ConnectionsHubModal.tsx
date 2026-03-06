@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Modal from './Modal';
 import HostPortForm from './HostPortForm';
 import { useSession } from '../context/SessionContext';
@@ -17,15 +18,15 @@ import { SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetC
 interface ConnectionsHubModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onEditProfile?: (connectionId: string) => void;
   onInputLockChange?: (locked: boolean) => void;
 }
 
 // View types for the modal
 type ViewType = 'list' | 'create' | 'edit';
 
-export default function ConnectionsHubModal({ isOpen, onClose, onEditProfile, onInputLockChange }: ConnectionsHubModalProps) {
+export default function ConnectionsHubModal({ isOpen, onClose, onInputLockChange }: ConnectionsHubModalProps) {
   const { connectionState, connect: sessionConnect } = useSession();
+  const navigate = useNavigate();
   
   // State
   const [view, setView] = useState<ViewType>('list');
@@ -131,11 +132,11 @@ export default function ConnectionsHubModal({ isOpen, onClose, onEditProfile, on
     setView('edit');
   };
 
-  // Handle profile settings (SP04)
+  // Handle profile settings (SP04) - now navigates to Connection Settings
   const handleEditProfile = (conn: SavedConnection) => {
-    if (onEditProfile) {
-      onEditProfile(conn.id);
-    }
+    // Navigate to Connection Settings page instead of opening Profile modal
+    navigate(`/connections/${conn.id}/settings`);
+    onClose();
   };
 
   // Handle save create
@@ -325,9 +326,9 @@ export default function ConnectionsHubModal({ isOpen, onClose, onEditProfile, on
                   <button
                     className="btn btn-sm btn-secondary"
                     onClick={() => handleEditProfile(conn)}
-                    title="Profile settings"
+                    title="Connection settings"
                   >
-                    Profile
+                    Settings
                   </button>
                   {deleteConfirmId === conn.id ? (
                     <div className="delete-confirm">

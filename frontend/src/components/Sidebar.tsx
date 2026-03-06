@@ -81,6 +81,18 @@ export default function Sidebar({ isCollapsed = false, onToggle, onPlayClick, on
           )}
         </button>
         
+        {/* Connection Settings - navigates to settings page */}
+        <Link
+          to="/connections"
+          className={`sidebar-nav-item ${location.pathname.startsWith('/connections/') ? 'active' : ''}`}
+          title={isCollapsed ? 'Connection Settings' : undefined}
+        >
+          <span className="sidebar-nav-icon">⚙</span>
+          {!isCollapsed && (
+            <span className="sidebar-nav-label">Connection Settings</span>
+          )}
+        </Link>
+        
         {/* Help - navigates to Help */}
         <Link
           to="/help"

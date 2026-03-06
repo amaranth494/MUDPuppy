@@ -18,6 +18,9 @@ export default function PlayScreen() {
     wsManager,
     isInputLocked,
     profile,
+    automationEngine,
+    automationError,
+    resumeAutomation,
   } = useSession();
   
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -118,9 +121,27 @@ export default function PlayScreen() {
     if (!wsManager || !terminalInstanceRef.current) return;
 
     const terminal = terminalInstanceRef.current;
+    
+    // Buffer to collect complete lines for trigger processing
+    let lineBuffer = '';
 
     const handleData = (data: string) => {
+      // Write to terminal
       terminal.write(data);
+      
+      // SP05: Process through trigger engine
+      if (automationEngine && connectionState === 'connected') {
+        // Collect data and split into lines
+        lineBuffer += data;
+        const lines = lineBuffer.split(/\r?\n/);
+        // Keep the last incomplete line in buffer
+        lineBuffer = lines.pop() || '';
+        
+        // Process complete lines through trigger engine
+        if (lines.length > 0) {
+          automationEngine.processServerOutput(lines);
+        }
+      }
     };
 
     const handleError = (err: string) => {
@@ -138,7 +159,7 @@ export default function PlayScreen() {
     return () => {
       // Handlers are automatically removed when component unmounts
     };
-  }, [wsManager]);
+  }, [wsManager, automationEngine, connectionState]);
 
   // Auto-fit terminal on window resize
   useEffect(() => {
@@ -150,6 +171,34 @@ export default function PlayScreen() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // SP05: Set up automation engine callback for command submission
+  useEffect(() => {
+    if (automationEngine && wsManager) {
+      // Set up the callback for automation to submit commands
+      automationEngine.setSubmitCommandCallback((command: string) => {
+        wsManager.sendCommand(command + '\n');
+        
+        // Echo the command (automation commands)
+        const settings = profile?.settings;
+        const shouldEcho = settings?.echo_input ?? true;
+        if (shouldEcho && terminalInstanceRef.current) {
+          let echoText = command + '\r\n';
+          if (settings?.timestamp_output) {
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString('en-US', { 
+              hour12: false, 
+              hour: '2-digit', 
+              minute: '2-digit', 
+              second: '2-digit' 
+            });
+            echoText = `[${timestamp}] ${command}\r\n`;
+          }
+          terminalInstanceRef.current.write(echoText);
+        }
+      });
+    }
+  }, [automationEngine, wsManager, profile]);
 
   // SP04: Single submitCommand function - canonical entry point for all commands
   // Both typing and keybindings route through this same function
@@ -163,31 +212,57 @@ export default function PlayScreen() {
     const trimmedCommand = text.trim();
     
     if (wsManager && connectionState === 'connected') {
-      // Send to WebSocket
-      wsManager.sendCommand(trimmedCommand + '\n');
-      
-      // SP04PH05: Local echo - controlled by profile settings.echo_input
-      // If echo_input is true, locally echo the command with optional timestamp
-      const settings = profile?.settings;
-      const shouldEcho = settings?.echo_input ?? true;
-      if (shouldEcho && terminalInstanceRef.current) {
-        let echoText = trimmedCommand + '\r\n';
-        // Add timestamp prefix if timestamp_output is enabled
-        // This timestamps user input only, not server output (safer approach)
-        if (settings?.timestamp_output) {
-          const now = new Date();
-          const timestamp = now.toLocaleTimeString('en-US', { 
-            hour12: false, 
-            hour: '2-digit', 
-            minute: '2-digit', 
-            second: '2-digit' 
-          });
-          echoText = `[${timestamp}] ${trimmedCommand}\r\n`;
+      // SP05: Process through automation engine (aliases, variables)
+      if (automationEngine) {
+        const processedCommands = automationEngine.processUserInput(trimmedCommand);
+        
+        // If no commands (e.g., circuit breaker tripped), skip
+        if (processedCommands.length === 0) {
+          return;
         }
-        terminalInstanceRef.current.write(echoText);
+        
+        // The automation engine handles sending via its callback
+        // Just do local echo for the original user input
+        const settings = profile?.settings;
+        const shouldEcho = settings?.echo_input ?? true;
+        if (shouldEcho && terminalInstanceRef.current) {
+          let echoText = trimmedCommand + '\r\n';
+          if (settings?.timestamp_output) {
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString('en-US', { 
+              hour12: false, 
+              hour: '2-digit', 
+              minute: '2-digit', 
+              second: '2-digit' 
+            });
+            echoText = `[${timestamp}] ${trimmedCommand}\r\n`;
+          }
+          terminalInstanceRef.current.write(echoText);
+        }
+      } else {
+        // No automation engine - send directly to WebSocket
+        wsManager.sendCommand(trimmedCommand + '\n');
+        
+        // SP04PH05: Local echo - controlled by profile settings.echo_input
+        const settings = profile?.settings;
+        const shouldEcho = settings?.echo_input ?? true;
+        if (shouldEcho && terminalInstanceRef.current) {
+          let echoText = trimmedCommand + '\r\n';
+          if (settings?.timestamp_output) {
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString('en-US', { 
+              hour12: false, 
+              hour: '2-digit', 
+              minute: '2-digit', 
+              second: '2-digit' 
+            });
+            echoText = `[${timestamp}] ${trimmedCommand}\r\n`;
+          }
+          terminalInstanceRef.current.write(echoText);
+        }
       }
     }
-  }, [wsManager, connectionState, isInputLocked, profile]);
+  }, [wsManager, connectionState, isInputLocked, profile, automationEngine]);
 
   // SP04: Set up keybinding interceptor
   useInputInterceptor({
@@ -204,6 +279,16 @@ export default function PlayScreen() {
       <div className="output-panel output-panel-full">
         <div className="terminal-container" ref={terminalRef} />
       </div>
+
+      {/* SP05: Automation circuit breaker notification */}
+      {automationError && (
+        <div className="automation-error-banner">
+          <span>⚠️ Automation Paused: {automationError}</span>
+          <button onClick={resumeAutomation} className="btn btn-small">
+            Resume Automation
+          </button>
+        </div>
+      )}
 
       {/* Command Input */}
       <div className="input-row">

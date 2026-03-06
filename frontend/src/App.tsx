@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { SessionProvider, useSession } from './context/SessionContext';
 import PlayScreen from './pages/PlayScreen';
 import ConnectionsPage from './pages/ConnectionsPage';
+import ConnectionSettingsPage from './pages/ConnectionSettingsPage';
 import AccountPage from './pages/AccountPage';
 import HelpPage from './pages/HelpPage';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
@@ -10,7 +11,6 @@ import Sidebar from './components/Sidebar';
 import Modal from './components/Modal';
 import QuickConnectModal from './components/QuickConnectModal';
 import ConnectionsHubModal from './components/ConnectionsHubModal';
-import ProfileModal from './components/ProfileModal';
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useSession();
@@ -37,8 +37,6 @@ function AppContent() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isQuickConnectOpen, setIsQuickConnectOpen] = useState(false);
   const [isConnectionsHubOpen, setIsConnectionsHubOpen] = useState(false);
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [profileConnectionId, setProfileConnectionId] = useState<string | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -60,6 +58,12 @@ function AppContent() {
     location.pathname === '/connections' || 
     location.pathname === '/account' || 
     location.pathname === '/help';
+  
+  // Connection Settings page is a full page (not a modal)
+  const isConnectionSettingsPage = location.pathname.startsWith('/connections/') && location.pathname.includes('/settings');
+  
+  // Play button should be disabled when viewing settings or overlay pages
+  const isPlayDisabled = isOverlayPage || isConnectionSettingsPage;
   
   // Get modal title based on current route
   const getModalTitle = () => {
@@ -91,7 +95,7 @@ function AppContent() {
           onToggle={handleToggleCollapse}
           onPlayClick={() => setIsQuickConnectOpen(true)}
           onConnectionsClick={() => setIsConnectionsHubOpen(true)}
-          isPlayDisabled={isOverlayPage}
+          isPlayDisabled={isPlayDisabled}
         />
       )}
       <main className={isSidebarOpen ? 'app-main-with-sidebar' + (isSidebarCollapsed ? ' sidebar-collapsed' : '') : 'app-main'}>
@@ -109,6 +113,13 @@ function AppContent() {
         <div className="play-layer">
           <PlayScreen />
         </div>
+        
+        {/* Connection Settings page - full page (not modal) */}
+        {isConnectionSettingsPage && (
+          <div className="settings-overlay">
+            <ConnectionSettingsPage />
+          </div>
+        )}
         
         {/* Modal overlay for Connections, Account, Help pages (SP03PH03) */}
         {/* Uses Modal component for full-height overlay, close button, ESC support */}
@@ -139,18 +150,6 @@ function AppContent() {
         <ConnectionsHubModal
           isOpen={isConnectionsHubOpen}
           onClose={() => setIsConnectionsHubOpen(false)}
-          onEditProfile={(connectionId) => {
-            setProfileConnectionId(connectionId);
-            setIsProfileModalOpen(true);
-          }}
-          onInputLockChange={setInputLocked}
-        />
-        
-        {/* Profile Modal (SP04PH06) */}
-        <ProfileModal
-          isOpen={isProfileModalOpen}
-          onClose={() => setIsProfileModalOpen(false)}
-          connectionId={profileConnectionId || ''}
           onInputLockChange={setInputLocked}
         />
       </main>

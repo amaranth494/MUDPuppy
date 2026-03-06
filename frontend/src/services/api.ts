@@ -1,4 +1,4 @@
-import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, Profile, UpdateProfileRequest } from '../types';
+import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, Profile, UpdateProfileRequest, Alias, Trigger, Variable, AliasesResponse, TriggersResponse, VariablesResponse } from '../types';
 
 const API_BASE = '/api/v1';
 
@@ -411,6 +411,103 @@ export async function updateProfile(profileId: string, request: UpdateProfileReq
   if (!response.ok) {
     const data = await response.json();
     throw new Error(data.error || 'Failed to update profile');
+  }
+  return await response.json();
+}
+
+// ============================================
+// Automation API endpoints (SP05)
+// ============================================
+
+// Get aliases for a connection
+export async function getAliases(connectionId: string): Promise<AliasesResponse> {
+  const response = await fetch(`${API_BASE}/profiles/${connectionId}/aliases`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to get aliases');
+  }
+  return await response.json();
+}
+
+// Update aliases for a connection
+export async function putAliases(connectionId: string, items: Alias[]): Promise<AliasesResponse> {
+  const response = await fetch(`${API_BASE}/profiles/${connectionId}/aliases`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({ items }),
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to update aliases');
+  }
+  return await response.json();
+}
+
+// Get triggers for a connection
+export async function getTriggers(connectionId: string): Promise<TriggersResponse> {
+  const response = await fetch(`${API_BASE}/profiles/${connectionId}/triggers`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to get triggers');
+  }
+  return await response.json();
+}
+
+// Update triggers for a connection
+export async function putTriggers(connectionId: string, items: Trigger[]): Promise<TriggersResponse> {
+  const response = await fetch(`${API_BASE}/profiles/${connectionId}/triggers`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({ items }),
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to update triggers');
+  }
+  return await response.json();
+}
+
+// Get environment variables for a connection
+export async function getEnvironment(connectionId: string): Promise<VariablesResponse> {
+  const response = await fetch(`${API_BASE}/profiles/${connectionId}/environment`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to get environment');
+  }
+  return await response.json();
+}
+
+// Update environment variables for a connection
+export async function putEnvironment(connectionId: string, items: Variable[]): Promise<VariablesResponse> {
+  const response = await fetch(`${API_BASE}/profiles/${connectionId}/environment`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({ items }),
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to update environment');
   }
   return await response.json();
 }
