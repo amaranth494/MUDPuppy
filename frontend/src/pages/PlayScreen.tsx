@@ -125,7 +125,10 @@ export default function PlayScreen() {
     // Buffer to collect complete lines for trigger processing
     let lineBuffer = '';
 
-    const handleData = (data: string) => {
+    // Use refs to store handlers so they can be properly removed on cleanup
+    // This is necessary because the handler function is created inside the effect
+    // and would be a new reference on each render
+    const handleDataRef = useRef((data: string) => {
       // Write to terminal
       terminal.write(data);
       
@@ -142,26 +145,26 @@ export default function PlayScreen() {
           automationEngine.processServerOutput(lines);
         }
       }
-    };
+    });
 
-    const handleError = (err: string) => {
+    const handleErrorRef = useRef((err: string) => {
       terminal.writeln(`\r\n[ERROR] ${err}\r\n`);
-    };
+    });
 
-    const handleDisconnect = () => {
+    const handleDisconnectRef = useRef(() => {
       terminal.writeln('\r\n[Disconnected]\r\n');
-    };
+    });
 
     // Register handlers
-    wsManager.onMessage(handleData);
-    wsManager.onError(handleError);
-    wsManager.onDisconnect(handleDisconnect);
+    wsManager.onMessage(handleDataRef.current);
+    wsManager.onError(handleErrorRef.current);
+    wsManager.onDisconnect(handleDisconnectRef.current);
 
     // Clean up handlers on unmount or when dependencies change
     return () => {
-      wsManager.offMessage(handleData);
-      wsManager.offError(handleError);
-      wsManager.offDisconnect(handleDisconnect);
+      wsManager.offMessage(handleDataRef.current);
+      wsManager.offError(handleErrorRef.current);
+      wsManager.offDisconnect(handleDisconnectRef.current);
     };
   }, [wsManager, automationEngine, connectionState]);
 
