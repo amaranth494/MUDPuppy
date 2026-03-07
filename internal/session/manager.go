@@ -1,0 +1,569 @@
+package session
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"net"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/amaranth494/MudPuppy/internal/metrics"
+)
+
+// Session state constants
+const (
+	StateDisconnected = "disconnected"
+	StateConnecting   = "connecting"
+	StateConnected    = "connected"
+	StateError        = "error"
+)
+
+// Disconnect reasons
+const (
+	ReasonUser             = "user"
+	ReasonIdle             = "idle_timeout"
+	ReasonHardCap          = "hard_cap"
+	ReasonRemote           = "remote_close"
+	ReasonError            = "error"
+	ReasonSlowClient       = "slow_client"       // SP02PH04T02
+	ReasonRateLimit        = "rate_limit"        // SP02PH04T02
+	ReasonProtocolMismatch = "protocol_mismatch" // SP02PH04T07
+)
+
+// Session represents an active MUD connection session
+type Session struct {
+	UserID         string    `json:"user_id"`
+	Host           string    `json:"host"`
+	Port           int       `json:"port"`
+	State          string    `json:"state"`
+	ConnectedAt    time.Time `json:"connected_at,omitempty"`
+	LastActivityAt time.Time `json:"last_activity_at,omitempty"`
+	DisconnectErr  string    `json:"disconnect_reason,omitempty"`
+}
+
+// Manager handles MUD session management
+type Manager struct {
+	portWhitelist         map[int]bool
+	portDenylist          map[int]bool
+	portAllowlistOverride map[int]bool
+	idleTimeoutMinutes    int
+	hardCapHours          int
+
+	mu       sync.RWMutex
+	sessions map[string]*Session // userID -> session
+	conns    map[string]net.Conn
+	cleanups map[string]context.CancelFunc
+}
+
+// NewManager creates a new session manager
+func NewManager(portWhitelist string, portDenylist string, portAllowlistOverride string, idleTimeoutMinutes, hardCapHours int) *Manager {
+	// Parse port whitelist
+	ports := make(map[int]bool)
+	for _, p := range strings.Split(portWhitelist, ",") {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		port, err := strconv.Atoi(p)
+		if err != nil {
+			log.Printf("Warning: Invalid port in whitelist '%s', skipping", p)
+			continue
+		}
+		ports[port] = true
+	}
+
+	// Default to port 23 if no whitelist specified
+	if len(ports) == 0 {
+		ports[23] = true
+	}
+
+	// Parse port denylist
+	denylist := make(map[int]bool)
+	for _, p := range strings.Split(portDenylist, ",") {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		port, err := strconv.Atoi(p)
+		if err != nil {
+			log.Printf("Warning: Invalid port in denylist '%s', skipping", p)
+			continue
+		}
+		denylist[port] = true
+	}
+
+	// Parse port allowlist override (if set, only these ports are allowed)
+	allowlistOverride := make(map[int]bool)
+	for _, p := range strings.Split(portAllowlistOverride, ",") {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		port, err := strconv.Atoi(p)
+		if err != nil {
+			log.Printf("Warning: Invalid port in allowlist override '%s', skipping", p)
+			continue
+		}
+		allowlistOverride[port] = true
+	}
+
+	return &Manager{
+		portWhitelist:         ports,
+		portDenylist:          denylist,
+		portAllowlistOverride: allowlistOverride,
+		idleTimeoutMinutes:    idleTimeoutMinutes,
+		hardCapHours:          hardCapHours,
+		sessions:              make(map[string]*Session),
+		conns:                 make(map[string]net.Conn),
+		cleanups:              make(map[string]context.CancelFunc),
+	}
+}
+
+// ValidatePort checks if a port is allowed (SP02PH04T06 - Port Denylist)
+// Priority: allowlist override > denylist > allow-all (except denylisted)
+func (m *Manager) ValidatePort(port int) error {
+	if port < 1 || port > 65535 {
+		return fmt.Errorf("port must be between 1-65535")
+	}
+
+	// Check allowlist override first (if set, only these ports are allowed)
+	if len(m.portAllowlistOverride) > 0 {
+		if !m.portAllowlistOverride[port] {
+			metrics.Get().IncBlockedPort()
+			log.Printf("[SP02PH04T06] Port %d blocked: not in allowlist override", port)
+			return fmt.Errorf("port %d is not allowed. Allowed ports: %v", port, m.getAllowlistOverridePorts())
+		}
+		return nil
+	}
+
+	// Check denylist (always blocked)
+	if m.portDenylist[port] {
+		metrics.Get().IncBlockedPort()
+		log.Printf("[SP02PH04T06] Port %d blocked: in denylist", port)
+		return fmt.Errorf("port %d is blocked for security reasons", port)
+	}
+
+	// Port is not in denylist and no override - allow it (SP02 spec: allow non-deny-listed ports)
+	return nil
+}
+
+func (m *Manager) getAllowlistOverridePorts() []int {
+	ports := make([]int, 0, len(m.portAllowlistOverride))
+	for p := range m.portAllowlistOverride {
+		ports = append(ports, p)
+	}
+	return ports
+}
+
+// Connect establishes a MUD connection for a user
+func (m *Manager) Connect(ctx context.Context, userID, host string, port int) (*Session, error) {
+	log.Printf("[SP02PH01] Connect called: user=%s, host=%s, port=%d", userID, host, port)
+
+	// Validate port first
+	if err := m.ValidatePort(port); err != nil {
+		log.Printf("[SP02PH01] Port validation failed: %v", err)
+		return nil, err
+	}
+
+	// Validate host (private IP blocking)
+	if err := ValidateHost(host); err != nil {
+		log.Printf("[SP02PH01] Host validation failed: %v", err)
+		return nil, err
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Check for existing session (one connection per user)
+	if existing, ok := m.sessions[userID]; ok && existing.State == StateConnected {
+		return nil, fmt.Errorf("user already has an active session")
+	}
+
+	// Create session
+	session := &Session{
+		UserID: userID,
+		Host:   host,
+		Port:   port,
+		State:  StateConnecting,
+	}
+
+	// Dial the MUD server
+	address := net.JoinHostPort(host, strconv.Itoa(port))
+	log.Printf("[SP02PH01] Dialing %s...", address)
+	conn, err := net.DialTimeout("tcp", address, 5*time.Second) // Reduced timeout
+	if err != nil {
+		log.Printf("[SP02PH01] Dial failed: %v", err)
+		session.State = StateError
+		session.DisconnectErr = err.Error()
+		m.sessions[userID] = session
+		return session, fmt.Errorf("connection failed: %v", err)
+	}
+	log.Printf("[SP02PH01] Dial succeeded")
+
+	// Skip telnet negotiation consumption - let the WebSocket handler read all data
+	// This ensures we don't lose any welcome text
+
+	// Update session state
+	session.State = StateConnected
+	session.ConnectedAt = time.Now()
+	session.LastActivityAt = time.Now()
+
+	// Store connection
+	m.sessions[userID] = session
+	m.conns[userID] = conn
+
+	// Record metrics
+	metrics.Get().IncConnect()
+
+	// Start idle timer and hard cap timer (non-blocking)
+	go m.startTimers(context.Background(), userID)
+
+	// Log connection metadata (SP02PH01T07)
+	m.logConnectionMetadata(session)
+
+	log.Printf("[SP02PH01] Connection established for user=%s", userID)
+	return session, nil
+}
+
+// startTimers starts idle timeout and hard cap timers
+// Uses ticker-based approach to properly handle idle timer resets
+func (m *Manager) startTimers(ctx context.Context, userID string) {
+	ctx, cancel := context.WithCancel(ctx)
+
+	m.mu.Lock()
+	m.cleanups[userID] = cancel
+	m.mu.Unlock()
+
+	hardCapDuration := time.Duration(m.hardCapHours) * time.Hour
+
+	// Hard cap is absolute; calculate when it should fire
+	hardCapAt := time.Now().Add(hardCapDuration)
+
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute) // Check every minute
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				m.mu.RLock()
+				_, ok := m.sessions[userID]
+				m.mu.RUnlock()
+
+				if !ok {
+					return // Session no longer exists
+				}
+
+				now := time.Now()
+
+				// Check hard cap first (absolute limit)
+				if now.After(hardCapAt) {
+					log.Printf("[SP02PH01T06] Hard session cap reached for user %s", userID)
+					m.Disconnect(userID, ReasonHardCap)
+					return
+				}
+
+				// Idle timeout disabled - removed per user request
+			}
+		}
+	}()
+}
+
+// ResetIdleTimer resets the idle timer for a session
+// This should be called when there's any activity (inbound or outbound)
+func (m *Manager) ResetIdleTimer(userID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if session, ok := m.sessions[userID]; ok {
+		session.LastActivityAt = time.Now()
+		log.Printf("[SP02PH01T05] Idle timer reset for user %s", userID)
+	}
+}
+
+// ResetIdleTimerOnInbound resets the idle timer when MUD sends data to client
+// Call this from the WebSocket relay when forwarding MUD→client data
+func (m *Manager) ResetIdleTimerOnInbound(userID string) {
+	m.ResetIdleTimer(userID)
+}
+
+// ResetIdleTimerOnOutbound resets the idle timer when client sends command to MUD
+// Call this from the WebSocket relay when forwarding client→MUD data
+func (m *Manager) ResetIdleTimerOnOutbound(userID string) {
+	m.ResetIdleTimer(userID)
+}
+
+// Disconnect terminates a user's MUD connection
+func (m *Manager) Disconnect(userID, reason string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	session, ok := m.sessions[userID]
+	if !ok {
+		return fmt.Errorf("no session found for user")
+	}
+
+	// Cancel timers
+	if cleanup, ok := m.cleanups[userID]; ok {
+		cleanup()
+		delete(m.cleanups, userID)
+	}
+
+	// Close connection
+	if conn, ok := m.conns[userID]; ok {
+		conn.Close()
+		delete(m.conns, userID)
+	}
+
+	// Update session state
+	session.State = StateDisconnected
+	session.DisconnectErr = reason
+
+	// Record metrics
+	metrics.Get().IncDisconnect(reason)
+
+	// Log disconnect metadata
+	m.logDisconnectMetadata(session)
+
+	log.Printf("[SP02PH01T07] Session disconnected: user=%s, reason=%s, duration=%v",
+		userID, reason, time.Since(session.ConnectedAt))
+
+	return nil
+}
+
+// GetSession returns the current session for a user
+func (m *Manager) GetSession(userID string) (*Session, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	session, ok := m.sessions[userID]
+	if !ok {
+		return &Session{
+			UserID: userID,
+			State:  StateDisconnected,
+		}, nil
+	}
+
+	return session, nil
+}
+
+// SendCommand sends a command to the MUD server
+func (m *Manager) SendCommand(userID, command string) error {
+	m.mu.RLock()
+	conn, ok := m.conns[userID]
+	m.mu.RUnlock()
+
+	if !ok {
+		return fmt.Errorf("no active connection")
+	}
+
+	// Reset idle timer
+	m.ResetIdleTimer(userID)
+
+	// Send command
+	_, err := conn.Write([]byte(command + "\r\n"))
+	if err != nil {
+		m.Disconnect(userID, ReasonError)
+		return fmt.Errorf("failed to send command: %v", err)
+	}
+
+	return nil
+}
+
+// SendCredentials sends username and password to the MUD server for auto-login
+// This sends the credentials followed by a newline, suitable for login prompts
+func (m *Manager) SendCredentials(userID, username, password string) error {
+	m.mu.RLock()
+	conn, ok := m.conns[userID]
+	m.mu.RUnlock()
+
+	if !ok {
+		return fmt.Errorf("no active connection")
+	}
+
+	// Reset idle timer
+	m.ResetIdleTimer(userID)
+
+	// Send username then password (each followed by newline)
+	// Common login flow: username -> enter -> password -> enter
+	if username != "" {
+		_, err := conn.Write([]byte(username + "\r\n"))
+		if err != nil {
+			log.Printf("[SP03PH05T08] Failed to send username: %v", err)
+			return fmt.Errorf("failed to send username: %v", err)
+		}
+	}
+
+	if password != "" {
+		_, err := conn.Write([]byte(password + "\r\n"))
+		if err != nil {
+			log.Printf("[SP03PH05T08] Failed to send password: %v", err)
+			return fmt.Errorf("failed to send password: %v", err)
+		}
+	}
+
+	log.Printf("[SP03PH05T08] Credentials sent for user=%s", userID)
+	return nil
+}
+
+// ReadOutput reads output from the MUD server (non-blocking for now)
+// This will be called by the WebSocket handler in PH02
+func (m *Manager) ReadOutput(userID string, buffer []byte) (int, error) {
+	m.mu.RLock()
+	conn, ok := m.conns[userID]
+	m.mu.RUnlock()
+
+	if !ok {
+		return 0, fmt.Errorf("no active connection")
+	}
+
+	// Set read deadline - shorter for faster response
+	conn.SetReadDeadline(time.Now().Add(50 * time.Millisecond))
+
+	n, err := conn.Read(buffer)
+	if err != nil {
+		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			return 0, nil // Timeout is not an error
+		}
+		return n, err
+	}
+
+	// Reset idle timer on any incoming data
+	if n > 0 {
+		m.ResetIdleTimer(userID)
+	}
+
+	return n, nil
+}
+
+// logConnectionMetadata logs connection metadata (no PII)
+func (m *Manager) logConnectionMetadata(session *Session) {
+	log.Printf("[SP02PH01T07] Connection established: user=%s, host=%s, port=%d, time=%s",
+		session.UserID, session.Host, session.Port, session.ConnectedAt.Format(time.RFC3339))
+}
+
+// logDisconnectMetadata logs disconnect metadata (no PII)
+func (m *Manager) logDisconnectMetadata(session *Session) {
+	duration := time.Since(session.ConnectedAt)
+	log.Printf("[SP02PH01T07] Connection closed: user=%s, host=%s, port=%d, duration=%v, reason=%s",
+		session.UserID, session.Host, session.Port, duration, session.DisconnectErr)
+}
+
+// Protocol plausibility check constants (SP02PH04T07)
+const (
+	protocolCheckBytes   = 512             // First N bytes to check
+	protocolCheckTimeout = 2 * time.Second // Timeout for reading initial data
+)
+
+// detectProtocolMismatch checks if the initial data from MUD server looks like non-MUD protocol
+// Returns true if protocol mismatch detected, false if it looks like valid MUD/telnet
+func (m *Manager) detectProtocolMismatch(conn net.Conn) (bool, string) {
+	// Set read deadline
+	conn.SetReadDeadline(time.Now().Add(protocolCheckTimeout))
+
+	buffer := make([]byte, protocolCheckBytes)
+	n, err := conn.Read(buffer)
+
+	// Reset deadline for normal operation
+	conn.SetReadDeadline(time.Time{})
+
+	if err != nil || n == 0 {
+		// No data or error - can't determine, allow it
+		return false, ""
+	}
+
+	data := buffer[:n]
+
+	// Check for TLS/SSL handshake (starts with 0x16 = TLS Handshake)
+	if len(data) >= 1 && data[0] == 0x16 {
+		log.Printf("[SP02PH04T07] Protocol mismatch detected: TLS handshake")
+		metrics.Get().IncProtocolMismatch()
+		return true, "TLS/SSL not supported"
+	}
+
+	// Check for HTTP response (starts with "HTTP/")
+	if len(data) >= 5 && string(data[:5]) == "HTTP/" {
+		log.Printf("[SP02PH04T07] Protocol mismatch detected: HTTP response")
+		metrics.Get().IncProtocolMismatch()
+		return true, "HTTP not supported"
+	}
+
+	// Check for SSH (starts with "SSH-")
+	if len(data) >= 4 && string(data[:4]) == "SSH-" {
+		log.Printf("[SP02PH04T07] Protocol mismatch detected: SSH")
+		metrics.Get().IncProtocolMismatch()
+		return true, "SSH not supported"
+	}
+
+	// Check for FTP (starts with "220-" or "220 ")
+	if len(data) >= 4 && (string(data[:4]) == "220-" || string(data[:4]) == "220 ") {
+		log.Printf("[SP02PH04T07] Protocol mismatch detected: FTP")
+		metrics.Get().IncProtocolMismatch()
+		return true, "FTP not supported"
+	}
+
+	// Check for SMTP (starts with "220-" from SMTP but different from FTP)
+	if len(data) >= 4 && string(data[:4]) == "220-" {
+		// Could be SMTP - check for ESMTP markers
+		if containsSMTPMarker(data) {
+			log.Printf("[SP02PH04T07] Protocol mismatch detected: SMTP")
+			metrics.Get().IncProtocolMismatch()
+			return true, "SMTP not supported"
+		}
+	}
+
+	// Check for high concentration of null bytes (binary protocol)
+	nullCount := 0
+	for _, b := range data {
+		if b == 0 {
+			nullCount++
+		}
+	}
+	// If more than 10% are null bytes, likely binary
+	if float64(nullCount)/float64(len(data)) > 0.1 {
+		log.Printf("[SP02PH04T07] Protocol mismatch detected: binary data (null bytes)")
+		metrics.Get().IncProtocolMismatch()
+		return true, "Binary protocol not supported"
+	}
+
+	// Default: looks like valid text/telnet/MUD
+	return false, ""
+}
+
+// containsSMTPMarker checks if data contains SMTP-specific markers
+func containsSMTPMarker(data []byte) bool {
+	dataStr := string(data)
+	smtpMarkers := []string{"ESMTP", "SMTP", "mail", "EHLO"}
+	for _, marker := range smtpMarkers {
+		if strings.Contains(dataStr, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+// CheckAndDisconnectProtocolMismatch checks for protocol mismatch and disconnects if detected
+// Returns true if disconnected due to protocol mismatch
+func (m *Manager) CheckAndDisconnectProtocolMismatch(userID string) bool {
+	m.mu.RLock()
+	conn, ok := m.conns[userID]
+	m.mu.RUnlock()
+
+	if !ok {
+		return false
+	}
+
+	isMismatch, message := m.detectProtocolMismatch(conn)
+	if isMismatch {
+		m.Disconnect(userID, ReasonError)
+		log.Printf("[SP02PH04T07] Protocol mismatch disconnect: user=%s, reason=%s", userID, message)
+		return true
+	}
+
+	return false
+}

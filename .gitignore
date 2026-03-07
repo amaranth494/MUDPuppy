@@ -1,0 +1,27 @@
+# Build outputs
+/node_modules
+frontend/node_modules
+/public/build
+# Don't ignore frontend assets - they're needed for production
+# public/assets
+*.exe
+mudpuppy
+mudpuppy-server
+mudpuppy_test
+*.dll
+*.so
+*.dylib
+
+# Test outputs
+/coverage
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PowerShell artifacts
+$null
