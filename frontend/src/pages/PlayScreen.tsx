@@ -243,23 +243,8 @@ export default function PlayScreen() {
           return;
         }
         
-        // Do local echo for the original user input
-        const settings = profile?.settings;
-        const shouldEcho = settings?.echo_input ?? true;
-        if (shouldEcho && terminalInstanceRef.current) {
-          let echoText = command + '\r\n';
-          if (settings?.timestamp_output) {
-            const now = new Date();
-            const timestamp = now.toLocaleTimeString('en-US', { 
-              hour12: false, 
-              hour: '2-digit', 
-              minute: '2-digit', 
-              second: '2-digit' 
-            });
-            echoText = `[${timestamp}] ${command}\r\n`;
-          }
-          terminalInstanceRef.current.write(echoText);
-        }
+        // Don't echo here - the automation engine's callback will echo 
+        // the processed command(s) when they're actually sent
       } else {
         // No automation engine OR empty command - send directly to WebSocket
         // Empty commands bypass automation (some MUDs need blank lines)
