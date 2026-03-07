@@ -230,25 +230,25 @@ export default function PlayScreen() {
       return;
     }
     
-    // Trim the command (SP04 requirement)
-    const trimmedCommand = text.trim();
+    // Don't trim - allow blank lines for MUDs
+    const command = text;
     
     if (wsManager && connectionState === 'connected') {
       // SP05: Process through automation engine (aliases, variables)
       if (automationEngine) {
-        const processedCommands = automationEngine.processUserInput(trimmedCommand);
+        const processedCommands = automationEngine.processUserInput(command);
         
         // If no commands (e.g., circuit breaker tripped), skip
-        if (processedCommands.length === 0) {
+        // But allow empty commands to pass through for MUDs that need them
+        if (processedCommands.length === 0 && command !== '') {
           return;
         }
         
-        // The automation engine handles sending via its callback (processUserInput now queues commands)
         // Do local echo for the original user input
         const settings = profile?.settings;
         const shouldEcho = settings?.echo_input ?? true;
         if (shouldEcho && terminalInstanceRef.current) {
-          let echoText = trimmedCommand + '\r\n';
+          let echoText = command + '\r\n';
           if (settings?.timestamp_output) {
             const now = new Date();
             const timestamp = now.toLocaleTimeString('en-US', { 
@@ -257,19 +257,19 @@ export default function PlayScreen() {
               minute: '2-digit', 
               second: '2-digit' 
             });
-            echoText = `[${timestamp}] ${trimmedCommand}\r\n`;
+            echoText = `[${timestamp}] ${command}\r\n`;
           }
           terminalInstanceRef.current.write(echoText);
         }
       } else {
         // No automation engine - send directly to WebSocket
-        wsManager.sendCommand(trimmedCommand + '\n');
+        wsManager.sendCommand(command + '\n');
         
         // SP04PH05: Local echo - controlled by profile settings.echo_input
         const settings = profile?.settings;
         const shouldEcho = settings?.echo_input ?? true;
         if (shouldEcho && terminalInstanceRef.current) {
-          let echoText = trimmedCommand + '\r\n';
+          let echoText = command + '\r\n';
           if (settings?.timestamp_output) {
             const now = new Date();
             const timestamp = now.toLocaleTimeString('en-US', { 
@@ -278,7 +278,7 @@ export default function PlayScreen() {
               minute: '2-digit', 
               second: '2-digit' 
             });
-            echoText = `[${timestamp}] ${trimmedCommand}\r\n`;
+            echoText = `[${timestamp}] ${command}\r\n`;
           }
           terminalInstanceRef.current.write(echoText);
         }
