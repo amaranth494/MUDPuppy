@@ -180,17 +180,45 @@ export class WebSocketManager {
   onMessage(handler: (data: string) => void): void {
     this.messageHandlers.push(handler);
   }
+  
+  offMessage(handler: (data: string) => void): void {
+    const index = this.messageHandlers.indexOf(handler);
+    if (index > -1) {
+      this.messageHandlers.splice(index, 1);
+    }
+  }
 
   onError(handler: (error: string) => void): void {
     this.errorHandlers.push(handler);
+  }
+  
+  offError(handler: (error: string) => void): void {
+    const index = this.errorHandlers.indexOf(handler);
+    if (index > -1) {
+      this.errorHandlers.splice(index, 1);
+    }
   }
 
   onStatus(handler: (status: string) => void): void {
     this.statusHandlers.push(handler);
   }
+  
+  offStatus(handler: (status: string) => void): void {
+    const index = this.statusHandlers.indexOf(handler);
+    if (index > -1) {
+      this.statusHandlers.splice(index, 1);
+    }
+  }
 
   onDisconnect(handler: () => void): void {
     this.disconnectHandlers.push(handler);
+  }
+  
+  offDisconnect(handler: () => void): void {
+    const index = this.disconnectHandlers.indexOf(handler);
+    if (index > -1) {
+      this.disconnectHandlers.splice(index, 1);
+    }
   }
 
   disconnect(): void {

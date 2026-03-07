@@ -152,12 +152,16 @@ export default function PlayScreen() {
       terminal.writeln('\r\n[Disconnected]\r\n');
     };
 
+    // Register handlers
     wsManager.onMessage(handleData);
     wsManager.onError(handleError);
     wsManager.onDisconnect(handleDisconnect);
 
+    // Clean up handlers on unmount or when dependencies change
     return () => {
-      // Handlers are automatically removed when component unmounts
+      wsManager.offMessage(handleData);
+      wsManager.offError(handleError);
+      wsManager.offDisconnect(handleDisconnect);
     };
   }, [wsManager, automationEngine, connectionState]);
 
@@ -222,7 +226,7 @@ export default function PlayScreen() {
         }
         
         // The automation engine handles sending via its callback (processUserInput now queues commands)
-        // Just do local echo for the original user input
+        // Do local echo for the original user input
         const settings = profile?.settings;
         const shouldEcho = settings?.echo_input ?? true;
         if (shouldEcho && terminalInstanceRef.current) {
