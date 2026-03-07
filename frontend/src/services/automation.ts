@@ -299,7 +299,12 @@ export class AutomationEngine {
       if (processed.startsWith('@')) {
         const aliasResult = this.invokeExplicitAlias(processed.substring(1));
         if (aliasResult) {
-          processed = aliasResult;
+          // Alias result may contain semicolons - split and process each part
+          const aliasCommands = this.parseCommandString(aliasResult);
+          for (const aliasCmd of aliasCommands) {
+            processedCommands.push(aliasCmd);
+          }
+          continue;
         }
       }
       
@@ -485,6 +490,9 @@ export class AutomationEngine {
       return argsArray[index - 1] || '';
     });
 
+    // Substitute ${variable} patterns in the replacement
+    replacement = this.substituteVariables(replacement);
+    
     return replacement;
   }
 
