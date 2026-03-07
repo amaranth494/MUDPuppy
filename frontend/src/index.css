@@ -1721,6 +1721,8 @@ body {
 .variables-list {
   flex: 1;
   min-height: 100px;
+  max-height: calc(100vh - 380px);
+  overflow-y: auto;
 }
 
 .keybinding-add,
