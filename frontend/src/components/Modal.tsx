@@ -7,6 +7,8 @@ interface ModalProps {
   onClose: () => void;
   /** Modal title for accessibility */
   title?: string;
+  /** Additional CSS class for the modal container */
+  className?: string;
   /** Whether clicking the backdrop should close the modal (default: false) */
   closeOnBackdropClick?: boolean;
   /** Callback to set input lock state - called on mount/unmount */
@@ -33,6 +35,7 @@ export default function Modal({
   isOpen,
   onClose,
   title,
+  className,
   closeOnBackdropClick = false,
   onInputLockChange,
   children,
@@ -138,7 +141,7 @@ export default function Modal({
     >
       <div
         ref={modalRef}
-        className="modal-container"
+        className={`modal-container ${className || ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? 'modal-title' : undefined}

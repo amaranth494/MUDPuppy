@@ -132,6 +132,7 @@ function AppContent() {
             isOpen={isNewSettingsPage}
             onClose={() => navigate('/play')}
             title="Connection Settings"
+            className="modal-large"
             onInputLockChange={setInputLocked}
           >
             <SettingsPage />

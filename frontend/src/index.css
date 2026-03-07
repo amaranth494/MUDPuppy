@@ -538,6 +538,12 @@ body {
   outline: none;
 }
 
+/* Large modal for settings page */
+.modal-container.modal-large {
+  max-width: 1600px;
+  max-height: calc(100vh - var(--spacing-xl));
+}
+
 .modal-close {
   position: absolute;
   top: var(--spacing-md);
