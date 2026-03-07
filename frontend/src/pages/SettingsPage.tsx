@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { getConnections, getProfileByConnection, updateProfile, getAliases, putAliases, getTriggers, putTriggers, getEnvironment, putEnvironment } from '../services/api';
 import { SavedConnection, ProfileSettings, UpdateProfileRequest, Alias, Trigger, Variable } from '../types';
 import { normalizeKeybindings, eventToCanonicalKey, isValidKeybindingFormat, isValidCommand, canonicalizeKeybinding, isModifierOnly } from '../services/keybindings';
@@ -25,18 +25,21 @@ const SECTIONS: Section[] = [
 ];
 
 export default function SettingsPage() {
-  const { section } = useParams<{ section: string }>();
+  // Use useLocation for URL detection instead of useParams to ensure proper re-renders
+  const location = useLocation();
   const navigate = useNavigate();
   const { updateProfile: updateSessionProfile, connectionState, currentConnectionId } = useSession();
   
   // Sync section from URL to state to ensure re-render on navigation
   const [activeSection, setActiveSection] = useState<SettingsSection>('general');
   
-  // Update activeSection when URL section changes
+  // Update activeSection when URL section changes (use location.pathname to trigger re-render)
   useEffect(() => {
-    const newSection = (section as SettingsSection) || 'general';
+    const pathParts = location.pathname.split('/');
+    const sectionFromUrl = pathParts[2] as SettingsSection;
+    const newSection = sectionFromUrl || 'general';
     setActiveSection(newSection);
-  }, [section]);
+  }, [location.pathname]);
   
   // Connection and profile state - load from active connection or prompt to select
   const [isLoading, setIsLoading] = useState(false);
