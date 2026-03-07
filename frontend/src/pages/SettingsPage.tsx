@@ -29,8 +29,14 @@ export default function SettingsPage() {
   const navigate = useNavigate();
   const { updateProfile: updateSessionProfile, connectionState, currentConnectionId } = useSession();
   
-  // Determine active section from URL or default to general
-  const activeSection: SettingsSection = (section as SettingsSection) || 'general';
+  // Sync section from URL to state to ensure re-render on navigation
+  const [activeSection, setActiveSection] = useState<SettingsSection>('general');
+  
+  // Update activeSection when URL section changes
+  useEffect(() => {
+    const newSection = (section as SettingsSection) || 'general';
+    setActiveSection(newSection);
+  }, [section]);
   
   // Connection and profile state - load from active connection or prompt to select
   const [isLoading, setIsLoading] = useState(false);
