@@ -117,6 +117,13 @@ export default function PlayScreen() {
   }, []);
 
   // Handle WebSocket messages
+  // Use refs to store handlers and dependencies for stable references across renders
+  const handleDataRef = useRef<((data: string) => void) | null>(null);
+  const handleErrorRef = useRef<((err: string) => void) | null>(null);
+  const handleDisconnectRef = useRef<(() => void) | null>(null);
+  const automationEngineRef = useRef(automationEngine);
+  const connectionStateRef = useRef(connectionState);
+  
   useEffect(() => {
     if (!wsManager || !terminalInstanceRef.current) return;
 
@@ -125,15 +132,17 @@ export default function PlayScreen() {
     // Buffer to collect complete lines for trigger processing
     let lineBuffer = '';
 
-    // Use refs to store handlers so they can be properly removed on cleanup
-    // This is necessary because the handler function is created inside the effect
-    // and would be a new reference on each render
-    const handleDataRef = useRef((data: string) => {
+    // Update refs with current values
+    automationEngineRef.current = automationEngine;
+    connectionStateRef.current = connectionState;
+
+    // Create handlers that access current values via refs
+    handleDataRef.current = (data: string) => {
       // Write to terminal
       terminal.write(data);
       
-      // SP05: Process through trigger engine
-      if (automationEngine && connectionState === 'connected') {
+      // SP05: Process through trigger engine (use ref for current values)
+      if (automationEngineRef.current && connectionStateRef.current === 'connected') {
         // Collect data and split into lines
         lineBuffer += data;
         const lines = lineBuffer.split(/\r?\n/);
@@ -142,18 +151,18 @@ export default function PlayScreen() {
         
         // Process complete lines through trigger engine
         if (lines.length > 0) {
-          automationEngine.processServerOutput(lines);
+          automationEngineRef.current.processServerOutput(lines);
         }
       }
-    });
+    };
 
-    const handleErrorRef = useRef((err: string) => {
+    handleErrorRef.current = (err: string) => {
       terminal.writeln(`\r\n[ERROR] ${err}\r\n`);
-    });
+    };
 
-    const handleDisconnectRef = useRef(() => {
+    handleDisconnectRef.current = () => {
       terminal.writeln('\r\n[Disconnected]\r\n');
-    });
+    };
 
     // Register handlers
     wsManager.onMessage(handleDataRef.current);
@@ -162,9 +171,15 @@ export default function PlayScreen() {
 
     // Clean up handlers on unmount or when dependencies change
     return () => {
-      wsManager.offMessage(handleDataRef.current);
-      wsManager.offError(handleErrorRef.current);
-      wsManager.offDisconnect(handleDisconnectRef.current);
+      if (handleDataRef.current) {
+        wsManager.offMessage(handleDataRef.current);
+      }
+      if (handleErrorRef.current) {
+        wsManager.offError(handleErrorRef.current);
+      }
+      if (handleDisconnectRef.current) {
+        wsManager.offDisconnect(handleDisconnectRef.current);
+      }
     };
   }, [wsManager, automationEngine, connectionState]);
 
