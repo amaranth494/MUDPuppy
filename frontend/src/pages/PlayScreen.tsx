@@ -235,12 +235,11 @@ export default function PlayScreen() {
     
     if (wsManager && connectionState === 'connected') {
       // SP05: Process through automation engine (aliases, variables)
-      if (automationEngine) {
+      if (automationEngine && command !== '') {
         const processedCommands = automationEngine.processUserInput(command);
         
         // If no commands (e.g., circuit breaker tripped), skip
-        // But allow empty commands to pass through for MUDs that need them
-        if (processedCommands.length === 0 && command !== '') {
+        if (processedCommands.length === 0) {
           return;
         }
         
@@ -262,7 +261,8 @@ export default function PlayScreen() {
           terminalInstanceRef.current.write(echoText);
         }
       } else {
-        // No automation engine - send directly to WebSocket
+        // No automation engine OR empty command - send directly to WebSocket
+        // Empty commands bypass automation (some MUDs need blank lines)
         wsManager.sendCommand(command + '\n');
         
         // SP04PH05: Local echo - controlled by profile settings.echo_input
