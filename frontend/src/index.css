@@ -1771,5 +1771,5 @@ body {
   bottom: 0;
   background: var(--color-bg);
   z-index: 100;
-  overflow: hidden;
+  overflow-y: auto;
 }
