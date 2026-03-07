@@ -531,44 +531,38 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="connection-settings-page">
-      {/* Connection Selector Modal */}
-      {renderConnectionSelectorModal()}
+    <Modal
+      isOpen={true}
+      onClose={() => navigate('/play')}
+      title={`Connection Settings${connectionName ? ` - ${connectionName}` : ''}`}
+      className="modal-large"
+    >
+      <div className="connection-settings-page">
+        {/* Connection Selector Modal */}
+        {renderConnectionSelectorModal()}
 
-      {/* Error/Success messages */}
-      {error && (
-        <div className="message message-error" style={{ marginBottom: '1rem' }}>
-          {error}
-          <button onClick={() => setError(null)} style={{ marginLeft: '1rem' }}>Dismiss</button>
-        </div>
-      )}
-      
-      {successMessage && (
-        <div className="message message-success" style={{ marginBottom: '1rem' }}>
-          {successMessage}
-        </div>
-      )}
+        {/* Error/Success messages */}
+        {error && (
+          <div className="message message-error" style={{ marginBottom: '1rem' }}>
+            {error}
+            <button onClick={() => setError(null)} style={{ marginLeft: '1rem' }}>Dismiss</button>
+          </div>
+        )}
+        
+        {successMessage && (
+          <div className="message message-success" style={{ marginBottom: '1rem' }}>
+            {successMessage}
+          </div>
+        )}
 
-      {/* Active session warning */}
-      {connectionState === 'connected' && currentConnectionId === connectionId && (
-        <div className="message message-info" style={{ marginBottom: '1rem' }}>
-          <strong>Active Session:</strong> You are currently connected. Key bindings, aliases, triggers, and variables all update live.
-        </div>
-      )}
+        {/* Active session warning */}
+        {connectionState === 'connected' && currentConnectionId === connectionId && (
+          <div className="message message-info" style={{ marginBottom: '1rem' }}>
+            <strong>Active Session:</strong> You are currently connected. Key bindings, aliases, triggers, and variables all update live.
+          </div>
+        )}
 
-      {/* Header */}
-      <div className="settings-header">
-        <h2>Connection Settings{connectionName ? ` - ${connectionName}` : ''}</h2>
-        <button 
-          className="settings-close-btn" 
-          onClick={() => navigate('/play')}
-          title="Close and return to Play"
-        >
-          ✕
-        </button>
-      </div>
-
-      <div className="settings-layout">
+        <div className="settings-layout">
         {/* Sidebar navigation */}
         <nav className="settings-nav">
           {SECTIONS.map(section => (
@@ -957,6 +951,7 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </Modal>
   );
 }

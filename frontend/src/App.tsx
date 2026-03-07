@@ -128,15 +128,7 @@ function AppContent() {
         
         {/* New Settings page - uses current connection or prompts to select (SP05PH04) */}
         {isNewSettingsPage && (
-          <Modal
-            isOpen={isNewSettingsPage}
-            onClose={() => navigate('/play')}
-            title="Connection Settings"
-            className="modal-large"
-            onInputLockChange={setInputLocked}
-          >
-            <SettingsPage />
-          </Modal>
+          <SettingsPage />
         )}
         
         {/* Modal overlay for Connections, Account, Help pages (SP03PH03) */}
