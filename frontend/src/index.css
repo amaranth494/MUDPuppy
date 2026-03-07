@@ -1173,7 +1173,7 @@ body {
   flex-direction: column;
   gap: var(--spacing-sm);
   margin-bottom: var(--spacing-md);
-  max-height: 400px;
+  max-height: calc(100vh - 380px);
   overflow-y: auto;
 }
 
