@@ -28,7 +28,7 @@ export default function SettingsPage() {
   // Use useLocation for URL detection instead of useParams to ensure proper re-renders
   const location = useLocation();
   const navigate = useNavigate();
-  const { updateProfile: updateSessionProfile, connectionState, currentConnectionId } = useSession();
+  const { updateProfile: updateSessionProfile, connectionState, currentConnectionId, automationEngine } = useSession();
   
   // Sync section from URL to state to ensure re-render on navigation
   const [activeSection, setActiveSection] = useState<SettingsSection>('general');
@@ -248,8 +248,17 @@ export default function SettingsPage() {
     
     try {
       await putAliases(connectionId, aliases);
-      if (connectionState === 'connected' && currentConnectionId === connectionId) {
-        setSuccessMessage('Aliases saved. Changes will take effect on your next connection.');
+      
+      // Update automation engine immediately for active session
+      if (automationEngine && connectionState === 'connected' && currentConnectionId === connectionId) {
+        // Get current triggers and variables from the state (loaded via loadData)
+        automationEngine.configure({
+          aliases: { items: aliases },
+          triggers: { items: triggers },
+          variables: { items: variables },
+          connectionId,
+        });
+        setSuccessMessage('Aliases saved and updated live.');
       } else {
         setSuccessMessage('Aliases saved successfully');
       }
@@ -271,8 +280,16 @@ export default function SettingsPage() {
     
     try {
       await putTriggers(connectionId, triggers);
-      if (connectionState === 'connected' && currentConnectionId === connectionId) {
-        setSuccessMessage('Triggers saved. Changes will take effect on your next connection.');
+      
+      // Update automation engine immediately for active session
+      if (automationEngine && connectionState === 'connected' && currentConnectionId === connectionId) {
+        automationEngine.configure({
+          aliases: { items: aliases },
+          triggers: { items: triggers },
+          variables: { items: variables },
+          connectionId,
+        });
+        setSuccessMessage('Triggers saved and updated live.');
       } else {
         setSuccessMessage('Triggers saved successfully');
       }
@@ -294,8 +311,16 @@ export default function SettingsPage() {
     
     try {
       await putEnvironment(connectionId, variables);
-      if (connectionState === 'connected' && currentConnectionId === connectionId) {
-        setSuccessMessage('Variables saved. Changes will take effect on your next connection.');
+      
+      // Update automation engine immediately for active session
+      if (automationEngine && connectionState === 'connected' && currentConnectionId === connectionId) {
+        automationEngine.configure({
+          aliases: { items: aliases },
+          triggers: { items: triggers },
+          variables: { items: variables },
+          connectionId,
+        });
+        setSuccessMessage('Variables saved and updated live.');
       } else {
         setSuccessMessage('Variables saved successfully');
       }
