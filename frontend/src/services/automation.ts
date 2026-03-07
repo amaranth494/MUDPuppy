@@ -392,32 +392,30 @@ export class AutomationEngine {
     const enabledAliases = this.aliases.items.filter(a => a.enabled);
     
     for (const alias of enabledAliases) {
-      let matchResult: { matched: boolean; args: string } | null = null;
+      // Always use prefix match - pattern must match the beginning of input
+      let matchResult: { matched: boolean; args: string[] } | null = null;
       
-      if (alias.type === 'exact') {
-        // Exact match - pattern must match entire input
-        if (input === alias.pattern) {
-          matchResult = { matched: true, args: '' };
-        }
-      } else if (alias.type === 'prefix') {
-        // Prefix match - pattern is matched against input prefix
-        if (input.startsWith(alias.pattern)) {
-          const remaining = input.substring(alias.pattern.length);
-          matchResult = { matched: true, args: remaining };
-        }
+      if (input.startsWith(alias.pattern)) {
+        // Pattern matches the beginning of input
+        const remaining = input.substring(alias.pattern.length).trim();
+        // Split remaining into words for %1, %2, %3... placeholders
+        const args = remaining ? remaining.split(/\s+/) : [];
+        matchResult = { matched: true, args: args };
       }
       
       if (matchResult && matchResult.matched) {
-        // Build replacement with {args} substitution for prefix aliases
+        // Build replacement with %1, %2, %3... substitution
         let replacement = alias.replacement;
-        if (alias.type === 'prefix' && replacement.includes('{args}')) {
-          replacement = replacement.replace('{args}', matchResult.args);
-        } else if (alias.type === 'prefix') {
-          // Append args to replacement if no {args} placeholder
-          replacement = replacement + matchResult.args;
-        }
+        
+        // Replace %1, %2, %3... with captured arguments
+        // %1 = first arg, %2 = second arg, etc.
+        // If argument doesn't exist, replace with empty string
+        replacement = replacement.replace(/%(\d+)/g, (_match, numStr) => {
+          const index = parseInt(numStr, 10);
+          return matchResult.args[index - 1] || '';
+        });
 
-        // SP05: Handle nested semicolons in replacement - split and evaluate each
+        // Handle nested semicolons in replacement - split and evaluate each
         // This implements depth-first expansion where each part of the replacement
         // is evaluated for more aliases before returning
         const replacementCommands = this.parseCommandString(replacement);
@@ -471,13 +469,15 @@ export class AutomationEngine {
       return null;
     }
 
-    // Build replacement
+    // Build replacement with %1, %2, %3... substitution
     let replacement = alias.replacement;
-    if (alias.type === 'prefix' && replacement.includes('{args}')) {
-      replacement = replacement.replace('{args}', args);
-    } else if (alias.type === 'prefix') {
-      replacement = replacement + args;
-    }
+    const argsArray = args ? args.split(/\s+/) : [];
+    
+    // Replace %1, %2, %3... with captured arguments
+    replacement = replacement.replace(/%(\d+)/g, (_match, numStr) => {
+      const index = parseInt(numStr, 10);
+      return argsArray[index - 1] || '';
+    });
 
     return replacement;
   }

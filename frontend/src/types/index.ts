@@ -163,10 +163,11 @@ export interface UpdateProfileRequest {
 // ============================================
 
 // Alias type - transforms user input commands
+// Pattern matching: exact match (full input must equal pattern)
+// Replacement: use %1, %2, etc. to reference captured groups (remaining input after pattern)
 export interface Alias {
   id: string;
   pattern: string;
-  type: 'exact' | 'prefix';
   replacement: string;
   enabled: boolean;
 }

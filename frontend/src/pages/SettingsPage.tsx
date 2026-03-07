@@ -385,7 +385,6 @@ export default function SettingsPage() {
     const newAlias: Alias = {
       id: crypto.randomUUID(),
       pattern: '',
-      type: 'exact',
       replacement: '',
       enabled: true,
     };
@@ -754,25 +753,15 @@ export default function SettingsPage() {
                           />
                         </div>
                         <div className="form-group">
-                          <label className="form-label">Type</label>
-                          <select
-                            className="form-input"
-                            value={alias.type}
-                            onChange={(e) => handleUpdateAlias(alias.id, { type: e.target.value as 'exact' | 'prefix' })}
-                          >
-                            <option value="exact">Exact</option>
-                            <option value="prefix">Prefix</option>
-                          </select>
-                        </div>
-                        <div className="form-group">
                           <label className="form-label">Replacement</label>
                           <input
                             type="text"
                             className="form-input"
-                            placeholder="e.g., look"
+                            placeholder="e.g., look %1 or get %1"
                             value={alias.replacement}
                             onChange={(e) => handleUpdateAlias(alias.id, { replacement: e.target.value })}
                           />
+                          <p className="form-hint">Use %1, %2, %3 for arguments (e.g., "get %1" for "g sword" → "get sword")</p>
                         </div>
                         <div className="form-group form-checkbox">
                           <label>
