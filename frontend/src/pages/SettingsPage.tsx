@@ -553,8 +553,7 @@ export default function SettingsPage() {
       {/* Active session warning */}
       {connectionState === 'connected' && currentConnectionId === connectionId && (
         <div className="message message-info" style={{ marginBottom: '1rem' }}>
-          <strong>Active Session:</strong> You are currently connected. Key bindings update live. 
-          Other changes take effect on next connection.
+          <strong>Active Session:</strong> You are currently connected. Key bindings, aliases, triggers, and variables all update live.
         </div>
       )}
 

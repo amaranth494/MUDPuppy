@@ -96,7 +96,7 @@ export default function EnvironmentPanel({ connectionId, isConnectedToThis, onVa
     try {
       await putEnvironment(connectionId, variables);
       if (isConnectedToThis) {
-        setSuccessMessage('Variables saved. Changes will take effect on your next connection.');
+        setSuccessMessage('Variables saved and updated live.');
       } else {
         setSuccessMessage('Variables saved successfully');
       }

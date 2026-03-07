@@ -216,7 +216,7 @@ export default function ConnectionSettingsPage() {
       await updateProfile(profile.id, updateRequest);
       
       if (isConnectedToThis) {
-        setSuccessMessage('Settings saved. Key bindings updated live. Other changes take effect on next connection.');
+        setSuccessMessage('Settings saved. Key bindings, aliases, triggers, and variables updated live.');
       } else {
         setSuccessMessage('Settings saved successfully');
       }
@@ -260,7 +260,7 @@ export default function ConnectionSettingsPage() {
     try {
       await putAliases(connectionId, aliases);
       if (isConnectedToThis) {
-        setSuccessMessage('Aliases saved. Changes will take effect on your next connection.');
+        setSuccessMessage('Aliases saved and updated live.');
       } else {
         setSuccessMessage('Aliases saved successfully');
       }
@@ -296,7 +296,7 @@ export default function ConnectionSettingsPage() {
     try {
       await putTriggers(connectionId, triggers);
       if (isConnectedToThis) {
-        setSuccessMessage('Triggers saved. Changes will take effect on your next connection.');
+        setSuccessMessage('Triggers saved and updated live.');
       } else {
         setSuccessMessage('Triggers saved successfully');
       }
@@ -465,8 +465,7 @@ export default function ConnectionSettingsPage() {
       {isConnectedToThis && (
         <div className="message message-info" style={{ marginBottom: '1rem' }}>
           <strong>Active Session:</strong> You are currently connected to this server. 
-          Key bindings support live updates. Changes to aliases, triggers, and environment variables 
-          will take effect on your next connection.
+          Key bindings, aliases, triggers, and environment variables all support live updates.
         </div>
       )}
 
