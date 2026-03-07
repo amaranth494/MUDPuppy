@@ -415,6 +415,9 @@ export class AutomationEngine {
           return matchResult.args[index - 1] || '';
         });
 
+        // Substitute ${variable} patterns in the replacement
+        replacement = this.substituteVariables(replacement);
+
         // Handle nested semicolons in replacement - split and evaluate each
         // This implements depth-first expansion where each part of the replacement
         // is evaluated for more aliases before returning
@@ -423,8 +426,11 @@ export class AutomationEngine {
         let maxDepth = depth + 1;
         
         for (const repCmd of replacementCommands) {
+          // Substitute variables in each command part
+          const varSubbedCmd = this.substituteVariables(repCmd);
+          
           // Recursively evaluate each part (depth-first)
-          const nestedResult = this.evaluateAlias(repCmd, depth + 1);
+          const nestedResult = this.evaluateAlias(varSubbedCmd, depth + 1);
           allExpandedCommands.push(...nestedResult.commands);
           maxDepth = Math.max(maxDepth, nestedResult.depth);
         }
