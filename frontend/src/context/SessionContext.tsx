@@ -145,8 +145,9 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
     }
     
     // SP05: Initialize automation engine after profile is loaded
+    let engine: ReturnType<typeof getAutomationEngine> | null = null;
     try {
-      const engine = getAutomationEngine();
+      engine = getAutomationEngine();
       
       // Fetch automation data if we have a connection ID
       if (connectionId) {
@@ -183,6 +184,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       console.error('Failed to initialize automation:', err);
       // Don't fail connection, just disable automation
       setAutomationEngine(null);
+      engine = null;
     }
     
     try {
@@ -224,8 +226,8 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       manager.sendConnect(mudHost, mudPort);
       
       // SP05: Mark automation engine as connected
-      if (automationEngine) {
-        automationEngine.connect();
+      if (engine) {
+        engine.connect();
       }
       
       // Event-driven: verify connection status after connect action
