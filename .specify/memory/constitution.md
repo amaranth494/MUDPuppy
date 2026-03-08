@@ -206,11 +206,19 @@ Always visible on authenticated pages:
 The MVP UI does NOT include:
 - Multiple simultaneous MUD sessions
 - Split panes, tabbed sessions, window docking
-- Macro bars, trigger editors, alias managers
 - Automapper UI
 - Rich UI overlays (health bars, panels)
 - Protocol visualization tools (GMCP inspectors)
 - Import/export packages
+
+> **6.a MVP UI Exceptions for Usability**
+> Basic alias, trigger, and variable editors are required for usability of automation features introduced in SP03-SP05. These are permitted as minimal CRUD interfaces for managing existing automation rules.
+> - Alias editor: create, edit, delete, reorder aliases
+> - Trigger editor: create, edit, delete, reorder triggers
+> - Variable editor: create, edit, delete variables
+> - Keybinding editor: create, edit, delete key mappings
+> 
+> These are exception-only. Advanced features (regex, timers, scripting, chains) remain non-goals.
 
 ### WebSocket-Based Communication
 The browser connects securely over HTTPS (port 443) to the hosted service via WebSocket. The service maintains the actual telnet (and later optional SSH) connections to MUD servers, handling all protocol complexity.
