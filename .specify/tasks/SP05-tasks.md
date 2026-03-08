@@ -469,7 +469,7 @@
 
 ---
 
-### Manual QA: Alias Testing Scenarios
+### Manual QA: Alias Testing Scenarios - PASS
 
 | ID | Scenario | Steps | Expected Result | PASS/FAIL | QA Notes |
 |----|----------|-------|----------------|-----------|----------|
@@ -491,7 +491,7 @@
 3. Connect to MUD
 4. Type `cast` | Command `cast goblin` sent to MUD |
 
-### SP05PH08T02 — Test trigger flow
+### SP05PH08T02 — Test trigger flow - PASS
 
 - [x] **Task:** Create trigger, receive matching output, verify action fires
 - **Acceptance:** Trigger responds to output
@@ -500,7 +500,7 @@
 
 ---
 
-### Manual QA: Trigger Testing Scenarios
+### Manual QA: Trigger Testing Scenarios - PASS
 
 | ID | Scenario | Steps | Expected Result | PASS/FAIL | QA Notes |
 |----|----------|-------|----------------|-----------|----------|
@@ -526,7 +526,7 @@
 2. Connect to MUD
 3. Server sends matching text twice within 5 seconds | Second trigger fires after cooldown expires |
 
-### SP05PH08T03 — Test variable substitution
+### SP05PH08T03 — Test variable substitution - PASS
 
 - [x] **Task:** Create variable, use in alias, verify substitution
 - **Acceptance:** Variable substitution works
@@ -535,7 +535,7 @@
 
 ---
 
-### Manual QA: Variable Testing Scenarios
+### Manual QA: Variable Testing Scenarios - PASS
 
 | ID | Scenario | Steps | Expected Result | PASS/FAIL | QA Notes |
 |----|----------|-------|----------------|-----------|----------|
@@ -557,7 +557,7 @@
 3. Create alias using `x`
 4. Use alias | Variable value persists across sessions |
 
-### SP05PH08T04 — Test trigger safeguards
+### SP05PH08T04 — Test trigger safeguards - PASS
 
 - [x] **Task:** Rapid output triggers, verify throttle works
 - **Acceptance:** Throttle prevents runaway triggers
@@ -566,7 +566,7 @@
 
 ---
 
-### Manual QA: Safeguard Testing Scenarios
+### Manual QA: Safeguard Testing Scenarios - PASS
 
 | ID | Scenario | Steps | Expected Result | PASS/FAIL | QA Notes |
 |----|----------|-------|----------------|-----------|----------|
@@ -585,7 +585,7 @@
 2. Trigger loop condition
 3. Observe | Circuit breaker halts automation, user notified |
 
-### SP05PH08T05 — Test disconnection handling
+### SP05PH08T05 — Test disconnection handling - PASS
 
 - [x] **Task:** Disconnect session, verify triggers disabled
 - **Acceptance:** No triggers fire after disconnect
@@ -594,7 +594,7 @@
 
 ---
 
-### Manual QA: Disconnection Testing Scenarios
+### Manual QA: Disconnection Testing Scenarios - PASS
 
 | ID | Scenario | Steps | Expected Result | PASS/FAIL | QA Notes |
 |----|----------|-------|----------------|-----------|----------|
@@ -608,7 +608,7 @@
 3. Reconnect to same connection
 4. Verify automation still works | Automation persists and functions after reconnect |
 
-### SP05PH08T06 — Test persistence
+### SP05PH08T06 — Test persistence - PASS
 
 - [x] **Task:** Create automation, reconnect, verify loads
 - **Acceptance:** Automation persists across sessions
@@ -617,7 +617,7 @@
 
 ---
 
-### Manual QA: Persistence Testing Scenarios
+### Manual QA: Persistence Testing Scenarios - PASS
 
 | ID | Scenario | Steps | Expected Result | PASS/FAIL | QA Notes |
 |----|----------|-------|----------------|-----------|----------|
