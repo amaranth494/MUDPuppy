@@ -20,6 +20,7 @@
 | SP06PH06 | Ordering | Reorder controls for aliases/triggers |
 | SP06PH07 | Status Indicators | Circuit breaker UI banner |
 | SP06PH08 | Command History | Up/down arrow recall |
+| SP06PH09 | QA Verification | Manual QA test scenarios for all features |
 
 ---
 
@@ -314,6 +315,68 @@
 
 ---
 
+## Phase 9: QA Verification (SP06PH09)
+
+### Objectives
+
+- Execute manual QA test scenarios
+- Verify all features work end-to-end
+- Sign-off from QA Lead and Product Owner
+
+### Test Categories
+
+| Category | Tests | Description |
+|----------|-------|-------------|
+| SP06PH09T01 | 5 tests | Help System - navigation, search, sections, Examples |
+| SP06PH09T02 | 4 tests | Contextual Guidance - editors display helper text |
+| SP06PH09T03 | 4 tests | Navigation - Connection Settings visibility |
+| SP06PH09T04 | 6 tests | Templates - modal, import, copy button |
+| SP06PH09T05 | 6 tests | Ordering - reorder buttons, persistence |
+| SP06PH09T06 | 6 tests | Status Indicators - banner, buttons, sidebar |
+| SP06PH09T07 | 8 tests | Command History - up/down, boundaries |
+| SP06PH09T08 | 3 tests | Integration - full flow, cross-session |
+
+### Steps
+
+1. **T09T01: Execute Help System tests**
+   - Run SP06PH09T01a through T01e
+   - Document results
+
+2. **T09T02: Execute Contextual Guidance tests**
+   - Run SP06PH09T02a through T02d
+   - Document results
+
+3. **T09T03: Execute Navigation tests**
+   - Run SP06PH09T03a through T03d
+   - Document results
+
+4. **T09T04: Execute Template tests**
+   - Run SP06PH09T04a through T04f
+   - Document results
+
+5. **T09T05: Execute Ordering tests**
+   - Run SP06PH09T05a through T05f
+   - Document results
+
+6. **T09T06: Execute Status Indicator tests**
+   - Run SP06PH09T06a through T06f
+   - Document results
+
+7. **T09T07: Execute Command History tests**
+   - Run SP06PH09T07a through T07h
+   - Document results
+
+8. **T09T08: Execute Integration tests**
+   - Run SP06PH09T08a through T08c
+   - Document results
+
+9. **T09T09: Sign-off**
+   - QA Lead reviews results
+   - Product Owner approves
+   - Update task tracker
+
+---
+
 ## Implementation Checklist
 
 | Phase | Task | Description | Status |
@@ -357,6 +420,15 @@
 | SP06PH08 | T02 | Arrow key hooks | [ ] |
 | SP06PH08 | T03 | Boundary cases | [ ] |
 | SP06PH08 | T04 | Test history | [ ] |
+| SP06PH09 | T01 | Execute Help System tests (5 scenarios) | [ ] |
+| SP06PH09 | T02 | Execute Contextual Guidance tests (4 scenarios) | [ ] |
+| SP06PH09 | T03 | Execute Navigation tests (4 scenarios) | [ ] |
+| SP06PH09 | T04 | Execute Template tests (6 scenarios) | [ ] |
+| SP06PH09 | T05 | Execute Ordering tests (6 scenarios) | [ ] |
+| SP06PH09 | T06 | Execute Status Indicator tests (6 scenarios) | [ ] |
+| SP06PH09 | T07 | Execute Command History tests (8 scenarios) | [ ] |
+| SP06PH09 | T08 | Execute Integration tests (3 scenarios) | [ ] |
+| SP06PH09 | T09 | QA sign-off | [ ] |
 
 ---
 

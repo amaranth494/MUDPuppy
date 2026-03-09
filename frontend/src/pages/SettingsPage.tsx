@@ -401,6 +401,38 @@ export default function SettingsPage() {
     setAliases(aliases.filter(a => a.id !== id));
   };
 
+  // Move alias up (reorder)
+  const handleMoveAliasUp = async (index: number) => {
+    if (index <= 0) return;
+    const newAliases = [...aliases];
+    [newAliases[index - 1], newAliases[index]] = [newAliases[index], newAliases[index - 1]];
+    setAliases(newAliases);
+    // Persist immediately to server
+    if (connectionId) {
+      try {
+        await putAliases(connectionId, newAliases);
+      } catch (err) {
+        console.error('Failed to persist alias reorder:', err);
+      }
+    }
+  };
+
+  // Move alias down (reorder)
+  const handleMoveAliasDown = async (index: number) => {
+    if (index >= aliases.length - 1) return;
+    const newAliases = [...aliases];
+    [newAliases[index], newAliases[index + 1]] = [newAliases[index + 1], newAliases[index]];
+    setAliases(newAliases);
+    // Persist immediately to server
+    if (connectionId) {
+      try {
+        await putAliases(connectionId, newAliases);
+      } catch (err) {
+        console.error('Failed to persist alias reorder:', err);
+      }
+    }
+  };
+
   // Add trigger
   const handleAddTrigger = () => {
     const newTrigger: Trigger = {
@@ -422,6 +454,38 @@ export default function SettingsPage() {
   // Remove trigger
   const handleRemoveTrigger = (id: string) => {
     setTriggers(triggers.filter(t => t.id !== id));
+  };
+
+  // Move trigger up (reorder)
+  const handleMoveTriggerUp = async (index: number) => {
+    if (index <= 0) return;
+    const newTriggers = [...triggers];
+    [newTriggers[index - 1], newTriggers[index]] = [newTriggers[index], newTriggers[index - 1]];
+    setTriggers(newTriggers);
+    // Persist immediately to server
+    if (connectionId) {
+      try {
+        await putTriggers(connectionId, newTriggers);
+      } catch (err) {
+        console.error('Failed to persist trigger reorder:', err);
+      }
+    }
+  };
+
+  // Move trigger down (reorder)
+  const handleMoveTriggerDown = async (index: number) => {
+    if (index >= triggers.length - 1) return;
+    const newTriggers = [...triggers];
+    [newTriggers[index], newTriggers[index + 1]] = [newTriggers[index + 1], newTriggers[index]];
+    setTriggers(newTriggers);
+    // Persist immediately to server
+    if (connectionId) {
+      try {
+        await putTriggers(connectionId, newTriggers);
+      } catch (err) {
+        console.error('Failed to persist trigger reorder:', err);
+      }
+    }
   };
 
   // Add variable
@@ -756,8 +820,11 @@ export default function SettingsPage() {
               </p>
 
               <div className="automation-list">
-                {aliases.map(alias => (
+                {aliases.map((alias, index) => (
                   <div key={alias.id} className="automation-row">
+                    <div className="automation-row-priority">
+                      <span className="priority-number" title="Priority order (1 = highest)">#{index + 1}</span>
+                    </div>
                     <div className="automation-row-content">
                       <div className="form-row">
                         <div className="form-group">
@@ -793,12 +860,30 @@ export default function SettingsPage() {
                         </div>
                       </div>
                     </div>
-                    <button
-                      className="btn btn-small btn-danger"
-                      onClick={() => handleRemoveAlias(alias.id)}
-                    >
-                      Remove
-                    </button>
+                    <div className="automation-row-actions">
+                      <button
+                        className="btn btn-small btn-icon"
+                        onClick={() => handleMoveAliasUp(index)}
+                        disabled={index === 0}
+                        title="Move up (higher priority)"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        className="btn btn-small btn-icon"
+                        onClick={() => handleMoveAliasDown(index)}
+                        disabled={index === aliases.length - 1}
+                        title="Move down (lower priority)"
+                      >
+                        ↓
+                      </button>
+                      <button
+                        className="btn btn-small btn-danger"
+                        onClick={() => handleRemoveAlias(alias.id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
                 ))}
                 {aliases.length === 0 && (
@@ -832,8 +917,11 @@ export default function SettingsPage() {
               </p>
 
               <div className="automation-list">
-                {triggers.map(trigger => (
+                {triggers.map((trigger, index) => (
                   <div key={trigger.id} className="automation-row">
+                    <div className="automation-row-priority">
+                      <span className="priority-number" title="Priority order (1 = highest)">#{index + 1}</span>
+                    </div>
                     <div className="automation-row-content">
                       <div className="form-row">
                         <div className="form-group">
@@ -878,12 +966,30 @@ export default function SettingsPage() {
                         </div>
                       </div>
                     </div>
-                    <button
-                      className="btn btn-small btn-danger"
-                      onClick={() => handleRemoveTrigger(trigger.id)}
-                    >
-                      Remove
-                    </button>
+                    <div className="automation-row-actions">
+                      <button
+                        className="btn btn-small btn-icon"
+                        onClick={() => handleMoveTriggerUp(index)}
+                        disabled={index === 0}
+                        title="Move up (higher priority)"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        className="btn btn-small btn-icon"
+                        onClick={() => handleMoveTriggerDown(index)}
+                        disabled={index === triggers.length - 1}
+                        title="Move down (lower priority)"
+                      >
+                        ↓
+                      </button>
+                      <button
+                        className="btn btn-small btn-danger"
+                        onClick={() => handleRemoveTrigger(trigger.id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
                 ))}
                 {triggers.length === 0 && (

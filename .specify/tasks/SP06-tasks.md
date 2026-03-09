@@ -3,7 +3,7 @@
 > **Task Tracker:** SP06  
 > **Spec Reference:** SP06 — Documentation & UX Refinement  
 > **Status:** Draft  
-> **Total Tasks:** 40
+> **Total Tasks:** 66
 
 ---
 
@@ -300,3 +300,70 @@
 - **Acceptance:** All tests pass
 - **Commit:** "SP06PH08T04: Test command history"
 - [ ] **Status:** Pending
+
+---
+
+## Phase 9: QA Verification (SP06PH09)
+
+> **Purpose:** Manual QA test scenarios for verification checklist. QA team to execute and check off each scenario.
+
+[P] = PASS
+[F] = FAIL
+[I] = IGNORE
+
+### SP06PH09T01 — Help System Tests
+
+- [P] **SP06PH09T01a:** Navigate to Help page via sidebar - Verify sidebar loads and clicking Help navigates to /help
+- **SP06PH09T01b:** Verify all 9 help sections accessible - Getting Started, Connecting, Terminal, Key Bindings, Aliases, Triggers, Variables, Safety, Troubleshooting
+- **SP06PH09T01c:** Test help search - Type "alias" in search box, verify relevant results appear
+- [P] **SP06PH09T01d:** Click help section from sidebar - Verify content loads without page refresh
+- **SP06PH09T01e:** Check Examples section - Navigate to Examples, verify templates display with copy buttons
+
+### SP06PH09T02 — Contextual Guidance Tests
+
+- [P] **SP06PH09T02a:** Open AliasEditor - Verify helper text appears above alias list
+- [P] **SP06PH09T02b:** Open TriggerEditor - Verify note about substring matching is visible
+- [P] **SP06PH09T02c:** Open EnvironmentPanel variable editor - Verify inline syntax help and examples display
+- [P] **SP06PH09T02d:** Open KeybindingEditor - Verify description and conflict warnings display
+
+### SP06PH09T03 — Navigation Tests
+
+- [P] **SP06PH09T03a:** Connect to a MUD server - Verify Connection Settings appears in sidebar nav
+- [P] **SP06PH09T03b:** Click Connection Settings while connected - Verify settings page loads with active connection data
+- [I] **SP06PH09T03c:** Disconnect - Verify Connection Settings disappears from sidebar - Settings is always visible in the navbar, per design.
+- [P] **SP06PH09T03d:** Navigate to different pages while connected - Verify connection persists
+
+### SP06PH09T04 — Status Indicator Tests
+
+- [ ] **SP06PH09T04a:** Trigger automation pause (e.g., too many rapid triggers) - Verify status banner appears in PlayScreen
+- [ ] **SP06PH09T04b:** Verify banner shows pause reason message
+- [ ] **SP06PH09T04c:** Click Resume button in banner - Verify automation resumes, banner disappears
+- [ ] **SP06PH09T04d:** Click Disable button in banner - Verify automation stays disabled
+- [ ] **SP06PH09T04e:** Navigate to Connection Settings while paused - Verify status indicator visible there too
+- [ ] **SP06PH09T04f:** Check Sidebar - Verify warning icon appears with tooltip when automation paused
+
+### SP06PH09T05 — Command History Tests
+
+- [ ] **SP06PH09T05a:** Enter 5 unique commands in terminal (e.g., "look", "score", "inv", "who", "help")
+- [ ] **SP06PH09T05b:** Press Up arrow - Verify previous command appears in input field
+- [ ] **SP06PH09T05c:** Press Up arrow again - Verify earlier command appears
+- [ ] **SP06PH09T05d:** Press Down arrow - Verify next command appears
+- [ ] **SP06PH09T05e:** Press Down at end of history - Verify input clears or shows latest typed text
+- [ ] **SP06PH09T05f:** Press Enter on recalled command - Verify command executes (goes through full submit pipeline including alias expansion)
+- [ ] **SP06PH09T05g:** Verify no duplicates - Submit same command twice, recall with Up arrow - should only see command once in history
+- [ ] **SP06PH09T05h:** Press Up at beginning of history - Verify stays at oldest command (no wraparound errors)
+
+### SP06PH09T06 — Integration Tests
+
+- [ ] **SP06PH09T06a:** Full user flow - Connect to MUD, create alias via template, test alias works, disconnect, reconnect, verify alias persists
+- [ ] **SP06PH09T06b:** Cross-session persistence - Create automation (aliases/triggers/variables), disconnect, reconnect on different device/browser, verify automation loads
+- [ ] **SP06PH09T06c:** Multiple sessions - Open two sessions to different MUDs, verify automation status independent per session
+
+---
+
+## Sign-Off
+
+| Role | Name | Date | Signature |
+|------|------|------|------------|
+| QA Lead | | | |
+| Product Owner | | | |
