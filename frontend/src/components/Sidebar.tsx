@@ -95,21 +95,6 @@ export default function Sidebar({ isCollapsed = false, onToggle, onPlayClick, on
         </Link>
       </nav>
 
-      {/* Connection Settings - always visible, prefers active connection when connected (SP06PH04) */}
-      <div className="sidebar-section-divider" />
-      <nav className="sidebar-nav sidebar-connection-nav">
-        <Link
-          to="/settings/general"
-          className={`sidebar-nav-item ${location.pathname.startsWith('/settings') ? 'active' : ''}`}
-          title={isCollapsed ? 'Connection Settings' : undefined}
-        >
-          <span className="sidebar-nav-icon">⚡</span>
-          {!isCollapsed && (
-            <span className="sidebar-nav-label">Connection Settings</span>
-          )}
-        </Link>
-      </nav>
-
       {/* App Settings Section */}
       <div className="sidebar-section-divider" />
       
