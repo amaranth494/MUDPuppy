@@ -610,7 +610,7 @@ body {
 }
 
 /* Help modal - 30% wider than default */
-.modal-help .modal-container {
+.modal-container.modal-help {
   max-width: 1040px !important;
 }
 
