@@ -410,7 +410,7 @@ export default function HelpPage() {
             Loading...
           </div>
         ) : showExamples ? (
-          <div style={{ maxWidth: '800px' }}>
+          <div style={{ maxWidth: '1040px' }}>
             <h2
               style={{
                 fontSize: '1.75rem',
@@ -573,7 +573,7 @@ export default function HelpPage() {
             </div>
           </div>
         ) : activeContent ? (
-          <div style={{ maxWidth: '800px' }}>
+          <div style={{ maxWidth: '1040px' }}>
             <h2
               style={{
                 fontSize: '1.75rem',
