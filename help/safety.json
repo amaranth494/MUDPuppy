@@ -1,0 +1,35 @@
+{
+  "slug": "safety",
+  "title": "Automation Safety",
+  "description": "Understand the safety systems that protect against automation loops and issues",
+  "sections": [
+    {
+      "title": "Safety Systems Overview",
+      "content": "MUDPuppy includes several safety systems to protect you from automation issues:\n\n- **Recursion Limits** - Prevents infinite alias expansion\n- **Command Queue** - Limits commands sent per tick\n- **Trigger Cooldown** - Prevents trigger spam\n- **Circuit Breaker** - Detects and pauses problematic automation\n\nThese systems keep your client stable and prevent accidental damage."
+    },
+    {
+      "title": "Recursion Limits",
+      "content": "Aliases can trigger other aliases (alias A calls alias B). The recursion limit prevents infinite loops:\n\n**Maximum depth: 3 levels**\n\nExample:\n1. You type 'a'\n2. Alias A expands to 'b'\n3. Alias B expands to 'c'\n4. Alias C would expand but hits the limit\n\nThis prevents situations where aliases call each other endlessly."
+    },
+    {
+      "title": "Command Queue Limits",
+      "content": "The command queue prevents flooding the server with too many commands:\n\n**Maximum: 200 commands per dispatch**\n\nIf your automation generates more than 200 commands, the extras are queued for the next tick.\n\nThis protects your connection and prevents triggering rate limits on the MUD server."
+    },
+    {
+      "title": "Trigger Cooldown",
+      "content": "Each trigger has a cooldown period (in milliseconds):\n\n- After a trigger fires, it waits before firing again\n- Default cooldown: 5000ms (5 seconds)\n- Set per-trigger in the Trigger Editor\n\nCooldowns prevent triggers from executing too frequently, especially when game messages repeat."
+    },
+    {
+      "title": "Circuit Breaker",
+      "content": "The circuit breaker detects problematic automation patterns and pauses automation:\n\n**What triggers the circuit breaker:**\n- Rapid command generation (potential infinite loop)\n- Too many commands in a short time\n- Suspicious automation patterns\n\n**When triggered:**\n- Automation is paused automatically\n- You see a warning banner\n- You can Resume or Disable automation"
+    },
+    {
+      "title": "Resuming Automation",
+      "content": "When automation is paused by the circuit breaker:\n\n**Option 1: Resume Automation**\n- Clears the circuit breaker\n- Re-enables all triggers and aliases\n- Use this if the pause was a false positive\n\n**Option 2: Disable Automation**\n- Turns off all automation for this connection\n- Remains disabled until you manually re-enable\n- Use this if there's a real problem with your automation"
+    },
+    {
+      "title": "Why Automation May Pause",
+      "content": "Common reasons automation pauses:\n\n1. **Infinite Alias Loop** - Two aliases trigger each other\n2. **Trigger Spamming** - A trigger matches constantly repeated text\n3. **Too Many Commands** - Automation generates commands faster than the queue can process\n4. **Pattern Too Broad** - A trigger matches almost every message\n\n**To prevent pauses:**\n- Use specific trigger patterns\n- Set appropriate cooldowns\n- Test automation in a safe area first\n- Use variables instead of hardcoded values"
+    }
+  ]
+}

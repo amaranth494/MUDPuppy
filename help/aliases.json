@@ -1,0 +1,31 @@
+{
+  "slug": "aliases",
+  "title": "Aliases",
+  "description": "Learn how to create aliases to automate and simplify your commands",
+  "sections": [
+    {
+      "title": "What Are Aliases?",
+      "content": "Aliases transform commands you type before they are sent to the MUD server. They allow you to:\n\n- Create shortcuts for long commands\n- Add automatic arguments\n- Chain multiple commands together\n\nFor example, typing 'l' could automatically become 'look'."
+    },
+    {
+      "title": "Alias Types",
+      "content": "MUDPuppy supports two types of aliases:\n\n**Exact Match**\n- The command must match the pattern exactly\n- Example: Pattern 'l' matches only 'l', not 'look'\n\n**Prefix Match**\n- The command must start with the pattern\n- Example: Pattern 'k' matches 'k', 'kill', 'kick', etc.\n\nChoose the type that fits your needs."
+    },
+    {
+      "title": "The {args} Placeholder",
+      "content": "Use {args} in your replacement text to include any additional text you type:\n\n| Pattern | Type | Replacement | You Type | Sends |\n|---------|------|-------------|----------|-------|\n| l | exact | look | l | look |\n| k | prefix | kill {args} | k goblin | kill goblin |\n| cast | prefix | cast {args} | cast fireball | cast fireball |\n\n{args} captures everything after your pattern."
+    },
+    {
+      "title": "Command Chaining",
+      "content": "You can send multiple commands by separating them with a semicolon (;):\n\nExample:\n- Pattern: 'k'\n- Type: prefix\n- Replacement: kill {args};stance offensive\n\nWhen you type 'k goblin', it sends:\n'kill goblin;stance offensive'\n\nThis executes both commands in sequence."
+    },
+    {
+      "title": "Creating an Alias",
+      "content": "To create an alias:\n\n1. Go to Connection Settings\n2. Navigate to Aliases\n3. Click 'Add Alias'\n4. Enter the pattern (what you'll type)\n5. Select the type (exact or prefix)\n6. Enter the replacement text\n7. Click Save\n\nYour alias is active immediately."
+    },
+    {
+      "title": "Alias Priority",
+      "content": "When you have multiple aliases that could match:\n\n- Aliases are processed in order (top to bottom)\n- The first matching alias is applied\n- Only one alias transforms each command\n\nUse the up/down arrows to reorder aliases and control which one takes priority."
+    }
+  ]
+}

@@ -64,19 +64,21 @@ type Variables struct {
 
 // ProfileSettings contains UI and behavior settings for a profile
 type ProfileSettings struct {
-	ScrollbackLimit int  `json:"scrollback_limit"`
-	EchoInput       bool `json:"echo_input"`
-	TimestampOutput bool `json:"timestamp_output"`
-	WordWrap        bool `json:"word_wrap"`
+	ScrollbackLimit   int  `json:"scrollback_limit"`
+	EchoInput         bool `json:"echo_input"`
+	TimestampOutput   bool `json:"timestamp_output"`
+	WordWrap          bool `json:"word_wrap"`
+	AutomationEnabled bool `json:"automation_enabled"`
 }
 
 // DefaultProfileSettings returns the default profile settings
 func DefaultProfileSettings() ProfileSettings {
 	return ProfileSettings{
-		ScrollbackLimit: 1000,
-		EchoInput:       false,
-		TimestampOutput: false,
-		WordWrap:        true,
+		ScrollbackLimit:   1000,
+		EchoInput:         false,
+		TimestampOutput:   false,
+		WordWrap:          true,
+		AutomationEnabled: true,
 	}
 }
 

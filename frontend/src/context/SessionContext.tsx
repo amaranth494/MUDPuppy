@@ -36,7 +36,10 @@ interface SessionContextType {
   // Automation state (SP05)
   automationEngine: AutomationEngine | null;
   automationError: string | null;
+  automationDisabled: boolean;
   resumeAutomation: () => void;
+  disableAutomation: () => void;
+  enableAutomation: () => void;
 }
 
 const SessionContext = createContext<SessionContextType | null>(null);
@@ -73,6 +76,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   // Automation state (SP05)
   const [automationEngine, setAutomationEngine] = useState<AutomationEngine | null>(null);
   const [automationError, setAutomationError] = useState<string | null>(null);
+  const [automationDisabled, setAutomationDisabled] = useState(false);
   
   // Update profile in real-time while connected (SP04PH07)
   const updateProfile = useCallback((updatedProfile: Profile) => {
@@ -86,6 +90,49 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       setAutomationError(null);
     }
   }, [automationEngine]);
+
+  // Disable automation entirely (SP06PH07)
+  // This sets a flag that prevents automation from processing and persists to the server
+  const disableAutomation = useCallback(async () => {
+    setAutomationDisabled(true);
+    setAutomationError(null);
+    
+    // Persist to server via profile settings
+    if (currentConnectionId && profile) {
+      try {
+        const { updateProfile } = await import('../services/api');
+        await updateProfile(currentConnectionId, {
+          settings: {
+            ...profile.settings,
+            automation_enabled: false,
+          },
+        });
+      } catch (err) {
+        console.error('Failed to persist automation disabled state:', err);
+      }
+    }
+  }, [currentConnectionId, profile]);
+
+  // Re-enable automation after user disabled it (SP06PH07)
+  // This persists to the server
+  const enableAutomation = useCallback(async () => {
+    setAutomationDisabled(false);
+    
+    // Persist to server via profile settings
+    if (currentConnectionId && profile) {
+      try {
+        const { updateProfile } = await import('../services/api');
+        await updateProfile(currentConnectionId, {
+          settings: {
+            ...profile.settings,
+            automation_enabled: true,
+          },
+        });
+      } catch (err) {
+        console.error('Failed to persist automation enabled state:', err);
+      }
+    }
+  }, [currentConnectionId, profile]);
 
   // Check authentication on mount
   useEffect(() => {
@@ -180,6 +227,10 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       
       setAutomationEngine(engine);
       setAutomationError(null);
+      
+      // SP06PH07: Load automation_enabled from profile settings (persisted per connection)
+      const isAutomationEnabled = profile?.settings?.automation_enabled ?? true;
+      setAutomationDisabled(!isAutomationEnabled);
     } catch (err) {
       console.error('Failed to initialize automation:', err);
       // Don't fail connection, just disable automation
@@ -265,6 +316,8 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       // Clear profile on disconnect (SP04)
       setProfile(null);
       setCurrentConnectionId(null);
+      // Note: automationDisabled is NOT reset here - it persists for reconnection
+      // The setting is loaded from profile when connecting
       // Event-driven: refresh status after disconnect action completes
       await refreshStatus();
     } catch (err) {
@@ -295,7 +348,10 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
         updateProfile,
         automationEngine,
         automationError,
+        automationDisabled,
         resumeAutomation,
+        disableAutomation,
+        enableAutomation,
       }}
     >
       {children}

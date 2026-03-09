@@ -127,6 +127,8 @@ export interface ProfileSettings {
   echo_input: boolean;
   timestamp_output: boolean;
   word_wrap: boolean;
+  // SP06PH07: Automation enabled setting (persisted per connection)
+  automation_enabled?: boolean;
 }
 
 // Profile type (SP04)
@@ -213,4 +215,26 @@ export interface AutomationTriggers {
 
 export interface AutomationVariables {
   items: Variable[];
+}
+
+// ============================================
+// Help System Types (SP06)
+// ============================================
+
+export interface HelpSection {
+  slug: string;
+  title: string;
+  description: string;
+  sections: HelpSubsection[];
+}
+
+export interface HelpSubsection {
+  title: string;
+  content: string;
+}
+
+export interface HelpSummary {
+  slug: string;
+  title: string;
+  description: string;
 }

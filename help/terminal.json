@@ -1,0 +1,31 @@
+{
+  "slug": "terminal",
+  "title": "Terminal Controls",
+  "description": "Learn about input behavior, scrollback, copy/paste, and display options",
+  "sections": [
+    {
+      "title": "Command Input",
+      "content": "The command input field is at the bottom of the Play screen. To send a command:\n\n1. Type your command in the input field\n2. Press Enter to send it to the MUD server\n\nYour commands are echoed locally so you can see what you're typing before sending."
+    },
+    {
+      "title": "Scrollback Buffer",
+      "content": "The terminal maintains a scrollback buffer that stores previous output. This allows you to:\n\n- Scroll up to review earlier game text\n- Use the scrollbar on the right side of the terminal\n- Press Page Up/Down to scroll through history\n\nThe default scrollback buffer stores the last 10,000 lines of output."
+    },
+    {
+      "title": "Copy and Paste",
+      "content": "**Using Mouse:**\n- Click and drag to select text\n- Right-click to copy selected text\n- Right-click to paste at cursor position\n\n**Keyboard Shortcuts:**\n- Ctrl+C - Copy selected text\n- Ctrl+V - Paste from clipboard\n- Ctrl+A - Select all text in terminal\n\nNote: Ctrl+C sends an interrupt signal to the MUD when no text is selected."
+    },
+    {
+      "title": "Timestamps",
+      "content": "You can enable timestamps to see when messages were received:\n\n1. Go to Connection Settings\n2. Toggle 'Show Timestamps'\n3. Timestamps appear in HH:MM:SS format at the start of each line\n\nTimestamps are useful for tracking when events occurred during your session."
+    },
+    {
+      "title": "Word Wrap",
+      "content": "Word wrap ensures text doesn't extend beyond the terminal width:\n\n- Enabled by default\n- Toggle in Connection Settings\n\nWhen disabled, horizontal scrolling is enabled for viewing wide output like ASCII art."
+    },
+    {
+      "title": "Clearing the Screen",
+      "content": "To clear the terminal screen:\n\n1. Type 'clear' or 'cls' in the command input (if supported by the MUD)\n2. Or use the 'Clear Screen' button in the toolbar\n\nNote: This clears your local display but doesn't remove the scrollback buffer."
+    }
+  ]
+}

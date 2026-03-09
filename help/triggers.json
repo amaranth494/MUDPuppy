@@ -1,0 +1,35 @@
+{
+  "slug": "triggers",
+  "title": "Triggers",
+  "description": "Learn how to create triggers to respond automatically to game events",
+  "sections": [
+    {
+      "title": "What Are Triggers?",
+      "content": "Triggers automatically respond when specific text appears in the game output. They monitor the MUD server's messages and execute commands when a match is found.\n\nFor example, when you see 'You are hungry', a trigger could automatically send 'eat bread'."
+    },
+    {
+      "title": "Substring Matching",
+      "content": "Triggers use **case-sensitive substring matching**:\n\n- The trigger fires when the match text appears anywhere in the output\n- Matching is case-sensitive: 'You' does not match 'you'\n- Partial matches work: 'hungry' matches 'You are hungry'\n\nExample:\n- Match: 'You are hungry'\n- This will also match: 'You are very hungry', 'You are extremely hungry', etc."
+    },
+    {
+      "title": "Cooldown Period",
+      "content": "The cooldown prevents triggers from firing too frequently:\n\n- Set in milliseconds (1000ms = 1 second)\n- After a trigger fires, it won't fire again until the cooldown expires\n- Recommended: 2000-5000ms for typical triggers\n\nExample:\n- Match: 'You are hungry'\n- Action: 'eat bread'\n- Cooldown: 5000 (5 seconds)\n\nThis prevents spamming commands if the game repeats the message."
+    },
+    {
+      "title": "Creating a Trigger",
+      "content": "To create a trigger:\n\n1. Go to Connection Settings\n2. Navigate to Triggers\n3. Click 'Add Trigger'\n4. Enter the text to match (the pattern)\n5. Enter the command to send when matched\n6. Set the cooldown in milliseconds\n7. Click Save\n\nYour trigger is active immediately."
+    },
+    {
+      "title": "Trigger Actions",
+      "content": "Each trigger executes a single command when matched. To send multiple commands, use command chaining with semicolons:\n\nExample:\n- Match: 'You are hungry'\n- Action: 'eat bread;drink water'\n\nThis sends both commands in sequence when the trigger fires."
+    },
+    {
+      "title": "Client-Side Execution",
+      "content": "Important: Triggers execute client-side only:\n\n- They run in your MUDPuppy client\n- They don't modify the game state directly\n- Some games may not respond as expected to automated commands\n- Some MUDs prohibit or limit automation\n\nUse triggers responsibly and check the game's rules regarding automation."
+    },
+    {
+      "title": "Troubleshooting Triggers",
+      "content": "If a trigger isn't firing:\n\n1. **Check if enabled** - Triggers can be toggled on/off\n2. **Verify the match text** - Make sure it matches exactly (case-sensitive)\n3. **Check cooldown** - Wait longer than the cooldown period\n4. **Test with Echo** - Enable trigger echo to see matches in the terminal\n\nUse the 'Add Example' button in the Trigger Editor for ready-to-use trigger templates."
+    }
+  ]
+}

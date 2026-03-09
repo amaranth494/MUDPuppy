@@ -17,6 +17,7 @@ import (
 	"github.com/amaranth494/MudPuppy/internal/config"
 	"github.com/amaranth494/MudPuppy/internal/connections"
 	"github.com/amaranth494/MudPuppy/internal/crypto"
+	"github.com/amaranth494/MudPuppy/internal/help"
 	"github.com/amaranth494/MudPuppy/internal/metrics"
 	"github.com/amaranth494/MudPuppy/internal/profiles"
 	"github.com/amaranth494/MudPuppy/internal/redis"
@@ -146,6 +147,9 @@ func main() {
 	// Initialize profiles handler (SP04PH02)
 	profilesHandler := profiles.NewHandler(profileStore)
 
+	// Initialize help handler (SP06PH01T04)
+	helpHandler := help.NewHandler("./help")
+
 	// Create session handler with callbacks for SP03PH05 (connections integration)
 	sessionHandler := session.NewHandlerWithCallbacks(sessionManager, cfg, &session.HandlerCallbacks{
 		OnConnected: func(connectionID, userID uuid.UUID) error {
@@ -235,6 +239,8 @@ func main() {
 
 	// Public endpoints
 	mux.HandleFunc("/health", healthHandler)
+	mux.HandleFunc("/api/v1/help", helpHandler.HandlerFunc())
+	mux.HandleFunc("/api/v1/help/", helpHandler.HandlerFunc())
 	mux.HandleFunc("/api/v1/register", authHandler.Register)
 	mux.HandleFunc("/api/v1/send-otp", authHandler.SendOTP)
 	mux.HandleFunc("/api/v1/login", authHandler.Login)

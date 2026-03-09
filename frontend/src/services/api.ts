@@ -1,4 +1,4 @@
-import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, Profile, UpdateProfileRequest, Alias, Trigger, Variable, AliasesResponse, TriggersResponse, VariablesResponse } from '../types';
+import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, Profile, UpdateProfileRequest, Alias, Trigger, Variable, AliasesResponse, TriggersResponse, VariablesResponse, HelpSection, HelpSummary } from '../types';
 
 const API_BASE = '/api/v1';
 
@@ -536,6 +536,36 @@ export async function putEnvironment(connectionId: string, items: Variable[]): P
   if (!response.ok) {
     const data = await response.json();
     throw new Error(data.error || 'Failed to update environment');
+  }
+  return await response.json();
+}
+
+// ============================================
+// Help API endpoints (SP06)
+// ============================================
+
+// Get all help sections (summaries)
+export async function getHelpSections(): Promise<HelpSummary[]> {
+  const response = await fetch(`${API_BASE}/help`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to get help sections');
+  }
+  return await response.json();
+}
+
+// Get a specific help section by slug
+export async function getHelpSection(slug: string): Promise<HelpSection> {
+  const response = await fetch(`${API_BASE}/help/${slug}`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to get help section');
   }
   return await response.json();
 }

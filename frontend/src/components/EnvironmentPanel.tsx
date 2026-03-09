@@ -163,6 +163,16 @@ export default function EnvironmentPanel({ connectionId, isConnectedToThis, onVa
         Environment variables store reusable values used by automation rules. Use ${'{variable_name}'} syntax in aliases and trigger actions.
       </p>
 
+      {/* Contextual Guidance */}
+      <div className="contextual-help">
+        <p className="help-text">
+          <strong>Variables can be referenced using ${'{variable_name}'}.</strong>
+        </p>
+        <p className="help-example">
+          Example: <code>cast ${'{target}'}</code> expands to <code>cast goblin</code> when target=goblin
+        </p>
+      </div>
+
       {/* Error/Success messages */}
       {error && (
         <div className="message message-error" style={{ marginBottom: '1rem' }}>
@@ -193,7 +203,10 @@ export default function EnvironmentPanel({ connectionId, isConnectedToThis, onVa
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Value</label>
+                  <label className="form-label">
+                    Value
+                    <span className="tooltip-icon" title="The value to store. Use ${name} in aliases/triggers to reference this value.">?</span>
+                  </label>
                   <input
                     type="text"
                     className="form-input"
@@ -201,6 +214,7 @@ export default function EnvironmentPanel({ connectionId, isConnectedToThis, onVa
                     value={variable.value}
                     onChange={(e) => handleUpdateVariable(variable.id, { value: e.target.value })}
                   />
+                  <p className="form-hint">Use ${`{` + variable.name + `}`} in aliases or triggers to use this value</p>
                 </div>
               </div>
               {variableErrors[variable.id] && (

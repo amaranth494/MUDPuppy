@@ -1,0 +1,27 @@
+{
+  "slug": "connecting",
+  "title": "Connecting to a MUD",
+  "description": "Learn about host/port configuration, SSL options, and connection management",
+  "sections": [
+    {
+      "title": "Understanding Host and Port",
+      "content": "MUDs (Multi-User Dungeons) are accessed via TCP/IP connections. Each MUD server has:\n\n**Host** - The domain name or IP address of the server (e.g., 'darkrealms.org' or '192.168.1.100')\n\n**Port** - A number that identifies the specific service on that server. Common MUD ports include:\n- 23 (traditional Telnet)\n- 2700-2702 (common game ports)\n- 8080 (HTTP-based games)\n- 5555 (many custom servers)\n\nCheck your MUD's connection instructions for the correct host and port."
+    },
+    {
+      "title": "SSL/TLS Connections",
+      "content": "Some MUDs offer secure connections using SSL/TLS encryption. To use SSL:\n\n1. Enable SSL in the connection settings\n2. Some games use a separate port for SSL (common: port + 1 or port + 1000)\n\nSSL protects your login credentials and game data from eavesdropping on public networks."
+    },
+    {
+      "title": "Quick Connect vs Saved Connections",
+      "content": "**Quick Connect** is ideal for:\n- One-time connections\n- Testing new MUDs\n- Situations where you don't need to save settings\n\n**Saved Connections** are better for:\n- Regular play on the same MUD\n- Storing automation (aliases, triggers, variables)\n- Multiple characters on the same server\n\nSaved connections store your profile including automation rules."
+    },
+    {
+      "title": "Connection Timeout",
+      "content": "If a connection times out:\n\n1. Verify the host and port are correct\n2. Check your internet connection\n3. The MUD server may be down - try again later\n4. Some firewalls block MUD ports - check your network settings\n\nThe default connection timeout is 30 seconds."
+    },
+    {
+      "title": "Reconnection",
+      "content": "If your connection drops:\n\n1. The client will attempt to reconnect automatically\n2. Your session state (aliases, triggers) is preserved\n3. You may need to re-authenticate with the MUD server\n\nCheck the Troubleshooting section if you experience frequent disconnections."
+    }
+  ]
+}

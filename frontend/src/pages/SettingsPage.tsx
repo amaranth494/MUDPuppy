@@ -28,7 +28,7 @@ export default function SettingsPage() {
   // Use useLocation for URL detection instead of useParams to ensure proper re-renders
   const location = useLocation();
   const navigate = useNavigate();
-  const { updateProfile: updateSessionProfile, connectionState, currentConnectionId, automationEngine } = useSession();
+  const { updateProfile: updateSessionProfile, connectionState, currentConnectionId, automationEngine, automationError, automationDisabled, disableAutomation, enableAutomation, resumeAutomation } = useSession();
   
   // Sync section from URL to state to ensure re-render on navigation
   const [activeSection, setActiveSection] = useState<SettingsSection>('general');
@@ -552,6 +552,30 @@ export default function SettingsPage() {
         {successMessage && (
           <div className="message message-success" style={{ marginBottom: '1rem' }}>
             {successMessage}
+          </div>
+        )}
+
+        {/* SP06PH07: Automation status banner */}
+        {(automationError || automationDisabled) && (
+          <div className="automation-error-banner" style={{ marginBottom: '1rem' }}>
+            {automationError ? (
+              <>
+                <span>⚠️ Automation Paused: {automationError}</span>
+                <button onClick={resumeAutomation} className="btn btn-small">
+                  Resume Automation
+                </button>
+                <button onClick={disableAutomation} className="btn btn-small btn-secondary">
+                  Disable Automation
+                </button>
+              </>
+            ) : (
+              <>
+                <span>⚠️ Automation Disabled</span>
+                <button onClick={enableAutomation} className="btn btn-small">
+                  Enable Automation
+                </button>
+              </>
+            )}
           </div>
         )}
 

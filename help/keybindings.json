@@ -1,0 +1,31 @@
+{
+  "slug": "keybindings",
+  "title": "Key Bindings",
+  "description": "Learn how to create custom keybindings for quick command execution",
+  "sections": [
+    {
+      "title": "How Keybindings Work",
+      "content": "Keybindings let you map keyboard shortcuts to commands. When you press a bound key, the associated command is automatically sent to the MUD server.\n\nKeybindings are processed before your command reaches the input line, making them instant shortcuts."
+    },
+    {
+      "title": "Creating a Keybinding",
+      "content": "To create a new keybinding:\n\n1. Go to Connection Settings\n2. Navigate to Key Bindings\n3. Click 'Add Keybinding'\n4. Press the key combination you want to use\n5. Enter the command to send\n6. Click Save\n\nExample: Press F1 to send 'look'"
+    },
+    {
+      "title": "Default Keybindings",
+      "content": "MUDPuppy includes some default keybindings:\n\n| Key | Command | Description |\n|-----|---------|-------------|\n| F1 | look | Look around |\n| Ctrl+F1 | help | Request in-game help |\n| F2 | score | View your character status |\n| F3 | inventory | Check your inventory |\n| F4 | who | See who's online |\n\nThese can be modified or removed in Key Bindings settings."
+    },
+    {
+      "title": "Special Keys",
+      "content": "You can bind:\n\n- **Function keys** (F1-F12)\n- **Ctrl+letter** combinations (Ctrl+A, Ctrl+B, etc.)\n- **Alt+letter** combinations\n- **Arrow keys** (Up, Down, Left, Right)\n\nNote: Some key combinations are reserved by your browser and cannot be used."
+    },
+    {
+      "title": "Conflict Warnings",
+      "content": "When creating a keybinding, you'll see a warning if:\n\n- The key combination conflicts with browser shortcuts\n- The key combination conflicts with another keybinding\n\nCommon conflicts:\n- Ctrl+T (new tab)\n- Ctrl+W (close tab)\n- Ctrl+N (new window)\n- F5 (refresh)\n\nChoose a different key if you see a conflict warning."
+    },
+    {
+      "title": "Editing and Deleting",
+      "content": "To modify a keybinding:\n\n1. Go to Connection Settings → Key Bindings\n2. Click on the keybinding you want to edit\n3. Modify the command\n4. Click Save\n\nTo delete a keybinding:\n1. Click the delete icon next to the keybinding\n2. Confirm the deletion"
+    }
+  ]
+}

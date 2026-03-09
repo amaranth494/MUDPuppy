@@ -1,0 +1,23 @@
+{
+  "slug": "getting-started",
+  "title": "Getting Started",
+  "description": "Learn how to create an account, connect to a MUD, and navigate the interface",
+  "sections": [
+    {
+      "title": "Creating an Account",
+      "content": "To create an account, click the 'Register' button on the login screen. You'll need to provide:\n\n- A unique username\n- Your email address\n- A secure password\n\nAfter registering, you'll receive an OTP (One-Time Password) via email to verify your account. Enter the OTP to complete registration and log in."
+    },
+    {
+      "title": "Quick Connect",
+      "content": "The fastest way to connect to a MUD:\n\n1. Enter the host address (e.g., 'examplemud.com')\n2. Enter the port number (common ports: 23, 2700, 8080)\n3. Click 'Connect'\n\nThat's it! You'll be connected directly without saving the connection."
+    },
+    {
+      "title": "Saved Connections",
+      "content": "To save a connection for future use:\n\n1. Connect using Quick Connect first\n2. Go to Connections in the sidebar\n3. Click 'Save Current Connection'\n4. Give it a memorable name\n\nSaved connections appear in your connection list for one-click access later."
+    },
+    {
+      "title": "Navigating the Interface",
+      "content": "The main interface has three primary views:\n\n**Play** - The main game screen where you interact with the MUD\n**Connections** - Manage your saved connections and profiles\n**Help** - Documentation and guides\n\nWhen connected, additional options appear in the sidebar for configuring your session."
+    }
+  ]
+}

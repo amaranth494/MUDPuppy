@@ -1,0 +1,35 @@
+{
+  "slug": "variables",
+  "title": "Environment Variables",
+  "description": "Learn how to use variables for dynamic command customization",
+  "sections": [
+    {
+      "title": "What Are Variables?",
+      "content": "Variables are named placeholders that store values you can use in aliases and triggers. They make your automation more flexible and reusable.\n\nInstead of hardcoding values, you can use variables that are easy to change."
+    },
+    {
+      "title": "Variable Syntax",
+      "content": "Use the ${variable_name} syntax to reference variables:\n\n| Variable | Usage | Example Result |\n|----------|-------|----------------|\n| target | cast ${target} | cast goblin |\n| heal | drink ${heal} | drink potion |\n| attack | kill ${attack} | kill dragon |\n\nThe ${...} is replaced with the variable's value when the command is sent."
+    },
+    {
+      "title": "Creating a Variable",
+      "content": "To create a variable:\n\n1. Go to Connection Settings\n2. Navigate to Environment Variables\n3. Click 'Add Variable'\n4. Enter a name (e.g., 'target')\n5. Enter the value (e.g., 'goblin')\n6. Click Save\n\nYour variable is available immediately in aliases and triggers."
+    },
+    {
+      "title": "Using Variables in Aliases",
+      "content": "Variables work seamlessly with aliases:\n\nExample 1 - Combat alias:\n- Pattern: 'k'\n- Type: prefix\n- Replacement: kill ${target}\n\nWhen you type 'k goblin', it sends 'kill goblin'.\nIf you change target='dragon', it sends 'kill dragon'.\n\nExample 2 - Healer alias:\n- Pattern: 'h'\n- Type: exact\n- Replacement: heal ${heal}\n\nType 'h' to drink your configured healing item."
+    },
+    {
+      "title": "Using Variables in Triggers",
+      "content": "Variables can also be used in trigger commands:\n\nExample:\n- Match: 'You are hungry'\n- Action: 'eat ${food}'\n\nWhen triggered, it sends 'eat bread' (or whatever food is set to)."
+    },
+    {
+      "title": "Variable Persistence",
+      "content": "Variables are saved with your connection profile:\n\n- They persist across sessions\n- They're specific to each saved connection\n- Changing a variable affects all aliases/triggers that use it\n\nThis makes it easy to switch between different targets or configurations."
+    },
+    {
+      "title": "Example Workflow",
+      "content": "Here's a practical example:\n\n1. Create variable: target = goblin\n2. Create variable: heal = potion\n3. Create alias: pattern='k', replacement='kill ${target}'\n4. Create alias: pattern='dr', replacement='drink ${heal}'\n\nNow:\n- Type 'k' to kill goblins\n- Type 'dr' to drink potions\n\nWhen you want to fight dragons instead:\n- Change target = dragon\n- Now 'k' kills dragons automatically!\n\nUse the 'Add Example' button for ready-to-use variable templates."
+    }
+  ]
+}

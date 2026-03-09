@@ -1,0 +1,35 @@
+{
+  "slug": "troubleshooting",
+  "title": "Troubleshooting",
+  "description": "Common issues and how to resolve them",
+  "sections": [
+    {
+      "title": "Connection Issues",
+      "content": "**Can't connect to a MUD:**\n\n1. Verify the host and port are correct\n2. Check your internet connection\n3. Try a different port if available\n4. Check if the MUD server is online (try their website)\n5. Disable VPN/proxy if using one\n6. Check firewall settings\n\n**Connection times out:**\n- Some MUDs block connections from cloud hosting\n- Try connecting from a home network\n- Check if SSL is required"
+    },
+    {
+      "title": "Authentication Issues",
+      "content": "**Can't log in:**\n\n1. Verify your username and password\n2. Check for caps lock\n3. Some MUDs use a separate account from MUDPuppy\n4. Try the 'forgot password' on the MUD's website\n\n**OTP not working:**\n1. Check your spam folder\n2. Verify the email address is correct\n3. OTP expires after 5 minutes - request a new one\n4. Make sure your system time is accurate"
+    },
+    {
+      "title": "Automation Not Working",
+      "content": "**Aliases not firing:**\n\n1. Check if the alias is enabled (toggle)\n2. Verify the pattern matches exactly what you're typing\n3. For prefix matches, make sure type is set to 'prefix'\n4. Check for conflicting aliases (higher priority)\n\n**Triggers not firing:**\n\n1. Check if the trigger is enabled\n2. Verify the match text (case-sensitive)\n3. Wait longer than the cooldown period\n4. Check if the text appears in the terminal (copy/paste test)\n5. Make sure the MUD sends the text, not just displays it locally"
+    },
+    {
+      "title": "Garbled or Missing Text",
+      "content": "**Text appears garbled or as boxes:**\n\n- The MUD uses a character encoding not supported\n- Try changing the encoding in settings (UTF-8, ISO-8859-1)\n- Some MUDs use specific ANSI codes\n\n**Text is cut off or missing:**\n\n- Check if word wrap is enabled\n- The MUD might be sending special characters\n- Try increasing the scrollback buffer size"
+    },
+    {
+      "title": "Lag and Performance",
+      "content": "**Game feels laggy:**\n\n1. Check your internet connection speed\n2. Some lag is normal for distant MUD servers\n3. Disable echo if not needed\n4. Reduce scrollback buffer size\n5. Close other bandwidth-heavy applications\n\n**Client freezes:**\n\n1. Check if automation is in an infinite loop\n2. Look for the circuit breaker banner\n3. Refresh the page (F5)\n4. Reconnect if necessary"
+    },
+    {
+      "title": "Session Drops",
+      "content": "**Frequent disconnections:**\n\n1. Check your internet stability\n2. Some MUDs have idle timeouts - stay active\n3. Check if antivirus/firewall is interfering\n4. Try a different network (mobile hotspot test)\n5. The MUD server might be overloaded\n\n**After reconnection:**\n\n- Your automation settings are preserved\n- You may need to re-authenticate with the MUD\n- Check the MUD's reconnect procedures"
+    },
+    {
+      "title": "Reporting Bugs",
+      "content": "If you've tried the above solutions and still have issues:\n\n1. Check the Help section for updated solutions\n2. Note the exact steps to reproduce the issue\n3. Note your browser and operating system\n4. Check if the issue happens on other MUDs\n5. Take a screenshot if applicable\n\nTo report a bug, gather the above information and contact the MUDPuppy support team."
+    }
+  ]
+}

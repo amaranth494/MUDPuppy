@@ -5,6 +5,8 @@ import { SavedConnection, Profile, ProfileSettings, UpdateProfileRequest, Alias,
 import { normalizeKeybindings, eventToCanonicalKey, isValidKeybindingFormat, isValidCommand, canonicalizeKeybinding, isModifierOnly } from '../services/keybindings';
 import { useSession } from '../context/SessionContext';
 import EnvironmentPanel from '../components/EnvironmentPanel';
+import Modal from '../components/Modal';
+import { aliasTemplates, triggerTemplates, createAliasFromTemplate, createTriggerFromTemplate } from '../templates';
 
 // Section types
 type SettingsSection = 'general' | 'keybindings' | 'aliases' | 'triggers' | 'environment';
@@ -50,6 +52,10 @@ export default function ConnectionSettingsPage() {
   const [aliases, setAliases] = useState<Alias[]>([]);
   const [isSavingAliases, setIsSavingAliases] = useState(false);
   const [aliasErrors, setAliasErrors] = useState<Record<string, string>>({});
+  
+  // Template modal state
+  const [showAliasTemplateModal, setShowAliasTemplateModal] = useState(false);
+  const [showTriggerTemplateModal, setShowTriggerTemplateModal] = useState(false);
 
   // Validate single alias
   const validateAlias = (alias: Alias): string | null => {
@@ -384,6 +390,50 @@ export default function ConnectionSettingsPage() {
     setAliases(aliases.filter(a => a.id !== id));
   };
 
+  // Move alias up (reorder)
+  const handleMoveAliasUp = async (index: number) => {
+    if (index <= 0) return;
+    const newAliases = [...aliases];
+    [newAliases[index - 1], newAliases[index]] = [newAliases[index], newAliases[index - 1]];
+    setAliases(newAliases);
+    // Persist immediately to server
+    try {
+      await putAliases(connectionId!, newAliases);
+    } catch (err) {
+      console.error('Failed to persist alias reorder:', err);
+    }
+  };
+
+  // Move alias down (reorder)
+  const handleMoveAliasDown = async (index: number) => {
+    if (index >= aliases.length - 1) return;
+    const newAliases = [...aliases];
+    [newAliases[index], newAliases[index + 1]] = [newAliases[index + 1], newAliases[index]];
+    setAliases(newAliases);
+    // Persist immediately to server
+    try {
+      await putAliases(connectionId!, newAliases);
+    } catch (err) {
+      console.error('Failed to persist alias reorder:', err);
+    }
+  };
+
+  // Import alias from template
+  const handleImportAliasTemplate = (templateIndex: number) => {
+    if (aliases.length >= 200) {
+      setError('Maximum 200 aliases allowed');
+      setShowAliasTemplateModal(false);
+      return;
+    }
+    
+    const template = aliasTemplates[templateIndex];
+    if (template) {
+      const newAlias = createAliasFromTemplate(template);
+      setAliases([...aliases, newAlias]);
+      setShowAliasTemplateModal(false);
+    }
+  };
+
   // Add trigger
   const handleAddTrigger = () => {
     // Check max limit
@@ -411,6 +461,50 @@ export default function ConnectionSettingsPage() {
   // Remove trigger
   const handleRemoveTrigger = (id: string) => {
     setTriggers(triggers.filter(t => t.id !== id));
+  };
+
+  // Move trigger up (reorder)
+  const handleMoveTriggerUp = async (index: number) => {
+    if (index <= 0) return;
+    const newTriggers = [...triggers];
+    [newTriggers[index - 1], newTriggers[index]] = [newTriggers[index], newTriggers[index - 1]];
+    setTriggers(newTriggers);
+    // Persist immediately to server
+    try {
+      await putTriggers(connectionId!, newTriggers);
+    } catch (err) {
+      console.error('Failed to persist trigger reorder:', err);
+    }
+  };
+
+  // Move trigger down (reorder)
+  const handleMoveTriggerDown = async (index: number) => {
+    if (index >= triggers.length - 1) return;
+    const newTriggers = [...triggers];
+    [newTriggers[index], newTriggers[index + 1]] = [newTriggers[index + 1], newTriggers[index]];
+    setTriggers(newTriggers);
+    // Persist immediately to server
+    try {
+      await putTriggers(connectionId!, newTriggers);
+    } catch (err) {
+      console.error('Failed to persist trigger reorder:', err);
+    }
+  };
+
+  // Import trigger from template
+  const handleImportTriggerTemplate = (templateIndex: number) => {
+    if (triggers.length >= 200) {
+      setError('Maximum 200 triggers allowed');
+      setShowTriggerTemplateModal(false);
+      return;
+    }
+    
+    const template = triggerTemplates[templateIndex];
+    if (template) {
+      const newTrigger = createTriggerFromTemplate(template);
+      setTriggers([...triggers, newTrigger]);
+      setShowTriggerTemplateModal(false);
+    }
   };
 
   // Handle settings change
@@ -594,7 +688,10 @@ export default function ConnectionSettingsPage() {
               <div className="keybinding-add">
                 <div className="form-row">
                   <div className="form-group">
-                    <label className="form-label">Key</label>
+                    <label className="form-label">
+                      Key
+                      <span className="tooltip-icon" title="Press a key or key combination. Avoid browser shortcuts like Ctrl+T, Ctrl+W, F5.">?</span>
+                    </label>
                     <input
                       type="text"
                       className="form-input"
@@ -605,7 +702,10 @@ export default function ConnectionSettingsPage() {
                     />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Command</label>
+                    <label className="form-label">
+                      Command
+                      <span className="tooltip-icon" title="The command to send when the key is pressed.">?</span>
+                    </label>
                     <input
                       type="text"
                       className="form-input"
@@ -646,14 +746,30 @@ export default function ConnectionSettingsPage() {
               <p className="section-description">
                 Aliases transform user-entered commands into different commands before submission.
               </p>
+              
+              {/* Contextual Guidance */}
+              <div className="contextual-help">
+                <p className="help-text">
+                  <strong>Aliases transform typed commands before they are sent to the server.</strong>
+                </p>
+                <p className="help-example">
+                  Examples: <code>l</code> → <code>look</code>, <code>k goblin</code> → <code>kill goblin</code>
+                </p>
+              </div>
 
               <div className="automation-list">
-                {aliases.map(alias => (
+                {aliases.map((alias, index) => (
                   <div key={alias.id} className="automation-row">
+                    <div className="automation-row-priority">
+                      <span className="priority-number" title="Priority order (1 = highest)">#{index + 1}</span>
+                    </div>
                     <div className="automation-row-content">
                       <div className="form-row">
                         <div className="form-group">
-                          <label className="form-label">Pattern</label>
+                          <label className="form-label">
+                            Pattern
+                            <span className="tooltip-icon" title="The text to match in your command. Use 'exact' for full match or 'prefix' for partial match.">?</span>
+                          </label>
                           <input
                             type="text"
                             className={`form-input ${aliasErrors[alias.id]?.includes('Pattern') ? 'form-input-error' : ''}`}
@@ -671,6 +787,7 @@ export default function ConnectionSettingsPage() {
                               }
                             }}
                           />
+                          <p className="form-hint">Use %1, %2, %3 for arguments (e.g., "get %1" for "g sword" → "get sword")</p>
                         </div>
                         <div className="form-group">
                           <label className="form-label">Replacement</label>
@@ -708,12 +825,30 @@ export default function ConnectionSettingsPage() {
                         <div className="form-error">{aliasErrors[alias.id]}</div>
                       )}
                     </div>
-                    <button
-                      className="btn btn-small btn-danger"
-                      onClick={() => handleRemoveAlias(alias.id)}
-                    >
-                      Remove
-                    </button>
+                    <div className="automation-row-actions">
+                      <button
+                        className="btn btn-small btn-icon"
+                        onClick={() => handleMoveAliasUp(index)}
+                        disabled={index === 0}
+                        title="Move up (higher priority)"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        className="btn btn-small btn-icon"
+                        onClick={() => handleMoveAliasDown(index)}
+                        disabled={index === aliases.length - 1}
+                        title="Move down (lower priority)"
+                      >
+                        ↓
+                      </button>
+                      <button
+                        className="btn btn-small btn-danger"
+                        onClick={() => handleRemoveAlias(alias.id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
                 ))}
                 {aliases.length === 0 && (
@@ -729,6 +864,12 @@ export default function ConnectionSettingsPage() {
                   onClick={handleAddAlias}
                 >
                   Add Alias
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setShowAliasTemplateModal(true)}
+                >
+                  Add Example
                 </button>
                 <button
                   className="btn btn-primary"
@@ -748,14 +889,30 @@ export default function ConnectionSettingsPage() {
               <p className="section-description">
                 Triggers monitor incoming MUD output and automatically execute commands when a condition is matched.
               </p>
+              
+              {/* Contextual Guidance */}
+              <div className="contextual-help">
+                <p className="help-text">
+                  <strong>Triggers activate when matching server output is received.</strong>
+                </p>
+                <p className="help-note">
+                  Note: Matching is currently <strong>case-sensitive substring matching</strong>.
+                </p>
+              </div>
 
               <div className="automation-list">
-                {triggers.map(trigger => (
+                {triggers.map((trigger, index) => (
                   <div key={trigger.id} className="automation-row">
+                    <div className="automation-row-priority">
+                      <span className="priority-number" title="Priority order (1 = highest)">#{index + 1}</span>
+                    </div>
                     <div className="automation-row-content">
                       <div className="form-row">
                         <div className="form-group">
-                          <label className="form-label">Match</label>
+                          <label className="form-label">
+                            Match
+                            <span className="tooltip-icon" title="Case-sensitive substring match. The trigger fires when this text appears anywhere in the server output.">?</span>
+                          </label>
                           <input
                             type="text"
                             className={`form-input ${triggerErrors[trigger.id]?.includes('Match') ? 'form-input-error' : ''}`}
@@ -830,12 +987,30 @@ export default function ConnectionSettingsPage() {
                         <div className="form-error">{triggerErrors[trigger.id]}</div>
                       )}
                     </div>
-                    <button
-                      className="btn btn-small btn-danger"
-                      onClick={() => handleRemoveTrigger(trigger.id)}
-                    >
-                      Remove
-                    </button>
+                    <div className="automation-row-actions">
+                      <button
+                        className="btn btn-small btn-icon"
+                        onClick={() => handleMoveTriggerUp(index)}
+                        disabled={index === 0}
+                        title="Move up (higher priority)"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        className="btn btn-small btn-icon"
+                        onClick={() => handleMoveTriggerDown(index)}
+                        disabled={index === triggers.length - 1}
+                        title="Move down (lower priority)"
+                      >
+                        ↓
+                      </button>
+                      <button
+                        className="btn btn-small btn-danger"
+                        onClick={() => handleRemoveTrigger(trigger.id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
                 ))}
                 {triggers.length === 0 && (
@@ -851,6 +1026,12 @@ export default function ConnectionSettingsPage() {
                   onClick={handleAddTrigger}
                 >
                   Add Trigger
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setShowTriggerTemplateModal(true)}
+                >
+                  Add Example
                 </button>
                 <button
                   className="btn btn-primary"
@@ -872,6 +1053,63 @@ export default function ConnectionSettingsPage() {
           )}
         </div>
       </div>
+
+      {/* Alias Template Modal */}
+      <Modal
+        isOpen={showAliasTemplateModal}
+        onClose={() => setShowAliasTemplateModal(false)}
+        title="Add Alias Example"
+        className="template-modal"
+      >
+        <div className="template-list">
+          {aliasTemplates.map((template, index) => (
+            <div key={index} className="template-item">
+              <div className="template-info">
+                <div className="template-name">{template.name}</div>
+                <div className="template-description">{template.description}</div>
+                <div className="template-preview">
+                  <code>{template.pattern}</code> → <code>{template.replacement}</code>
+                </div>
+              </div>
+              <button
+                className="btn btn-small btn-primary"
+                onClick={() => handleImportAliasTemplate(index)}
+              >
+                Add
+              </button>
+            </div>
+          ))}
+        </div>
+      </Modal>
+
+      {/* Trigger Template Modal */}
+      <Modal
+        isOpen={showTriggerTemplateModal}
+        onClose={() => setShowTriggerTemplateModal(false)}
+        title="Add Trigger Example"
+        className="template-modal"
+      >
+        <div className="template-list">
+          {triggerTemplates.map((template, index) => (
+            <div key={index} className="template-item">
+              <div className="template-info">
+                <div className="template-name">{template.name}</div>
+                <div className="template-description">{template.description}</div>
+                <div className="template-preview">
+                  When: <code>{template.match}</code> → <code>{template.action}</code>
+                  <span className="template-cooldown"> (cooldown: {template.cooldown_ms}ms)</span>
+                </div>
+              </div>
+              <button
+                className="btn btn-small btn-primary"
+                onClick={() => handleImportTriggerTemplate(index)}
+              >
+                Add
+              </button>
+            </div>
+          ))}
+        </div>
+      </Modal>
     </div>
   );
 }
