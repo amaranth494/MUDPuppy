@@ -943,28 +943,6 @@ export default function SettingsPage() {
                           onChange={(e) => handleUpdateTrigger(trigger.id, { action: e.target.value })}
                         />
                       </div>
-                      <div className="form-row">
-                        <div className="form-group" style={{ minWidth: '120px' }}>
-                          <label className="form-label">Cooldown (ms)</label>
-                          <input
-                            type="number"
-                            className="form-input"
-                            value={trigger.cooldown_ms}
-                            onChange={(e) => handleUpdateTrigger(trigger.id, { cooldown_ms: parseInt(e.target.value) || 2000 })}
-                            min={0}
-                          />
-                        </div>
-                        <div className="form-group form-checkbox" style={{ minWidth: '80px', alignSelf: 'flex-end', marginBottom: '4px' }}>
-                          <label>
-                            <input
-                              type="checkbox"
-                              checked={trigger.enabled}
-                              onChange={(e) => handleUpdateTrigger(trigger.id, { enabled: e.target.checked })}
-                            />
-                            Enabled
-                          </label>
-                        </div>
-                      </div>
                     </div>
                     <div className="automation-row-actions">
                       <button
@@ -983,6 +961,22 @@ export default function SettingsPage() {
                       >
                         ↓
                       </button>
+                      <button
+                        className={`btn btn-small ${trigger.enabled ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => handleUpdateTrigger(trigger.id, { enabled: !trigger.enabled })}
+                        title={trigger.enabled ? 'Disable trigger' : 'Enable trigger'}
+                      >
+                        {trigger.enabled ? 'On' : 'Off'}
+                      </button>
+                      <input
+                        type="number"
+                        className="form-input"
+                        style={{ width: '70px' }}
+                        value={trigger.cooldown_ms}
+                        onChange={(e) => handleUpdateTrigger(trigger.id, { cooldown_ms: parseInt(e.target.value) || 2000 })}
+                        min={0}
+                        title="Cooldown (ms)"
+                      />
                       <button
                         className="btn btn-small btn-danger"
                         onClick={() => handleRemoveTrigger(trigger.id)}
