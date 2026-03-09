@@ -3,6 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
 import SessionBadge from './SessionBadge';
 
+// SP06PH08: Sidebar component - cleaned up duplicate nav items
+
 interface SidebarProps {
   /** Whether the sidebar is collapsed to icon-only mode */
   isCollapsed?: boolean;
