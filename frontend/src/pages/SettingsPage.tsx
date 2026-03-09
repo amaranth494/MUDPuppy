@@ -923,28 +923,28 @@ export default function SettingsPage() {
                       <span className="priority-number" title="Priority order (1 = highest)">#{index + 1}</span>
                     </div>
                     <div className="automation-row-content">
+                      <div className="form-group">
+                        <label className="form-label">Match</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="e.g., You are hungry"
+                          value={trigger.match}
+                          onChange={(e) => handleUpdateTrigger(trigger.id, { match: e.target.value })}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Action</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="e.g., eat bread"
+                          value={trigger.action}
+                          onChange={(e) => handleUpdateTrigger(trigger.id, { action: e.target.value })}
+                        />
+                      </div>
                       <div className="form-row">
-                        <div className="form-group">
-                          <label className="form-label">Match</label>
-                          <input
-                            type="text"
-                            className="form-input"
-                            placeholder="e.g., You are hungry"
-                            value={trigger.match}
-                            onChange={(e) => handleUpdateTrigger(trigger.id, { match: e.target.value })}
-                          />
-                        </div>
-                        <div className="form-group">
-                          <label className="form-label">Action</label>
-                          <input
-                            type="text"
-                            className="form-input"
-                            placeholder="e.g., eat bread"
-                            value={trigger.action}
-                            onChange={(e) => handleUpdateTrigger(trigger.id, { action: e.target.value })}
-                          />
-                        </div>
-                        <div className="form-group">
+                        <div className="form-group" style={{ minWidth: '120px' }}>
                           <label className="form-label">Cooldown (ms)</label>
                           <input
                             type="number"
@@ -954,7 +954,7 @@ export default function SettingsPage() {
                             min={0}
                           />
                         </div>
-                        <div className="form-group form-checkbox">
+                        <div className="form-group form-checkbox" style={{ minWidth: '80px', alignSelf: 'flex-end', marginBottom: '4px' }}>
                           <label>
                             <input
                               type="checkbox"
