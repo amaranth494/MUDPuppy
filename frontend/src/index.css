@@ -609,6 +609,11 @@ body {
   max-width: 500px;
 }
 
+/* Help modal - 30% wider than default */
+.modal-help .modal-container {
+  max-width: 1040px;
+}
+
 .template-list {
   display: flex;
   flex-direction: column;

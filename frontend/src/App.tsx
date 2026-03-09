@@ -140,6 +140,7 @@ function AppContent() {
             onClose={handleModalClose}
             title={getModalTitle()}
             onInputLockChange={setInputLocked}
+            className={location.pathname === '/help' ? 'modal-help' : ''}
           >
             <Routes>
               <Route path="/connections" element={<ConnectionsPage />} />
