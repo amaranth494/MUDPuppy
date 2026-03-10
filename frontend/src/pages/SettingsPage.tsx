@@ -822,60 +822,57 @@ export default function SettingsPage() {
               <div className="automation-list">
                 {aliases.map((alias, index) => (
                   <div key={alias.id} className="automation-row">
-                    <div className="automation-row-priority">
-                      <span className="priority-number" title="Priority order (1 = highest)">#{index + 1}</span>
-                    </div>
-                    <div className="automation-row-content">
-                      <div className="form-row">
-                        <div className="form-group">
-                          <label className="form-label">Pattern</label>
-                          <input
-                            type="text"
-                            className="form-input"
-                            placeholder="e.g., l"
-                            value={alias.pattern}
-                            onChange={(e) => handleUpdateAlias(alias.id, { pattern: e.target.value })}
-                          />
-                        </div>
-                        <div className="form-group">
-                          <label className="form-label">Replacement</label>
-                          <input
-                            type="text"
-                            className="form-input"
-                            placeholder="e.g., look %1 or get %1"
-                            value={alias.replacement}
-                            onChange={(e) => handleUpdateAlias(alias.id, { replacement: e.target.value })}
-                          />
-                          <p className="form-hint">Use %1, %2, %3 for arguments (e.g., "get %1" for "g sword" → "get sword")</p>
-                        </div>
-                        <div className="form-group form-checkbox">
-                          <label>
-                            <input
-                              type="checkbox"
-                              checked={alias.enabled}
-                              onChange={(e) => handleUpdateAlias(alias.id, { enabled: e.target.checked })}
-                            />
-                            Enabled
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="automation-row-actions">
+                    <div className="automation-row-priority" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
                       <button
                         className="btn btn-small btn-icon"
                         onClick={() => handleMoveAliasUp(index)}
                         disabled={index === 0}
                         title="Move up (higher priority)"
+                        style={{ padding: '2px 4px', minWidth: 'auto' }}
                       >
                         ↑
                       </button>
+                      <span className="priority-number" title="Priority order (1 = highest)">#{index + 1}</span>
                       <button
                         className="btn btn-small btn-icon"
                         onClick={() => handleMoveAliasDown(index)}
                         disabled={index === aliases.length - 1}
                         title="Move down (lower priority)"
+                        style={{ padding: '2px 4px', minWidth: 'auto' }}
                       >
                         ↓
+                      </button>
+                    </div>
+                    <div className="automation-row-content">
+                      <div className="form-group">
+                        <label className="form-label">Pattern</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="e.g., l"
+                          value={alias.pattern}
+                          onChange={(e) => handleUpdateAlias(alias.id, { pattern: e.target.value })}
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Replacement</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="e.g., look %1 or get %1"
+                          value={alias.replacement}
+                          onChange={(e) => handleUpdateAlias(alias.id, { replacement: e.target.value })}
+                        />
+                        <p className="form-hint">Use %1, %2, %3 for arguments (e.g., "get %1" for "g sword" → "get sword")</p>
+                      </div>
+                    </div>
+                    <div className="automation-row-actions">
+                      <button
+                        className={`btn btn-small ${alias.enabled ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => handleUpdateAlias(alias.id, { enabled: !alias.enabled })}
+                        title={alias.enabled ? 'Disable alias' : 'Enable alias'}
+                      >
+                        {alias.enabled ? 'On' : 'Off'}
                       </button>
                       <button
                         className="btn btn-small btn-danger"
