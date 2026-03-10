@@ -961,6 +961,15 @@ export default function SettingsPage() {
                       >
                         ↓
                       </button>
+                      <input
+                        type="number"
+                        className="form-input"
+                        style={{ width: '126px' }}
+                        value={trigger.cooldown_ms}
+                        onChange={(e) => handleUpdateTrigger(trigger.id, { cooldown_ms: parseInt(e.target.value) || 2000 })}
+                        min={0}
+                        title="Cooldown (ms)"
+                      />
                       <button
                         className={`btn btn-small ${trigger.enabled ? 'btn-primary' : 'btn-secondary'}`}
                         onClick={() => handleUpdateTrigger(trigger.id, { enabled: !trigger.enabled })}
@@ -968,15 +977,6 @@ export default function SettingsPage() {
                       >
                         {trigger.enabled ? 'On' : 'Off'}
                       </button>
-                      <input
-                        type="number"
-                        className="form-input"
-                        style={{ width: '70px' }}
-                        value={trigger.cooldown_ms}
-                        onChange={(e) => handleUpdateTrigger(trigger.id, { cooldown_ms: parseInt(e.target.value) || 2000 })}
-                        min={0}
-                        title="Cooldown (ms)"
-                      />
                       <button
                         className="btn btn-small btn-danger"
                         onClick={() => handleRemoveTrigger(trigger.id)}
