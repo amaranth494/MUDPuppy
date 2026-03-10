@@ -863,7 +863,6 @@ export default function SettingsPage() {
                           value={alias.replacement}
                           onChange={(e) => handleUpdateAlias(alias.id, { replacement: e.target.value })}
                         />
-                        <p className="form-hint">Use %1, %2, %3 for arguments (e.g., "get %1" for "g sword" → "get sword")</p>
                       </div>
                     </div>
                     <div className="automation-row-actions">
