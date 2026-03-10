@@ -30,6 +30,33 @@ const SPECIAL_KEY_MAP: Record<string, string> = {
   'pageup': 'pageup',
   'pagedown': 'pagedown',
   'insert': 'insert',
+  // Numpad keys - use event.code to get physical key identity
+  'numpad0': 'numpad0',
+  'numpad1': 'numpad1',
+  'numpad2': 'numpad2',
+  'numpad3': 'numpad3',
+  'numpad4': 'numpad4',
+  'numpad5': 'numpad5',
+  'numpad6': 'numpad6',
+  'numpad7': 'numpad7',
+  'numpad8': 'numpad8',
+  'numpad9': 'numpad9',
+  'numpaddecimal': 'numpaddecimal',
+  'numpaddivide': 'numpaddivide',
+  'numpadmultiply': 'numpadmultiply',
+  'numpadsubtract': 'numpadsubtract',
+  'numpadadd': 'numpadadd',
+  'numpadenter': 'numpadenter',
+  'numpadinsert': 'numpadinsert',  // NumLock off: Insert
+  'numpaddelete': 'numpaddelete',  // NumLock off: Delete
+  'numpadhome': 'numpadhome',      // NumLock off: Home
+  'numpadend': 'numpadend',        // NumLock off: End
+  'numpadpageup': 'numpadpageup',  // NumLock off: PageUp
+  'numpadpagedown': 'numpadpagedown',  // NumLock off: PageDown
+  'numpadup': 'numpadup',          // NumLock off: Up
+  'numpaddown': 'numpaddown',      // NumLock off: Down
+  'numpadleft': 'numpadleft',      // NumLock off: Left
+  'numpadright': 'numpadright',    // NumLock off: Right
 };
 
 // Modifier keys that should be ignored when capturing keybindings
@@ -138,12 +165,19 @@ export function canonicalizeKeybinding(binding: string): string | null {
 
 /**
  * Convert a keyboard event to canonical binding key
+ * Uses event.code to get physical key identity (important for numpad keys)
  */
 export function eventToCanonicalKey(event: KeyboardEvent): string | null {
-  const key = event.key.toLowerCase();
+  // Use event.code for physical key identity - this distinguishes numpad keys
+  // from regular keys/arrow keys regardless of NumLock state
+  const code = event.code.toLowerCase();
   
   // Ignore modifier-only keys
-  if (key === 'control' || key === 'alt' || key === 'shift' || key === 'meta') {
+  if (code === 'control' || code === 'alt' || code === 'shift' || code === 'meta' ||
+      code === 'controlleft' || code === 'controlright' ||
+      code === 'altleft' || code === 'altright' ||
+      code === 'shiftleft' || code === 'shiftright' ||
+      code === 'metaleft' || code === 'metaright') {
     return null;
   }
   
@@ -154,8 +188,8 @@ export function eventToCanonicalKey(event: KeyboardEvent): string | null {
   if (event.shiftKey) modifiers.push('shift');
   if (event.metaKey) modifiers.push('meta');
   
-  // Normalize key name
-  const keyName = normalizeKeyName(key);
+  // Normalize key name (using code for numpad distinction)
+  const keyName = normalizeKeyName(code);
   
   // Sort modifiers in canonical order
   const sortedModifiers = [...modifiers].sort((a, b) => {
