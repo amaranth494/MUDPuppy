@@ -83,10 +83,34 @@ export default function PlayScreen() {
       }
     }
 
+    // Custom fit function that aligns to row height (16px) to prevent cut-off
+    const customFit = () => {
+      if (!terminalInstanceRef.current || !terminalRef.current || !fitAddonRef.current) return;
+      
+      const terminal = terminalInstanceRef.current;
+      const container = terminalRef.current;
+      
+      // Get container dimensions accounting for padding
+      const padding = 16; // var(--spacing-sm) * 2
+      const availableWidth = container.clientWidth - padding;
+      const availableHeight = container.clientHeight - padding;
+      
+      // Get character dimensions - use defaults since internal APIs vary by version
+      const charWidth = 8; // typical monospace character width
+      const charHeight = 16; // xterm.js default row height
+      
+      // Calculate columns and rows that fit
+      const cols = Math.floor(availableWidth / charWidth);
+      const rows = Math.floor(availableHeight / charHeight);
+      
+      // Resize terminal to exact fit (aligned to row height)
+      terminal.resize(cols, rows);
+    };
+
     const fitAddon = new FitAddon();
     terminal.loadAddon(fitAddon);
     terminal.open(terminalRef.current);
-    fitAddon.fit();
+    customFit();
 
     // Handle Ctrl+C / Cmd+C for clipboard copy when text is selected
     terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
@@ -115,9 +139,7 @@ export default function PlayScreen() {
 
     // Handle resize
     const handleResize = () => {
-      if (fitAddonRef.current) {
-        fitAddonRef.current.fit();
-      }
+      customFit();
     };
     window.addEventListener('resize', handleResize);
 
@@ -198,17 +220,6 @@ export default function PlayScreen() {
       }
     };
   }, [wsManager, automationEngine, connectionState]);
-
-  // Auto-fit terminal on window resize
-  useEffect(() => {
-    const handleResize = () => {
-      if (fitAddonRef.current) {
-        fitAddonRef.current.fit();
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   // SP05: Set up automation engine callback for command submission
   useEffect(() => {

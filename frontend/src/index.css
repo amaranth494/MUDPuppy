@@ -1645,7 +1645,7 @@ body {
   min-height: 100% !important;
 }
 
-/* Fix xterm-rows to stay within viewport */
+/* Fix xterm-rows to stay within viewport - ensure complete rows only */
 .terminal-container .xterm-rows {
   overflow: hidden !important;
   flex-shrink: 0 !important;
