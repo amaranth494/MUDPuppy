@@ -1629,6 +1629,19 @@ body {
 
 .terminal-container .xterm-screen {
   margin-top: 0 !important;
+  height: 100% !important;
+}
+
+/* Ensure xterm-viewport and xterm-screen have equal heights */
+.terminal-container .xterm {
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-container .xterm-viewport {
+  flex: 1 !important;
+  height: auto !important;
+  min-height: 100% !important;
 }
 
 .input-row {
