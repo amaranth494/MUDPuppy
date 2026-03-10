@@ -919,8 +919,26 @@ export default function SettingsPage() {
               <div className="automation-list">
                 {triggers.map((trigger, index) => (
                   <div key={trigger.id} className="automation-row">
-                    <div className="automation-row-priority">
+                    <div className="automation-row-priority" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                      <button
+                        className="btn btn-small btn-icon"
+                        onClick={() => handleMoveTriggerUp(index)}
+                        disabled={index === 0}
+                        title="Move up (higher priority)"
+                        style={{ padding: '2px 4px', minWidth: 'auto' }}
+                      >
+                        ↑
+                      </button>
                       <span className="priority-number" title="Priority order (1 = highest)">#{index + 1}</span>
+                      <button
+                        className="btn btn-small btn-icon"
+                        onClick={() => handleMoveTriggerDown(index)}
+                        disabled={index === triggers.length - 1}
+                        title="Move down (lower priority)"
+                        style={{ padding: '2px 4px', minWidth: 'auto' }}
+                      >
+                        ↓
+                      </button>
                     </div>
                     <div className="automation-row-content">
                       <div className="form-group">
@@ -945,22 +963,6 @@ export default function SettingsPage() {
                       </div>
                     </div>
                     <div className="automation-row-actions">
-                      <button
-                        className="btn btn-small btn-icon"
-                        onClick={() => handleMoveTriggerUp(index)}
-                        disabled={index === 0}
-                        title="Move up (higher priority)"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        className="btn btn-small btn-icon"
-                        onClick={() => handleMoveTriggerDown(index)}
-                        disabled={index === triggers.length - 1}
-                        title="Move down (lower priority)"
-                      >
-                        ↓
-                      </button>
                       <input
                         type="number"
                         className="form-input"
