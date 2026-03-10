@@ -1620,6 +1620,7 @@ body {
   padding: var(--spacing-sm);
   overflow: hidden;
   min-height: 0;
+  position: relative;
 }
 
 /* Fix for xterm.js viewport alignment - prevents bottom text cut-off */
@@ -1650,12 +1651,22 @@ body {
   flex-shrink: 0 !important;
 }
 
-/* Anchor xterm-helper-textarea to bottom-left of viewport */
+/* Anchor xterm-helper-textarea to bottom-left of viewport - hidden but functional */
 .terminal-container .xterm-helper-textarea {
   position: absolute !important;
-  bottom: 0 !important;
-  left: 0 !important;
-  z-index: 10 !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  color: transparent !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+  white-space: pre !important;
+  clip: rect(0, 0, 0, 0) !important;
 }
 
 .input-row {
