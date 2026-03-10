@@ -1644,6 +1644,20 @@ body {
   min-height: 100% !important;
 }
 
+/* Fix xterm-rows to stay within viewport */
+.terminal-container .xterm-rows {
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
+}
+
+/* Anchor xterm-helper-textarea to bottom-left of viewport */
+.terminal-container .xterm-helper-textarea {
+  position: absolute !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  z-index: 10 !important;
+}
+
 .input-row {
   display: flex;
   gap: var(--spacing-md);
