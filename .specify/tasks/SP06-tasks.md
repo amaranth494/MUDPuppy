@@ -230,10 +230,10 @@
 
 ### SP06PH06T04 — Test reordering
 
-- [ ] **Task:** Verify buttons, persistence, and execution priority
+- [x] **Task:** Verify buttons, persistence, and execution priority
 - **Acceptance:** All tests pass
 - **Commit:** "SP06PH06T04: Test reordering functionality"
-- [ ] **Status:** Pending
+- [x] **Status:** VERIFIED (PH09)
 
 ---
 
@@ -264,10 +264,10 @@
 
 ### SP06PH07T04 — Test circuit breaker UI
 
-- [ ] **Task:** Verify banner appears in PlayScreen and Connection Settings, verify buttons work, verify sidebar indicator
+- [x] **Task:** Verify banner appears in PlayScreen and Connection Settings, verify buttons work, verify sidebar indicator
 - **Acceptance:** All tests pass
 - **Commit:** "SP06PH07T04: Test circuit breaker UI"
-- [ ] **Status:** Pending (QA verification needed)
+- [x] **Status:** VERIFIED (PH09)
 
 ---
 
@@ -296,10 +296,10 @@
 
 ### SP06PH08T04 — Test command history
 
-- [ ] **Task:** Verify up/down recall works end-to-end
+- [x] **Task:** Verify up/down recall works end-to-end
 - **Acceptance:** All tests pass
 - **Commit:** "SP06PH08T04: Test command history"
-- [ ] **Status:** Pending
+- [x] **Status:** VERIFIED (PH09)
 
 ---
 
@@ -335,29 +335,29 @@
 
 ### SP06PH09T04 — Status Indicator Tests
 
-- [ ] **SP06PH09T04a:** Trigger automation pause (e.g., too many rapid triggers) - Verify status banner appears in PlayScreen
-- [ ] **SP06PH09T04b:** Verify banner shows pause reason message
-- [ ] **SP06PH09T04c:** Click Resume button in banner - Verify automation resumes, banner disappears
-- [ ] **SP06PH09T04d:** Click Disable button in banner - Verify automation stays disabled
-- [ ] **SP06PH09T04e:** Navigate to Connection Settings while paused - Verify status indicator visible there too
-- [ ] **SP06PH09T04f:** Check Sidebar - Verify warning icon appears with tooltip when automation paused
+- [P] **SP06PH09T04a:** Trigger automation pause (e.g., too many rapid triggers) - Verify status banner appears in PlayScreen
+- [P] **SP06PH09T04b:** Verify banner shows pause reason message
+- [P] **SP06PH09T04c:** Click Resume button in banner - Verify automation resumes, banner disappears
+- [P] **SP06PH09T04d:** Click Disable button in banner - Verify automation stays disabled
+- [P] **SP06PH09T04e:** Navigate to Connection Settings while paused - Verify status indicator visible there too
+- [P] **SP06PH09T04f:** Check Sidebar - Verify warning icon appears with tooltip when automation paused
 
 ### SP06PH09T05 — Command History Tests
 
-- [ ] **SP06PH09T05a:** Enter 5 unique commands in terminal (e.g., "look", "score", "inv", "who", "help")
-- [ ] **SP06PH09T05b:** Press Up arrow - Verify previous command appears in input field
-- [ ] **SP06PH09T05c:** Press Up arrow again - Verify earlier command appears
-- [ ] **SP06PH09T05d:** Press Down arrow - Verify next command appears
-- [ ] **SP06PH09T05e:** Press Down at end of history - Verify input clears or shows latest typed text
-- [ ] **SP06PH09T05f:** Press Enter on recalled command - Verify command executes (goes through full submit pipeline including alias expansion)
-- [ ] **SP06PH09T05g:** Verify no duplicates - Submit same command twice, recall with Up arrow - should only see command once in history
-- [ ] **SP06PH09T05h:** Press Up at beginning of history - Verify stays at oldest command (no wraparound errors)
+- [P] **SP06PH09T05a:** Enter 5 unique commands in terminal (e.g., "look", "score", "inv", "who", "help")
+- [P] **SP06PH09T05b:** Press Up arrow - Verify previous command appears in input field
+- [P] **SP06PH09T05c:** Press Up arrow again - Verify earlier command appears
+- [P] **SP06PH09T05d:** Press Down arrow - Verify next command appears
+- [P] **SP06PH09T05e:** Press Down at end of history - Verify input clears or shows latest typed text
+- [P] **SP06PH09T05f:** Press Enter on recalled command - Verify command executes (goes through full submit pipeline including alias expansion)
+- [P] **SP06PH09T05g:** Verify no duplicates - Submit same command twice, recall with Up arrow - should only see command once in history
+- [P] **SP06PH09T05h:** Press Up at beginning of history - Verify stays at oldest command (no wraparound errors)
 
 ### SP06PH09T06 — Integration Tests
 
-- [ ] **SP06PH09T06a:** Full user flow - Connect to MUD, create alias via template, test alias works, disconnect, reconnect, verify alias persists
-- [ ] **SP06PH09T06b:** Cross-session persistence - Create automation (aliases/triggers/variables), disconnect, reconnect on different device/browser, verify automation loads
-- [ ] **SP06PH09T06c:** Multiple sessions - Open two sessions to different MUDs, verify automation status independent per session
+- [I] **SP06PH09T06a:** Full user flow - Connect to MUD, create alias via template, test alias works, disconnect, reconnect, verify alias persists  - Templates are removed per operations. All other pieces work fine.
+- [P] **SP06PH09T06b:** Cross-session persistence - Create automation (aliases/triggers/variables), disconnect, reconnect on different device/browser, verify automation loads
+- [P] **SP06PH09T06c:** Multiple sessions - Open two sessions to different MUDs, verify automation status independent per session
 
 ---
 
