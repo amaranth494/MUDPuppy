@@ -244,10 +244,6 @@ func (h *Handler) PutAliases(w http.ResponseWriter, r *http.Request) {
 			h.sendError(w, "Alias replacement cannot be empty")
 			return
 		}
-		if alias.Type != "exact" && alias.Type != "prefix" {
-			h.sendError(w, "Alias type must be 'exact' or 'prefix'")
-			return
-		}
 	}
 
 	// Update aliases

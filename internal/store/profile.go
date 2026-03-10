@@ -25,7 +25,6 @@ type Profile struct {
 type Alias struct {
 	ID          string `json:"id"`
 	Pattern     string `json:"pattern"`
-	Type        string `json:"type"`
 	Replacement string `json:"replacement"`
 	Enabled     bool   `json:"enabled"`
 }
