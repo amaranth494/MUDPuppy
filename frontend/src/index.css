@@ -1622,6 +1622,15 @@ body {
   min-height: 0;
 }
 
+/* Fix for xterm.js viewport alignment - prevents bottom text cut-off */
+.terminal-container .xterm-viewport {
+  overflow-y: auto !important;
+}
+
+.terminal-container .xterm-screen {
+  margin-top: 0 !important;
+}
+
 .input-row {
   display: flex;
   gap: var(--spacing-md);

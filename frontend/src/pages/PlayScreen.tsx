@@ -115,7 +115,9 @@ export default function PlayScreen() {
 
     // Handle resize
     const handleResize = () => {
-      fitAddon.fit();
+      if (fitAddonRef.current) {
+        fitAddonRef.current.fit();
+      }
     };
     window.addEventListener('resize', handleResize);
 
