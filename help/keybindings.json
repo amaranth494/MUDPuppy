@@ -17,7 +17,7 @@
     },
     {
       "title": "Special Keys",
-      "content": "You can bind:\n\n- **Function keys** (F1-F12)\n- **Ctrl+letter** combinations (Ctrl+A, Ctrl+B, etc.)\n- **Alt+letter** combinations\n- **Arrow keys** (Up, Down, Left, Right)\n\nNote: Some key combinations are reserved by your browser and cannot be used."
+      "content": "You can bind:\n\n- **Function keys** (F1-F12)\n- **Ctrl+letter** combinations (Ctrl+A, Ctrl+B, etc.)\n- **Alt+letter** combinations\n- **Arrow keys** (Up, Down, Left, Right)\n- **Numpad keys** (NumPad0-NumPad9, NumPadEnter, etc.)\n\nNote: Some key combinations are reserved by your browser and cannot be used.\n\n**Numpad Note:** The numpad keys are detected as distinct from regular number keys, so you can bind both separately."
     },
     {
       "title": "Conflict Warnings",
