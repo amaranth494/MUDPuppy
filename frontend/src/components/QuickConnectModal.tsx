@@ -248,7 +248,10 @@ export default function QuickConnectModal({ isOpen, onClose, onInputLockChange }
               recentConnections.slice(0, 5).map((conn) => (
                 <div key={conn.id} className="recent-connection-row">
                   <span className="recent-connection-name">
-                    {conn.name} - {conn.host}:{conn.port}
+                    {conn.name}{conn.username ? ` as ${conn.username}` : ''}
+                  </span>
+                  <span className="recent-connection-time">
+                    Last connect: {conn.last_connected_at ? new Date(conn.last_connected_at).toLocaleDateString() : 'Never'}
                   </span>
                   <div className="recent-connection-actions">
                     <button

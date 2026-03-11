@@ -90,6 +90,7 @@ export interface SavedConnection {
   last_connected_at?: string;
   has_credentials: boolean;
   auto_login_enabled: boolean;
+  username?: string;
 }
 
 // Create connection request

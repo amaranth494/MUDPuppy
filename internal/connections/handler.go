@@ -94,6 +94,7 @@ type ConnectionResponse struct {
 	LastConnectedAt  *string   `json:"last_connected_at,omitempty"`
 	HasCredentials   bool      `json:"has_credentials"`
 	AutoLoginEnabled bool      `json:"auto_login_enabled"`
+	Username         string    `json:"username,omitempty"`
 }
 
 type SetCredentialsRequest struct {
@@ -403,17 +404,30 @@ func (h *Handler) GetRecent(w http.ResponseWriter, r *http.Request) {
 		status, _ := h.credStore.GetStatus(conn.ID)
 		hasCreds := false
 		autoLogin := false
+		var username string
 		if status != nil {
 			hasCreds = status.HasCredentials
 			autoLogin = status.AutoLoginEnabled
+			username = status.Username
 		}
-		resp[i] = toResponse(&conn, hasCreds, autoLogin)
+		resp[i] = ConnectionResponse{
+			ID:               conn.ID,
+			UserID:           conn.UserID,
+			Name:             conn.Name,
+			Host:             conn.Host,
+			Port:             conn.Port,
+			Protocol:         conn.Protocol,
+			CreatedAt:        conn.CreatedAt,
+			UpdatedAt:        conn.UpdatedAt,
+			LastConnectedAt:  conn.LastConnectedAt,
+			HasCredentials:   hasCreds,
+			AutoLoginEnabled: autoLogin,
+			Username:         username,
+		}
 	}
 
 	h.sendJSON(w, resp)
 }
-
-// SetCredentials handles POST /api/v1/connections/:id/credentials
 func (h *Handler) SetCredentials(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost && r.Method != http.MethodPut {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
