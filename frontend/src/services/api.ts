@@ -32,7 +32,7 @@ export async function checkAuth(): Promise<User | null> {
 // Logout
 export async function logout(): Promise<void> {
   await fetch(`${API_BASE}/logout`, {
-    method: 'POST',
+    method: 'DELETE',
     credentials: 'include',
   });
 }
