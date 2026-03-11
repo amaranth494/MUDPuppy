@@ -5,7 +5,7 @@
 > **Plan Reference:** PR01-plan  
 > **Status:** Draft  
 > **Pre-Release Version:** 0.1.0-pr1  
-> **Total Tasks:** 51
+> **Total Tasks:** 52
 
 ---
 
@@ -27,6 +27,17 @@
 ---
 
 ## Phase 1: Parser Foundation (PR01PH01)
+
+> **⚠️ BLOCKING: MVP Issues Found in Production**
+> QA has identified issues with the MVP in production. All Phase 1 work is blocked until these issues are resolved.
+
+### PR01PH01T00 — Troubleshoot MVP Issues
+
+- [ ] **Task:** Investigate and troubleshoot MVP issues discovered by QA in production
+- **Notes:** Open-ended task. Do not proceed to any other Phase 1 tasks until QA and dev teams confirm issues are resolved.
+- **Status:** In Progress
+
+---
 
 ### PR01PH01T01 — Create parser module
 

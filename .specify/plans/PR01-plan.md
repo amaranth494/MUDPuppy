@@ -53,6 +53,9 @@
 
 ## Phase 1: Parser Foundation (PR01PH01)
 
+> **⚠️ BLOCKING: MVP Issues Found in Production**
+> QA has identified issues with the MVP in production. All Phase 1 work is blocked until these issues are resolved.
+
 ### Objectives
 
 - Implement tokenizer for # commands
@@ -61,7 +64,12 @@
 
 ### Steps
 
-1. **T01: Create parser module**
+1. **T00: Troubleshoot MVP Issues (BLOCKING)**
+   - Investigate MVP issues discovered by QA in production
+   - Do not proceed to any other Phase 1 tasks until issues are resolved
+   - Open-ended - wait for QA/dev team confirmation
+
+2. **T01: Create parser module**
    - Create `automation/parser.ts` in frontend
    - Define token types: COMMAND, TEXT, CONDITION, VARIABLE
 

@@ -17,8 +17,26 @@ For MVP only, the frontend may render ANSI/VT output using a terminal rendering 
 
 This exception is a bootstrap mechanism, not a product direction. The long-term goal remains structured render events for rich UI capabilities.
 
+> **Rendering Clarity:** The ANSI/xterm.js rendering used during MVP is a compatibility bridge and must not be treated as a permanent rendering model. Pre-Release development will involve features that completely overhaul the rendering from the server. Until that time, the MVP functionality is acceptable.
+
 ### III. MVP Playability Over Feature Bloat
 The MVP focuses on playability, stability, and persistence—not feature bloat. We avoid overengineering with deep desktop-era features (full automapping, advanced script debugging) that are not required to establish a playable baseline. Each feature must prove its worth before inclusion.
+
+### III.a Pre-Release Feature Scope Evolution
+
+**This section applies during the Pre-Release development phase.**
+
+The constitution previously restricted feature scope to maintain MVP discipline. This restriction is updated for Pre-Release development:
+
+**Pre-Release specifications are expected to expand platform capabilities beyond the baseline MVP feature set while preserving the architectural principles defined in this constitution.**
+
+Feature expansion during the Pre-Release phase must remain compatible with:
+- Service-first architecture
+- Automation sandbox safety rules
+- Multi-tenant security model
+- Cloud-hosted operational design
+
+This evolution allows the platform to grow from a playable client into a feature-complete MUD client suitable for public release.
 
 ### IV. Automation Scalability
 Automation engines (aliases, triggers, timers, variables) must be designed to scale from simple rule-based MVP functionality to more advanced sandboxed scripting in later phases. The architecture must support this growth without breaking early implementations.
@@ -277,6 +295,33 @@ The MVP establishes the minimum viable product that demonstrates core value. MVP
 
 Post-MVP phases will introduce richer rendering, advanced automation scripting, SSH support, and enhanced UI constructs.
 
+### Development Phases
+
+The project progresses through the following development phases:
+
+| Phase | Focus |
+|-------|-------|
+| Pre-MVP | Infrastructure and architectural foundation |
+| MVP | Core functionality and playability |
+| Pre-Release | Capability expansion and extensibility |
+| Public Release | Stability, ecosystem, and polish |
+
+**Characteristics of Pre-Release Development:**
+
+Pre-Release development focuses on expanding the platform's capabilities while preserving the architecture established during MVP development.
+
+Expected areas of expansion include:
+- Advanced automation logic
+- Scripting support
+- Multi-session capabilities
+- Richer rendering models
+- Improved session workflows
+- Automation packages and sharing
+- Protocol visualization tools
+- Extended UI functionality
+
+The objective of the Pre-Release phase is to evolve the platform into a feature-complete client suitable for public release.
+
 ### CI/CD Pipeline
 The deployment workflow uses Railway with GitHub integration for push-to-deploy functionality.
 
@@ -305,7 +350,7 @@ The deployment workflow uses Railway with GitHub integration for push-to-deploy 
 The repository operates under a three-tier branch model:
 - **master** — Production branch (deploys to production environment)
 - **staging** — Integration branch (deploys to staging environment)
-- **sp##-*** — Short-lived Spec feature branches (branch from staging)
+- **pr##-*** — Short-lived Spec feature branches (branch from staging; prefix matches spec series: sp## for archived Pre-MVP specs, pr## for Pre-Release specs, r## for Public Release specs)
 
 **Promotion Flow:**
 1. Feature branch merges into staging
@@ -427,9 +472,112 @@ Frontend and backend evolve independently. Versioning ensures compatibility:
 - Feature flags allow server-side enablement for newer API features
 - Breaking changes only in major version bumps
 
-**Version**: 1.15.0 | **Ratified**: 2026-02-23 | **Last Amended**: 2026-03-03
+**Semantic Versioning with Pre-Release Identifiers:**
 
-**Amendment v1.15.0:** Added Section X - Pre-Push Build Requirements. All staging pushes must be preceded by `npm ci && npm run build` (frontend) and `go build ./...` (backend) to ensure hashed assets are regenerated and builds succeed before deployment.
+The project adopts Semantic Versioning with Pre-Release identifiers:
+
+Format: `MAJOR.MINOR.PATCH-prN`
+
+| Component | Meaning |
+|-----------|---------|
+| MAJOR | Breaking architectural changes |
+| MINOR | New feature additions |
+| PATCH | Bug fixes |
+| prN | Pre-Release iteration |
+
+**Example versions:**
+- 0.1.0-pr1
+- 0.2.0-pr2
+- 0.2.1-pr2
+- 0.3.0-pr3
+
+**Initial Pre-Release Version:**
+The project begins the Pre-Release phase at: **0.1.0-pr1**
+
+### Specification Documentation Requirements
+
+Every specification, before being closed, MUST include a Documentation Phase that occurs post-QA but prior to closure. This ensures the product documentation accurately reflects all delivered features.
+
+**Documentation Phase Requirements:**
+
+1. **New Features Documentation**
+   - Any new features introduced in the spec must be added to the appropriate help files
+   - Help file updates must be tracked as part of the spec's task list
+   - New help sections must be created if the feature warrants it
+
+2. **Modified Features Documentation**
+   - Any existing features modified by the spec must be reflected in the documentation
+   - Updated help content must accurately describe the modified behavior
+
+3. **Release Notes Section**
+   - The Help system must include a Release Notes section
+   - Release Notes must document what is being done for each version
+   - Release Notes must be organized by version (e.g., 0.1.0-pr1, 0.2.0-pr2)
+   - Each release note entry must include:
+     - Version number
+     - Date of release
+     - Summary of changes
+     - List of new features
+     - List of bug fixes (if any)
+
+4. **Help File Structure**
+   ```
+   help/
+   ├── getting-started.json
+   ├── connecting.json
+   ├── terminal.json
+   ├── keybindings.json
+   ├── aliases.json
+   ├── triggers.json
+   ├── variables.json
+   ├── timers.json         # NEW - for timer functionality
+   ├── automation.json     # NEW - for advanced automation logic
+   ├── safety.json
+   ├── troubleshooting.json
+   └── release-notes.json  # NEW - version history
+   ```
+
+**Implementation:**
+- Each spec's plan must include a Documentation phase after QA
+- Each spec's tasks must include help file updates
+- The Release Notes help file must be updated for every release
+
+### Specification Closure Requirements
+
+Every specification MUST include a final "Commit to Production" phase that occurs after Documentation but before closure. This ensures proper version control and deployment workflow.
+
+**Commit to Production Phase Requirements:**
+
+1. **Final Build**
+   - Build the frontend one final time
+   - Build the backend one final time
+   - Verify both builds succeed without errors
+
+2. **Git Staging Push**
+   - Push the working branch to Git staging branch
+   - Verify the push succeeds
+   - Ensure CI/CD pipeline runs successfully
+
+3. **Git Master Push**
+   - Push from staging to master/main
+   - This triggers production deployment
+   - Verify the push succeeds
+
+4. **Branch Cleanup**
+   - Jump to the staging branch
+   - Delete the working branch for this spec
+   - Verify cleanup completed
+
+**Workflow:**
+```
+Working Branch → Push to Staging → Push to Master → Switch to Staging → Delete Working Branch
+```
+
+**Important:** This is the VERY LAST step for EVERY spec. No spec is considered complete until this workflow is executed.
+
+**Version**: 1.18.0 | **Ratified**: 2026-02-23 | **Last Amended**: 2026-03-10
+
+**Amendment v1.18.0:** Added Specification Documentation Requirements. Every spec must include a Documentation Phase post-QA but prior to closure. Added Commit to Production phase as the final step for every spec (build frontend/backend, push to staging, push to master, cleanup branch). New features must be added to help files, modified features must be reflected in documentation, and a Release Notes section must be maintained.
 
 **Amendment v1.13.0:** Updated Spec branch to originate from staging (not master). Added VIII.A Branch-Environment Mapping, VIII.B Spec Development Deployment Flow (Single-Admin Model), VIII.C Direct Push Policy (Clarified), VIII.D Audit Requirements.
 
@@ -473,15 +621,15 @@ The following branch-to-environment mapping is constitutionally binding:
 |--------|-------------|---------|
 | master | Production | Live system |
 | staging | Staging | Integration & QA |
-| sp##-* | None (feature branches) | Spec implementation |
+| pr##-* | None (feature branches) | Spec implementation (prefix matches spec series) |
 
 No branch other than master may deploy to Production.
 No feature/spec branch may deploy directly to Production.
 Promotion must follow:
 
-**sp##-* → staging → master**
+**pr##-* → staging → master**
 
-Direct promotion from sp##-* to master is prohibited.
+Direct promotion from pr##-* to master is prohibited.
 
 ### 2. Deployment Mechanism Hierarchy
 
@@ -496,7 +644,7 @@ git push origin SOURCE_BRANCH:TARGET_BRANCH
 Example:
 
 ```
-git push origin sp02-session-proxy:staging
+git push origin pr01-advanced-automation:staging
 ```
 
 This is the approved method for moving a Spec branch into staging.
@@ -603,7 +751,7 @@ The system operates with the following canonical mapping:
 |--------|-------------|---------|
 | master | Production | Live system (Railway Production) |
 | staging | Staging | Integration & QA (Railway Staging) |
-| sp##-* | None | Spec development branches |
+| pr##-* | None | Spec development branches (prefix matches spec series) |
 
 Railway environments are configured to auto-deploy when their respective branch updates.
 
@@ -613,7 +761,7 @@ This mapping is intentional and foundational to the deployment model.
 
 Because the system currently operates under a **single-administrator model**:
 
-1. Spec work occurs on sp##-* branches
+1. Spec work occurs on pr##-* branches (e.g., pr01-advanced-automation)
 2. During development, updates may be directly pushed to staging in order to:
    - Trigger Railway Staging auto-deploy
    - Validate integrated behavior in the staging environment
@@ -673,12 +821,32 @@ This ensures:
 ### II. Spec Identification & Naming Convention
 Each Spec must be uniquely numbered and tracked sequentially.
 
-**Format:** SP##PH##T##
-- SP## = Spec number (e.g., SP01)
+**Format:** <SPEC_PREFIX>##PH##T##
+- <SPEC_PREFIX>## = Spec prefix (SP##, PR##, or R## depending on development phase)
 - PH## = Phase number (e.g., PH01)
 - T## = Task number (e.g., T01)
 
-Example: SP01PH01T01 = Spec 01, Phase 01, Task 01
+**Current Examples (Pre-Release Phase):**
+- PR01PH01T01 = Pre-Release Spec 01, Phase 01, Task 01
+- PR01PH02T03 = Pre-Release Spec 01, Phase 02, Task 03
+
+**Archived Examples (Pre-MVP Phase):**
+- SP01PH01T01 = Pre-MVP Spec 01, Phase 01, Task 01
+
+**Specification Series by Development Phase:**
+
+| Prefix | Phase |
+|--------|-------|
+| SP## | Pre-MVP / MVP development |
+| PR## | Pre-Release development |
+| R## | Public Release specifications |
+
+Examples:
+- PR01 = First pre-release expansion
+- PR02 = Next feature specification  
+- R01 = First public release specification
+
+**Governance Rule:** Only one specification may be active at a time, regardless of phase. This ensures disciplined development and controlled feature delivery.
 
 This naming format must be used in:
 - Documentation
@@ -837,7 +1005,7 @@ Backend:  go build ./...
 These builds must complete successfully before executing:
 
 ```
-git push origin sp04-connection-profiles:staging
+git push origin pr01-advanced-automation:staging
 ```
 
 **Rationale:**
