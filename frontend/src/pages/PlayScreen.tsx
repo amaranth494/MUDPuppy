@@ -122,6 +122,36 @@ export default function PlayScreen() {
     terminalInstanceRef.current = terminal;
     fitAddonRef.current = fitAddon;
     
+    // Sync xterm selection to browser selection so right-click menu works
+    const syncSelectionToBrowser = () => {
+      const selection = terminal.getSelection();
+      if (selection && selection.length > 0) {
+        // Create a hidden element with the selected text to sync browser selection
+        let syncEl = document.getElementById('xterm-selection-sync');
+        if (!syncEl) {
+          syncEl = document.createElement('div');
+          syncEl.id = 'xterm-selection-sync';
+          syncEl.style.cssText = 'position:absolute;left:-9999px;white-space:pre-wrap;word-wrap:break-word;';
+          document.body.appendChild(syncEl);
+        }
+        syncEl.textContent = selection;
+        
+        // Select the hidden element
+        const range = document.createRange();
+        range.selectNodeContents(syncEl);
+        const browserSelection = window.getSelection();
+        if (browserSelection) {
+          browserSelection.removeAllRanges();
+          browserSelection.addRange(range);
+        }
+      }
+    };
+    
+    // Handle selection changes to sync with browser
+    terminal.onSelectionChange(() => {
+      syncSelectionToBrowser();
+    });
+    
     // Handle Ctrl+C globally on document level - works regardless of what's focused
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
