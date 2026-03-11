@@ -1013,6 +1013,7 @@ body {
 }
 
 .recent-connections-label {
+  display: block;
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
   text-transform: uppercase;
