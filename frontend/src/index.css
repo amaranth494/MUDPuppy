@@ -1085,6 +1085,14 @@ body {
   color: var(--color-text-primary);
 }
 
+.recent-connection-time {
+  color: var(--color-text-dim);
+  font-size: var(--font-size-sm);
+  margin-left: var(--spacing-md);
+  margin-right: var(--spacing-md);
+  white-space: nowrap;
+}
+
 .recent-connection-address {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
