@@ -122,98 +122,23 @@ export default function PlayScreen() {
     terminalInstanceRef.current = terminal;
     fitAddonRef.current = fitAddon;
     
-    // Handle right-click copy (context menu)
-    const terminalContainer = terminalRef.current;
-    
-    // Create custom context menu element
-    const contextMenu = document.createElement('div');
-    contextMenu.id = 'terminal-context-menu';
-    contextMenu.style.cssText = `
-      position: fixed;
-      background: #1a1a1a;
-      border: 1px solid #333;
-      border-radius: 4px;
-      padding: 4px 0;
-      z-index: 10000;
-      display: none;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-    `;
-    
-    const copyItem = document.createElement('div');
-    copyItem.textContent = 'Copy Text';
-    copyItem.style.cssText = `
-      padding: 6px 16px;
-      cursor: pointer;
-      color: #fff;
-      font-size: 13px;
-    `;
-    copyItem.addEventListener('mouseenter', () => copyItem.style.background = '#333');
-    copyItem.addEventListener('mouseleave', () => copyItem.style.background = 'transparent');
-    copyItem.addEventListener('click', () => {
-      const selection = terminal.getSelection();
-      if (selection && selection.length > 0) {
-        navigator.clipboard.writeText(selection);
-      }
-      contextMenu.style.display = 'none';
-    });
-    contextMenu.appendChild(copyItem);
-    document.body.appendChild(contextMenu);
-    
-    const handleContextMenu = (e: MouseEvent) => {
-      const selection = terminal.getSelection();
-      console.log('[SP03PH05T06] Right-click detected, selection:', selection ? `"${selection.substring(0, 20)}..."` : 'empty');
-      
-      // Show custom context menu if there's text selected
-      if (selection && selection.length > 0) {
-        e.preventDefault();
-        contextMenu.style.display = 'block';
-        contextMenu.style.left = e.clientX + 'px';
-        contextMenu.style.top = e.clientY + 'px';
-      }
-      // Otherwise hide menu (let default browser behavior happen if needed)
-      else {
-        contextMenu.style.display = 'none';
+    // Handle Ctrl+C globally on document level - works regardless of what's focused
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        const selection = terminal.getSelection();
+        if (selection && selection.length > 0) {
+          e.preventDefault();
+          navigator.clipboard.writeText(selection);
+        }
       }
     };
-    
-    const hideContextMenu = () => {
-      contextMenu.style.display = 'none';
-    };
-    
-    terminalContainer.addEventListener('contextmenu', handleContextMenu);
-    document.addEventListener('click', hideContextMenu);
+    document.addEventListener('keydown', handleGlobalKeyDown);
     
     // Delay customFit to ensure container has final layout dimensions
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         customFit();
       });
-    });
-
-    // Handle Ctrl+C / Cmd+C for clipboard copy when text is selected
-    terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
-      console.log('[SP03PH05T06] Key event:', event.key, 'ctrl:', event.ctrlKey, 'meta:', event.metaKey);
-      // Check for Ctrl+C (Windows/Linux) or Cmd+C (Mac)
-      const isCopyShortcut = (event.ctrlKey || event.metaKey) && event.key === 'c';
-      
-      if (isCopyShortcut) {
-        console.log('[SP03PH05T06] Ctrl+C detected, checking selection...');
-        const selection = terminal.getSelection();
-        console.log('[SP03PH05T06] Selection:', selection ? `"${selection.substring(0, 20)}..."` : 'empty');
-        // Only copy if there's actual text selected (not empty string)
-        if (selection && selection.length > 0) {
-          // Copy selection to clipboard
-          navigator.clipboard.writeText(selection).catch((err) => {
-            console.error('[SP03PH05T06] Clipboard write failed:', err);
-          });
-          // Return false to prevent xterm from handling it (no ^C sent to MUD)
-          return false;
-        }
-        // If no selection, let xterm handle it (could send ^C to MUD)
-        return true;
-      }
-      // Let all other keys pass through to xterm
-      return true;
     });
 
     // Handle resize
@@ -229,13 +154,7 @@ export default function PlayScreen() {
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      if (terminalRef.current) {
-        terminalRef.current.removeEventListener('contextmenu', handleContextMenu);
-      }
-      document.removeEventListener('click', hideContextMenu);
-      // Remove custom context menu
-      const menu = document.getElementById('terminal-context-menu');
-      if (menu) menu.remove();
+      document.removeEventListener('keydown', handleGlobalKeyDown);
       terminal.dispose();
     };
   }, []);
