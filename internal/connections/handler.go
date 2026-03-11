@@ -745,7 +745,14 @@ func (h *Handler) GetCredentials(connectionID uuid.UUID) (*store.ConnectionCrede
 
 // UpdateLastConnectedAt updates the last_connected_at timestamp for a connection
 func (h *Handler) UpdateLastConnectedAt(connectionID, userID uuid.UUID) error {
-	return h.connStore.UpdateLastConnectedAt(connectionID, userID)
+	log.Printf("[SP03PH05T04] UpdateLastConnectedAt called - connectionID=%s, userID=%s", connectionID, userID)
+	err := h.connStore.UpdateLastConnectedAt(connectionID, userID)
+	if err != nil {
+		log.Printf("[SP03PH05T04] UpdateLastConnectedAt FAILED: %v", err)
+	} else {
+		log.Printf("[SP03PH05T04] UpdateLastConnectedAt SUCCESS")
+	}
+	return err
 }
 
 // getConnectionID extracts the connection ID from the request using PathValue

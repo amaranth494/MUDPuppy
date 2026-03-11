@@ -127,11 +127,15 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 
 	// If connection_id was provided, update last_connected_at and handle auto-login
 	if req.ConnectionID != uuid.Nil && h.callbacks != nil {
+		log.Printf("[SP03PH05T03] Connection request has connectionID=%s for userID=%s", req.ConnectionID, userUUID)
+
 		// Update last_connected_at
 		if h.callbacks.OnConnected != nil {
 			if err := h.callbacks.OnConnected(req.ConnectionID, userUUID); err != nil {
 				log.Printf("[SP03PH05T03] Failed to update last_connected_at: %v", err)
 				// Don't fail the connection, just log the error
+			} else {
+				log.Printf("[SP03PH05T03] Updated last_connected_at for connectionID=%s, userID=%s", req.ConnectionID, userUUID)
 			}
 		}
 

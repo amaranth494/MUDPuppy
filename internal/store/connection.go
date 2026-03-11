@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -207,13 +208,20 @@ func (s *ConnectionStore) Update(conn *SavedConnection) error {
 
 // UpdateLastConnectedAt updates the last_connected_at timestamp
 func (s *ConnectionStore) UpdateLastConnectedAt(id, userID uuid.UUID) error {
+	log.Printf("[SP03PH05T05] ConnectionStore.UpdateLastConnectedAt - id=%s, userID=%s", id, userID)
 	query := `
 		UPDATE saved_connections
 		SET last_connected_at = NOW()
 		WHERE id = $1 AND user_id = $2
 	`
-	_, err := s.db.Exec(query, id, userID)
-	return err
+	result, err := s.db.Exec(query, id, userID)
+	if err != nil {
+		log.Printf("[SP03PH05T05] ConnectionStore.UpdateLastConnectedAt ERROR: %v", err)
+		return err
+	}
+	rowsAffected, _ := result.RowsAffected()
+	log.Printf("[SP03PH05T05] ConnectionStore.UpdateLastConnectedAt - rows affected: %d", rowsAffected)
+	return nil
 }
 
 // Delete deletes a connection by ID
