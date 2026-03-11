@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
+import { logout } from '../services/api';
 import SessionBadge from './SessionBadge';
 
 export default function Header() {
@@ -83,8 +84,13 @@ export default function Header() {
               </Link>
               <button 
                 className="account-dropdown-item"
-                onClick={() => {
+                onClick={async () => {
                   setShowDropdown(false);
+                  try {
+                    await logout();
+                  } catch (e) {
+                    // Continue with redirect even if logout fails
+                  }
                   window.location.href = '/';
                 }}
               >
