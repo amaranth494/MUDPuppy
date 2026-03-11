@@ -12,6 +12,7 @@ import Sidebar from './components/Sidebar';
 import Modal from './components/Modal';
 import QuickConnectModal from './components/QuickConnectModal';
 import ConnectionsHubModal from './components/ConnectionsHubModal';
+import ReconnectModal from './components/ReconnectModal';
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useSession();
@@ -43,7 +44,7 @@ function AppContent() {
   
   // Get setInputLocked from SessionContext (SP03PH03)
   // Modal will manage input lock via onInputLockChange callback
-  const { setInputLocked } = useSession();
+  const { setInputLocked, hasPendingReconnect } = useSession();
   
   // Drawer toggle handlers - have no session impact (SP03PH02T02)
   const handleToggleSidebar = useCallback(() => {
@@ -161,6 +162,12 @@ function AppContent() {
         <ConnectionsHubModal
           isOpen={isConnectionsHubOpen}
           onClose={() => setIsConnectionsHubOpen(false)}
+          onInputLockChange={setInputLocked}
+        />
+        
+        {/* Reconnection Modal (MVP) - shows when user has existing active session */}
+        <ReconnectModal
+          isOpen={hasPendingReconnect}
           onInputLockChange={setInputLocked}
         />
       </main>

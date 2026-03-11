@@ -40,6 +40,11 @@ interface SessionContextType {
   resumeAutomation: () => void;
   disableAutomation: () => void;
   enableAutomation: () => void;
+  // Reconnection modal state (MVP)
+  hasPendingReconnect: boolean;
+  pendingReconnectData: { host: string; port: number; connectionId?: string } | null;
+  clearPendingReconnect: () => void;
+  forceReconnect: () => Promise<void>;
 }
 
 const SessionContext = createContext<SessionContextType | null>(null);
@@ -77,6 +82,16 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   const [automationEngine, setAutomationEngine] = useState<AutomationEngine | null>(null);
   const [automationError, setAutomationError] = useState<string | null>(null);
   const [automationDisabled, setAutomationDisabled] = useState(false);
+  
+  // Reconnection modal state (MVP) - tracks when user has existing session
+  const [hasPendingReconnect, setHasPendingReconnect] = useState(false);
+  const [pendingReconnectData, setPendingReconnectData] = useState<{ host: string; port: number; connectionId?: string } | null>(null);
+  
+  // Clear pending reconnect state
+  const clearPendingReconnect = useCallback(() => {
+    setHasPendingReconnect(false);
+    setPendingReconnectData(null);
+  }, []);
   
   // Update profile in real-time while connected (SP04PH07)
   const updateProfile = useCallback((updatedProfile: Profile) => {
@@ -285,12 +300,45 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       await refreshStatus();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Connection failed';
+      
+      // Check for existing active session - offer to reconnect (MVP)
+      // Capture values for use in state since they're not in dependency array
+      const currentHost = mudHost;
+      const currentPort = mudPort;
+      const currentConnectionId = connectionId;
+      
+      if (errorMessage === 'user already has active session') {
+        setHasPendingReconnect(true);
+        setPendingReconnectData({ host: currentHost, port: currentPort, connectionId: currentConnectionId });
+        setError('You already have an active connection');
+        setConnectionState('error');
+        return;
+      }
+      
       setError(mapBackendError(errorMessage));
       setConnectionState('error');
       // Event-driven: refresh status on connect failure
       await refreshStatus();
     }
   }, [refreshStatus, automationEngine]);
+
+  // Force reconnect - disconnect existing session then connect (MVP)
+  const forceReconnect = useCallback(async () => {
+    if (!pendingReconnectData) return;
+    
+    const { host: reconnectHost, port: reconnectPort, connectionId: reconnectConnectionId } = pendingReconnectData;
+    clearPendingReconnect();
+    
+    // Disconnect first
+    try {
+      await disconnectFromMud('Force reconnect');
+    } catch (e) {
+      // Ignore disconnect errors - proceed with connect anyway
+    }
+    
+    // Then connect
+    await connect(reconnectHost, reconnectPort, reconnectConnectionId);
+  }, [pendingReconnectData, clearPendingReconnect, connect]);
 
   const disconnect = useCallback(async () => {
     setError(null);
@@ -352,6 +400,10 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
         resumeAutomation,
         disableAutomation,
         enableAutomation,
+        hasPendingReconnect,
+        pendingReconnectData,
+        clearPendingReconnect,
+        forceReconnect,
       }}
     >
       {children}
