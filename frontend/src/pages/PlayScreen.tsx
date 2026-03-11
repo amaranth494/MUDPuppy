@@ -438,9 +438,11 @@ export default function PlayScreen() {
             
             // SP03PH05T06: Handle Ctrl+C / Cmd+C - copy from terminal if text is selected there
             if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+              console.log('[SP03PH05T06] Input field: Ctrl+C detected');
               // Try to copy from terminal selection
               if (terminalInstanceRef.current) {
                 const selection = terminalInstanceRef.current.getSelection();
+                console.log('[SP03PH05T06] Input field: terminal selection:', selection ? `"${selection.substring(0, 20)}..."` : 'empty');
                 if (selection && selection.length > 0) {
                   e.preventDefault();
                   navigator.clipboard.writeText(selection);
