@@ -374,6 +374,8 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 
 // GetRecent handles GET /api/v1/connections/recent
 func (h *Handler) GetRecent(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[SP03PH05T04] GetRecent called - fetching recent connections")
+
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -396,6 +398,12 @@ func (h *Handler) GetRecent(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[SP03PH05T04] Get recent connections failed: %v", err)
 		h.sendError(w, "Failed to get recent connections")
 		return
+	}
+
+	log.Printf("[SP03PH05T04] Found %d recent connections for user %s", len(connections), userUUID)
+	for i, conn := range connections {
+		log.Printf("[SP03PH05T04] Connection[%d]: ID=%s, Name=%s, Host=%s, LastConnected=%v",
+			i, conn.ID, conn.Name, conn.Host, conn.LastConnectedAt)
 	}
 
 	// Get credential status for each connection
