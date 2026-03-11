@@ -90,21 +90,27 @@ export default function PlayScreen() {
       const terminal = terminalInstanceRef.current;
       const container = terminalRef.current;
       
-      // Get container dimensions accounting for padding
-      const padding = 16; // var(--spacing-sm) * 2
-      const availableWidth = container.clientWidth - padding;
-      const availableHeight = container.clientHeight - padding;
+      // Get the viewport element to determine available height
+      const viewport = container.querySelector('.xterm-viewport') as HTMLElement;
+      if (!viewport) return;
       
-      // Get character dimensions - use defaults since internal APIs vary by version
-      const charWidth = 8; // typical monospace character width
-      const charHeight = 16; // xterm.js default row height
+      // Get container/viewport dimensions
+      const viewportHeight = viewport.clientHeight;
+      const viewportWidth = viewport.clientWidth;
       
-      // Calculate columns and rows that fit
-      const cols = Math.floor(availableWidth / charWidth);
-      const rows = Math.floor(availableHeight / charHeight);
+      // Character dimensions
+      const charWidth = 8;
+      const charHeight = 16;
+      
+      // Calculate max rows that fit in viewport (floor to nearest multiple of 16)
+      const maxRows = Math.floor(viewportHeight / charHeight);
+      const rows = maxRows;
+      
+      // Calculate max cols that fit
+      const maxCols = Math.floor(viewportWidth / charWidth);
       
       // Resize terminal to exact fit (aligned to row height)
-      terminal.resize(cols, rows);
+      terminal.resize(maxCols, rows);
     };
 
     const fitAddon = new FitAddon();
