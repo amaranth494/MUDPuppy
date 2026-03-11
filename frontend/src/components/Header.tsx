@@ -85,6 +85,7 @@ export default function Header() {
               <button 
                 className="account-dropdown-item"
                 onClick={() => {
+                  alert('[DEBUG] Sign Out button clicked!');
                   console.log('[Header] Sign Out button clicked');
                   setShowDropdown(false);
                   console.log('[Header] Calling logout API...');
