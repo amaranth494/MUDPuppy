@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { useSession } from '../context/SessionContext';
-import { getRecentConnections } from '../services/api';
+import { getRecentConnections, deleteConnection } from '../services/api';
 import { SavedConnection } from '../types';
 
 interface QuickConnectModalProps {
@@ -126,6 +126,18 @@ export default function QuickConnectModal({ isOpen, onClose, onInputLockChange }
       setIsConnecting(false);
     }
   };
+  
+  // Handle removing a recent connection
+  const handleRemoveConnection = async (conn: SavedConnection, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await deleteConnection(conn.id);
+      // Reload recent connections after deletion
+      loadRecentConnections();
+    } catch (err) {
+      console.error('Failed to delete connection:', err);
+    }
+  };
 
   // State machine for UI
   const canConnect = (connectionState === 'disconnected' || connectionState === 'error') && !isConnecting;
@@ -228,44 +240,41 @@ export default function QuickConnectModal({ isOpen, onClose, onInputLockChange }
           )}
         </div>
 
-        {/* Recent Connections - Show last 5 with Connect buttons or placeholder */}
+        {/* Recent Connections */}
         <div className="recent-connections">
           <div className="recent-connections-label">Recent Connections</div>
-          {recentConnections.length > 0 ? (
-            <div className="recent-connections-list">
-              {recentConnections.slice(0, 5).map((conn) => (
+          <div className="recent-connections-list">
+            {recentConnections.length > 0 ? (
+              recentConnections.slice(0, 5).map((conn) => (
                 <div key={conn.id} className="recent-connection-row">
-                  <span className="recent-connection-name">{conn.name}</span>
-                  <button
-                    className="btn btn-small btn-primary"
-                    onClick={() => handleRecentConnectionClick(conn)}
-                    disabled={!canConnect && !isConnectingState}
-                    title={`Connect to ${conn.host}:${conn.port}`}
-                  >
-                    Connect
-                  </button>
+                  <span className="recent-connection-name">
+                    {conn.name} - {conn.host}:{conn.port}
+                  </span>
+                  <div className="recent-connection-actions">
+                    <button
+                      className="btn btn-small btn-primary"
+                      onClick={() => handleRecentConnectionClick(conn)}
+                      disabled={!canConnect && !isConnectingState}
+                      title={`Connect to ${conn.host}:${conn.port}`}
+                    >
+                      Connect
+                    </button>
+                    <button
+                      className="btn btn-small btn-danger"
+                      onClick={(e) => handleRemoveConnection(conn, e)}
+                      title="Remove this connection"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="recent-connections-list">
+              ))
+            ) : (
               <div className="recent-connection-row">
-                <span className="recent-connection-name">Quick Connect</span>
-                <button
-                  className="btn btn-small btn-primary"
-                  onClick={() => {
-                    // Focus on host input - already there via autoFocus
-                    setInputHost('');
-                    setInputPort(23);
-                  }}
-                  disabled={!canConnect && !isConnectingState}
-                  title="Enter host and port manually"
-                >
-                  Use
-                </button>
+                <span className="recent-connection-name">No Recent Connections</span>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </Modal>
