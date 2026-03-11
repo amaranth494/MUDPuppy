@@ -75,11 +75,17 @@ export default function PlayScreen() {
       allowTransparency: true,
     });
 
-    // Apply selection style to terminal element
+    const fitAddon = new FitAddon();
+    terminal.loadAddon(fitAddon);
+    terminal.open(terminalRef.current);
+    
+    // [SP03PH05T06] Debug: Apply selection style AFTER terminal.open()
     if (terminalRef.current) {
       const xtermElement = terminalRef.current.querySelector('.xterm') as HTMLElement;
+      console.log('[SP03PH05T06] xtermElement found:', !!xtermElement);
       if (xtermElement) {
         Object.assign(xtermElement.style, terminalSelectionStyle);
+        console.log('[SP03PH05T06] Applied selection style');
       }
     }
 
@@ -113,9 +119,22 @@ export default function PlayScreen() {
       terminal.resize(maxCols, rows);
     };
 
-    const fitAddon = new FitAddon();
-    terminal.loadAddon(fitAddon);
-    terminal.open(terminalRef.current);
+    terminalInstanceRef.current = terminal;
+    fitAddonRef.current = fitAddon;
+    
+    // Handle right-click copy (context menu)
+    const terminalContainer = terminalRef.current;
+    const handleContextMenu = (e: MouseEvent) => {
+      const selection = terminal.getSelection();
+      console.log('[SP03PH05T06] Right-click detected, selection:', selection ? `"${selection.substring(0, 20)}..."` : 'empty');
+      if (selection) {
+        e.preventDefault();
+        navigator.clipboard.writeText(selection).catch((err) => {
+          console.error('[SP03PH05T06] Right-click clipboard write failed:', err);
+        });
+      }
+    };
+    terminalContainer.addEventListener('contextmenu', handleContextMenu);
     
     // Delay customFit to ensure container has final layout dimensions
     requestAnimationFrame(() => {
@@ -130,11 +149,13 @@ export default function PlayScreen() {
       const isCopyShortcut = (event.ctrlKey || event.metaKey) && event.key === 'c';
       
       if (isCopyShortcut) {
+        console.log('[SP03PH05T06] Ctrl+C detected, checking selection...');
         const selection = terminal.getSelection();
+        console.log('[SP03PH05T06] Selection:', selection ? `"${selection.substring(0, 20)}..."` : 'empty');
         if (selection) {
           // Copy selection to clipboard
-          navigator.clipboard.writeText(selection).catch(() => {
-            // Fallback for clipboard permission issues
+          navigator.clipboard.writeText(selection).catch((err) => {
+            console.error('[SP03PH05T06] Clipboard write failed:', err);
           });
           // Return false to prevent xterm from handling it (no ^C sent to MUD)
           return false;
@@ -145,9 +166,6 @@ export default function PlayScreen() {
       // Let all other keys pass through to xterm
       return true;
     });
-
-    terminalInstanceRef.current = terminal;
-    fitAddonRef.current = fitAddon;
 
     // Handle resize
     const handleResize = () => {
@@ -162,6 +180,9 @@ export default function PlayScreen() {
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      if (terminalRef.current) {
+        terminalRef.current.removeEventListener('contextmenu', handleContextMenu);
+      }
       terminal.dispose();
     };
   }, []);
