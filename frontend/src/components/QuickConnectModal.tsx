@@ -248,8 +248,22 @@ export default function QuickConnectModal({ isOpen, onClose, onInputLockChange }
               ))}
             </div>
           ) : (
-            <div className="recent-connections-empty">
-              No Recent Connections
+            <div className="recent-connections-list">
+              <div className="recent-connection-row">
+                <span className="recent-connection-name">Quick Connect</span>
+                <button
+                  className="btn btn-small btn-primary"
+                  onClick={() => {
+                    // Focus on host input - already there via autoFocus
+                    setInputHost('');
+                    setInputPort(23);
+                  }}
+                  disabled={!canConnect && !isConnectingState}
+                  title="Enter host and port manually"
+                >
+                  Use
+                </button>
+              </div>
             </div>
           )}
         </div>
