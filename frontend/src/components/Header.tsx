@@ -84,18 +84,17 @@ export default function Header() {
               </Link>
               <button 
                 className="account-dropdown-item"
-                onClick={async () => {
+                onClick={() => {
+                  console.log('[Header] Sign Out button clicked');
                   setShowDropdown(false);
-                  console.log('[Header] Sign Out clicked, calling logout API...');
-                  try {
-                    await logout();
-                    console.log('[Header] Logout API succeeded');
-                  } catch (e) {
-                    console.log('[Header] Logout API failed:', e);
-                    // Continue with redirect even if logout fails
-                  }
-                  console.log('[Header] Redirecting to /');
-                  window.location.href = '/';
+                  console.log('[Header] Calling logout API...');
+                  logout()
+                    .then(() => console.log('[Header] Logout succeeded'))
+                    .catch((e) => console.log('[Header] Logout error:', e))
+                    .finally(() => {
+                      console.log('[Header] Redirecting to /');
+                      window.location.href = '/';
+                    });
                 }}
               >
                 Sign Out
