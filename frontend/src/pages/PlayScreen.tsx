@@ -127,12 +127,14 @@ export default function PlayScreen() {
     const handleContextMenu = (e: MouseEvent) => {
       const selection = terminal.getSelection();
       console.log('[SP03PH05T06] Right-click detected, selection:', selection ? `"${selection.substring(0, 20)}..."` : 'empty');
-      if (selection) {
+      // Only handle copy if there's actual text selected (not empty string)
+      if (selection && selection.length > 0) {
         e.preventDefault();
         navigator.clipboard.writeText(selection).catch((err) => {
           console.error('[SP03PH05T06] Right-click clipboard write failed:', err);
         });
       }
+      // Otherwise let default context menu appear
     };
     terminalContainer.addEventListener('contextmenu', handleContextMenu);
     
@@ -152,7 +154,8 @@ export default function PlayScreen() {
         console.log('[SP03PH05T06] Ctrl+C detected, checking selection...');
         const selection = terminal.getSelection();
         console.log('[SP03PH05T06] Selection:', selection ? `"${selection.substring(0, 20)}..."` : 'empty');
-        if (selection) {
+        // Only copy if there's actual text selected (not empty string)
+        if (selection && selection.length > 0) {
           // Copy selection to clipboard
           navigator.clipboard.writeText(selection).catch((err) => {
             console.error('[SP03PH05T06] Clipboard write failed:', err);
@@ -160,8 +163,8 @@ export default function PlayScreen() {
           // Return false to prevent xterm from handling it (no ^C sent to MUD)
           return false;
         }
-        // If no selection, let xterm handle it (though we prefer to do nothing)
-        return false;
+        // If no selection, let xterm handle it (could send ^C to MUD)
+        return true;
       }
       // Let all other keys pass through to xterm
       return true;
