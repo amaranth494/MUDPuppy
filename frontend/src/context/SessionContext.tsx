@@ -255,7 +255,15 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
     
     try {
       // Call REST API to initiate connection
-      await connectToMud({ host: mudHost, port: mudPort });
+      // Pass connectionId so backend can update last_connected_at for recent connections
+      const connectRequest: { host: string; port: number; connectionId?: string } = { 
+        host: mudHost, 
+        port: mudPort 
+      };
+      if (connectionId) {
+        connectRequest.connectionId = connectionId;
+      }
+      await connectToMud(connectRequest);
       
       // Connect WebSocket for streaming
       const manager = new WebSocketManager();
