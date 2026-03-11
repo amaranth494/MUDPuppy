@@ -192,6 +192,7 @@ export default function PlayScreen() {
 
     // Handle Ctrl+C / Cmd+C for clipboard copy when text is selected
     terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+      console.log('[SP03PH05T06] Key event:', event.key, 'ctrl:', event.ctrlKey, 'meta:', event.metaKey);
       // Check for Ctrl+C (Windows/Linux) or Cmd+C (Mac)
       const isCopyShortcut = (event.ctrlKey || event.metaKey) && event.key === 'c';
       
