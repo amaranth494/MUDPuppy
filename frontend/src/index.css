@@ -1080,6 +1080,11 @@ body {
   font-size: var(--font-size-sm);
 }
 
+.recent-connection-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
 .recent-connection-name {
   font-weight: 500;
   color: var(--color-text-primary);
