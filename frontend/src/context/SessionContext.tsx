@@ -255,13 +255,13 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
     
     try {
       // Call REST API to initiate connection
-      // Pass connectionId so backend can update last_connected_at for recent connections
-      const connectRequest: { host: string; port: number; connectionId?: string } = { 
+      // Pass connection_id so backend can update last_connected_at for recent connections
+      const connectRequest: { host: string; port: number; connection_id?: string } = { 
         host: mudHost, 
         port: mudPort 
       };
       if (connectionId) {
-        connectRequest.connectionId = connectionId;
+        connectRequest.connection_id = connectionId;
       }
       await connectToMud(connectRequest);
       

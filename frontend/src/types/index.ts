@@ -23,7 +23,7 @@ export interface SessionStatus {
 export interface ConnectRequest {
   host: string;
   port: number;
-  connectionId?: string;
+  connection_id?: string;
 }
 
 // Connect response
