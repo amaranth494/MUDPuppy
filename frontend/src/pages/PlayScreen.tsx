@@ -133,9 +133,27 @@ export default function PlayScreen() {
         const selection = terminal.getSelection();
         if (selection) {
           // Copy selection to clipboard
-          navigator.clipboard.writeText(selection).catch(() => {
-            // Fallback for clipboard permission issues
-          });
+          navigator.clipboard.writeText(selection)
+            .then(() => {
+              console.log('[PlayScreen] Copied to clipboard');
+            })
+            .catch((err) => {
+              console.error('[PlayScreen] Clipboard write failed:', err);
+              // Fallback: use document execCommand
+              const textArea = document.createElement('textarea');
+              textArea.value = selection;
+              textArea.style.position = 'fixed';
+              textArea.style.left = '-9999px';
+              document.body.appendChild(textArea);
+              textArea.select();
+              try {
+                document.execCommand('copy');
+                console.log('[PlayScreen] Copied via fallback');
+              } catch (e) {
+                console.error('[PlayScreen] Fallback copy failed:', e);
+              }
+              document.body.removeChild(textArea);
+            });
           // Return false to prevent xterm from handling it (no ^C sent to MUD)
           return false;
         }
