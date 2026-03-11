@@ -124,19 +124,64 @@ export default function PlayScreen() {
     
     // Handle right-click copy (context menu)
     const terminalContainer = terminalRef.current;
+    
+    // Create custom context menu element
+    const contextMenu = document.createElement('div');
+    contextMenu.id = 'terminal-context-menu';
+    contextMenu.style.cssText = `
+      position: fixed;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 4px;
+      padding: 4px 0;
+      z-index: 10000;
+      display: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    `;
+    
+    const copyItem = document.createElement('div');
+    copyItem.textContent = 'Copy Text';
+    copyItem.style.cssText = `
+      padding: 6px 16px;
+      cursor: pointer;
+      color: #fff;
+      font-size: 13px;
+    `;
+    copyItem.addEventListener('mouseenter', () => copyItem.style.background = '#333');
+    copyItem.addEventListener('mouseleave', () => copyItem.style.background = 'transparent');
+    copyItem.addEventListener('click', () => {
+      const selection = terminal.getSelection();
+      if (selection && selection.length > 0) {
+        navigator.clipboard.writeText(selection);
+      }
+      contextMenu.style.display = 'none';
+    });
+    contextMenu.appendChild(copyItem);
+    document.body.appendChild(contextMenu);
+    
     const handleContextMenu = (e: MouseEvent) => {
       const selection = terminal.getSelection();
       console.log('[SP03PH05T06] Right-click detected, selection:', selection ? `"${selection.substring(0, 20)}..."` : 'empty');
-      // Only handle copy if there's actual text selected (not empty string)
+      
+      // Show custom context menu if there's text selected
       if (selection && selection.length > 0) {
         e.preventDefault();
-        navigator.clipboard.writeText(selection).catch((err) => {
-          console.error('[SP03PH05T06] Right-click clipboard write failed:', err);
-        });
+        contextMenu.style.display = 'block';
+        contextMenu.style.left = e.clientX + 'px';
+        contextMenu.style.top = e.clientY + 'px';
       }
-      // Otherwise let default context menu appear
+      // Otherwise hide menu (let default browser behavior happen if needed)
+      else {
+        contextMenu.style.display = 'none';
+      }
     };
+    
+    const hideContextMenu = () => {
+      contextMenu.style.display = 'none';
+    };
+    
     terminalContainer.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('click', hideContextMenu);
     
     // Delay customFit to ensure container has final layout dimensions
     requestAnimationFrame(() => {
@@ -186,6 +231,10 @@ export default function PlayScreen() {
       if (terminalRef.current) {
         terminalRef.current.removeEventListener('contextmenu', handleContextMenu);
       }
+      document.removeEventListener('click', hideContextMenu);
+      // Remove custom context menu
+      const menu = document.getElementById('terminal-context-menu');
+      if (menu) menu.remove();
       terminal.dispose();
     };
   }, []);
