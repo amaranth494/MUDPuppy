@@ -31,15 +31,10 @@ export async function checkAuth(): Promise<User | null> {
 
 // Logout
 export async function logout(): Promise<void> {
-  console.log('[API] Calling logout endpoint with DELETE...');
-  const response = await fetch(`${API_BASE}/logout`, {
+  await fetch(`${API_BASE}/logout`, {
     method: 'DELETE',
     credentials: 'include',
   });
-  console.log('[API] Logout response status:', response.status);
-  if (!response.ok) {
-    console.log('[API] Logout failed with status:', response.status);
-  }
 }
 
 // Get session status - authoritative source for connection state

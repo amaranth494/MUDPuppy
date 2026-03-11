@@ -57,9 +57,6 @@ export function useInputInterceptor(options: UseInputInterceptorOptions = {}) {
     const command = findMatchingBinding(bindingKey, profile.keybindings);
     if (command) {
       // Prevent default browser behavior
-      console.log('[Keybind] Match found:', bindingKey, '->', command);
-      
-      // Prevent default browser behavior
       event.preventDefault();
       
       // Dispatch the command
