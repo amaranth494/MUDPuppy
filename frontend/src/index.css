@@ -188,6 +188,14 @@ body {
   -webkit-user-select: text !important;
 }
 
+/* Ensure terminal area is selectable */
+.terminal-container,
+.terminal-output,
+.play-screen {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
 .app-content {
   flex: 1;
   display: flex;
