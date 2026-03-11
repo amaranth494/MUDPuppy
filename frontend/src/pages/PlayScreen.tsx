@@ -436,6 +436,20 @@ export default function PlayScreen() {
           onKeyDown={(e) => {
             const input = e.currentTarget;
             
+            // SP03PH05T06: Handle Ctrl+C / Cmd+C - copy from terminal if text is selected there
+            if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+              // Try to copy from terminal selection
+              if (terminalInstanceRef.current) {
+                const selection = terminalInstanceRef.current.getSelection();
+                if (selection && selection.length > 0) {
+                  e.preventDefault();
+                  navigator.clipboard.writeText(selection);
+                  return;
+                }
+              }
+              // If no terminal selection, let default copy happen (from input)
+            }
+            
             // SP06PH08: Handle Up/Down arrows for command history
             if (e.key === 'ArrowUp') {
               e.preventDefault();
