@@ -152,6 +152,56 @@ export default function PlayScreen() {
       syncSelectionToBrowser();
     });
     
+    // Create custom context menu for right-click
+    const contextMenu = document.createElement('div');
+    contextMenu.id = 'terminal-context-menu';
+    contextMenu.style.cssText = `
+      position: fixed;
+      background: #1a1a1a;
+      border: 1px solid #444;
+      border-radius: 6px;
+      padding: 4px 0;
+      z-index: 10000;
+      display: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      min-width: 120px;
+    `;
+    
+    const copyItem = document.createElement('div');
+    copyItem.textContent = 'Copy';
+    copyItem.style.cssText = `
+      padding: 8px 16px;
+      cursor: pointer;
+      color: #eee;
+      font-size: 13px;
+      font-family: system-ui, sans-serif;
+    `;
+    copyItem.addEventListener('mouseenter', () => copyItem.style.background = '#444');
+    copyItem.addEventListener('mouseleave', () => copyItem.style.background = 'transparent');
+    copyItem.addEventListener('click', () => {
+      const selection = terminal.getSelection();
+      if (selection && selection.length > 0) {
+        navigator.clipboard.writeText(selection);
+      }
+      contextMenu.style.display = 'none';
+    });
+    contextMenu.appendChild(copyItem);
+    document.body.appendChild(contextMenu);
+    
+    const handleContextMenu = (e: MouseEvent) => {
+      const selection = terminal.getSelection();
+      if (selection && selection.length > 0) {
+        e.preventDefault();
+        contextMenu.style.display = 'block';
+        contextMenu.style.left = e.clientX + 'px';
+        contextMenu.style.top = e.clientY + 'px';
+      }
+    };
+    
+    const hideContextMenu = () => contextMenu.style.display = 'none';
+    terminalRef.current.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('click', hideContextMenu);
+    
     // Handle Ctrl+C globally on document level - works regardless of what's focused
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
@@ -185,6 +235,14 @@ export default function PlayScreen() {
     return () => {
       window.removeEventListener('resize', handleResize);
       document.removeEventListener('keydown', handleGlobalKeyDown);
+      if (terminalRef.current) {
+        terminalRef.current.removeEventListener('contextmenu', handleContextMenu);
+      }
+      document.removeEventListener('click', hideContextMenu);
+      const menu = document.getElementById('terminal-context-menu');
+      if (menu) menu.remove();
+      const syncEl = document.getElementById('xterm-selection-sync');
+      if (syncEl) syncEl.remove();
       terminal.dispose();
     };
   }, []);
