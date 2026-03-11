@@ -116,7 +116,13 @@ export default function PlayScreen() {
     const fitAddon = new FitAddon();
     terminal.loadAddon(fitAddon);
     terminal.open(terminalRef.current);
-    customFit();
+    
+    // Delay customFit to ensure container has final layout dimensions
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        customFit();
+      });
+    });
 
     // Handle Ctrl+C / Cmd+C for clipboard copy when text is selected
     terminal.attachCustomKeyEventHandler((event: KeyboardEvent) => {
