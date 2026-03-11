@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
+import { logout } from '../services/api';
 import SessionBadge from './SessionBadge';
 
 // SP06PH08: Sidebar component - cleaned up duplicate nav items
@@ -26,8 +27,13 @@ export default function Sidebar({ isCollapsed = false, onToggle, onPlayClick, on
   const isActive = (path: string) => location.pathname === path;
   const isAutomationPaused = automationError !== null || automationDisabled;
 
-  const handleSignOut = useCallback(() => {
+  const handleSignOut = useCallback(async () => {
     setShowDropdown(false);
+    try {
+      await logout();
+    } catch (e) {
+      // Continue with redirect even if logout fails
+    }
     window.location.href = '/';
   }, []);
 

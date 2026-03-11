@@ -85,17 +85,10 @@ export default function Header() {
               <button 
                 className="account-dropdown-item"
                 onClick={() => {
-                  alert('[DEBUG] Sign Out button clicked!');
-                  console.log('[Header] Sign Out button clicked');
                   setShowDropdown(false);
-                  console.log('[Header] Calling logout API...');
                   logout()
-                    .then(() => console.log('[Header] Logout succeeded'))
-                    .catch((e) => console.log('[Header] Logout error:', e))
-                    .finally(() => {
-                      console.log('[Header] Redirecting to /');
-                      window.location.href = '/';
-                    });
+                    .then(() => window.location.href = '/')
+                    .catch(() => window.location.href = '/');
                 }}
               >
                 Sign Out
