@@ -20,7 +20,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ isCollapsed = false, onToggle, onPlayClick, onConnectionsClick, isPlayDisabled }: SidebarProps) {
-  const { user, connectionState, automationError, automationDisabled } = useSession();
+  const { user, connectionState, automationError, automationDisabled, disconnect } = useSession();
   const [showDropdown, setShowDropdown] = useState(false);
   const location = useLocation();
 
@@ -129,8 +129,14 @@ export default function Sidebar({ isCollapsed = false, onToggle, onPlayClick, on
         {/* Phone icon button to open connections modal */}
         <button
           className={`phone-button phone-button-${connectionState}`}
-          onClick={onConnectionsClick}
-          title="Open Connections"
+          onClick={() => {
+            if (connectionState === 'connected') {
+              disconnect();
+            } else {
+              onConnectionsClick?.();
+            }
+          }}
+          title={connectionState === 'connected' ? 'Disconnect' : 'Connect'}
         >
           <svg 
             viewBox="0 0 24 24" 
