@@ -41,6 +41,11 @@ export default function PlayScreen() {
       setCommandHistory([]);
       setHistoryPosition(-1);
     }
+    
+    // Clear terminal when connecting (new connection)
+    if (connectionState === 'connecting' && terminalInstanceRef.current) {
+      terminalInstanceRef.current.clear();
+    }
   }, [connectionState]);
   // This effect applies settings when a connection is established
   useEffect(() => {
