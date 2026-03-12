@@ -109,6 +109,13 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   // Disable automation entirely (SP06PH07)
   // This sets a flag that prevents automation from processing and persists to the server
   const disableAutomation = useCallback(async () => {
+    // Don't persist if we don't have a valid connection
+    if (!currentConnectionId) {
+      setAutomationDisabled(true);
+      setAutomationError(null);
+      return;
+    }
+    
     setAutomationDisabled(true);
     setAutomationError(null);
     
@@ -131,6 +138,12 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   // Re-enable automation after user disabled it (SP06PH07)
   // This persists to the server
   const enableAutomation = useCallback(async () => {
+    // Don't persist if we don't have a valid connection
+    if (!currentConnectionId) {
+      setAutomationDisabled(false);
+      return;
+    }
+    
     setAutomationDisabled(false);
     
     // Persist to server via profile settings
