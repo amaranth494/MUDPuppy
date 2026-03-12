@@ -397,12 +397,15 @@ export class AutomationEngine {
     const enabledAliases = this.aliases.items.filter(a => a.enabled);
     
     for (const alias of enabledAliases) {
-      // Always use prefix match - pattern must match the beginning of input
+      // Use exact match - pattern must match the entire input exactly
       let matchResult: { matched: boolean; args: string[] } | null = null;
       
-      if (input.startsWith(alias.pattern)) {
-        // Pattern matches the beginning of input
-        const remaining = input.substring(alias.pattern.length).trim();
+      if (input === alias.pattern) {
+        // Exact match - no arguments captured
+        matchResult = { matched: true, args: [] };
+      } else if (input.startsWith(alias.pattern + ' ')) {
+        // Pattern matches followed by space (captures arguments)
+        const remaining = input.substring(alias.pattern.length + 1).trim();
         // Split remaining into words for %1, %2, %3... placeholders
         const args = remaining ? remaining.split(/\s+/) : [];
         matchResult = { matched: true, args: args };
