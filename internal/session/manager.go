@@ -305,7 +305,8 @@ func (m *Manager) Disconnect(userID, reason string) error {
 
 	session, ok := m.sessions[userID]
 	if !ok {
-		return fmt.Errorf("no session found for user")
+		// Session already removed - treat as already disconnected (success)
+		return nil
 	}
 
 	// Cancel timers
