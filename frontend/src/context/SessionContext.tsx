@@ -218,6 +218,8 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   }, []);
 
   const connect = useCallback(async (mudHost: string, mudPort: number, connectionId?: string) => {
+    console.log('[Automation] connect() called - mudHost:', mudHost, 'mudPort:', mudPort, 'connectionId:', connectionId);
+    
     // Increment session ID to invalidate any pending profile updates from previous sessions
     connectionSessionRef.current++;
     
@@ -228,6 +230,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
     // This ensures keybindings are available immediately after connect
     if (connectionId) {
       try {
+        console.log('[Automation] Fetching profile for connectionId:', connectionId);
         const fetchedProfile = await getProfileByConnection(connectionId);
         // Normalize keybindings to canonical format
         const normalizedProfile: Profile = {
@@ -236,6 +239,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
         };
         setProfile(normalizedProfile);
         setCurrentConnectionId(connectionId);
+        console.log('[Automation] Profile loaded:', normalizedProfile?.id, 'automation_enabled:', normalizedProfile?.settings?.automation_enabled);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load profile';
         setError(mapBackendError(errorMessage));
@@ -244,6 +248,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       }
     } else {
       // Quick connect without saved connection - use defaults
+      console.log('[Automation] Quick connect - setting profile to null');
       setProfile(null);
       setCurrentConnectionId(null);
     }
