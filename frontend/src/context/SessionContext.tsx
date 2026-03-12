@@ -113,11 +113,13 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   // Disable automation entirely (SP06PH07)
   // This sets a flag that prevents automation from processing and persists to the server
   const disableAutomation = useCallback(async () => {
+    console.log('[Automation] disableAutomation called');
     // Capture the current session ID - ignore if session changed
     const sessionId = connectionSessionRef.current;
     
     // Don't persist if we don't have a valid connection or profile
     if (!currentConnectionId || !profile) {
+      console.log('[Automation] disableAutomation: No connection or profile, disabling');
       setAutomationDisabled(true);
       setAutomationError(null);
       return;
@@ -277,6 +279,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       
       // Set up circuit breaker callback
       engine.setCircuitBreakerCallback((reason: string) => {
+        console.log('[Automation] Circuit breaker tripped:', reason);
         setAutomationError(reason);
       });
       
@@ -285,6 +288,10 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       
       // SP06PH07: Load automation_enabled from profile settings (persisted per connection)
       const isAutomationEnabled = profile?.settings?.automation_enabled ?? true;
+      console.log('[Automation] Loading profile settings - automation_enabled:', isAutomationEnabled, 'profile:', profile?.id);
+      if (!isAutomationEnabled) {
+        console.log('[Automation] Disabled due to profile setting (automation_enabled = false)');
+      }
       setAutomationDisabled(!isAutomationEnabled);
     } catch (err) {
       console.error('Failed to initialize automation:', err);
