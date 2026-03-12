@@ -370,7 +370,11 @@ func (m *Manager) SendCommand(userID, command string) error {
 	// Reset idle timer
 	m.ResetIdleTimer(userID)
 
-	// Send command
+	// Strip trailing newlines from command to avoid double-newline issue
+	// Frontend may already include \n, and we add \r\n, so we need to prevent \n\r\n
+	command = strings.TrimRight(command, "\n")
+
+	// Send command with CRLF (standard for MUD servers)
 	_, err := conn.Write([]byte(command + "\r\n"))
 	if err != nil {
 		m.Disconnect(userID, ReasonError)
