@@ -1237,7 +1237,7 @@ body {
   gap: var(--spacing-xs);
   align-items: center;
   justify-content: flex-end;
-  width: 100px;
+  min-width: 120px;
 }
 
 .connection-actions .btn {
@@ -1245,6 +1245,39 @@ body {
   font-size: var(--font-size-xs);
   min-width: 42px;
   flex: 0 0 auto;
+}
+
+/* Icon button styles for connections hub */
+.connection-actions .btn-icon {
+  padding: 6px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  background: transparent !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.connection-actions .btn-icon:hover {
+  background: var(--hover-bg) !important;
+}
+
+.connection-actions .btn-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.connection-actions .btn-icon.icon-green {
+  color: #22c55e;
+}
+
+.connection-actions .btn-icon.icon-yellow {
+  color: #eab308;
+}
+
+.connection-actions .btn-icon.icon-red {
+  color: #ef4444;
 }
 
 .delete-confirm {
