@@ -149,7 +149,6 @@ body {
 .phone-button {
   background: transparent;
   border: none;
-  color: #888;
   cursor: pointer;
   padding: 4px;
   display: flex;
@@ -157,11 +156,21 @@ body {
   justify-content: center;
   border-radius: 4px;
   transition: color 0.2s, background 0.2s;
+  margin-left: auto; /* Push to the right */
 }
 
 .phone-button:hover {
-  color: #fff;
   background: rgba(255, 255, 255, 0.1);
+}
+
+.phone-button-connected {
+  color: #22c55e; /* Green when connected */
+}
+
+.phone-button-disconnected,
+.phone-button-connecting,
+.phone-button-error {
+  color: #ef4444; /* Red when not connected */
 }
 
 .phone-icon {

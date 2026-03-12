@@ -128,7 +128,7 @@ export default function Sidebar({ isCollapsed = false, onToggle, onPlayClick, on
         <SessionBadge />
         {/* Phone icon button to open connections modal */}
         <button
-          className="phone-button"
+          className={`phone-button phone-button-${connectionState}`}
           onClick={onConnectionsClick}
           title="Open Connections"
         >
