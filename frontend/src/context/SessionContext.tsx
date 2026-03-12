@@ -109,8 +109,8 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   // Disable automation entirely (SP06PH07)
   // This sets a flag that prevents automation from processing and persists to the server
   const disableAutomation = useCallback(async () => {
-    // Don't persist if we don't have a valid connection
-    if (!currentConnectionId) {
+    // Don't persist if we don't have a valid connection or profile
+    if (!currentConnectionId || !profile) {
       setAutomationDisabled(true);
       setAutomationError(null);
       return;
@@ -120,26 +120,25 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
     setAutomationError(null);
     
     // Persist to server via profile settings
-    if (currentConnectionId && profile) {
-      try {
-        const { updateProfile } = await import('../services/api');
-        await updateProfile(currentConnectionId, {
-          settings: {
-            ...profile.settings,
-            automation_enabled: false,
-          },
-        });
-      } catch (err) {
-        console.error('Failed to persist automation disabled state:', err);
-      }
+    try {
+      const { updateProfile } = await import('../services/api');
+      await updateProfile(currentConnectionId, {
+        settings: {
+          ...profile.settings,
+          automation_enabled: false,
+        },
+      });
+    } catch (err) {
+      // Profile might not exist - just log, don't fail
+      console.error('Failed to persist automation disabled state:', err);
     }
   }, [currentConnectionId, profile]);
 
   // Re-enable automation after user disabled it (SP06PH07)
   // This persists to the server
   const enableAutomation = useCallback(async () => {
-    // Don't persist if we don't have a valid connection
-    if (!currentConnectionId) {
+    // Don't persist if we don't have a valid connection or profile
+    if (!currentConnectionId || !profile) {
       setAutomationDisabled(false);
       return;
     }
@@ -147,18 +146,17 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
     setAutomationDisabled(false);
     
     // Persist to server via profile settings
-    if (currentConnectionId && profile) {
-      try {
-        const { updateProfile } = await import('../services/api');
-        await updateProfile(currentConnectionId, {
-          settings: {
-            ...profile.settings,
-            automation_enabled: true,
-          },
-        });
-      } catch (err) {
-        console.error('Failed to persist automation enabled state:', err);
-      }
+    try {
+      const { updateProfile } = await import('../services/api');
+      await updateProfile(currentConnectionId, {
+        settings: {
+          ...profile.settings,
+          automation_enabled: true,
+        },
+      });
+    } catch (err) {
+      // Profile might not exist - just log, don't fail
+      console.error('Failed to persist automation enabled state:', err);
     }
   }, [currentConnectionId, profile]);
 
