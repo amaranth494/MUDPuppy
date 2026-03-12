@@ -164,13 +164,13 @@ body {
 }
 
 .phone-button-connected {
-  color: #22c55e; /* Green when connected */
+  color: #ef4444; /* Red when connected - hang up */
 }
 
 .phone-button-disconnected,
 .phone-button-connecting,
 .phone-button-error {
-  color: #ef4444; /* Red when not connected */
+  color: #22c55e; /* Green when disconnected - available to connect */
 }
 
 .phone-icon {
