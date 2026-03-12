@@ -362,7 +362,14 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   }, [pendingReconnectData, clearPendingReconnect, connect]);
 
   const disconnect = useCallback(async () => {
+    // Always clear state first - even if API call fails, we want to show disconnected
+    // This ensures a clean state for reconnection
     setError(null);
+    setConnectionState('disconnected');
+    setHost('');
+    setPort(23);
+    setProfile(null);
+    setCurrentConnectionId(null);
     
     try {
       // Close WebSocket first
@@ -379,20 +386,13 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
         automationEngine.disconnect();
       }
       
-      setConnectionState('disconnected');
-      setHost('');
-      setPort(23);
-      // Clear profile on disconnect (SP04)
-      setProfile(null);
-      setCurrentConnectionId(null);
-      // Note: automationDisabled is NOT reset here - it persists for reconnection
-      // The setting is loaded from profile when connecting
       // Event-driven: refresh status after disconnect action completes
       await refreshStatus();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Disconnect failed';
-      setError(mapBackendError(errorMessage));
-      // Event-driven: refresh status on disconnect failure
+      console.error('Disconnect error:', errorMessage);
+      // State already cleared above, just refresh status
+      // Note: Don't set error state here - we want to show disconnected
       await refreshStatus();
     }
   }, [wsManager, refreshStatus, automationEngine]);
