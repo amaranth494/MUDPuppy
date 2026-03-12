@@ -324,6 +324,10 @@ func (m *Manager) Disconnect(userID, reason string) error {
 	session.State = StateDisconnected
 	session.DisconnectErr = reason
 
+	// Remove session from map - this ensures clean state for reconnection
+	// and prevents orphaned sessions
+	delete(m.sessions, userID)
+
 	// Record metrics
 	metrics.Get().IncDisconnect(reason)
 
