@@ -149,6 +149,8 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   // Re-enable automation after user disabled it (SP06PH07)
   // This persists to the server
   const enableAutomation = useCallback(async () => {
+    console.log('enableAutomation called, session:', connectionSessionRef.current, 'currentConnectionId:', currentConnectionId, 'profile:', profile?.id);
+    
     // Capture the current session ID - ignore if session changed
     const sessionId = connectionSessionRef.current;
     
