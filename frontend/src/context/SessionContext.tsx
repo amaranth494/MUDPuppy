@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { ConnectionState, User, Profile } from '../types';
 import { 
   checkAuth, 
@@ -106,9 +106,16 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
     }
   }, [automationEngine]);
 
+  // Track connection sessions to prevent stale updates
+  // This is incremented on each connect, allowing us to ignore stale profile updates
+  const connectionSessionRef = useRef(0);
+
   // Disable automation entirely (SP06PH07)
   // This sets a flag that prevents automation from processing and persists to the server
   const disableAutomation = useCallback(async () => {
+    // Capture the current session ID - ignore if session changed
+    const sessionId = connectionSessionRef.current;
+    
     // Don't persist if we don't have a valid connection or profile
     if (!currentConnectionId || !profile) {
       setAutomationDisabled(true);
@@ -119,7 +126,12 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
     setAutomationDisabled(true);
     setAutomationError(null);
     
-    // Persist to server via profile settings
+    // Persist to server via profile settings - but check session first
+    if (connectionSessionRef.current !== sessionId) {
+      console.log('disableAutomation: session changed, skipping profile update');
+      return;
+    }
+    
     try {
       const { updateProfile } = await import('../services/api');
       await updateProfile(currentConnectionId, {
@@ -137,8 +149,18 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   // Re-enable automation after user disabled it (SP06PH07)
   // This persists to the server
   const enableAutomation = useCallback(async () => {
+    // Capture the current session ID - ignore if session changed
+    const sessionId = connectionSessionRef.current;
+    
     // Don't persist if we don't have a valid connection or profile
     if (!currentConnectionId || !profile) {
+      setAutomationDisabled(false);
+      return;
+    }
+    
+    // Check if session changed - if so, skip the update
+    if (connectionSessionRef.current !== sessionId) {
+      console.log('enableAutomation: session changed, skipping profile update');
       setAutomationDisabled(false);
       return;
     }
@@ -190,6 +212,9 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   }, []);
 
   const connect = useCallback(async (mudHost: string, mudPort: number, connectionId?: string) => {
+    // Increment session ID to invalidate any pending profile updates from previous sessions
+    connectionSessionRef.current++;
+    
     setError(null);
     setConnectionState('connecting');
     
