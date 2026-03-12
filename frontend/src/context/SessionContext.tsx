@@ -134,7 +134,8 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
     
     try {
       const { updateProfile } = await import('../services/api');
-      await updateProfile(currentConnectionId, {
+      // Use profile.id, NOT currentConnectionId!
+      await updateProfile(profile.id, {
         settings: {
           ...profile.settings,
           automation_enabled: false,
@@ -172,7 +173,8 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
     // Persist to server via profile settings
     try {
       const { updateProfile } = await import('../services/api');
-      await updateProfile(currentConnectionId, {
+      // Use profile.id, NOT currentConnectionId!
+      await updateProfile(profile.id, {
         settings: {
           ...profile.settings,
           automation_enabled: true,
