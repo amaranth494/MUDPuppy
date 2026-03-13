@@ -44,7 +44,11 @@ export default function PlayScreen() {
     
     // Clear terminal when connecting (new connection)
     if (connectionState === 'connecting' && terminalInstanceRef.current) {
-      terminalInstanceRef.current.clear();
+      const terminal = terminalInstanceRef.current;
+      // Clear the viewport and the scrollback buffer
+      terminal.clear();
+      // Reset the terminal to clear scrollback and other state
+      terminal.reset();
     }
   }, [connectionState]);
   // This effect applies settings when a connection is established
