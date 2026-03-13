@@ -72,7 +72,7 @@ const MAX_QUEUE_SIZE = 100;
 const MAX_COMMAND_HISTORY = 50;
 
 // Loop detection threshold - same command repeated this many times triggers protection
-const LOOP_DETECTION_THRESHOLD = 5;
+const LOOP_DETECTION_THRESHOLD = 50;
 
 // Loop detection time window in ms
 const LOOP_DETECTION_WINDOW_MS = 2000;
