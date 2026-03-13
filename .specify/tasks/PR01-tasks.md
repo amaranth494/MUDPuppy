@@ -28,14 +28,11 @@
 
 ## Phase 1: Parser Foundation (PR01PH01)
 
-> **⚠️ BLOCKING: MVP Issues Found in Production**
-> QA has identified issues with the MVP in production. All Phase 1 work is blocked until these issues are resolved.
-
 ### PR01PH01T00 — Troubleshoot MVP Issues
 
 - [ ] **Task:** Investigate and troubleshoot MVP issues discovered by QA in production
 - **Notes:** Open-ended task. Do not proceed to any other Phase 1 tasks until QA and dev teams confirm issues are resolved.
-- **Status:** In Progress
+- **Status:** Done
 
 ---
 
@@ -44,28 +41,28 @@
 - [ ] **Task:** Create `frontend/src/services/automation/parser.ts`, define token types: COMMAND, TEXT, CONDITION, VARIABLE
 - **Acceptance:** Parser module created with token types defined
 - **Commit:** "PR01PH01T01: Create parser module with token types"
-- [ ] **Status:** Not done
+- [x] **Status:** Done
 
 ### PR01PH01T02 — Implement tokenizer
 
 - [ ] **Task:** Tokenize `#IF`, `#ELSE`, `#ENDIF`, `#SET`, `#TIMER`, `#ENDTIMER`, `#CANCEL`, handle variable substitution `${...}`, preserve plain text
 - **Acceptance:** All # commands tokenized correctly
 - **Commit:** "PR01PH01T02: Implement tokenizer for # commands"
-- [ ] **Status:** Not done
+- [x] **Status:** Done
 
 ### PR01PH01T03 — Implement syntax validation
 
 - [ ] **Task:** Validate # command structure, check matching #IF/#ENDIF pairs, report syntax errors with line numbers
 - **Acceptance:** Syntax validation returns correct errors
 - **Commit:** "PR01PH01T03: Implement syntax validation"
-- [ ] **Status:** Not done
+- [x] **Status:** Done
 
 ### PR01PH01T04 — Add parser unit tests
 
 - [ ] **Task:** Test tokenizer for each # command, test syntax validation errors
 - **Acceptance:** All parser tests pass
 - **Commit:** "PR01PH01T04: Add parser unit tests"
-- [ ] **Status:** Not done
+- [ ] **Status:** Not done (no test runner configured in project)
 
 ---
 
