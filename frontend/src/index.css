@@ -1334,6 +1334,23 @@ body {
   color: #ef4444;
 }
 
+/* Automation row icon buttons - direct child */
+.automation-row > .btn-icon {
+  padding: 4px !important;
+}
+
+.automation-row > .btn-icon:hover {
+  background: var(--hover-bg) !important;
+}
+
+.automation-row > .btn-icon svg {
+  width: 14px;
+}
+
+.automation-row > .btn-icon.icon-red {
+  color: #ef4444;
+}
+
 .delete-confirm {
   display: flex;
   gap: var(--spacing-xs);
