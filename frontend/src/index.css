@@ -1300,6 +1300,40 @@ body {
   width: 16px;
 }
 
+/* Automation row icon buttons (SettingsPage) */
+.automation-row-actions .btn-icon {
+  padding: 4px !important;
+}
+
+.automation-row-actions .btn-icon:hover {
+  background: var(--hover-bg) !important;
+}
+
+.automation-row-actions .btn-icon svg {
+  width: 14px;
+}
+
+.automation-row-actions .btn-icon.icon-red {
+  color: #ef4444;
+}
+
+/* Keybinding row icon buttons */
+.keybinding-row .btn-icon {
+  padding: 4px !important;
+}
+
+.keybinding-row .btn-icon:hover {
+  background: var(--hover-bg) !important;
+}
+
+.keybinding-row .btn-icon svg {
+  width: 14px;
+}
+
+.keybinding-row .btn-icon.icon-red {
+  color: #ef4444;
+}
+
 .delete-confirm {
   display: flex;
   gap: var(--spacing-xs);
