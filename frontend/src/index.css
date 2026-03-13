@@ -1288,6 +1288,18 @@ body {
   color: #ef4444;
 }
 
+.recent-connection-actions .btn-icon {
+  padding: 6px !important;
+}
+
+.recent-connection-actions .btn-icon:hover {
+  background: var(--hover-bg) !important;
+}
+
+.recent-connection-actions .btn-icon svg {
+  width: 16px;
+}
+
 .delete-confirm {
   display: flex;
   gap: var(--spacing-xs);
