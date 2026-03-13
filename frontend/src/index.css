@@ -1280,6 +1280,14 @@ body {
   color: #ef4444;
 }
 
+.recent-connection-actions .btn-icon.icon-green {
+  color: #22c55e;
+}
+
+.recent-connection-actions .btn-icon.icon-red {
+  color: #ef4444;
+}
+
 .delete-confirm {
   display: flex;
   gap: var(--spacing-xs);
