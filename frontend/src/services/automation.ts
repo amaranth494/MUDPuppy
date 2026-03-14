@@ -302,6 +302,16 @@ export class AutomationEngine {
   }
 
   /**
+   * Load timers from profile storage
+   * Called after setTimerCallbacks when connecting
+   */
+  loadTimers(savedTimers: SavedTimer[]): void {
+    if (this.timerManager) {
+      this.timerManager.loadTimers(savedTimers);
+    }
+  }
+
+  /**
    * Set the circuit breaker notification callback
    */
   setCircuitBreakerCallback(callback: (reason: string) => void): void {

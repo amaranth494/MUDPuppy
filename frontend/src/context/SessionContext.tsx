@@ -273,10 +273,11 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       
       // Fetch automation data if we have a connection ID
       if (connectionId) {
-        const [aliases, triggers, variables] = await Promise.all([
+        const [aliases, triggers, variables, timers] = await Promise.all([
           getAliases(connectionId),
           getTriggers(connectionId),
           getEnvironment(connectionId),
+          getTimers(connectionId),
         ]);
         
         engine.configure({
@@ -285,6 +286,18 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
           variables,
           connectionId,
         });
+        
+        // Load timers into the timer system
+        if (timers && timers.items) {
+          // Convert Timer (from API) to SavedTimer (for automation engine)
+          const savedTimers = timers.items.map(t => ({
+            name: t.name,
+            duration: t.duration,
+            repeat: t.repeat,
+            commands: typeof t.commands === 'string' ? t.commands.split('\n').filter(c => c.trim()) : t.commands,
+          }));
+          engine.loadTimers(savedTimers);
+        }
       } else {
         // Quick connect - use empty automation
         engine.configure({
