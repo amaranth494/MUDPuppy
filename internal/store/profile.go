@@ -190,13 +190,13 @@ func (s *ProfileStore) CreateProfile(userID, connectionID uuid.UUID) (*Profile, 
 // GetProfile retrieves a profile by ID for a specific user
 func (s *ProfileStore) GetProfile(userID, profileID uuid.UUID) (*Profile, error) {
 	query := `
-		SELECT id, user_id, connection_id, keybindings, settings, aliases, triggers, variables, created_at, updated_at
+		SELECT id, user_id, connection_id, keybindings, settings, aliases, triggers, variables, timers, created_at, updated_at
 		FROM profiles
 		WHERE id = $1 AND user_id = $2
 	`
 
 	var profile Profile
-	var keybindingsJSON, settingsJSON, aliasesJSON, triggersJSON, variablesJSON []byte
+	var keybindingsJSON, settingsJSON, aliasesJSON, triggersJSON, variablesJSON, timersJSON []byte
 
 	err := s.db.QueryRow(query, profileID, userID).Scan(
 		&profile.ID,
@@ -207,6 +207,7 @@ func (s *ProfileStore) GetProfile(userID, profileID uuid.UUID) (*Profile, error)
 		&aliasesJSON,
 		&triggersJSON,
 		&variablesJSON,
+		&timersJSON,
 		&profile.CreatedAt,
 		&profile.UpdatedAt,
 	)
@@ -231,6 +232,9 @@ func (s *ProfileStore) GetProfile(userID, profileID uuid.UUID) (*Profile, error)
 		return nil, err
 	}
 	if err := json.Unmarshal(variablesJSON, &profile.Variables); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(timersJSON, &profile.Timers); err != nil {
 		return nil, err
 	}
 
@@ -243,13 +247,13 @@ func (s *ProfileStore) GetProfile(userID, profileID uuid.UUID) (*Profile, error)
 // GetProfileByConnection retrieves a profile by connection ID for a specific user
 func (s *ProfileStore) GetProfileByConnection(userID, connectionID uuid.UUID) (*Profile, error) {
 	query := `
-		SELECT id, user_id, connection_id, keybindings, settings, aliases, triggers, variables, created_at, updated_at
+		SELECT id, user_id, connection_id, keybindings, settings, aliases, triggers, variables, timers, created_at, updated_at
 		FROM profiles
 		WHERE connection_id = $1 AND user_id = $2
 	`
 
 	var profile Profile
-	var keybindingsJSON, settingsJSON, aliasesJSON, triggersJSON, variablesJSON []byte
+	var keybindingsJSON, settingsJSON, aliasesJSON, triggersJSON, variablesJSON, timersJSON []byte
 
 	err := s.db.QueryRow(query, connectionID, userID).Scan(
 		&profile.ID,
@@ -260,6 +264,7 @@ func (s *ProfileStore) GetProfileByConnection(userID, connectionID uuid.UUID) (*
 		&aliasesJSON,
 		&triggersJSON,
 		&variablesJSON,
+		&timersJSON,
 		&profile.CreatedAt,
 		&profile.UpdatedAt,
 	)
@@ -284,6 +289,9 @@ func (s *ProfileStore) GetProfileByConnection(userID, connectionID uuid.UUID) (*
 		return nil, err
 	}
 	if err := json.Unmarshal(variablesJSON, &profile.Variables); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(timersJSON, &profile.Timers); err != nil {
 		return nil, err
 	}
 
