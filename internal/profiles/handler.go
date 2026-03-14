@@ -131,7 +131,7 @@ func (h *Handler) GetByConnection(w http.ResponseWriter, r *http.Request) {
 	profile, err := h.profileStore.GetProfileByConnection(userUUID, connectionID)
 	if err != nil {
 		log.Printf("[SP04PH02T03] Get profile by connection failed: %v", err)
-		h.sendError(w, "Failed to get profile")
+		h.sendError(w, "Failed to get profile: "+err.Error())
 		return
 	}
 	if profile == nil {
