@@ -310,6 +310,7 @@ func (s *ProfileStore) UpdateProfile(userID, profileID uuid.UUID, updates *Profi
 	var aliasesJSON []byte
 	var triggersJSON []byte
 	var variablesJSON []byte
+	var timersJSON []byte
 
 	if updates.Keybindings != nil {
 		keybindingsJSON, _ = json.Marshal(*updates.Keybindings)
@@ -341,15 +342,21 @@ func (s *ProfileStore) UpdateProfile(userID, profileID uuid.UUID, updates *Profi
 		variablesJSON, _ = json.Marshal(existing.Variables)
 	}
 
+	if updates.Timers != nil {
+		timersJSON, _ = json.Marshal(*updates.Timers)
+	} else {
+		timersJSON, _ = json.Marshal(existing.Timers)
+	}
+
 	query := `
 		UPDATE profiles
-		SET keybindings = $1, settings = $2, aliases = $3, triggers = $4, variables = $5, updated_at = NOW()
-		WHERE id = $6 AND user_id = $7
+		SET keybindings = $1, settings = $2, aliases = $3, triggers = $4, variables = $5, timers = $6, updated_at = NOW()
+		WHERE id = $7 AND user_id = $8
 		RETURNING updated_at
 	`
 
 	var updatedAt string
-	err = s.db.QueryRow(query, keybindingsJSON, settingsJSON, aliasesJSON, triggersJSON, variablesJSON, profileID, userID).Scan(&updatedAt)
+	err = s.db.QueryRow(query, keybindingsJSON, settingsJSON, aliasesJSON, triggersJSON, variablesJSON, timersJSON, profileID, userID).Scan(&updatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -370,6 +377,9 @@ func (s *ProfileStore) UpdateProfile(userID, profileID uuid.UUID, updates *Profi
 	}
 	if updates.Variables != nil {
 		existing.Variables = *updates.Variables
+	}
+	if updates.Timers != nil {
+		existing.Timers = *updates.Timers
 	}
 
 	return existing, nil
