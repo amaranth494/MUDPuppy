@@ -719,8 +719,13 @@ export class AutomationEngine {
     this.lastTriggerCommand = trigger.action;
     this.lastTriggerCycleId = this.currentCycleId;
 
+    // Create alias resolver callback to resolve @alias invocations
+    const aliasResolver = async (aliasName: string): Promise<string[]> => {
+      return await this.invokeExplicitAlias(aliasName);
+    };
+
     // Always use executeAutomationAction for all trigger actions to ensure timeout protection (PR01PH05T03)
-    executeAutomationAction(trigger.action, this.variableStore, this.timerManager)
+    executeAutomationAction(trigger.action, this.variableStore, this.timerManager, aliasResolver)
       .then(result => {
         if (!result.success) {
           console.warn('[Automation] Trigger action errors:', result.errors);

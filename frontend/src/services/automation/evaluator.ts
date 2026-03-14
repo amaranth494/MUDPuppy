@@ -69,6 +69,7 @@ export interface ExecutionContext {
   maxDepth: number;
   timerManager?: TimerManager;
   executeCommands?: (commands: string[]) => void;
+  aliasResolver?: (aliasName: string) => Promise<string[]>;
 }
 
 // AST Node types for conditions
@@ -582,7 +583,8 @@ export async function executeTokens(
   tokens: ParsedToken[],
   variables: VariableStore,
   maxDepth: number = DEFAULT_MAX_DEPTH,
-  timerManager?: TimerManager
+  timerManager?: TimerManager,
+  aliasResolver?: (aliasName: string) => Promise<string[]>
 ): Promise<ExecutionResult> {
   const errors: ExecutionError[] = [];
   const commands: string[] = [];
@@ -593,9 +595,10 @@ export async function executeTokens(
       depth: 0,
       maxDepth,
       timerManager,
-      executeCommands: undefined
+      executeCommands: undefined,
+      aliasResolver
     };
-    
+
     const result = await executeTokenList(tokens, context, errors);
     commands.push(...result);
     
@@ -800,7 +803,25 @@ async function executeTokenList(
     if (token.type === 'TEXT' || token.type === 'VARIABLE') {
       const text = token.value;
       if (text.trim()) {
-        commands.push(text.trim());
+        // Check for @alias invocation - resolve if aliasResolver is provided
+        const trimmedText = text.trim();
+        if (trimmedText.startsWith('@') && context.aliasResolver) {
+          const aliasName = trimmedText.substring(1).trim();
+          if (aliasName) {
+            try {
+              const aliasCommands = await context.aliasResolver(aliasName);
+              commands.push(...aliasCommands);
+            } catch (error) {
+              errors.push({
+                message: `Failed to resolve alias @${aliasName}: ${error}`,
+                line: token.line,
+                column: token.column
+              });
+            }
+          }
+        } else {
+          commands.push(trimmedText);
+        }
       }
       i++;
       continue;
@@ -942,11 +963,18 @@ export function substituteVariables(input: string, variables: VariableStore): st
  * This is a convenience function that parses and executes
  * automation action text with #IF/#ELSE/#ENDIF support.
  * Includes 500ms timeout for condition evaluation to prevent runaway scripts (PR01PH05T03).
+ * Supports @alias invocation if aliasResolver callback is provided.
+ * 
+ * @param actionText - The action text to execute
+ * @param variables - Variable store for variable substitution
+ * @param timerManager - Optional timer manager for timer commands
+ * @param aliasResolver - Optional callback to resolve @alias invocations
  */
 export async function executeAutomationAction(
   actionText: string,
   variables: VariableStore,
-  timerManager?: TimerManager
+  timerManager?: TimerManager,
+  aliasResolver?: (aliasName: string) => Promise<string[]>
 ): Promise<ExecutionResult> {
   // Parse the action text
   const parseResult = parser.parse(actionText);
@@ -982,7 +1010,8 @@ export async function executeAutomationAction(
     parseResult.tokens, 
     variables, 
     DEFAULT_MAX_DEPTH, 
-    timerManager
+    timerManager,
+    aliasResolver
   );
 }
 
@@ -994,7 +1023,8 @@ async function executeWithTimeout(
   tokens: ParsedToken[],
   variables: VariableStore,
   maxDepth: number,
-  timerManager?: TimerManager
+  timerManager?: TimerManager,
+  aliasResolver?: (aliasName: string) => Promise<string[]>
 ): Promise<ExecutionResult> {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   let isTimedOut = false;
@@ -1010,7 +1040,7 @@ async function executeWithTimeout(
   
   try {
     // Execute the tokens
-    const executionPromise = executeTokens(tokens, variables, maxDepth, timerManager);
+    const executionPromise = executeTokens(tokens, variables, maxDepth, timerManager, aliasResolver);
     
     // Race between execution and timeout
     const result = await Promise.race([executionPromise, timeoutPromise]);
