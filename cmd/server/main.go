@@ -97,6 +97,15 @@ func main() {
 
 	log.Println("Migrations completed successfully")
 
+	// Ensure timers column exists (fallback for when migration 009 isn't in migrate.zip)
+	log.Println("Ensuring timers column exists...")
+	_, err = db.Exec(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS timers JSONB NOT NULL DEFAULT '{"items": []}'`)
+	if err != nil {
+		log.Printf("Warning: Failed to ensure timers column: %v", err)
+	} else {
+		log.Println("Timers column ensured")
+	}
+
 	// Fail-fast if REDIS_URL is missing (SP01PH02T04)
 	if redisURL == "" {
 		log.Fatal("FATAL: REDIS_URL environment variable is required. Set it before starting the server.")
