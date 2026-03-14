@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
-import { ConnectionState, User, Profile } from '../types';
+import { ConnectionState, User, Profile, Timer } from '../types';
 import { 
   checkAuth, 
   getSessionStatus, 
@@ -9,12 +9,15 @@ import {
   getProfileByConnection,
   getAliases,
   getTriggers,
-  getEnvironment
+  getEnvironment,
+  getTimers,
+  putTimers
 } from '../services/api';
 import { mapBackendError } from '../types';
 import { normalizeKeybindings } from '../services/keybindings';
 import { getAutomationEngine, AutomationEngine } from '../services/automation';
 import { VariableValue } from '../services/automation/evaluator';
+import { SavedTimer } from '../services/automation/timer';
 
 interface SessionContextType {
   user: User | null;
@@ -303,6 +306,60 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
         console.log('[Automation] Variable changed:', name, '=', value);
         triggerVariablesRefresh();
       });
+      
+      // PR01PH04: Set up timer persistence callbacks
+      if (connectionId) {
+        engine.setTimerCallbacks(
+          async (timer: SavedTimer) => {
+            // Save timer to profile
+            try {
+              const currentTimers = await getTimers(connectionId);
+              // Check if timer already exists
+              const existingIndex = currentTimers.items.findIndex(t => t.name === timer.name);
+              let updatedTimers: Timer[];
+              
+              if (existingIndex >= 0) {
+                // Update existing timer
+                updatedTimers = [...currentTimers.items];
+                updatedTimers[existingIndex] = {
+                  ...updatedTimers[existingIndex],
+                  name: timer.name,
+                  duration: timer.duration,
+                  repeat: timer.repeat,
+                  commands: timer.commands.join('\n'), // Join array into string for API
+                  enabled: true
+                };
+              } else {
+                // Add new timer
+                updatedTimers = [...currentTimers.items, {
+                  id: crypto.randomUUID(),
+                  name: timer.name,
+                  duration: timer.duration,
+                  repeat: timer.repeat,
+                  commands: timer.commands.join('\n'), // Join array into string for API
+                  enabled: true
+                }];
+              }
+              
+              await putTimers(connectionId, updatedTimers);
+              console.log('[Automation] Timer saved:', timer.name);
+            } catch (error) {
+              console.error('[Automation] Failed to save timer:', error);
+            }
+          },
+          async (timerName: string) => {
+            // Delete timer from profile
+            try {
+              const currentTimers = await getTimers(connectionId);
+              const updatedTimers = currentTimers.items.filter(t => t.name !== timerName);
+              await putTimers(connectionId, updatedTimers);
+              console.log('[Automation] Timer deleted:', timerName);
+            } catch (error) {
+              console.error('[Automation] Failed to delete timer:', error);
+            }
+          }
+        );
+      }
       
       setAutomationEngine(engine);
       setAutomationError(null);

@@ -7,7 +7,7 @@
 
 import { Trigger, AutomationAliases, AutomationTriggers, AutomationVariables } from '../types';
 import { SimpleVariableStore, VariableValue, executeAutomationAction } from './automation/evaluator';
-import { TimerManager } from './automation/timer';
+import { TimerManager, SavedTimer } from './automation/timer';
 
 // ============================================
 // Types
@@ -246,6 +246,59 @@ export class AutomationEngine {
    */
   setSubmitCommandCallback(callback: (command: string) => void): void {
     this.onSubmitCommand = callback;
+  }
+
+  /**
+   * Set the callbacks for persisting timers to backend
+   * PR01PH04: Timers need to be saved to profile storage
+   */
+  setTimerCallbacks(
+    onTimerSave: (timer: SavedTimer) => Promise<void>,
+    onTimerDelete: (timerName: string) => Promise<void>
+  ): void {
+    this.timerManager = new TimerManager({
+      maxTimers: 10,
+      onTimerFire: (timer) => {
+        console.log(`[Timer] '${timer.name}' fired (count: ${timer.fireCount})`);
+      },
+      onTimerCancel: (name) => {
+        console.log(`[Timer] '${name}' cancelled`);
+      },
+      onTimerSave,
+      onTimerDelete,
+      onError: (error) => {
+        console.error(`[Timer] Error: ${error}`);
+      }
+    });
+    
+    // Set up the timer execution context
+    this.timerManager.setExecutionContext({
+      executeCommands: (commands: string[]) => {
+        for (const cmd of commands) {
+          this.queueCommand({
+            command: cmd,
+            source: 'trigger',
+          });
+        }
+      },
+      substituteVariables: (input: string) => {
+        return this.substituteVariables(input);
+      },
+      // PR01PH07T03: Execute through parser for #IF/#ELSE support
+      executeThroughParser: async (commands: string[]) => {
+        const actionText = commands.join('\n');
+        const aliasResolver = async (aliasName: string): Promise<string[]> => {
+          return await this.invokeExplicitAlias(aliasName);
+        };
+        const result = await executeAutomationAction(actionText, this.variableStore, this.timerManager, aliasResolver);
+        for (const cmd of result.commands) {
+          this.queueCommand({
+            command: cmd,
+            source: 'trigger',
+          });
+        }
+      }
+    });
   }
 
   /**
