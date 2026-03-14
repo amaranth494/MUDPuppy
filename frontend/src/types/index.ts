@@ -193,6 +193,16 @@ export interface Variable {
   value: string;
 }
 
+// Timer type - time-based automation
+export interface Timer {
+  id: string;
+  name: string;
+  duration: number; // in milliseconds
+  repeat: boolean;
+  commands: string;
+  enabled: boolean;
+}
+
 // Automation response wrappers
 export interface AliasesResponse {
   items: Alias[];
@@ -204,6 +214,10 @@ export interface TriggersResponse {
 
 export interface VariablesResponse {
   items: Variable[];
+}
+
+export interface TimersResponse {
+  items: Timer[];
 }
 
 // Automation wrapper types (SP05)

@@ -1,0 +1,1055 @@
+/**
+ * Automation Logic Engine - PR01PH02
+ * 
+ * Handles condition parsing, evaluation, and #IF/#ELSE/#ENDIF execution:
+ * - Parse ${variable} references
+ * - Parse comparison operators: > < >= <= ==
+ * - Parse logical operators: AND, OR
+ * - Evaluate conditions against variable values
+ * - Execute commands based on condition results
+ * 
+ * Variable Resolution:
+ * - Profile variables: Persisted with user profile (#SET commands)
+ * - System variables: Read-only, managed by system
+ * - Session variables: Temporary, cleared on disconnect
+ */
+
+import { ParsedToken, CommandToken, parser, validateSyntax } from './parser';
+import { handleTimerCommand, handleCancelCommand, TimerManager, findTimerEnd, handleStartCommand, handleStopCommand, handleCheckCommand } from './timer';
+
+// ============================================
+// Types
+// ============================================
+
+// Variable value types
+export type VariableValue = string | number | boolean;
+
+// Variable resolver interface - separates profile, system, and session variables
+// 
+// Precedence: session > profile > system
+// - Profile variables (${name}): Persisted with profile via #SET
+// - Session variables (%1, %2): Temporary, from alias arguments/trigger captures
+// - System variables (%TIME, %CHARACTER): Read-only, managed by system
+export interface VariableResolver {
+  // Profile variables (persisted with profile)
+  getProfile(name: string): VariableValue | undefined;
+  setProfile(name: string, value: VariableValue): void;
+  
+  // System variables (read-only, managed by system)
+  getSystem(name: string): VariableValue | undefined;
+  
+  // Session variables (temporary, session-only)
+  getSession(name: string): VariableValue | undefined;
+  setSession(name: string, value: VariableValue): void;
+  
+  // Convenience: get from any source (profile -> session -> system priority)
+  get(name: string): VariableValue | undefined;
+}
+
+// Legacy alias for backward compatibility
+export type VariableStore = VariableResolver;
+
+// Execution result
+export interface ExecutionResult {
+  success: boolean;
+  commands: string[];
+  errors: ExecutionError[];
+}
+
+export interface ExecutionError {
+  message: string;
+  line?: number;
+  column?: number;
+}
+
+// Execution context
+export interface ExecutionContext {
+  variables: VariableStore;
+  depth: number;
+  maxDepth: number;
+  timerManager?: TimerManager;
+  executeCommands?: (commands: string[]) => void;
+}
+
+// AST Node types for conditions
+export type ASTNode = 
+  | VariableNode 
+  | ValueNode 
+  | ComparisonNode 
+  | LogicalNode;
+
+export interface VariableNode {
+  type: 'variable';
+  name: string;
+}
+
+export interface ValueNode {
+  type: 'value';
+  value: VariableValue;
+}
+
+export interface ComparisonNode {
+  type: 'comparison';
+  operator: '>' | '<' | '>=' | '<=' | '==';
+  left: ASTNode;
+  right: ASTNode;
+}
+
+export interface LogicalNode {
+  type: 'logical';
+  operator: 'AND' | 'OR';
+  left: ASTNode;
+  right: ASTNode;
+}
+
+// ============================================
+// Constants
+// ============================================
+
+const DEFAULT_MAX_DEPTH = 999; // High value - no practical limit
+
+// Evaluation timeout in milliseconds (PR01PH05T03)
+const EVALUATION_TIMEOUT_MS = 500;
+
+// System variables - these are read-only and cannot be modified by #SET
+export const SYSTEM_VARIABLES: Record<string, VariableValue> = {
+  '%TIME': '',
+  '%DATE': '',
+  '%CHARACTER': '',
+  '%SERVER': '',
+  '%SESSIONID': '',
+  '%TICKCOUNT': 0,
+  '%RANDOM': 0,
+};
+
+// Check if a variable name is a system variable
+export function isSystemVariable(name: string): boolean {
+  const upperName = name.toUpperCase();
+  return upperName in SYSTEM_VARIABLES || upperName.startsWith('%');
+}
+
+// ============================================
+// Condition Parser
+// ============================================
+
+/**
+ * Parse a condition string into an AST
+ * Examples:
+ *   ${hp} < 30
+ *   ${gold} >= 1000
+ *   ${hp} < 50 AND ${mana} > 10
+ *   ${target} == dragon
+ */
+export function parseCondition(condition: string): ASTNode | null {
+  if (!condition || condition.trim() === '') {
+    return null;
+  }
+
+  const trimmed = condition.trim();
+  
+  try {
+    return parseLogicalExpression(trimmed);
+  } catch (e) {
+    console.error('[Evaluator] Failed to parse condition:', e);
+    return null;
+  }
+}
+
+/**
+ * Parse a logical expression (AND/OR)
+ */
+function parseLogicalExpression(input: string): ASTNode {
+  // Find the outermost AND/OR operator at the lowest precedence level
+  // We need to find the rightmost AND/OR at the top level (not inside parentheses)
+  
+  let parenDepth = 0;
+  let lastAndPos = -1;
+  let lastOrPos = -1;
+  
+  for (let i = input.length - 1; i >= 0; i--) {
+    const char = input[i];
+    
+    if (char === ')') {
+      parenDepth++;
+    } else if (char === '(') {
+      parenDepth--;
+    } else if (parenDepth === 0) {
+      // Check for OR first (lower precedence than AND)
+      if (i >= 1 && input.substring(i, i + 2).toUpperCase() === 'OR') {
+        lastOrPos = i;
+      }
+      // Check for AND
+      if (i >= 2 && input.substring(i - 1, i + 2).toUpperCase() === 'AND') {
+        lastAndPos = i - 1;
+      }
+    }
+  }
+  
+  // Handle OR at top level
+  if (lastOrPos !== -1) {
+    const left = input.substring(0, lastOrPos).trim();
+    const right = input.substring(lastOrPos + 2).trim();
+    return {
+      type: 'logical',
+      operator: 'OR',
+      left: parseComparisonExpression(left),
+      right: parseComparisonExpression(right)
+    };
+  }
+  
+  // Handle AND at top level
+  if (lastAndPos !== -1) {
+    const left = input.substring(0, lastAndPos).trim();
+    const right = input.substring(lastAndPos + 3).trim();
+    return {
+      type: 'logical',
+      operator: 'AND',
+      left: parseComparisonExpression(left),
+      right: parseComparisonExpression(right)
+    };
+  }
+  
+  // No logical operator, parse as comparison
+  return parseComparisonExpression(input);
+}
+
+/**
+ * Parse a comparison expression (> < >= <= ==)
+ */
+function parseComparisonExpression(input: string): ASTNode {
+  const trimmed = input.trim();
+  
+  // Find comparison operator
+  // Order matters: >=, <=, == first, then >, <, !=
+  const operators = ['>=', '<=', '==', '!=', '>', '<'];
+  
+  for (const op of operators) {
+    const pos = findOperatorAtTopLevel(trimmed, op);
+    if (pos !== -1) {
+      const left = trimmed.substring(0, pos).trim();
+      const right = trimmed.substring(pos + op.length).trim();
+      
+      return {
+        type: 'comparison',
+        operator: op as ComparisonNode['operator'],
+        left: parseValue(left),
+        right: parseValue(right)
+      };
+    }
+  }
+  
+  // No comparison operator, parse as value
+  return parseValue(trimmed);
+}
+
+/**
+ * Find operator position at top level (not inside quotes or nested)
+ */
+function findOperatorAtTopLevel(input: string, operator: string): number {
+  let parenDepth = 0;
+  let inQuote = false;
+  let quoteChar = '';
+  
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+    
+    // Handle quotes
+    if ((char === '"' || char === "'") && !inQuote) {
+      inQuote = true;
+      quoteChar = char;
+    } else if (char === quoteChar && inQuote) {
+      inQuote = false;
+      quoteChar = '';
+      continue;
+    }
+    
+    if (inQuote) continue;
+    
+    // Track parentheses
+    if (char === '(') {
+      parenDepth++;
+    } else if (char === ')') {
+      parenDepth--;
+    }
+    
+    // Check for operator at top level
+    if (parenDepth === 0 && input.substring(i, i + operator.length) === operator) {
+      return i;
+    }
+  }
+  
+  return -1;
+}
+
+/**
+ * Parse a value (variable or literal)
+ */
+function parseValue(input: string): ASTNode {
+  const trimmed = input.trim();
+  
+  // Check for variable reference ${name}
+  if (trimmed.startsWith('${') && trimmed.endsWith('}')) {
+    const name = trimmed.slice(2, -1);
+    return {
+      type: 'variable',
+      name
+    };
+  }
+  
+  // Check for quoted string
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+      (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+    return {
+      type: 'value',
+      value: trimmed.slice(1, -1)
+    };
+  }
+  
+  // Check for boolean
+  if (trimmed.toLowerCase() === 'true') {
+    return {
+      type: 'value',
+      value: true
+    };
+  }
+  if (trimmed.toLowerCase() === 'false') {
+    return {
+      type: 'value',
+      value: false
+    };
+  }
+  
+  // Check for number
+  const num = parseFloat(trimmed);
+  if (!isNaN(num)) {
+    return {
+      type: 'value',
+      value: num
+    };
+  }
+  
+  // Default to string value
+  return {
+    type: 'value',
+    value: trimmed
+  };
+}
+
+// ============================================
+// Evaluation Engine
+// ============================================
+
+/**
+ * Evaluate an AST node against variables
+ */
+export function evaluate(node: ASTNode, variables: VariableStore): VariableValue {
+  switch (node.type) {
+    case 'variable': {
+      const value = variables.get(node.name);
+      return value !== undefined ? value : '';
+    }
+    
+    case 'value':
+      return node.value;
+    
+    case 'comparison': {
+      const left = evaluate(node.left, variables);
+      const right = evaluate(node.right, variables);
+      return compareValues(left, right, node.operator);
+    }
+    
+    case 'logical': {
+      const left = evaluate(node.left, variables);
+      const leftTruthy = isTruthy(left);
+      
+      if (node.operator === 'AND') {
+        if (!leftTruthy) return false;
+        const right = evaluate(node.right, variables);
+        return isTruthy(right);
+      } else { // OR
+        if (leftTruthy) return true;
+        const right = evaluate(node.right, variables);
+        return isTruthy(right);
+      }
+    }
+    
+    default:
+      return false;
+  }
+}
+
+/**
+ * Compare two values with the given operator
+ */
+function compareValues(left: VariableValue, right: VariableValue, operator: string): boolean {
+  // Coerce to numbers for comparison if both are numeric
+  const leftNum = typeof left === 'number' ? left : (typeof left === 'string' ? parseFloat(left) : (left ? 1 : 0));
+  const rightNum = typeof right === 'number' ? right : (typeof right === 'string' ? parseFloat(right) : (right ? 1 : 0));
+  
+  // If both can be treated as numbers, do numeric comparison
+  const leftIsNumeric = typeof left === 'number' || (!isNaN(parseFloat(String(left))) && isFinite(Number(left)));
+  const rightIsNumeric = typeof right === 'number' || (!isNaN(parseFloat(String(right))) && isFinite(Number(right)));
+  
+  if (leftIsNumeric && rightIsNumeric) {
+    switch (operator) {
+      case '>': return leftNum > rightNum;
+      case '<': return leftNum < rightNum;
+      case '>=': return leftNum >= rightNum;
+      case '<=': return leftNum <= rightNum;
+      case '==': return leftNum === rightNum;
+      case '!=': return leftNum !== rightNum;
+    }
+  }
+  
+  // String comparison
+  const leftStr = String(left).toLowerCase();
+  const rightStr = String(right).toLowerCase();
+  
+  switch (operator) {
+    case '>': return leftStr > rightStr;
+    case '<': return leftStr < rightStr;
+    case '>=': return leftStr >= rightStr;
+    case '<=': return leftStr <= rightStr;
+    case '==': return leftStr === rightStr;
+    case '!=': return leftStr !== rightStr;
+  }
+  
+  return false;
+}
+
+/**
+ * Convert a value to boolean for truthiness
+ */
+function isTruthy(value: VariableValue): boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'string') return value.length > 0;
+  return false;
+}
+
+// ============================================
+// Execution Engine
+// ============================================
+
+/**
+ * Default variable resolver implementation
+ * Uses three separate maps for profile, system, and session variables
+ * 
+ * Variable Resolution Precedence (get() method):
+ *   session > profile > system
+ * 
+ * Profile variables (${name}): Persisted with the user profile via #SET
+ * Session variables (%1, %2): Temporary, populated from alias arguments or trigger pattern captures
+ * System variables (%TIME, %CHARACTER): Read-only, managed by the system
+ * 
+ * #SET command:
+ * - Backend write fails → value does not persist, automation continues, failure is logged
+ */
+export class SimpleVariableStore implements VariableResolver {
+  private profileVariables: Map<string, VariableValue> = new Map();
+  private systemVariables: Map<string, VariableValue> = new Map();
+  private sessionVariables: Map<string, VariableValue> = new Map();
+  
+  // Callback for persisting profile variables to backend
+  private onPersistProfile: ((variables: Record<string, VariableValue>) => Promise<void>) | null = null;
+  
+  // Callback for notifying UI of variable changes
+  private onVariableChange: ((name: string, value: VariableValue) => void) | null = null;
+  
+  /**
+   * Set the persistence callback for profile variables
+   */
+  setPersistCallback(callback: (variables: Record<string, VariableValue>) => Promise<void>): void {
+    this.onPersistProfile = callback;
+  }
+  
+  /**
+   * Set the variable change callback for UI updates
+   */
+  setVariableChangeCallback(callback: (name: string, value: VariableValue) => void): void {
+    this.onVariableChange = callback;
+  }
+  
+  // Profile variables (persisted with profile)
+  getProfile(name: string): VariableValue | undefined {
+    return this.profileVariables.get(name);
+  }
+  
+  async setProfile(name: string, value: VariableValue): Promise<void> {
+    // Check for system variable protection (PR01PH03T03)
+    if (isSystemVariable(name)) {
+      throw new Error(`Cannot modify system variable: ${name}`);
+    }
+    
+    this.profileVariables.set(name, value);
+    
+    // Notify UI of change
+    if (this.onVariableChange) {
+      this.onVariableChange(name, value);
+    }
+    
+    // Persist to backend if callback is set
+    if (this.onPersistProfile) {
+      try {
+        await this.onPersistProfile(this.toObject());
+      } catch (error) {
+        console.error('[SimpleVariableStore] Failed to persist variable:', error);
+        // Don't throw - variable is still set in memory
+      }
+    }
+  }
+  
+  // System variables (read-only)
+  getSystem(name: string): VariableValue | undefined {
+    return this.systemVariables.get(name);
+  }
+  
+  // Session variables (temporary)
+  getSession(name: string): VariableValue | undefined {
+    // Handle %1, %2 syntax for session variables (PR01PH03T04)
+    if (/^%\d+$/.test(name)) {
+      return this.sessionVariables.get(name);
+    }
+    return this.sessionVariables.get(name);
+  }
+  
+  setSession(name: string, value: VariableValue): void {
+    // Handle %1, %2 syntax for session variables (PR01PH03T04)
+    this.sessionVariables.set(name, value);
+  }
+  
+  // Convenience: get from any source (session > profile > system priority)
+  get(name: string): VariableValue | undefined {
+    // Priority: session > profile > system
+    // Check session first (includes %1, %2 syntax)
+    if (this.sessionVariables.has(name)) {
+      return this.sessionVariables.get(name);
+    }
+    
+    // Check profile
+    if (this.profileVariables.has(name)) {
+      return this.profileVariables.get(name);
+    }
+    
+    // Check system
+    return this.systemVariables.get(name);
+  }
+  
+  // Legacy setter - maps to setProfile for backward compatibility
+  async set(name: string, value: VariableValue): Promise<void> {
+    await this.setProfile(name, value);
+  }
+  
+  // Get all variables as object (profile only for persistence)
+  toObject(): Record<string, VariableValue> {
+    const obj: Record<string, VariableValue> = {};
+    this.profileVariables.forEach((value, key) => {
+      obj[key] = value;
+    });
+    return obj;
+  }
+  
+  // Load from object (profile only)
+  fromObject(obj: Record<string, VariableValue>): void {
+    this.profileVariables.clear();
+    Object.entries(obj).forEach(([key, value]) => {
+      this.profileVariables.set(key, value);
+    });
+  }
+  
+  // Clear session variables (called on disconnect) - PR01PH03T04
+  clearSession(): void {
+    this.sessionVariables.clear();
+  }
+  
+  // Initialize/update system variables - PR01PH03T01
+  updateSystemVariable(name: string, value: VariableValue): void {
+    this.systemVariables.set(name, value);
+  }
+  
+  // Set multiple system variables at once
+  setSystemVariables(variables: Record<string, VariableValue>): void {
+    Object.entries(variables).forEach(([key, value]) => {
+      this.systemVariables.set(key, value);
+    });
+  }
+}
+
+/**
+ * Execute parsed tokens with #IF/#ELSE/#ENDIF support
+ */
+export async function executeTokens(
+  tokens: ParsedToken[],
+  variables: VariableStore,
+  maxDepth: number = DEFAULT_MAX_DEPTH,
+  timerManager?: TimerManager
+): Promise<ExecutionResult> {
+  const errors: ExecutionError[] = [];
+  const commands: string[] = [];
+  
+  try {
+    const context: ExecutionContext = {
+      variables,
+      depth: 0,
+      maxDepth,
+      timerManager,
+      executeCommands: undefined
+    };
+    
+    const result = await executeTokenList(tokens, context, errors);
+    commands.push(...result);
+    
+    return {
+      success: errors.length === 0,
+      commands,
+      errors
+    };
+  } catch (e) {
+    const error = e as Error;
+    errors.push({
+      message: `Execution error: ${error.message}`
+    });
+    
+    return {
+      success: false,
+      commands,
+      errors
+    };
+  }
+}
+
+/**
+ * Execute a list of tokens, handling #IF/#ELSE/#ENDIF blocks
+ */
+async function executeTokenList(
+  tokens: ParsedToken[],
+  context: ExecutionContext,
+  errors: ExecutionError[]
+): Promise<string[]> {
+  const commands: string[] = [];
+  let i = 0;
+  
+  while (i < tokens.length) {
+    const token = tokens[i];
+    
+    if (token.type === 'COMMAND') {
+      switch (token.command) {
+        case 'IF':
+          // Get condition from args
+          const conditionStr = token.args || '';
+          const ast = parseCondition(conditionStr);
+          
+          if (!ast) {
+            errors.push({
+              message: `Failed to parse condition: ${conditionStr}`,
+              line: token.line,
+              column: token.column
+            });
+            i++;
+            continue;
+          }
+          
+          // Evaluate condition
+          const result = evaluate(ast, context.variables);
+          const conditionTrue = isTruthy(result);
+          
+          // Find matching #ELSE/#ENDIF
+          const blockEnd = findBlockEnd(tokens, i);
+          
+          if (blockEnd === -1) {
+            errors.push({
+              message: 'Missing #ENDIF',
+              line: token.line,
+              column: token.column
+            });
+            i++;
+            continue;
+          }
+          
+          // Execute appropriate branch
+          
+          if (conditionTrue) {
+            // Execute IF branch (tokens between IF and ELSE/ENDIF)
+            const ifEnd = findElseOrEndif(tokens, i);
+            const ifTokens = tokens.slice(i + 1, ifEnd);
+            commands.push(...await executeTokenList(ifTokens, context, errors));
+          } else {
+            // Check for ELSE branch
+            const elsePos = findElseOrEndif(tokens, i);
+            const nextToken = tokens[elsePos];
+            
+            if (nextToken && nextToken.type === 'COMMAND' && nextToken.command === 'ELSE') {
+              // Execute ELSE branch (tokens between ELSE and ENDIF)
+              const elseTokens = tokens.slice(elsePos + 1, blockEnd);
+              commands.push(...await executeTokenList(elseTokens, context, errors));
+            }
+          }
+          
+          i = blockEnd + 1;
+          continue;
+          
+        case 'SET':
+          // Handle #SET variable value (async for persistence)
+          await handleSetCommand(token, context.variables, errors);
+          i++;
+          continue;
+          
+        case 'TIMER':
+          // Handle #TIMER command - create a timer
+          if (context.timerManager) {
+            const result = handleTimerCommand(token, tokens, context.timerManager, i);
+            if (!result.success && result.error) {
+              errors.push({
+                message: result.error,
+                line: token.line,
+                column: token.column
+              });
+            }
+            // Skip to #ENDTIMER
+            const endIndex = findTimerEnd(tokens, i);
+            if (endIndex !== null) {
+              i = endIndex + 1;
+              continue;
+            }
+          }
+          i++;
+          continue;
+          
+        case 'CANCEL':
+          // Handle #CANCEL command
+          if (context.timerManager) {
+            const result = handleCancelCommand(token, context.timerManager);
+            if (!result.success && result.error) {
+              errors.push({
+                message: result.error,
+                line: token.line,
+                column: token.column
+              });
+            }
+          }
+          i++;
+          continue;
+          
+        case 'START':
+          // Handle #START command - start a stopped timer
+          if (context.timerManager) {
+            const result = handleStartCommand(token, context.timerManager);
+            if (!result.success && result.error) {
+              errors.push({
+                message: result.error,
+                line: token.line,
+                column: token.column
+              });
+            }
+          }
+          i++;
+          continue;
+          
+        case 'STOP':
+          // Handle #STOP command - stop a running timer
+          if (context.timerManager) {
+            const result = handleStopCommand(token, context.timerManager);
+            if (!result.success && result.error) {
+              errors.push({
+                message: result.error,
+                line: token.line,
+                column: token.column
+              });
+            }
+          }
+          i++;
+          continue;
+          
+        case 'CHECK':
+          // Handle #CHECK command - output timer status
+          if (context.timerManager) {
+            const result = handleCheckCommand(token, context.timerManager);
+            if (!result.success && result.error) {
+              errors.push({
+                message: result.error,
+                line: token.line,
+                column: token.column
+              });
+            } else if (result.output) {
+              // Output the timer status message via execution context
+              if (context.timerManager) {
+                // Use the execution context's output if available
+                // For now, just add it to commands to be processed
+                commands.push(`[Timer: ${result.output}]`);
+              }
+            }
+          }
+          i++;
+          continue;
+          
+        case 'ELSE':
+        case 'ENDIF':
+        case 'ENDTIMER':
+          // These are handled elsewhere or are not direct execution commands
+          // For now, skip them in inline execution
+          i++;
+          continue;
+          
+        default:
+          i++;
+          continue;
+      }
+    }
+    
+    // Handle TEXT and VARIABLE tokens - collect commands
+    if (token.type === 'TEXT' || token.type === 'VARIABLE') {
+      const text = token.value;
+      if (text.trim()) {
+        commands.push(text.trim());
+      }
+      i++;
+      continue;
+    }
+    
+    i++;
+  }
+  
+  return commands;
+}
+
+/**
+ * Find the end of an #IF block (#ENDIF that closes this IF)
+ */
+function findBlockEnd(tokens: ParsedToken[], startIndex: number): number {
+  let depth = 0;
+  
+  for (let i = startIndex; i < tokens.length; i++) {
+    const token = tokens[i];
+    
+    if (token.type === 'COMMAND') {
+      if (token.command === 'IF') {
+        depth++;
+      } else if (token.command === 'ENDIF') {
+        if (depth === 0) {
+          return i;
+        }
+        depth--;
+      }
+    }
+  }
+  
+  return -1;
+}
+
+/**
+ * Find the next #ELSE or #ENDIF at the current nesting level
+ */
+function findElseOrEndif(tokens: ParsedToken[], startIndex: number): number {
+  let depth = 0;
+  
+  for (let i = startIndex; i < tokens.length; i++) {
+    const token = tokens[i];
+    
+    if (token.type === 'COMMAND') {
+      if (token.command === 'IF') {
+        depth++;
+      } else if (token.command === 'ENDIF') {
+        if (depth === 0) {
+          return i;
+        }
+        depth--;
+      } else if (token.command === 'ELSE' && depth === 0) {
+        return i;
+      }
+    }
+  }
+  
+  return -1;
+}
+
+/**
+ * Handle #SET command
+ */
+async function handleSetCommand(
+  token: CommandToken,
+  variables: VariableStore,
+  errors: ExecutionError[]
+): Promise<void> {
+  const args = token.args || '';
+  const match = args.match(/^(\S+)\s+(.*)$/);
+  
+  if (!match) {
+    errors.push({
+      message: '#SET requires variable name and value',
+      line: token.line,
+      column: token.column
+    });
+    return;
+  }
+  
+  const [, varName, varValue] = match;
+  
+  // Parse the value to determine type
+  const parsedValue = parseValue(varValue.trim());
+  const value = evaluate(parsedValue, variables);
+  
+  // Check for system variable protection (PR01PH03T03)
+  if (isSystemVariable(varName)) {
+    errors.push({
+      message: `Cannot modify system variable: ${varName}`,
+      line: token.line,
+      column: token.column
+    });
+    return;
+  }
+  
+  // Handle session variables (%1, %2 syntax) - PR01PH03T04
+  if (/^%\d+$/.test(varName)) {
+    variables.setSession(varName, value);
+    return;
+  }
+  
+  // Profile variable - set and persist
+  try {
+    await variables.setProfile(varName, value);
+  } catch (error) {
+    const err = error as Error;
+    errors.push({
+      message: err.message || 'Failed to set variable',
+      line: token.line,
+      column: token.column
+    });
+  }
+}
+
+/**
+ * Substitute variables in a string
+ */
+export function substituteVariables(input: string, variables: VariableStore): string {
+  const variablePattern = /\$\{([^}]+)\}/g;
+  
+  return input.replace(variablePattern, (match, varName) => {
+    const value = variables.get(varName);
+    if (value !== undefined) {
+      return String(value);
+    }
+    return match;
+  });
+}
+
+// ============================================
+// Convenience Functions
+// ============================================
+
+/**
+ * Parse and execute an automation action string
+ * 
+ * This is a convenience function that parses and executes
+ * automation action text with #IF/#ELSE/#ENDIF support.
+ * Includes 500ms timeout for condition evaluation to prevent runaway scripts (PR01PH05T03).
+ */
+export async function executeAutomationAction(
+  actionText: string,
+  variables: VariableStore,
+  timerManager?: TimerManager
+): Promise<ExecutionResult> {
+  // Parse the action text
+  const parseResult = parser.parse(actionText);
+  
+  if (!parseResult.success) {
+    return {
+      success: false,
+      commands: [],
+      errors: parseResult.errors.map((e) => ({
+        message: e.message,
+        line: e.line,
+        column: e.column
+      }))
+    };
+  }
+  
+  // Validate syntax
+  const validationErrors = validateSyntax(parseResult.tokens);
+  if (validationErrors.length > 0) {
+    return {
+      success: false,
+      commands: [],
+      errors: validationErrors.map((e) => ({
+        message: e.message,
+        line: e.line,
+        column: e.column
+      }))
+    };
+  }
+  
+  // Execute with timeout protection (PR01PH05T03)
+  return await executeWithTimeout(
+    parseResult.tokens, 
+    variables, 
+    DEFAULT_MAX_DEPTH, 
+    timerManager
+  );
+}
+
+/**
+ * Execute tokens with timeout protection
+ * Wraps condition evaluation in a 500ms timeout to prevent runaway scripts
+ */
+async function executeWithTimeout(
+  tokens: ParsedToken[],
+  variables: VariableStore,
+  maxDepth: number,
+  timerManager?: TimerManager
+): Promise<ExecutionResult> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let isTimedOut = false;
+  
+  // Create a promise that rejects after timeout
+  const timeoutPromise = new Promise<ExecutionResult>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      isTimedOut = true;
+      console.error('[Evaluator] Evaluation timeout exceeded (500ms)');
+      reject(new Error('Evaluation timeout exceeded (500ms)'));
+    }, EVALUATION_TIMEOUT_MS);
+  });
+  
+  try {
+    // Execute the tokens
+    const executionPromise = executeTokens(tokens, variables, maxDepth, timerManager);
+    
+    // Race between execution and timeout
+    const result = await Promise.race([executionPromise, timeoutPromise]);
+    
+    // Clear timeout if execution completed first
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    
+    // Check if we timed out during execution
+    if (isTimedOut) {
+      return {
+        success: false,
+        commands: [],
+        errors: [{
+          message: `Evaluation timeout exceeded (${EVALUATION_TIMEOUT_MS}ms) - possible infinite loop detected`
+        }]
+      };
+    }
+    
+    return result;
+  } catch (error) {
+    // Clear timeout on error
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    
+    // If it's the timeout error, return error result
+    if (isTimedOut || (error instanceof Error && error.message.includes('timeout'))) {
+      return {
+        success: false,
+        commands: [],
+        errors: [{
+          message: `Evaluation timeout exceeded (${EVALUATION_TIMEOUT_MS}ms) - possible infinite loop detected`
+        }]
+      };
+    }
+    
+    // Re-throw other errors
+    throw error;
+  }
+}

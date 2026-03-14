@@ -57,6 +57,10 @@ type VariablesResponse struct {
 	Items []store.Variable `json:"items"`
 }
 
+type TimersResponse struct {
+	Items []store.Timer `json:"items"`
+}
+
 // Variable name validation regex
 var variableNameRegex = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
@@ -408,6 +412,73 @@ func (h *Handler) PutEnvironment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.sendJSON(w, VariablesResponse{Items: updatedProfile.Variables.Items})
+}
+
+// GetTimers handles GET /api/v1/profiles/:connection_id/timers
+func (h *Handler) GetTimers(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	_, profile, err := h.getProfileByConnectionID(r)
+	if err != nil {
+		h.sendError(w, err.Error())
+		return
+	}
+
+	h.sendJSON(w, TimersResponse{Items: profile.Timers.Items})
+}
+
+// PutTimers handles PUT /api/v1/profiles/:connection_id/timers
+func (h *Handler) PutTimers(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userUUID, profile, err := h.getProfileByConnectionID(r)
+	if err != nil {
+		h.sendError(w, err.Error())
+		return
+	}
+
+	var req TimersResponse
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.sendError(w, "Invalid request body")
+		return
+	}
+
+	// Validate timers
+	if len(req.Items) > 50 {
+		h.sendError(w, "Maximum 50 timers allowed")
+		return
+	}
+
+	for _, timer := range req.Items {
+		if strings.TrimSpace(timer.Name) == "" {
+			h.sendError(w, "Timer name cannot be empty")
+			return
+		}
+		if timer.Duration <= 0 {
+			h.sendError(w, "Timer duration must be greater than 0")
+			return
+		}
+	}
+
+	// Update timers
+	updates := &store.ProfileUpdate{
+		Timers: &store.Timers{Items: req.Items},
+	}
+
+	updatedProfile, err := h.profileStore.UpdateProfile(userUUID, profile.ID, updates)
+	if err != nil {
+		log.Printf("[PR01PH06] Update timers failed: %v", err)
+		h.sendError(w, "Failed to update timers")
+		return
+	}
+
+	h.sendJSON(w, TimersResponse{Items: updatedProfile.Timers.Items})
 }
 
 // getProfileByConnectionID is a helper that validates the user and fetches the profile by connection ID

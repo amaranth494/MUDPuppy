@@ -41,6 +41,102 @@ This evolution allows the platform to grow from a playable client into a feature
 ### IV. Automation Scalability
 Automation engines (aliases, triggers, timers, variables) must be designed to scale from simple rule-based MVP functionality to more advanced sandboxed scripting in later phases. The architecture must support this growth without breaking early implementations.
 
+### IV.0 Automation Execution Model
+Automation objects (aliases, triggers, variables, timers, and automation logic) execute within the client runtime rather than the backend service.
+
+The backend service remains responsible for:
+- Session proxying
+- Authentication
+- Profile persistence
+- Logging
+
+Automation safety protections must still be enforced within the client runtime, including:
+- Circuit breaker protections
+- Evaluation timeouts
+- Loop detection
+- Trigger rate limiting
+
+This clarification aligns constitutional doctrine with the client-runtime automation model used in SP05 and PR01.
+
+### IV.a Automation Logic Scope
+The client will support structured command logic, but not general-purpose scripting languages.
+
+Automation must remain:
+- **deterministic** — predictable execution every time
+- **bounded** — limited resources and execution time
+- **inspectable by users** — visible and editable in the UI
+- **safe against runaway execution** — protected by safety systems
+
+Automation features must therefore follow these constraints:
+
+1. **Engine Integration** — Logic must execute within the existing automation engine
+2. **Explicit Directives** — Automation must use explicit command directives rather than embedded code
+3. **Safety Integration** — All logic execution must pass through the existing safety systems
+4. **Human-Readable** — Logic must remain visible and editable inside the UI
+
+### IV.b Execution Safety Guarantees
+The following safety requirements are non-optional and must always be enforced:
+
+Automation systems must always enforce:
+- **Recursion depth limits** — Maximum alias expansion depth
+- **Command dispatch limits** — Maximum commands per dispatch
+- **Trigger cooldown enforcement** — Minimum time between trigger firings
+- **Command queue backpressure** — Queue size limits
+- **Circuit breaker halt conditions** — Automatic pause when loops detected
+
+**No automation feature may bypass these safeguards.**
+
+Any future automation capability must integrate into these protections.
+
+### IV.c Structured Command Directives
+Structured Command Directives are the official mechanism for automation logic.
+
+Directives must:
+- Start with `#`
+- Be parsed by the automation engine
+- Be validated before execution
+
+**Official Directives:**
+| Directive | Purpose |
+|-----------|--------|
+| `#IF` | Begin conditional block |
+| `#ELSE` | Alternate condition branch |
+| `#ENDIF` | End conditional block |
+| `#SET` | Assign value to variable |
+| `#TIMER` | Create or update timer definition |
+| `#START` | Start an existing timer |
+| `#STOP` | Stop an existing timer |
+| `#CHECK` | Inspect timer status |
+| `#CANCEL` | Delete timer definition |
+
+*Timer definitions persist in connection profiles, while runtime countdown state remains session-scoped.*
+
+These directives act as control instructions for the automation engine, not commands sent to the MUD server. This maintains clear separation between client-side automation and server commands.
+
+### IV.d Automation Transparency
+Automation must always remain visible and debuggable to the user.
+
+The client must provide:
+- **Automation pause indicators** — Clear visual status when automation is paused
+- **Circuit breaker notifications** — Alerts when safety systems engage
+- **Clear error reporting** — Visible errors for invalid logic
+- **Visibility into automation rules** — Users can see all their automation
+
+SP06 implemented the first pieces of this system through the automation status banner and sidebar indicators. This is formally recognized as a core design principle.
+
+### IV.e Deterministic Execution
+Automation execution must always be deterministic. Given the same input stream and automation configuration, the client must produce the same behavior.
+
+To enforce this, automation must be processed in this order:
+1. User command input
+2. Alias expansion
+3. Variable substitution
+4. Automation logic evaluation
+5. Command queue dispatch
+6. Trigger evaluation
+
+This ensures predictable automation behavior and simplifies debugging.
+
 ### V. Modern Web Application Standards
 Beyond MUD-specific functionality, this is a modern web application. Authentication, account management, profile persistence, administrative tooling, logging, monitoring, and security must be first-class citizens. User data, configurations, and session artifacts must persist reliably in the cloud and follow users across devices.
 
@@ -575,7 +671,9 @@ Working Branch → Push to Staging → Push to Master → Switch to Staging → 
 
 **Important:** This is the VERY LAST step for EVERY spec. No spec is considered complete until this workflow is executed.
 
-**Version**: 1.18.0 | **Ratified**: 2026-02-23 | **Last Amended**: 2026-03-10
+**Version**: 1.20.0 | **Ratified**: 2026-02-23 | **Last Amended**: 2026-03-13
+
+**Amendment v1.20.0:** Removed any doctrine references to logic nesting limits. The existing safety systems (recursion, dispatch, cooldowns, circuit breaker, backpressure) are sufficient to govern automation execution.
 
 **Amendment v1.18.0:** Added Specification Documentation Requirements. Every spec must include a Documentation Phase post-QA but prior to closure. Added Commit to Production phase as the final step for every spec (build frontend/backend, push to staging, push to master, cleanup branch). New features must be added to help files, modified features must be reflected in documentation, and a Release Notes section must be maintained.
 

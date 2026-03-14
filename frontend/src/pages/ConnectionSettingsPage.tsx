@@ -7,6 +7,7 @@ import { useSession } from '../context/SessionContext';
 import EnvironmentPanel from '../components/EnvironmentPanel';
 import Modal from '../components/Modal';
 import { aliasTemplates, triggerTemplates, createAliasFromTemplate, createTriggerFromTemplate } from '../templates';
+import { parser, validateSyntax, ParseError } from '../services/automation/parser';
 
 // Section types
 type SettingsSection = 'general' | 'keybindings' | 'aliases' | 'triggers' | 'environment';
@@ -28,7 +29,7 @@ const SECTIONS: Section[] = [
 
 export default function ConnectionSettingsPage() {
   const { id: connectionId } = useParams<{ id: string }>();
-  const { updateProfile: updateSessionProfile, connectionState, currentConnectionId } = useSession();
+  const { updateProfile: updateSessionProfile, connectionState, currentConnectionId, variablesRefreshTrigger } = useSession();
   
   // Check if currently connected to this specific connection
   const isConnectedToThis = connectionState === 'connected' && currentConnectionId === connectionId;
@@ -52,6 +53,11 @@ export default function ConnectionSettingsPage() {
   const [aliases, setAliases] = useState<Alias[]>([]);
   const [isSavingAliases, setIsSavingAliases] = useState(false);
   const [aliasErrors, setAliasErrors] = useState<Record<string, string>>({});
+  
+  // PR01PH06: Syntax validation state
+  const [aliasSyntaxErrors, setAliasSyntaxErrors] = useState<Record<string, string>>({});
+  const [triggerSyntaxErrors, setTriggerSyntaxErrors] = useState<Record<string, string>>({});
+  const [validationBanner, setValidationBanner] = useState<string | null>(null);
   
   // Template modal state
   const [showAliasTemplateModal, setShowAliasTemplateModal] = useState(false);
@@ -175,6 +181,13 @@ export default function ConnectionSettingsPage() {
     loadData();
   }, [loadData]);
 
+  // Reload data when variables change in the runtime (after #SET)
+  useEffect(() => {
+    if (connectionId && variablesRefreshTrigger > 0) {
+      loadData();
+    }
+  }, [variablesRefreshTrigger, connectionId, loadData]);
+
   // Handle key capture
   useEffect(() => {
     if (!isCapturingKey) return;
@@ -253,6 +266,29 @@ export default function ConnectionSettingsPage() {
       return;
     }
     
+    // PR01PH06: Check for syntax errors
+    const allSyntaxErrors: Record<string, string> = {};
+    for (const alias of aliases) {
+      if (alias.replacement && alias.replacement.includes('#')) {
+        const errors = validateAutomationScript(alias.replacement);
+        if (errors.length > 0) {
+          allSyntaxErrors[alias.id] = errors.map(e => `Line ${e.line}: ${e.message}`).join('; ');
+        }
+      }
+    }
+    
+    if (Object.keys(allSyntaxErrors).length > 0) {
+      setAliasSyntaxErrors(allSyntaxErrors);
+      const errorList = Object.entries(allSyntaxErrors).map(([id, msg]) => {
+        const alias = aliases.find(a => a.id === id);
+        return `${alias?.pattern || id}: ${msg}`;
+      }).join('\n');
+      const bannerMessage = `Cannot save aliases due to syntax errors:\n${errorList}`;
+      setValidationBanner(bannerMessage);
+      console.error('[ConnectionSettingsPage] Alias validation errors - save blocked:', allSyntaxErrors);
+      return;
+    }
+    
     // Check max limit
     if (aliases.length > 200) {
       setError('Maximum 200 aliases allowed');
@@ -262,6 +298,7 @@ export default function ConnectionSettingsPage() {
     setIsSavingAliases(true);
     setError(null);
     setSuccessMessage(null);
+    setValidationBanner(null);
     
     try {
       await putAliases(connectionId, aliases);
@@ -289,6 +326,29 @@ export default function ConnectionSettingsPage() {
       return;
     }
     
+    // PR01PH06: Check for syntax errors
+    const allSyntaxErrors: Record<string, string> = {};
+    for (const trigger of triggers) {
+      if (trigger.action && trigger.action.includes('#')) {
+        const errors = validateAutomationScript(trigger.action);
+        if (errors.length > 0) {
+          allSyntaxErrors[trigger.id] = errors.map(e => `Line ${e.line}: ${e.message}`).join('; ');
+        }
+      }
+    }
+    
+    if (Object.keys(allSyntaxErrors).length > 0) {
+      setTriggerSyntaxErrors(allSyntaxErrors);
+      const errorList = Object.entries(allSyntaxErrors).map(([id, msg]) => {
+        const trigger = triggers.find(t => t.id === id);
+        return `${trigger?.match || id}: ${msg}`;
+      }).join('\n');
+      const bannerMessage = `Cannot save triggers due to syntax errors:\n${errorList}`;
+      setValidationBanner(bannerMessage);
+      console.error('[ConnectionSettingsPage] Trigger validation errors - save blocked:', allSyntaxErrors);
+      return;
+    }
+    
     // Check max limit
     if (triggers.length > 200) {
       setError('Maximum 200 triggers allowed');
@@ -298,6 +358,7 @@ export default function ConnectionSettingsPage() {
     setIsSavingTriggers(true);
     setError(null);
     setSuccessMessage(null);
+    setValidationBanner(null);
     
     try {
       await putTriggers(connectionId, triggers);
@@ -378,6 +439,58 @@ export default function ConnectionSettingsPage() {
       enabled: true,
     };
     setAliases([...aliases, newAlias]);
+  };
+
+  // PR01PH06: Syntax validation helper - only validates if # syntax present
+  const validateAutomationScript = (text: string): ParseError[] => {
+    if (!text || !text.includes('#')) {
+      return [];
+    }
+    const result = parser.parse(text);
+    if (!result.success) {
+      return result.errors;
+    }
+    return validateSyntax(result.tokens);
+  };
+
+  // Validate alias replacement and update error state
+  const validateAndUpdateAlias = (id: string, updates: Partial<Alias>) => {
+    setAliases(aliases.map(a => a.id === id ? { ...a, ...updates } : a));
+    
+    if (updates.replacement !== undefined) {
+      const errors = validateAutomationScript(updates.replacement);
+      if (errors.length > 0) {
+        const errorMessage = errors.map(e => `Line ${e.line}: ${e.message}`).join('; ');
+        setAliasSyntaxErrors(prev => ({ ...prev, [id]: errorMessage }));
+        console.warn('[ConnectionSettingsPage] Alias syntax validation errors:', errors);
+      } else {
+        setAliasSyntaxErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors[id];
+          return newErrors;
+        });
+      }
+    }
+  };
+
+  // Validate trigger action and update error state
+  const validateAndUpdateTrigger = (id: string, updates: Partial<Trigger>) => {
+    setTriggers(triggers.map(t => t.id === id ? { ...t, ...updates } : t));
+    
+    if (updates.action !== undefined) {
+      const errors = validateAutomationScript(updates.action);
+      if (errors.length > 0) {
+        const errorMessage = errors.map(e => `Line ${e.line}: ${e.message}`).join('; ');
+        setTriggerSyntaxErrors(prev => ({ ...prev, [id]: errorMessage }));
+        console.warn('[ConnectionSettingsPage] Trigger syntax validation errors:', errors);
+      } else {
+        setTriggerSyntaxErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors[id];
+          return newErrors;
+        });
+      }
+    }
   };
 
   // Update alias
@@ -551,6 +664,14 @@ export default function ConnectionSettingsPage() {
       {successMessage && (
         <div className="message message-success" style={{ marginBottom: '1rem' }}>
           {successMessage}
+        </div>
+      )}
+
+      {/* PR01PH06: Validation error banner */}
+      {validationBanner && (
+        <div className="message message-error" style={{ marginBottom: '1rem', whiteSpace: 'pre-wrap' }}>
+          ⚠️ {validationBanner}
+          <button onClick={() => setValidationBanner(null)} style={{ marginLeft: '1rem' }}>Dismiss</button>
         </div>
       )}
 
@@ -791,13 +912,16 @@ export default function ConnectionSettingsPage() {
                         </div>
                         <div className="form-group">
                           <label className="form-label">Replacement</label>
-                          <input
-                            type="text"
-                            className={`form-input ${aliasErrors[alias.id]?.includes('Replacement') ? 'form-input-error' : ''}`}
-                            placeholder="e.g., look %1 or get %1"
+                          <textarea
+                            className={`form-input form-textarea ${aliasSyntaxErrors[alias.id] || aliasErrors[alias.id]?.includes('Replacement') ? 'form-input-error' : ''}`}
+                            placeholder="e.g., look %1 or get %1
+#IF ${target}
+attack ${target}
+#ENDIF"
                             value={alias.replacement}
+                            rows={3}
                             onChange={(e) => {
-                              handleUpdateAlias(alias.id, { replacement: e.target.value });
+                              validateAndUpdateAlias(alias.id, { replacement: e.target.value });
                               // Clear error when user types
                               if (aliasErrors[alias.id]) {
                                 setAliasErrors(prev => {
@@ -807,8 +931,21 @@ export default function ConnectionSettingsPage() {
                                 });
                               }
                             }}
+                            onBlur={(e) => {
+                              const errors = validateAutomationScript(e.target.value);
+                              if (errors.length > 0) {
+                                const errorMessage = errors.map(err => `Line ${err.line}: ${err.message}`).join('; ');
+                                setAliasSyntaxErrors(prev => ({ ...prev, [alias.id]: errorMessage }));
+                                console.warn('[ConnectionSettingsPage] Alias validation errors on blur:', errors);
+                              }
+                            }}
                           />
-                          <p className="form-hint">Use %1, %2, %3 for arguments (e.g., "get %1" for "g sword" → "get sword")</p>
+                          <p className="form-hint">Use %1, %2, %3 for arguments. Supports #IF/#ELSE/#ENDIF, #SET, #TIMER, #CANCEL</p>
+                          {aliasSyntaxErrors[alias.id] && (
+                            <div className="form-error" style={{ marginTop: '0.5rem' }}>
+                              ⚠️ {aliasSyntaxErrors[alias.id]}
+                            </div>
+                          )}
                         </div>
                         <div className="form-group form-checkbox">
                           <label>
@@ -933,13 +1070,16 @@ export default function ConnectionSettingsPage() {
                         </div>
                         <div className="form-group">
                           <label className="form-label">Action</label>
-                          <input
-                            type="text"
-                            className={`form-input ${triggerErrors[trigger.id]?.includes('Action') ? 'form-input-error' : ''}`}
-                            placeholder="e.g., eat bread"
+                          <textarea
+                            className={`form-input form-textarea ${triggerSyntaxErrors[trigger.id] || triggerErrors[trigger.id]?.includes('Action') ? 'form-input-error' : ''}`}
+                            placeholder="e.g., eat bread
+#IF ${hp} < 50
+cast heal
+#ENDIF"
                             value={trigger.action}
+                            rows={3}
                             onChange={(e) => {
-                              handleUpdateTrigger(trigger.id, { action: e.target.value });
+                              validateAndUpdateTrigger(trigger.id, { action: e.target.value });
                               // Clear error when user types
                               if (triggerErrors[trigger.id]) {
                                 setTriggerErrors(prev => {
@@ -949,7 +1089,21 @@ export default function ConnectionSettingsPage() {
                                 });
                               }
                             }}
+                            onBlur={(e) => {
+                              const errors = validateAutomationScript(e.target.value);
+                              if (errors.length > 0) {
+                                const errorMessage = errors.map(err => `Line ${err.line}: ${err.message}`).join('; ');
+                                setTriggerSyntaxErrors(prev => ({ ...prev, [trigger.id]: errorMessage }));
+                                console.warn('[ConnectionSettingsPage] Trigger validation errors on blur:', errors);
+                              }
+                            }}
                           />
+                          <p className="form-hint">Supports #IF/#ELSE/#ENDIF, #SET, #TIMER, #CANCEL</p>
+                          {triggerSyntaxErrors[trigger.id] && (
+                            <div className="form-error" style={{ marginTop: '0.5rem' }}>
+                              ⚠️ {triggerSyntaxErrors[trigger.id]}
+                            </div>
+                          )}
                         </div>
                         <div className="form-group">
                           <label className="form-label">Cooldown (ms)</label>

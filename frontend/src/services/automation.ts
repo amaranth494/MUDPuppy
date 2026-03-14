@@ -6,6 +6,8 @@
  */
 
 import { Trigger, AutomationAliases, AutomationTriggers, AutomationVariables } from '../types';
+import { SimpleVariableStore, VariableValue, executeAutomationAction } from './automation/evaluator';
+import { TimerManager } from './automation/timer';
 
 // ============================================
 // Types
@@ -88,8 +90,10 @@ export class AutomationEngine {
   // Automation data
   private aliases: AutomationAliases = { items: [] };
   private triggers: AutomationTriggers = { items: [] };
-  private variables: AutomationVariables = { items: [] };
   private connectionId: string | null = null;
+  
+  // Unified variable store (PR01PH03T01)
+  private variableStore: SimpleVariableStore;
   
   // Connection state
   private isConnected: boolean = false;
@@ -126,6 +130,72 @@ export class AutomationEngine {
   
   // Callback for circuit breaker notifications
   private onCircuitBreakerTripped: ((reason: string) => void) | null = null;
+  
+  // Timer manager (PR01PH04)
+  private timerManager: TimerManager;
+
+  constructor() {
+    this.variableStore = new SimpleVariableStore();
+    this.timerManager = new TimerManager({
+      maxTimers: 10,
+      onTimerFire: (timer) => {
+        console.log(`[Timer] '${timer.name}' fired (count: ${timer.fireCount})`);
+      },
+      onTimerCancel: (name) => {
+        console.log(`[Timer] '${name}' cancelled`);
+      },
+      onError: (error) => {
+        console.error(`[Timer] Error: ${error}`);
+      }
+    });
+    
+    // Set up the timer execution context (PR01PH04)
+    // PR01PH07T03: Updated to also process through parser for #IF/#ELSE support
+    this.timerManager.setExecutionContext({
+      executeCommands: (commands: string[]) => {
+        // Queue commands for execution
+        for (const cmd of commands) {
+          this.queueCommand({
+            command: cmd,
+            source: 'trigger', // Timers act like triggers
+          });
+        }
+      },
+      substituteVariables: (input: string) => {
+        return this.substituteVariables(input);
+      },
+      // PR01PH07T03: New method to execute commands through parser
+      executeThroughParser: async (commands: string[]): Promise<void> => {
+        for (const cmd of commands) {
+          const trimmedCmd = cmd.trim();
+          if (trimmedCmd.startsWith('#')) {
+            // Process # commands through parser
+            try {
+              const result = await executeAutomationAction(trimmedCmd, this.variableStore, this.timerManager);
+              if (!result.success) {
+                console.warn('[Automation] Timer # command errors:', result.errors);
+              }
+              // Queue the resulting commands
+              for (const execCmd of result.commands) {
+                this.queueCommand({
+                  command: execCmd,
+                  source: 'trigger',
+                });
+              }
+            } catch (error) {
+              console.error('[Automation] Timer # command execution error:', error);
+            }
+          } else {
+            // Regular command - queue directly
+            this.queueCommand({
+              command: trimmedCmd,
+              source: 'trigger',
+            });
+          }
+        }
+      }
+    });
+  }
 
   /**
    * Initialize the automation engine with configuration
@@ -133,8 +203,42 @@ export class AutomationEngine {
   configure(config: AutomationConfig): void {
     this.aliases = config.aliases;
     this.triggers = config.triggers;
-    this.variables = config.variables;
     this.connectionId = config.connectionId;
+    
+    // Load variables into the unified variable store (PR01PH03T01)
+    if (config.variables && config.variables.items) {
+      for (const variable of config.variables.items) {
+        this.variableStore.setProfile(variable.name, variable.value);
+      }
+    }
+  }
+  
+  /**
+   * Set the callback for persisting variables to backend
+   */
+  setPersistVariablesCallback(callback: (variables: Record<string, VariableValue>) => Promise<void>): void {
+    this.variableStore.setPersistCallback(callback);
+  }
+  
+  /**
+   * Set the callback for variable change notifications
+   */
+  setVariableChangeCallback(callback: (name: string, value: VariableValue) => void): void {
+    this.variableStore.setVariableChangeCallback(callback);
+  }
+  
+  /**
+   * Get the variable store for external access
+   */
+  getVariableStore(): SimpleVariableStore {
+    return this.variableStore;
+  }
+
+  /**
+   * Get the timer manager for external access (PR01PH04)
+   */
+  getTimerManager(): TimerManager {
+    return this.timerManager;
   }
 
   /**
@@ -157,6 +261,8 @@ export class AutomationEngine {
   connect(): void {
     this.isConnected = true;
     this.resetCycleId();
+    // Clear session variables on new connect (PR01PH03T04)
+    this.variableStore.clearSession();
   }
 
   /**
@@ -167,6 +273,11 @@ export class AutomationEngine {
     this.clearTriggers();
     this.clearCommandQueue();
     this.resetCircuitBreaker();
+    // Clear session variables (PR01PH03T04)
+    this.variableStore.clearSession();
+    // Clear all timers (PR01PH04)
+    // Stop all running timers but keep definitions for reconnect
+    this.timerManager.stopAllTimers();
   }
 
   /**
@@ -212,8 +323,12 @@ export class AutomationEngine {
   /**
    * Process user input through the automation pipeline
    * Called from submitCommand with source='user'
+   * 
+   * Integration notes (PR01PH07):
+   * - # commands are processed via executeAutomationAction (parser integrated)
+   * - Aliases are expanded via evaluateAlias - parser integration needed
    */
-  processUserInput(input: string): ProcessedCommand[] {
+  async processUserInput(input: string): Promise<ProcessedCommand[]> {
     // Check circuit breaker
     if (this.circuitBreaker.isTripped) {
       console.warn('[Automation] Circuit breaker tripped, ignoring input');
@@ -237,11 +352,33 @@ export class AutomationEngine {
     const processedCommands: ProcessedCommand[] = [];
     
     for (const cmd of commands) {
+      // Check if this is a # command (IF, SET, TIMER, CANCEL)
+      if (cmd.trim().startsWith('#')) {
+        // Process # commands using the evaluator (PR01PH02, PR01PH04)
+        try {
+          const result = await executeAutomationAction(cmd, this.variableStore, this.timerManager);
+          if (!result.success) {
+            console.warn('[Automation] # command errors:', result.errors);
+          }
+          // Commands are executed via timer callback or added here
+          for (const execCmd of result.commands) {
+            processedCommands.push({
+              command: execCmd,
+              source: 'user',
+            });
+          }
+        } catch (error) {
+          console.error('[Automation] # command execution error:', error);
+        }
+        continue;
+      }
+      
       // Variable substitution (SP05PH03T03) - for user input
       let processed = this.substituteVariables(cmd);
       
       // Alias evaluation (SP05PH03T02) - only for user source
       // Returns array to handle nested semicolons in replacement
+      // PR01PH07T02: Pass through parser for #IF/#ELSE support
       const expansions = this.evaluateAlias(processed, 0);
       
       // Check for alias expansion loop
@@ -252,12 +389,34 @@ export class AutomationEngine {
 
       // Process each expanded command
       for (const expandedCmd of expansions.commands) {
+        // PR01PH07T02: Check if expanded command contains # commands - parse through automation action
+        const trimmedCmd = expandedCmd.trim();
+        if (trimmedCmd.startsWith('#')) {
+          // Process # commands using the evaluator (PR01PH02, PR01PH04)
+          try {
+            const result = await executeAutomationAction(trimmedCmd, this.variableStore, this.timerManager);
+            if (!result.success) {
+              console.warn('[Automation] Alias # command errors:', result.errors);
+            }
+            // Add the resulting commands
+            for (const execCmd of result.commands) {
+              processedCommands.push({
+                command: execCmd,
+                source: 'alias',
+              });
+            }
+          } catch (error) {
+            console.error('[Automation] Alias # command execution error:', error);
+          }
+          continue;
+        }
+        
         // Record in command history for loop detection
         this.recordCommand(expandedCmd);
 
         processedCommands.push({
           command: expandedCmd,
-          source: 'user',
+          source: 'alias',
         });
       }
     }
@@ -282,9 +441,11 @@ export class AutomationEngine {
    * - Command separation (semicolons)
    * - Variable substitution
    * - Explicit @alias invocation
+   * - PR01PH07T01: Parser integration via executeAutomationAction in fireTrigger
+   * - PR01PH07T02: Alias replacement also goes through parser
    * Note: Trigger actions do NOT implicitly pass through alias evaluation
    */
-  processTriggerAction(actionText: string): string[] {
+  async processTriggerAction(actionText: string): Promise<string[]> {
     // SP05: Trigger actions support command separation like user input
     const commands = this.parseCommandString(actionText);
     
@@ -296,16 +457,13 @@ export class AutomationEngine {
       
       // Check for explicit alias invocation (@alias)
       // Note: Trigger actions do NOT implicitly pass through alias evaluation
+      // PR01PH07T02: But explicit alias invocations do go through parser
       if (processed.startsWith('@')) {
-        const aliasResult = this.invokeExplicitAlias(processed.substring(1));
-        if (aliasResult) {
-          // Alias result may contain semicolons - split and process each part
-          const aliasCommands = this.parseCommandString(aliasResult);
-          for (const aliasCmd of aliasCommands) {
-            processedCommands.push(aliasCmd);
-          }
-          continue;
+        const aliasCommands = await this.invokeExplicitAlias(processed.substring(1));
+        for (const aliasCmd of aliasCommands) {
+          processedCommands.push(aliasCmd);
         }
+        continue;
       }
       
       processedCommands.push(processed);
@@ -369,15 +527,16 @@ export class AutomationEngine {
 
   /**
    * Substitute ${variable_name} with variable values
+   * Uses unified variable store (PR01PH03T01)
    */
   private substituteVariables(input: string): string {
     // Match ${variable_name} pattern
     const variablePattern = /\$\{([^}]+)\}/g;
     
     return input.replace(variablePattern, (match, varName) => {
-      const variable = this.variables.items.find(v => v.name === varName);
-      if (variable) {
-        return variable.value;
+      const value = this.variableStore.get(varName);
+      if (value !== undefined) {
+        return String(value);
       }
       // Return original if variable not found (preserves ${name} for clarity)
       return match;
@@ -459,8 +618,9 @@ export class AutomationEngine {
 
   /**
    * Explicit alias invocation from trigger action (@alias)
+   * PR01PH07T02: Also processes # commands in alias replacement through parser
    */
-  private invokeExplicitAlias(text: string): string | null {
+  private async invokeExplicitAlias(text: string): Promise<string[]> {
     // Parse alias name and args
     const spaceIndex = text.indexOf(' ');
     let aliasName: string;
@@ -480,7 +640,7 @@ export class AutomationEngine {
     );
     
     if (!alias) {
-      return null;
+      return [];
     }
 
     // Build replacement with %1, %2, %3... substitution
@@ -496,7 +656,24 @@ export class AutomationEngine {
     // Substitute ${variable} patterns in the replacement
     replacement = this.substituteVariables(replacement);
     
-    return replacement;
+    // PR01PH07T02: Check if replacement contains # commands - process through parser
+    const trimmed = replacement.trim();
+    if (trimmed.startsWith('#')) {
+      try {
+        const result = await executeAutomationAction(trimmed, this.variableStore, this.timerManager);
+        if (!result.success) {
+          console.warn('[Automation] Explicit alias # command errors:', result.errors);
+        }
+        // Return all resulting commands
+        return result.commands;
+      } catch (error) {
+        console.error('[Automation] Explicit alias # command execution error:', error);
+        return [];
+      }
+    }
+    
+    // Handle semicolons in replacement - split into individual commands
+    return this.parseCommandString(replacement);
   }
 
   // ============================================
@@ -542,21 +719,23 @@ export class AutomationEngine {
     this.lastTriggerCommand = trigger.action;
     this.lastTriggerCycleId = this.currentCycleId;
 
-    // Process the trigger action (returns array to support command separation)
-    const processedCommands = this.processTriggerAction(trigger.action);
-    
-    // Add each command to queue with trigger source
-    for (const cmd of processedCommands) {
-      const queued = this.queueCommand({
-        command: cmd,
-        source: 'trigger',
+    // Always use executeAutomationAction for all trigger actions to ensure timeout protection (PR01PH05T03)
+    executeAutomationAction(trigger.action, this.variableStore, this.timerManager)
+      .then(result => {
+        if (!result.success) {
+          console.warn('[Automation] Trigger action errors:', result.errors);
+        }
+        // Commands are executed via timer callback or added here
+        for (const cmd of result.commands) {
+          this.queueCommand({
+            command: cmd,
+            source: 'trigger',
+          });
+        }
+      })
+      .catch(error => {
+        console.error('[Automation] Trigger action execution error:', error);
       });
-      
-      if (!queued) {
-        console.warn('[Automation] Failed to queue trigger action - queue full');
-        break;
-      }
-    }
   }
 
   /**

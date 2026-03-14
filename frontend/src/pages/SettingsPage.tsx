@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getConnections, getProfileByConnection, updateProfile, getAliases, putAliases, getTriggers, putTriggers, getEnvironment, putEnvironment } from '../services/api';
-import { SavedConnection, ProfileSettings, UpdateProfileRequest, Alias, Trigger, Variable } from '../types';
+import { getConnections, getProfileByConnection, updateProfile, getAliases, putAliases, getTriggers, putTriggers, getEnvironment, putEnvironment, getTimers, putTimers } from '../services/api';
+import { SavedConnection, ProfileSettings, UpdateProfileRequest, Alias, Trigger, Variable, Timer } from '../types';
 import { normalizeKeybindings, eventToCanonicalKey, isValidKeybindingFormat, isValidCommand, canonicalizeKeybinding, isModifierOnly } from '../services/keybindings';
 import { useSession } from '../context/SessionContext';
 import Modal from '../components/Modal';
+import { parser, validateSyntax, ParseError } from '../services/automation/parser';
 
 // Section types
-type SettingsSection = 'general' | 'keybindings' | 'aliases' | 'triggers' | 'environment';
+type SettingsSection = 'general' | 'keybindings' | 'aliases' | 'triggers' | 'timers' | 'environment';
 
 // Section definition
 interface Section {
@@ -21,6 +22,7 @@ const SECTIONS: Section[] = [
   { id: 'keybindings', label: 'Key Bindings', icon: '⌨' },
   { id: 'aliases', label: 'Aliases', icon: '⚡' },
   { id: 'triggers', label: 'Triggers', icon: '⚓' },
+  { id: 'timers', label: 'Timers', icon: '⏱' },
   { id: 'environment', label: 'Environment', icon: '📦' },
 ];
 
@@ -28,7 +30,7 @@ export default function SettingsPage() {
   // Use useLocation for URL detection instead of useParams to ensure proper re-renders
   const location = useLocation();
   const navigate = useNavigate();
-  const { updateProfile: updateSessionProfile, connectionState, currentConnectionId, automationEngine, automationError, automationDisabled, disableAutomation, enableAutomation, resumeAutomation } = useSession();
+  const { updateProfile: updateSessionProfile, connectionState, currentConnectionId, automationEngine, automationError, automationDisabled, disableAutomation, enableAutomation, resumeAutomation, variablesRefreshTrigger } = useSession();
   
   // Sync section from URL to state to ensure re-render on navigation
   const [activeSection, setActiveSection] = useState<SettingsSection>('general');
@@ -62,6 +64,11 @@ export default function SettingsPage() {
   const [aliases, setAliases] = useState<Alias[]>([]);
   const [isSavingAliases, setIsSavingAliases] = useState(false);
   
+  // Syntax validation state - PR01PH06
+  const [aliasSyntaxErrors, setAliasSyntaxErrors] = useState<Record<string, string>>({});
+  const [triggerSyntaxErrors, setTriggerSyntaxErrors] = useState<Record<string, string>>({});
+  const [validationBanner, setValidationBanner] = useState<string | null>(null);
+  
   // Form state - Triggers
   const [triggers, setTriggers] = useState<Trigger[]>([]);
   const [isSavingTriggers, setIsSavingTriggers] = useState(false);
@@ -69,6 +76,10 @@ export default function SettingsPage() {
   // Form state - Variables
   const [variables, setVariables] = useState<Variable[]>([]);
   const [isSavingVariables, setIsSavingVariables] = useState(false);
+
+  // Form state - Timers
+  const [timers, setTimers] = useState<Timer[]>([]);
+  const [isSavingTimers, setIsSavingTimers] = useState(false);
   
   // Form state - Settings
   const [settings, setSettings] = useState<ProfileSettings>({
@@ -106,6 +117,9 @@ export default function SettingsPage() {
       
       const variablesData = await getEnvironment(connectionId);
       setVariables(variablesData.items || []);
+      
+      const timersData = await getTimers(connectionId);
+      setTimers(timersData.items || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load settings');
     } finally {
@@ -169,6 +183,13 @@ export default function SettingsPage() {
       loadData();
     }
   }, [connectionId, loadData]);
+
+  // Reload data when variables change in the runtime (after #SET)
+  useEffect(() => {
+    if (connectionId && variablesRefreshTrigger > 0) {
+      loadData();
+    }
+  }, [variablesRefreshTrigger, connectionId, loadData]);
 
   // Handle key capture
   useEffect(() => {
@@ -242,9 +263,33 @@ export default function SettingsPage() {
   const handleSaveAliases = async () => {
     if (!connectionId) return;
     
+    // PR01PH06: Validate all aliases before saving
+    const allErrors: Record<string, string> = {};
+    for (const alias of aliases) {
+      if (alias.replacement && alias.replacement.includes('#')) {
+        const errors = validateAutomationScript(alias.replacement);
+        if (errors.length > 0) {
+          allErrors[alias.id] = errors.map(e => `Line ${e.line}: ${e.message}`).join('; ');
+        }
+      }
+    }
+    
+    // If there are errors, show banner and block save
+    if (Object.keys(allErrors).length > 0) {
+      const errorList = Object.entries(allErrors).map(([id, msg]) => {
+        const alias = aliases.find(a => a.id === id);
+        return `${alias?.pattern || id}: ${msg}`;
+      }).join('\n');
+      const bannerMessage = `Cannot save aliases due to syntax errors:\n${errorList}`;
+      setValidationBanner(bannerMessage);
+      console.error('[SettingsPage] Alias validation errors - save blocked:', allErrors);
+      return;
+    }
+    
     setIsSavingAliases(true);
     setError(null);
     setSuccessMessage(null);
+    setValidationBanner(null);
     
     try {
       await putAliases(connectionId, aliases);
@@ -274,9 +319,33 @@ export default function SettingsPage() {
   const handleSaveTriggers = async () => {
     if (!connectionId) return;
     
+    // PR01PH06: Validate all triggers before saving
+    const allErrors: Record<string, string> = {};
+    for (const trigger of triggers) {
+      if (trigger.action && trigger.action.includes('#')) {
+        const errors = validateAutomationScript(trigger.action);
+        if (errors.length > 0) {
+          allErrors[trigger.id] = errors.map(e => `Line ${e.line}: ${e.message}`).join('; ');
+        }
+      }
+    }
+    
+    // If there are errors, show banner and block save
+    if (Object.keys(allErrors).length > 0) {
+      const errorList = Object.entries(allErrors).map(([id, msg]) => {
+        const trigger = triggers.find(t => t.id === id);
+        return `${trigger?.match || id}: ${msg}`;
+      }).join('\n');
+      const bannerMessage = `Cannot save triggers due to syntax errors:\n${errorList}`;
+      setValidationBanner(bannerMessage);
+      console.error('[SettingsPage] Trigger validation errors - save blocked:', allErrors);
+      return;
+    }
+    
     setIsSavingTriggers(true);
     setError(null);
     setSuccessMessage(null);
+    setValidationBanner(null);
     
     try {
       await putTriggers(connectionId, triggers);
@@ -298,6 +367,100 @@ export default function SettingsPage() {
       setError(err instanceof Error ? err.message : 'Failed to save triggers');
     } finally {
       setIsSavingTriggers(false);
+    }
+  };
+
+  // Timer syntax errors
+  const [timerSyntaxErrors, setTimerSyntaxErrors] = useState<Record<string, string>>({});
+
+  // Add timer
+  const handleAddTimer = () => {
+    const newTimer: Timer = {
+      id: crypto.randomUUID(),
+      name: '',
+      duration: 60000, // 1 minute default
+      repeat: false,
+      commands: '',
+      enabled: true,
+    };
+    setTimers([...timers, newTimer]);
+  };
+
+  // Update timer
+  const handleUpdateTimer = (id: string, updates: Partial<Timer>) => {
+    setTimers(timers.map(t => t.id === id ? { ...t, ...updates } : t));
+  };
+
+  // Remove timer
+  const handleRemoveTimer = (id: string) => {
+    setTimers(timers.filter(t => t.id !== id));
+    setTimerSyntaxErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[id];
+      return newErrors;
+    });
+  };
+
+  // Validate timer commands
+  const validateAndUpdateTimer = (id: string, updates: Partial<Timer>) => {
+    handleUpdateTimer(id, updates);
+    if (updates.commands && updates.commands.includes('#')) {
+      const errors = validateAutomationScript(updates.commands);
+      if (errors.length > 0) {
+        setTimerSyntaxErrors(prev => ({ 
+          ...prev, 
+          [id]: errors.map(e => `Line ${e.line}: ${e.message}`).join('; ') 
+        }));
+      } else {
+        setTimerSyntaxErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors[id];
+          return newErrors;
+        });
+      }
+    }
+  };
+
+  // Save timers
+  const handleSaveTimers = async () => {
+    if (!connectionId) return;
+    
+    // PR01PH06: Validate all timers before saving
+    const allErrors: Record<string, string> = {};
+    for (const timer of timers) {
+      if (timer.commands && timer.commands.includes('#')) {
+        const errors = validateAutomationScript(timer.commands);
+        if (errors.length > 0) {
+          allErrors[timer.id] = errors.map(e => `Line ${e.line}: ${e.message}`).join('; ');
+        }
+      }
+    }
+    
+    // If there are errors, show banner and block save
+    if (Object.keys(allErrors).length > 0) {
+      const errorList = Object.entries(allErrors).map(([id, msg]) => {
+        const timer = timers.find(t => t.id === id);
+        return `${timer?.name || id}: ${msg}`;
+      }).join('\n');
+      const bannerMessage = `Cannot save timers due to syntax errors:\n${errorList}`;
+      setValidationBanner(bannerMessage);
+      console.error('[SettingsPage] Timer validation errors - save blocked:', allErrors);
+      return;
+    }
+    
+    setIsSavingTimers(true);
+    setError(null);
+    setSuccessMessage(null);
+    setValidationBanner(null);
+    
+    try {
+      await putTimers(connectionId, timers);
+      setSuccessMessage('Timers saved successfully');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save timers');
+    } finally {
+      setIsSavingTimers(false);
     }
   };
 
@@ -378,6 +541,67 @@ export default function SettingsPage() {
     const newBindings = { ...keybindings };
     delete newBindings[key];
     setKeybindings(newBindings);
+  };
+
+  // PR01PH06: Syntax validation helper - only validates if # syntax present
+  const validateAutomationScript = (text: string): ParseError[] => {
+    // Only validate if there's # syntax in the text
+    if (!text || !text.includes('#')) {
+      return [];
+    }
+    // Parse and validate the script
+    const result = parser.parse(text);
+    if (!result.success) {
+      return result.errors;
+    }
+    // Also run syntax validation on tokens
+    return validateSyntax(result.tokens);
+  };
+
+  // Validate alias replacement and update error state
+  const validateAndUpdateAlias = (id: string, updates: Partial<Alias>) => {
+    // Update the alias first
+    setAliases(aliases.map(a => a.id === id ? { ...a, ...updates } : a));
+    
+    // If replacement was updated, validate it
+    if (updates.replacement !== undefined) {
+      const errors = validateAutomationScript(updates.replacement);
+      if (errors.length > 0) {
+        const errorMessage = errors.map(e => `Line ${e.line}: ${e.message}`).join('; ');
+        setAliasSyntaxErrors(prev => ({ ...prev, [id]: errorMessage }));
+        console.warn('[SettingsPage] Alias syntax validation errors:', errors);
+      } else {
+        // Clear error if no syntax errors
+        setAliasSyntaxErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors[id];
+          return newErrors;
+        });
+      }
+    }
+  };
+
+  // Validate trigger action and update error state
+  const validateAndUpdateTrigger = (id: string, updates: Partial<Trigger>) => {
+    // Update the trigger first
+    setTriggers(triggers.map(t => t.id === id ? { ...t, ...updates } : t));
+    
+    // If action was updated, validate it
+    if (updates.action !== undefined) {
+      const errors = validateAutomationScript(updates.action);
+      if (errors.length > 0) {
+        const errorMessage = errors.map(e => `Line ${e.line}: ${e.message}`).join('; ');
+        setTriggerSyntaxErrors(prev => ({ ...prev, [id]: errorMessage }));
+        console.warn('[SettingsPage] Trigger syntax validation errors:', errors);
+      } else {
+        // Clear error if no syntax errors
+        setTriggerSyntaxErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors[id];
+          return newErrors;
+        });
+      }
+    }
   };
 
   // Add alias
@@ -616,6 +840,14 @@ export default function SettingsPage() {
         {successMessage && (
           <div className="message message-success" style={{ marginBottom: '1rem' }}>
             {successMessage}
+          </div>
+        )}
+        
+        {/* PR01PH06: Validation error banner */}
+        {validationBanner && (
+          <div className="message message-error" style={{ marginBottom: '1rem', whiteSpace: 'pre-wrap' }}>
+            ⚠️ {validationBanner}
+            <button onClick={() => setValidationBanner(null)} style={{ marginLeft: '1rem' }}>Dismiss</button>
           </div>
         )}
 
@@ -867,13 +1099,31 @@ export default function SettingsPage() {
                       </div>
                       <div className="form-group">
                         <label className="form-label">Replacement</label>
-                        <input
-                          type="text"
-                          className="form-input"
-                          placeholder="e.g., look %1 or get %1"
+                        <textarea
+                          className={`form-input form-textarea ${aliasSyntaxErrors[alias.id] ? 'form-input-error' : ''}`}
+                          placeholder="e.g., look %1 or get %1
+#IF ${target}
+attack ${target}
+#ENDIF"
                           value={alias.replacement}
-                          onChange={(e) => handleUpdateAlias(alias.id, { replacement: e.target.value })}
+                          rows={3}
+                          onChange={(e) => validateAndUpdateAlias(alias.id, { replacement: e.target.value })}
+                          onBlur={(e) => {
+                            // Validate on blur for immediate feedback
+                            const errors = validateAutomationScript(e.target.value);
+                            if (errors.length > 0) {
+                              const errorMessage = errors.map(err => `Line ${err.line}: ${err.message}`).join('; ');
+                              setAliasSyntaxErrors(prev => ({ ...prev, [alias.id]: errorMessage }));
+                              console.warn('[SettingsPage] Alias validation errors on blur:', errors);
+                            }
+                          }}
                         />
+                        <p className="form-hint">Use %1, %2, %3 for arguments. Supports #IF/#ELSE/#ENDIF, #SET, #TIMER, #CANCEL</p>
+                        {aliasSyntaxErrors[alias.id] && (
+                          <div className="form-error" style={{ marginTop: '0.5rem' }}>
+                            ⚠️ {aliasSyntaxErrors[alias.id]}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="automation-row-actions">
@@ -971,13 +1221,31 @@ export default function SettingsPage() {
                       </div>
                       <div className="form-group">
                         <label className="form-label">Action</label>
-                        <input
-                          type="text"
-                          className="form-input"
-                          placeholder="e.g., eat bread"
+                        <textarea
+                          className={`form-input form-textarea ${triggerSyntaxErrors[trigger.id] ? 'form-input-error' : ''}`}
+                          placeholder="e.g., eat bread
+#IF ${hp} < 50
+cast heal
+#ENDIF"
                           value={trigger.action}
-                          onChange={(e) => handleUpdateTrigger(trigger.id, { action: e.target.value })}
+                          rows={3}
+                          onChange={(e) => validateAndUpdateTrigger(trigger.id, { action: e.target.value })}
+                          onBlur={(e) => {
+                            // Validate on blur for immediate feedback
+                            const errors = validateAutomationScript(e.target.value);
+                            if (errors.length > 0) {
+                              const errorMessage = errors.map(err => `Line ${err.line}: ${err.message}`).join('; ');
+                              setTriggerSyntaxErrors(prev => ({ ...prev, [trigger.id]: errorMessage }));
+                              console.warn('[SettingsPage] Trigger validation errors on blur:', errors);
+                            }
+                          }}
                         />
+                        <p className="form-hint">Supports #IF/#ELSE/#ENDIF, #SET, #TIMER, #CANCEL</p>
+                        {triggerSyntaxErrors[trigger.id] && (
+                          <div className="form-error" style={{ marginTop: '0.5rem' }}>
+                            ⚠️ {triggerSyntaxErrors[trigger.id]}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="automation-row-actions">
@@ -1034,6 +1302,132 @@ export default function SettingsPage() {
                   disabled={isSavingTriggers}
                 >
                   {isSavingTriggers ? 'Saving...' : 'Save Triggers'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Timers Section */}
+          {activeSection === 'timers' && (
+            <div className="settings-section">
+              <h3>Timers</h3>
+              <p className="section-description">
+                Timers execute commands at specified intervals. Use #TIMER, #START, #STOP, #CANCEL in commands.
+              </p>
+
+              <div className="automation-list">
+                {timers.map((timer) => (
+                  <div key={timer.id} className="automation-row">
+                    <div className="automation-row-content">
+                      <div className="form-group">
+                        <label className="form-label">Name</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="e.g., heal_check"
+                          value={timer.name}
+                          onChange={(e) => handleUpdateTimer(timer.id, { name: e.target.value })}
+                        />
+                      </div>
+                      <div className="form-row">
+                        <div className="form-group" style={{ flex: 1 }}>
+                          <label className="form-label">Duration (ms)</label>
+                          <input
+                            type="number"
+                            className="form-input"
+                            placeholder="e.g., 60000"
+                            value={timer.duration}
+                            onChange={(e) => handleUpdateTimer(timer.id, { duration: parseInt(e.target.value) || 60000 })}
+                            min={1000}
+                          />
+                          <p className="form-hint">Minimum 1000ms</p>
+                        </div>
+                        <div className="form-group" style={{ flex: 1 }}>
+                          <label className="form-label">Repeat</label>
+                          <label className="toggle">
+                            <input
+                              type="checkbox"
+                              checked={timer.repeat}
+                              onChange={(e) => handleUpdateTimer(timer.id, { repeat: e.target.checked })}
+                            />
+                            <span className="toggle-slider"></span>
+                            <span className="toggle-label">{timer.repeat ? 'Repeating' : 'One-time'}</span>
+                          </label>
+                        </div>
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Commands</label>
+                        <textarea
+                          className={`form-input form-textarea ${timerSyntaxErrors[timer.id] ? 'form-input-error' : ''}`}
+                          placeholder="e.g., cast heal
+#IF ${hp} < 30
+cast heal
+#ENDIF"
+                          value={timer.commands}
+                          rows={4}
+                          onChange={(e) => validateAndUpdateTimer(timer.id, { commands: e.target.value })}
+                          onBlur={(e) => {
+                            const errors = validateAutomationScript(e.target.value);
+                            if (errors.length > 0) {
+                              const errorMessage = errors.map(err => `Line ${err.line}: ${err.message}`).join('; ');
+                              setTimerSyntaxErrors(prev => ({ ...prev, [timer.id]: errorMessage }));
+                              console.warn('[SettingsPage] Timer validation errors on blur:', errors);
+                            }
+                          }}
+                        />
+                        <p className="form-hint">Supports #IF/#ELSE/#ENDIF, #SET, #TIMER, #CANCEL</p>
+                        {timerSyntaxErrors[timer.id] && (
+                          <div className="form-error" style={{ marginTop: '0.5rem' }}>
+                            ⚠️ {timerSyntaxErrors[timer.id]}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="automation-row-actions">
+                      <button
+                        className={`btn btn-small ${timer.enabled ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => handleUpdateTimer(timer.id, { enabled: !timer.enabled })}
+                        title={timer.enabled ? 'Disable timer' : 'Enable timer'}
+                      >
+                        {timer.enabled ? 'On' : 'Off'}
+                      </button>
+                      <button
+                        className="btn btn-sm btn-icon icon-red"
+                        onClick={() => handleRemoveTimer(timer.id)}
+                        title="Remove"
+                      >
+                        <svg 
+                          viewBox="0 0 24 24" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          strokeWidth="2"
+                          strokeLinecap="round" 
+                          strokeLinejoin="round"
+                        >
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {timers.length === 0 && (
+                  <div className="automation-empty">
+                    No timers configured
+                  </div>
+                )}
+              </div>
+
+              <div className="settings-actions">
+                <button className="btn btn-secondary" onClick={handleAddTimer}>
+                  Add Timer
+                </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleSaveTimers}
+                  disabled={isSavingTimers}
+                >
+                  {isSavingTimers ? 'Saving...' : 'Save Timers'}
                 </button>
               </div>
             </div>

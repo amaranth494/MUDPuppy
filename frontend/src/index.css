@@ -944,6 +944,14 @@ body {
   cursor: not-allowed;
 }
 
+/* PR01PH06: Multiline textarea for automation scripts */
+.form-textarea {
+  resize: vertical;
+  min-height: 60px;
+  font-family: monospace;
+  line-height: 1.4;
+}
+
 /* Messages */
 .message {
   padding: var(--spacing-md);

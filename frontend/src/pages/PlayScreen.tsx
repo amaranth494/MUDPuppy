@@ -353,7 +353,7 @@ export default function PlayScreen() {
 
   // SP04: Single submitCommand function - canonical entry point for all commands
   // Both typing and keybindings route through this same function
-  const submitCommand = useCallback((_source: 'typing' | 'keybinding', text: string) => {
+  const submitCommand = useCallback(async (_source: 'typing' | 'keybinding', text: string) => {
     // SP03PH03: Gate command submission when modal is open
     if (isInputLocked) {
       return;
@@ -366,7 +366,7 @@ export default function PlayScreen() {
       // SP05: Process through automation engine (aliases, variables)
       // SP06PH07: Skip if automation is disabled
       if (automationEngine && command !== '' && !automationDisabled) {
-        const processedCommands = automationEngine.processUserInput(command);
+        const processedCommands = await automationEngine.processUserInput(command);
         
         // If no commands (e.g., circuit breaker tripped), skip
         if (processedCommands.length === 0) {

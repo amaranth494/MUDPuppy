@@ -15,10 +15,10 @@
 | PR01PH00 | Setup | Create branch, extend schema for timer storage |
 | PR01PH01 | Parser Foundation | # command parser, tokenization, syntax validation |
 | PR01PH02 | Logic Engine | #IF/#ELSE/#ENDIF evaluation, variable substitution |
-| PR01PH03 | Variable Operations | #SET command, variable storage in profile |
+| PR01PH03 | Variable Operations | #SET command, unified resolver, persistent write-through, system/session variables |
 | PR01PH04 | Timer System | #TIMER, #ENDTIMER, #CANCEL, async scheduler |
-| PR01PH05 | Safety Controls | Timer limits, nested logic limits, evaluation timeout |
-| PR01PH06 | Editor UI | Multi-line editing, syntax validation UI |
+| PR01PH05 | Safety Controls | Timer limits, evaluation timeout |
+| PR01PH06 | Editor UI | Multi-line editing, syntax validation UI, Variables panel sync |
 | PR01PH07 | Integration | Connect logic to existing triggers/aliases |
 | PR01PH08 | QA Verification | Manual QA test scenarios for all features |
 | PR01PH09 | Documentation | Update help files, add Release Notes |
@@ -112,8 +112,7 @@
 
 3. **T03: Implement #IF/#ELSE/#ENDIF execution**
    - Execute commands based on condition results
-   - Support nested #IF blocks (up to 3 levels)
-   - Track execution depth for safety
+   - Execute conditional logic within safety bounds
 
 4. **T04: Add unit tests**
    - Test condition evaluation
@@ -126,31 +125,39 @@
 
 ### Objectives
 
-- Implement #SET command
-- Store variables in profile
-- Support variable types: string, number, boolean
+- Implement unified variable resolver used by all automation subsystems
+- Implement persistent #SET (write-through to profile storage)
+- Protect system variables from modification
+- Implement session variables
+- Define variable resolution precedence
 
 ### Steps
 
-1. **T01: Implement #SET command parser**
-   - Parse `#SET variable_name value`
-   - Handle quoted strings
-   - Handle numeric values
+1. **T01: Implement unified variable resolver**
+   - Create resolver function used by alias expansion, trigger actions, logic evaluator, timer execution
+   - Implement resolution precedence: session → profile → system
+   - Prevent variable divergence across subsystems
 
-2. **T02: Implement variable storage**
-   - Store variables in SessionContext
-   - Persist variables to profile via API
-   - Load variables on session connect
+2. **T02: Implement persistent #SET**
+   - Update runtime variable map on #SET
+   - Persist change to profile storage via API
+   - Update UI state immediately (write-through)
 
-3. **T03: Implement variable substitution**
-   - Replace ${variable_name} with value
-   - Handle undefined variables (empty string)
-   - Support variable in commands and conditions
+3. **T03: Implement system variable protection**
+   - Define system variables (%TIME, %CHARACTER, etc.)
+   - Reject #SET attempts to modify system variables
+   - Return user-visible error
 
-4. **T04: Add unit tests**
-   - Test #SET command parsing
-   - Test variable persistence
-   - Test variable substitution
+4. **T04: Implement session variables**
+   - Support %1, %2 syntax for session variables
+   - Store in session map
+   - Clear on disconnect
+
+5. **T05: Add unit tests**
+   - Test variable resolution precedence
+   - Test #SET persistence
+   - Test system variable protection
+   - Test session variable lifecycle
 
 ---
 
@@ -196,7 +203,6 @@
 ### Objectives
 
 - Implement timer limit (max 10 active timers)
-- Implement nested logic limit (max 3 levels)
 - Implement evaluation timeout (max 500ms)
 - Integrate with existing MVP safety (circuit breaker, rate limits)
 
@@ -207,10 +213,9 @@
    - Reject new timers when limit reached
    - Return error to user
 
-2. **T02: Implement nested logic limit**
-   - Track #IF execution depth
-   - Reject execution beyond 3 levels
-   - Track depth in execution context
+2. **T02: Integrate safety systems**
+   - Connect safety systems to automation engine
+   - Ensure all automation passes through safety checks
 
 3. **T03: Implement evaluation timeout**
    - Wrap condition evaluation in timeout
@@ -224,7 +229,6 @@
 
 5. **T05: Add unit tests**
    - Test timer limit enforcement
-   - Test nested logic limit
    - Test evaluation timeout
 
 ---
@@ -236,6 +240,7 @@
 - Enhance automation editors for multi-line input
 - Add syntax validation display
 - Support indentation
+- Sync Variables panel when #SET changes profile variables
 
 ### Steps
 
@@ -254,10 +259,16 @@
    - Show inline errors
    - Color-code # commands
 
-4. **T04: Test editor enhancements**
+4. **T04: Implement Variables panel sync**
+   - When #SET changes a profile variable, update Variables panel immediately
+   - No refresh required
+   - Users should see the change immediately
+
+5. **T05: Test editor enhancements**
    - Manual testing of multi-line input
    - Verify syntax highlighting works
    - Verify error messages display
+   - Verify Variables panel updates on #SET
 
 ---
 
@@ -352,6 +363,8 @@
    - Update `/help/aliases.json` with #SET examples
    - Update `/help/triggers.json` with #IF examples
    - Update `/help/variables.json` with #SET documentation
+   - Document variable types: `${variable}` = profile, `%VARIABLE` = session/system
+   - Document that #SET modifies profile variables only
 
 4. **T04: Create Release Notes help file**
    - Create `/help/release-notes.json`

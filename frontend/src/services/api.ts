@@ -1,4 +1,4 @@
-import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, Profile, UpdateProfileRequest, Alias, Trigger, Variable, AliasesResponse, TriggersResponse, VariablesResponse, HelpSection, HelpSummary } from '../types';
+import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, Profile, UpdateProfileRequest, Alias, Trigger, Variable, Timer, AliasesResponse, TriggersResponse, VariablesResponse, TimersResponse, HelpSection, HelpSummary } from '../types';
 
 const API_BASE = '/api/v1';
 
@@ -536,6 +536,37 @@ export async function putEnvironment(connectionId: string, items: Variable[]): P
   if (!response.ok) {
     const data = await response.json();
     throw new Error(data.error || 'Failed to update environment');
+  }
+  return await response.json();
+}
+
+// Get timers for a connection
+export async function getTimers(connectionId: string): Promise<TimersResponse> {
+  const response = await fetch(`${API_BASE}/profiles/${connectionId}/timers`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to get timers');
+  }
+  return await response.json();
+}
+
+// Update timers for a connection
+export async function putTimers(connectionId: string, items: Timer[]): Promise<TimersResponse> {
+  const response = await fetch(`${API_BASE}/profiles/${connectionId}/timers`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({ items }),
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to update timers');
   }
   return await response.json();
 }

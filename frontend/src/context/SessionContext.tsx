@@ -14,6 +14,7 @@ import {
 import { mapBackendError } from '../types';
 import { normalizeKeybindings } from '../services/keybindings';
 import { getAutomationEngine, AutomationEngine } from '../services/automation';
+import { VariableValue } from '../services/automation/evaluator';
 
 interface SessionContextType {
   user: User | null;
@@ -40,6 +41,9 @@ interface SessionContextType {
   resumeAutomation: () => void;
   disableAutomation: () => void;
   enableAutomation: () => void;
+  // PR01PH06: Variable refresh trigger for sync
+  variablesRefreshTrigger: number;
+  triggerVariablesRefresh: () => void;
   // Reconnection modal state (MVP)
   hasPendingReconnect: boolean;
   pendingReconnectData: { host: string; port: number; connectionId?: string } | null;
@@ -82,6 +86,12 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   const [automationEngine, setAutomationEngine] = useState<AutomationEngine | null>(null);
   const [automationError, setAutomationError] = useState<string | null>(null);
   const [automationDisabled, setAutomationDisabled] = useState(false);
+  
+  // PR01PH06: Variable refresh trigger for sync
+  const [variablesRefreshTrigger, setVariablesRefreshTrigger] = useState(0);
+  const triggerVariablesRefresh = useCallback(() => {
+    setVariablesRefreshTrigger(prev => prev + 1);
+  }, []);
   
   // Reconnection modal state (MVP) - tracks when user has existing session
   const [hasPendingReconnect, setHasPendingReconnect] = useState(false);
@@ -288,6 +298,12 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
         setAutomationError(reason);
       });
       
+      // PR01PH06: Set up variable change callback for UI sync
+      engine.setVariableChangeCallback((name: string, value: VariableValue) => {
+        console.log('[Automation] Variable changed:', name, '=', value);
+        triggerVariablesRefresh();
+      });
+      
       setAutomationEngine(engine);
       setAutomationError(null);
       
@@ -460,6 +476,9 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
         resumeAutomation,
         disableAutomation,
         enableAutomation,
+        // PR01PH06: Variable refresh for sync
+        variablesRefreshTrigger,
+        triggerVariablesRefresh,
         hasPendingReconnect,
         pendingReconnectData,
         clearPendingReconnect,

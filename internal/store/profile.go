@@ -17,6 +17,7 @@ type Profile struct {
 	Aliases      Aliases           `json:"aliases"`
 	Triggers     Triggers          `json:"triggers"`
 	Variables    Variables         `json:"variables"`
+	Timers       Timers            `json:"timers"`
 	CreatedAt    string            `json:"created_at"`
 	UpdatedAt    string            `json:"updated_at"`
 }
@@ -61,6 +62,21 @@ type Variables struct {
 	Items []Variable `json:"items"`
 }
 
+// Timer represents a time-based automation trigger
+type Timer struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Duration int    `json:"duration"` // in milliseconds
+	Repeat   bool   `json:"repeat"`
+	Commands string `json:"commands"`
+	Enabled  bool   `json:"enabled"`
+}
+
+// Timers wraps a list of timers
+type Timers struct {
+	Items []Timer `json:"items"`
+}
+
 // ProfileSettings contains UI and behavior settings for a profile
 type ProfileSettings struct {
 	ScrollbackLimit   int  `json:"scrollback_limit"`
@@ -102,6 +118,7 @@ type ProfileUpdate struct {
 	Aliases     *Aliases           `json:"aliases,omitempty"`
 	Triggers    *Triggers          `json:"triggers,omitempty"`
 	Variables   *Variables         `json:"variables,omitempty"`
+	Timers      *Timers            `json:"timers,omitempty"`
 }
 
 // DefaultAliases returns the default aliases structure
@@ -117,6 +134,11 @@ func DefaultTriggers() Triggers {
 // DefaultVariables returns the default variables structure
 func DefaultVariables() Variables {
 	return Variables{Items: []Variable{}}
+}
+
+// DefaultTimers returns the default timers structure
+func DefaultTimers() Timers {
+	return Timers{Items: []Timer{}}
 }
 
 // ProfileStore handles profiles database operations

@@ -298,6 +298,17 @@ func main() {
 		}
 	})
 
+	mux.HandleFunc("/api/v1/profiles/{connection_id}/timers", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			profilesHandler.GetTimers(w, r)
+		case http.MethodPut:
+			profilesHandler.PutTimers(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
 	// WebSocket endpoint (SP02PH02)
 	mux.HandleFunc("/api/v1/session/stream", wsHandler.HandleWebSocket)
 

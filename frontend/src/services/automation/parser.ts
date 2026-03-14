@@ -24,7 +24,7 @@ export interface Token {
 
 export interface CommandToken extends Token {
   type: 'COMMAND';
-  command: 'IF' | 'ELSE' | 'ENDIF' | 'SET' | 'TIMER' | 'ENDTIMER' | 'CANCEL';
+  command: 'IF' | 'ELSE' | 'ENDIF' | 'SET' | 'TIMER' | 'ENDTIMER' | 'CANCEL' | 'START' | 'STOP' | 'CHECK';
   args?: string;
 }
 
@@ -164,7 +164,7 @@ export class Parser {
     }
     
     // Validate command
-    const validCommands = ['IF', 'ELSE', 'ENDIF', 'SET', 'TIMER', 'ENDTIMER', 'CANCEL'];
+    const validCommands = ['IF', 'ELSE', 'ENDIF', 'SET', 'TIMER', 'ENDTIMER', 'CANCEL', 'START', 'STOP', 'CHECK'];
     const upperCommand = commandName.toUpperCase();
     
     if (!validCommands.includes(upperCommand)) {

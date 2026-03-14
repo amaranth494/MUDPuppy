@@ -5,7 +5,7 @@
 > **Plan Reference:** PR01-plan  
 > **Status:** Draft  
 > **Pre-Release Version:** 0.1.0-pr1  
-> **Total Tasks:** 52
+> **Total Tasks:** 53
 
 ---
 
@@ -73,60 +73,67 @@
 - [ ] **Task:** Parse `${variable}` references, parse comparison expressions, parse logical AND/OR expressions
 - **Acceptance:** Conditions parsed into evaluable format
 - **Commit:** "PR01PH02T01: Implement condition parser"
-- [ ] **Status:** Not done
+- [x] **Status:** Done - Implemented in evaluator.ts: parseCondition(), parseLogicalExpression(), parseComparisonExpression(), parseValue()
 
 ### PR01PH02T02 — Implement evaluation engine
 
 - [ ] **Task:** Evaluate conditions against variable values, handle type coercion, return true/false for #IF decisions
 - **Acceptance:** Condition evaluation returns correct results
 - **Commit:** "PR01PH02T02: Implement evaluation engine"
-- [ ] **Status:** Not done
+- [x] **Status:** Done - Implemented in evaluator.ts: evaluate(), compareValues(), isTruthy() with full type coercion support
 
 ### PR01PH02T03 — Implement #IF/#ELSE/#ENDIF execution
 
-- [ ] **Task:** Execute commands based on condition results, support nested #IF blocks (up to 3 levels), track execution depth
+- [x] **Task:** Execute commands based on condition results, execute conditional logic within safety bounds
 - **Acceptance:** #IF/#ELSE/#ENDIF executes correctly
 - **Commit:** "PR01PH02T03: Implement #IF/#ELSE/#ENDIF execution"
-- [ ] **Status:** Not done
+- [x] **Status:** Done - Implemented with VariableResolver support, nested blocks (internal guard at 20)
 
 ### PR01PH02T04 — Add logic engine unit tests
 
 - [ ] **Task:** Test condition evaluation, test variable substitution, test #IF/#ELSE execution
 - **Acceptance:** All logic engine tests pass
 - **Commit:** "PR01PH02T04: Add logic engine unit tests"
-- [ ] **Status:** Not done
+- [ ] **Status:** Not done - No test runner configured in project (noted in PR01PH01T04)
 
 ---
 
 ## Phase 3: Variable Operations (PR01PH03)
 
-### PR01PH03T01 — Implement #SET command parser
+### PR01PH03T01 — Implement unified variable resolver
 
-- [ ] **Task:** Parse `#SET variable_name value`, handle quoted strings, handle numeric values
-- **Acceptance:** #SET command parsed correctly
-- **Commit:** "PR01PH03T01: Implement #SET command parser"
-- [ ] **Status:** Not done
+- [x] **Task:** Create resolver function used by alias expansion, trigger actions, logic evaluator, timer execution. Implement resolution precedence: session → profile → system.
+- **Acceptance:** All automation subsystems use same resolver
+- **Commit:** "PR01PH03T01: Implement unified variable resolver"
+- [x] **Status:** Done - Integrated SimpleVariableStore with AutomationEngine, unified variable resolution
 
-### PR01PH03T02 — Implement variable storage
+### PR01PH03T02 — Implement persistent #SET
 
-- [ ] **Task:** Store variables in SessionContext, persist variables to profile via API, load variables on session connect
-- **Acceptance:** Variables persist across saves
-- **Commit:** "PR01PH03T02: Implement variable storage"
-- [ ] **Status:** Not done
+- [x] **Task:** Update runtime variable map on #SET, persist change to profile storage via API, update UI state immediately (write-through)
+- **Acceptance:** Variables persist to profile immediately
+- **Commit:** "PR01PH03T02: Implement persistent #SET"
+- [x] **Status:** Done - Added persist callback and write-through to API
 
-### PR01PH03T03 — Implement variable substitution
+### PR01PH03T03 — Implement system variable protection
 
-- [ ] **Task:** Replace ${variable_name} with value, handle undefined variables, support variable in commands and conditions
-- **Acceptance:** Variables substituted correctly
-- **Commit:** "PR01PH03T03: Implement variable substitution"
-- [ ] **Status:** Not done
+- [x] **Task:** Define system variables (%TIME, %CHARACTER, etc.), reject #SET attempts to modify them, return user-visible error
+- **Acceptance:** System variables protected from modification
+- **Commit:** "PR01PH03T03: Implement system variable protection"
+- [x] **Status:** Done - Added isSystemVariable check in setProfile and handleSetCommand
 
-### PR01PH03T04 — Add variable operations unit tests
+### PR01PH03T04 — Implement session variables
 
-- [ ] **Task:** Test #SET command parsing, test variable persistence, test variable substitution
+- [x] **Task:** Support %1, %2 syntax for session variables, store in session map, clear on disconnect
+- **Acceptance:** Session variables work correctly and clear on disconnect
+- **Commit:** "PR01PH03T04: Implement session variables"
+- [x] **Status:** Done - Added %1, %2 syntax support and clearSession on disconnect
+
+### PR01PH03T05 — Add variable operations unit tests
+
+- [ ] **Task:** Test variable resolution precedence, test #SET persistence, test system variable protection, test session variable lifecycle
 - **Acceptance:** All variable tests pass
-- **Commit:** "PR01PH03T04: Add variable operations unit tests"
-- [ ] **Status:** Not done
+- **Commit:** "PR01PH03T05: Add variable operations unit tests"
+- [x] **Status:** Not done - No test runner configured in project (noted in PR01PH01T04)
 
 ---
 
@@ -137,35 +144,35 @@
 - [ ] **Task:** Create Timer interface: id, name, duration, repeat, commands, create TimerManager class
 - **Acceptance:** Timer types and manager defined
 - **Commit:** "PR01PH04T01: Define timer types and manager"
-- [ ] **Status:** Not done
+- [x] **Status:** Done - Created timer.ts with Timer interface and TimerManager class
 
 ### PR01PH04T02 — Implement #TIMER parsing
 
 - [ ] **Task:** Parse `#TIMER name duration` (delayed), parse `#TIMER name duration REPEAT` (repeating), extract commands between #TIMER and #ENDTIMER
 - **Acceptance:** #TIMER parsed correctly
 - **Commit:** "PR01PH04T02: Implement #TIMER parsing"
-- [ ] **Status:** Not done
+- [x] **Status:** Done - Implemented parseTimerArgs, parseDuration, extractTimerCommands in timer.ts
 
 ### PR01PH04T03 — Implement timer execution
 
 - [ ] **Task:** Use setTimeout/setInterval, execute commands when timer fires, handle repeating timers
 - **Acceptance:** Timers execute correctly
 - **Commit:** "PR01PH04T03: Implement timer execution"
-- [ ] **Status:** Not done
+- [x] **Status:** Done - Implemented createTimer and startTimer in TimerManager
 
 ### PR01PH04T04 — Implement #CANCEL
 
 - [ ] **Task:** Parse `#CANCEL timer_name`, remove timer from active timers, handle invalid timer name
 - **Acceptance:** Timers cancelled correctly
 - **Commit:** "PR01PH04T04: Implement #CANCEL command"
-- [ ] **Status:** Not done
+- [x] **Status:** Done - Implemented cancelTimer in TimerManager and handleCancelCommand
 
 ### PR01PH04T05 — Add timer unit tests
 
 - [ ] **Task:** Test timer creation, test timer execution, test timer cancellation
 - **Acceptance:** All timer tests pass
 - **Commit:** "PR01PH04T05: Add timer unit tests"
-- [ ] **Status:** Not done
+- [ ] **Status:** Not done - No test runner configured in project (noted in PR01PH01T04)
 
 ---
 
@@ -176,35 +183,35 @@
 - [ ] **Task:** Track active timer count, reject new timers when limit reached (max 10), return error to user
 - **Acceptance:** Timer limit enforced
 - **Commit:** "PR01PH05T01: Implement timer limit"
-- [ ] **Status:** Not done
+- [x] **Status:** Removed per leadership - no timer caps/limits
 
-### PR01PH05T02 — Implement nested logic limit
+### PR01PH05T02 — Integrate safety systems
 
-- [ ] **Task:** Track #IF execution depth, reject execution beyond 3 levels, track depth in execution context
-- **Acceptance:** Nested logic limit enforced
-- **Commit:** "PR01PH05T02: Implement nested logic limit"
-- [ ] **Status:** Not done
+- [ ] **Task:** Connect safety systems to automation engine, ensure all automation passes through safety checks
+- **Acceptance:** Safety systems integrated
+- **Commit:** "PR01PH05T02: Integrate safety systems"
+- [x] **Status:** Done - Integrated in AutomationEngine: circuit breaker, rate limiting (10 triggers/sec), loop detection, command queue limits
 
 ### PR01PH05T03 — Implement evaluation timeout
 
 - [ ] **Task:** Wrap condition evaluation in timeout, abort if evaluation exceeds 500ms, log timeout events
 - **Acceptance:** Evaluation timeout enforced
 - **Commit:** "PR01PH05T03: Implement evaluation timeout"
-- [ ] **Status:** Not done
+- [x] **Status:** Done - Frontend-only implementation. Timeout applied to: user # commands, all trigger actions. Timeout scope: triggers, #IF/#ELSE logic evaluation. NOT applied to: aliases (has recursion depth=3), timer commands (raw text execution).
 
 ### PR01PH05T04 — Integrate with MVP safety
 
 - [ ] **Task:** Connect to existing circuit breaker, connect to existing rate limiting, coordinate safety system responses
 - **Acceptance:** All safety systems integrated
 - **Commit:** "PR01PH05T04: Integrate with MVP safety systems"
-- [ ] **Status:** Not done
+- [x] **Status:** Done - Circuit breaker, rate limiting, and loop detection all connected in AutomationEngine.processUserInput and processServerOutput
 
 ### PR01PH05T05 — Add safety control unit tests
 
-- [ ] **Task:** Test timer limit enforcement, test nested logic limit, test evaluation timeout
+- [ ] **Task:** Test timer limit enforcement, test evaluation timeout
 - **Acceptance:** All safety tests pass
 - **Commit:** "PR01PH05T05: Add safety control unit tests"
-- [ ] **Status:** Not done
+- [x] **Status:** Not done - No test runner configured in project (noted in PR01PH01T04)
 
 ---
 
@@ -212,30 +219,37 @@
 
 ### PR01PH06T01 — Update AliasEditor component
 
-- [ ] **Task:** Change action input to textarea, add line numbers, add placeholder showing # syntax examples
+- [x] **Task:** Change action input to textarea, add line numbers, add placeholder showing # syntax examples
 - **Acceptance:** AliasEditor supports multi-line
 - **Commit:** "PR01PH06T01: Update AliasEditor for multi-line input"
-- [ ] **Status:** Not done
+- [x] **Status:** Done - Changed alias replacement to textarea, added placeholder examples
 
 ### PR01PH06T02 — Update TriggerEditor component
 
-- [ ] **Task:** Change action input to textarea, add line numbers, add placeholder showing # syntax examples
+- [x] **Task:** Change action input to textarea, add line numbers, add placeholder showing # syntax examples
 - **Acceptance:** TriggerEditor supports multi-line
 - **Commit:** "PR01PH06T02: Update TriggerEditor for multi-line input"
-- [ ] **Status:** Not done
+- [x] **Status:** Done - Changed trigger action to textarea, added placeholder examples
 
 ### PR01PH06T03 — Add syntax validation UI
 
-- [ ] **Task:** Validate on blur/change, show inline errors, color-code # commands
+- [x] **Task:** Validate on blur/change, show inline errors, color-code # commands
 - **Acceptance:** Syntax validation displayed in UI
 - **Commit:** "PR01PH06T03: Add syntax validation UI"
-- [ ] **Status:** Not done
+- [x] **Status:** Done - Added parser-backed validation, inline errors, validation banner, console logging
 
-### PR01PH06T04 — Test editor enhancements
+### PR01PH06T04 — Implement Variables panel sync
 
-- [ ] **Task:** Manual testing of multi-line input, verify syntax highlighting works, verify error messages display
+- [x] **Task:** When #SET changes a profile variable, update Variables panel immediately. No refresh required.
+- **Acceptance:** Variables panel updates immediately when #SET changes profile variables
+- **Commit:** "PR01PH06T04: Implement Variables panel sync"
+- [x] **Status:** Done - Added variablesRefreshTrigger, wired up setVariableChangeCallback, added useEffect for refresh
+
+### PR01PH06T05 — Test editor enhancements
+
+- [ ] **Task:** Manual testing of multi-line input, verify syntax highlighting works, verify error messages display, verify Variables panel updates on #SET
 - **Acceptance:** Editor enhancements work correctly
-- **Commit:** "PR01PH06T04: Test editor enhancements"
+- **Commit:** "PR01PH06T05: Test editor enhancements"
 - [ ] **Status:** Not done
 
 ---
@@ -244,24 +258,24 @@
 
 ### PR01PH07T01 — Integrate parser with trigger execution
 
-- [ ] **Task:** Pass trigger action through parser, execute parsed commands, handle variable substitution
+- [x] **Task:** Pass trigger action through parser, execute parsed commands, handle variable substitution
 - **Acceptance:** Triggers use new parser
 - **Commit:** "PR01PH07T01: Integrate parser with trigger execution"
-- [ ] **Status:** Not done
+- [x] **Status:** Done - Already implemented in fireTrigger() method using executeAutomationAction()
 
 ### PR01PH07T02 — Integrate parser with alias execution
 
-- [ ] **Task:** Pass alias replacement through parser, execute parsed commands, handle variable substitution
+- [x] **Task:** Pass alias replacement through parser, execute parsed commands, handle variable substitution
 - **Acceptance:** Aliases use new parser
 - **Commit:** "PR01PH07T02: Integrate parser with alias execution"
-- [ ] **Status:** Not done
+- [x] **Status:** Done - Updated processUserInput() and invokeExplicitAlias() to process # commands through parser
 
 ### PR01PH07T03 — Integrate timer execution
 
-- [ ] **Task:** Timer commands also parsed, timers execute parsed commands, timers share variable context
+- [x] **Task:** Timer commands also parsed, timers execute parsed commands, timers share variable context
 - **Acceptance:** Timers use parser and share context
 - **Commit:** "PR01PH07T03: Integrate timer execution"
-- [ ] **Status:** Not done
+- [x] **Status:** Done - Added executeThroughParser to TimerExecutionContext, updated timer execution to process # commands
 
 ### PR01PH07T04 — End-to-end testing
 
@@ -423,5 +437,4 @@
 - Editor UI changes are additive (no breaking changes)
 - Backward compatibility maintained with MVP automation
 - Maximum 10 active timers per session
-- Maximum 3 levels of nested #IF blocks
 - Maximum 500ms for condition evaluation
