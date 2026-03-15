@@ -665,6 +665,10 @@ export class AutomationEngine {
         // Substitute ${variable} patterns in the replacement
         replacement = this.substituteVariables(replacement);
 
+        // PR01PH08: Normalize newlines to semicolons for consistent command processing
+        // This fixes issues with multi-line alias replacements causing MUD echo problems
+        replacement = replacement.replace(/\n/g, ';');
+
         // Handle nested semicolons in replacement - split and evaluate each
         // This implements depth-first expansion where each part of the replacement
         // is evaluated for more aliases before returning
@@ -735,6 +739,10 @@ export class AutomationEngine {
 
     // Substitute ${variable} patterns in the replacement
     replacement = this.substituteVariables(replacement);
+    
+    // PR01PH08: Normalize newlines to semicolons for consistent command processing
+    // This fixes issues with multi-line alias replacements causing MUD echo problems
+    replacement = replacement.replace(/\n/g, ';');
     
     // PR01PH07T02: Check if replacement contains # commands - process through parser
     const trimmed = replacement.trim();
