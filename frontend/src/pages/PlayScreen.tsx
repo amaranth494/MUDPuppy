@@ -334,7 +334,7 @@ export default function PlayScreen() {
         const settings = profile?.settings;
         const shouldEcho = settings?.echo_input ?? true;
         if (shouldEcho && terminalInstanceRef.current) {
-          let echoText = command + '\r\n';
+          let echoText = '\r\n' + command + '\r\n';
           if (settings?.timestamp_output) {
             const now = new Date();
             const timestamp = now.toLocaleTimeString('en-US', { 
@@ -392,7 +392,7 @@ export default function PlayScreen() {
         const settings = profile?.settings;
         const shouldEcho = settings?.echo_input ?? true;
         if (shouldEcho && terminalInstanceRef.current) {
-          let echoText = command + '\r\n';
+          let echoText = '\r\n' + command + '\r\n';
           if (settings?.timestamp_output) {
             const now = new Date();
             const timestamp = now.toLocaleTimeString('en-US', { 
