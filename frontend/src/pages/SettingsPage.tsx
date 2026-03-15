@@ -1386,8 +1386,16 @@ cast heal
                     <div className="automation-row-actions">
                       <button
                         className={`btn btn-small ${timer.enabled ? 'btn-primary' : 'btn-secondary'}`}
-                        onClick={() => handleUpdateTimer(timer.id, { enabled: !timer.enabled })}
-                        title={timer.enabled ? 'Disable timer' : 'Enable timer'}
+                        onClick={async () => {
+                          // PR01PH08: If connected, send #START/#STOP command; otherwise toggle enabled
+                          if (automationEngine && connectionState === 'connected') {
+                            const command = timer.enabled ? `#STOP ${timer.name}` : `#START ${timer.name}`;
+                            await automationEngine.processUserInput(command);
+                          } else {
+                            handleUpdateTimer(timer.id, { enabled: !timer.enabled });
+                          }
+                        }}
+                        title={timer.enabled ? 'Stop timer (runtime)' : 'Start timer (runtime)'}
                       >
                         {timer.enabled ? 'On' : 'Off'}
                       </button>
