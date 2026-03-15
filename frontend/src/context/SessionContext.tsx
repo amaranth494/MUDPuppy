@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
-import { ConnectionState, User, Profile, Timer } from '../types';
+import { ConnectionState, User, Profile, Timer, TimersResponse } from '../types';
 import { 
   checkAuth, 
   getSessionStatus, 
@@ -272,13 +272,16 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       engine = getAutomationEngine();
       
       // Fetch automation data if we have a connection ID
+      // Fetch automation data if we have a connection ID
+      let timers: TimersResponse | null = null;
       if (connectionId) {
-        const [aliases, triggers, variables, timers] = await Promise.all([
+        const [aliases, triggers, variables, fetchedTimers] = await Promise.all([
           getAliases(connectionId),
           getTriggers(connectionId),
           getEnvironment(connectionId),
           getTimers(connectionId),
         ]);
+        timers = fetchedTimers;
         
         engine.configure({
           aliases,
@@ -286,18 +289,6 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
           variables,
           connectionId,
         });
-        
-        // Load timers into the timer system
-        if (timers && timers.items) {
-          // Convert Timer (from API) to SavedTimer (for automation engine)
-          const savedTimers = timers.items.map(t => ({
-            name: t.name,
-            duration: t.duration,
-            repeat: t.repeat,
-            commands: typeof t.commands === 'string' ? t.commands.split('\n').filter(c => c.trim()) : t.commands,
-          }));
-          engine.loadTimers(savedTimers);
-        }
       } else {
         // Quick connect - use empty automation
         engine.configure({
@@ -372,6 +363,18 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
             }
           }
         );
+        
+        // Load timers from profile (must be AFTER setTimerCallbacks creates timerManager)
+        if (timers && timers.items) {
+          const savedTimers = timers.items.map((t: Timer) => ({
+            name: t.name,
+            duration: t.duration,
+            repeat: t.repeat,
+            commands: typeof t.commands === 'string' ? t.commands.split('\n').filter((c: string) => c.trim()) : t.commands,
+          }));
+          engine.loadTimers(savedTimers);
+          console.log('[Automation] Timers loaded:', savedTimers.length);
+        }
       }
       
       setAutomationEngine(engine);
