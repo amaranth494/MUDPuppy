@@ -739,6 +739,7 @@ async function executeTokenList(
           
         case 'START':
           // Handle #START command - start a stopped timer
+          // PR01PH08: Output to local terminal for 'all' variant
           if (context.timerManager) {
             const result = handleStartCommand(token, context.timerManager);
             if (!result.success && result.error) {
@@ -747,13 +748,16 @@ async function executeTokenList(
                 line: token.line,
                 column: token.column
               });
+            } else if (result.output) {
+              context.outputMessage?.(`[Timer: ${result.output}]\r\n`);
             }
           }
           i++;
           continue;
-          
+        
         case 'STOP':
           // Handle #STOP command - stop a running timer
+          // PR01PH08: Output to local terminal for 'all' variant
           if (context.timerManager) {
             const result = handleStopCommand(token, context.timerManager);
             if (!result.success && result.error) {
@@ -762,6 +766,8 @@ async function executeTokenList(
                 line: token.line,
                 column: token.column
               });
+            } else if (result.output) {
+              context.outputMessage?.(`[Timer: ${result.output}]\r\n`);
             }
           }
           i++;

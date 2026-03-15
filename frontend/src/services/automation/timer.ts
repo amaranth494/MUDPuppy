@@ -366,6 +366,86 @@ export class TimerManager {
   }
 
   /**
+   * Start all timers using saved settings (#START all command)
+   */
+  startAllTimers(): { success: boolean; output?: string } {
+    const startedTimers: string[] = [];
+    const skippedTimers: string[] = [];
+    
+    for (const [name, timer] of this.timers) {
+      if (timer.state === 'running') {
+        skippedTimers.push(name);
+      } else {
+        // Clear any override flags and use saved settings
+        timer.singleShot = undefined;
+        timer.forceRepeat = undefined;
+        this.startTimerInternal(timer);
+        startedTimers.push(name);
+      }
+    }
+    
+    if (startedTimers.length === 0 && skippedTimers.length === 0) {
+      return { success: true, output: 'No timers defined.' };
+    }
+    
+    let output = '';
+    if (startedTimers.length > 0) {
+      output += `Started: ${startedTimers.join(', ')}`;
+    }
+    if (skippedTimers.length > 0) {
+      if (output) output += '; ';
+      output += `Already running: ${skippedTimers.join(', ')}`;
+    }
+    
+    return { success: true, output };
+  }
+
+  /**
+   * List all timers with status (#CHECK all command)
+   */
+  listAllTimers(): { success: boolean; output?: string } {
+    if (this.timers.size === 0) {
+      return { success: true, output: 'No timers defined.' };
+    }
+    
+    const lines: string[] = [];
+    for (const [name, timer] of this.timers) {
+      const durationStr = this.formatDuration(timer.duration);
+      let status: string = timer.state === 'running' ? 'running' : 'stopped';
+      
+      if (timer.state === 'running') {
+        const elapsed = Date.now() - (timer.startTime || Date.now());
+        const remaining = Math.max(0, timer.duration - elapsed);
+        const remainingStr = this.formatDuration(remaining);
+        status = `running (${remainingStr} remaining)`;
+      }
+      
+      // Add override indicator
+      if (timer.singleShot) {
+        status += ' [single]';
+      } else if (timer.forceRepeat) {
+        status += ' [nonstop]';
+      } else if (timer.repeat) {
+        status += ' [repeat]';
+      }
+      
+      lines.push(`  ${name}: ${durationStr} - ${status}`);
+    }
+    
+    return { success: true, output: `Timers:\n${lines.join('\n')}` };
+  }
+
+  /**
+   * Format duration in ms to human-readable string
+   */
+  private formatDuration(ms: number): string {
+    if (ms < 1000) return `${ms}ms`;
+    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+    if (ms < 3600000) return `${(ms / 60000).toFixed(1)}m`;
+    return `${(ms / 3600000).toFixed(1)}h`;
+  }
+
+  /**
    * Check timer status (#CHECK command)
    */
   checkTimer(name: string): { success: boolean; error?: string; output?: string } {
@@ -568,10 +648,19 @@ export class TimerManager {
   /**
    * Stop all timers (but keep definitions)
    */
-  stopAllTimers(): void {
+  stopAllTimers(): { success: boolean; output?: string } {
+    const runningTimers: string[] = [];
+    
     for (const name of this.timerIds.keys()) {
       this.stopTimerInternal(name);
+      runningTimers.push(name);
     }
+    
+    if (runningTimers.length === 0) {
+      return { success: true, output: 'No timers running.' };
+    }
+    
+    return { success: true, output: `Stopped: ${runningTimers.join(', ')}` };
   }
 
   /**
@@ -627,17 +716,23 @@ export function handleTimerCommand(
  * - #START timerName - use timer settings (repeat checkbox)
  * - #START timerName single - run once, ignore repeat setting
  * - #START timerName nonstop - keep repeating, ignore repeat setting
+ * - #START all - start all timers using saved settings
  */
 export function handleStartCommand(
   token: CommandToken,
   timerManager: TimerManager
-): { success: boolean; error?: string } {
+): { success: boolean; error?: string; output?: string } {
   const args = token.args?.trim();
   
   if (!args) {
     const error = `#START requires a timer name`;
     timerManager.reportError(error);
     return { success: false, error };
+  }
+  
+  // Handle #START all
+  if (args.toLowerCase() === 'all') {
+    return timerManager.startAllTimers();
   }
   
   // Parse the arguments - could be "timerName", "timerName single", or "timerName nonstop"
@@ -647,9 +742,11 @@ export function handleStartCommand(
   
   // Call appropriate method based on modifier
   if (modifier === 'single') {
-    return timerManager.startTimerSingle(timerName);
+    const result = timerManager.startTimerSingle(timerName);
+    return { success: result.success, error: result.error };
   } else if (modifier === 'nonstop') {
-    return timerManager.startTimerNonstop(timerName);
+    const result = timerManager.startTimerNonstop(timerName);
+    return { success: result.success, error: result.error };
   } else if (modifier) {
     const error = `Unknown modifier '${modifier}' for #START. Use 'single' or 'nonstop'`;
     timerManager.reportError(error);
@@ -657,16 +754,20 @@ export function handleStartCommand(
   }
   
   // Default: use timer settings
-  return timerManager.startTimer(timerName);
+  const result = timerManager.startTimer(timerName);
+  return { success: result.success, error: result.error };
 }
 
 /**
  * Handle #STOP command - stops a running timer
+ * Supports:
+ * - #STOP timerName - stop a specific timer
+ * - #STOP all - stop all running timers
  */
 export function handleStopCommand(
   token: CommandToken,
   timerManager: TimerManager
-): { success: boolean; error?: string } {
+): { success: boolean; error?: string; output?: string } {
   const timerName = token.args?.trim();
   
   if (!timerName) {
@@ -675,11 +776,20 @@ export function handleStopCommand(
     return { success: false, error };
   }
   
-  return timerManager.stopTimer(timerName);
+  // Handle #STOP all
+  if (timerName.toLowerCase() === 'all') {
+    return timerManager.stopAllTimers();
+  }
+  
+  const result = timerManager.stopTimer(timerName);
+  return { success: result.success, error: result.error };
 }
 
 /**
  * Handle #CHECK command - outputs timer status
+ * Supports:
+ * - #CHECK timerName - check specific timer
+ * - #CHECK all - list all timers
  */
 export function handleCheckCommand(
   token: CommandToken,
@@ -691,6 +801,11 @@ export function handleCheckCommand(
     const error = `#CHECK requires a timer name`;
     timerManager.reportError(error);
     return { success: false, error };
+  }
+  
+  // Handle #CHECK all
+  if (timerName.toLowerCase() === 'all') {
+    return timerManager.listAllTimers();
   }
   
   return timerManager.checkTimer(timerName);
