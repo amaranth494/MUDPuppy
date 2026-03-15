@@ -42,6 +42,9 @@ export interface Timer {
   fireCount: number;
   state: TimerState;
   startTime?: number; // when timer started (for #CHECK)
+  // PR01PH08: Override behavior for #START single/nonstop
+  singleShot?: boolean;  // if true, run once even if repeat is true
+  forceRepeat?: boolean; // if true, keep repeating even if repeat is false
 }
 
 export interface TimerExecutionContext {
@@ -271,6 +274,58 @@ export class TimerManager {
   }
 
   /**
+   * Start a timer in single-shot mode (#START ... single)
+   * Runs once even if timer is configured as repeating
+   */
+  startTimerSingle(name: string): { success: boolean; error?: string } {
+    const timer = this.timers.get(name);
+    
+    if (!timer) {
+      const error = `Timer '${name}' not found`;
+      this.onError?.(error);
+      return { success: false, error };
+    }
+    
+    if (timer.state === 'running') {
+      this.stopTimerInternal(name);
+    }
+    
+    // Set single shot flag
+    timer.singleShot = true;
+    timer.forceRepeat = false;
+    
+    this.startTimerInternal(timer);
+    
+    return { success: true };
+  }
+
+  /**
+   * Start a timer in nonstop mode (#START ... nonstop)
+   * Keeps repeating even if timer is configured as non-repeating
+   */
+  startTimerNonstop(name: string): { success: boolean; error?: string } {
+    const timer = this.timers.get(name);
+    
+    if (!timer) {
+      const error = `Timer '${name}' not found`;
+      this.onError?.(error);
+      return { success: false, error };
+    }
+    
+    if (timer.state === 'running') {
+      this.stopTimerInternal(name);
+    }
+    
+    // Set force repeat flag
+    timer.forceRepeat = true;
+    timer.singleShot = false;
+    
+    this.startTimerInternal(timer);
+    
+    return { success: true };
+  }
+
+  /**
    * Internal start by name
    */
   private startTimerByName(name: string): { success: boolean; error?: string } {
@@ -327,7 +382,16 @@ export class TimerManager {
       const elapsed = Date.now() - (timer.startTime || Date.now());
       const remaining = Math.max(0, timer.duration - elapsed);
       const seconds = Math.ceil(remaining / 1000);
-      return { success: true, output: `${seconds} seconds` };
+      
+      // Build status string with override info
+      let status = `${seconds} seconds`;
+      if (timer.singleShot) {
+        status += ' (single)';
+      } else if (timer.forceRepeat) {
+        status += ' (nonstop)';
+      }
+      
+      return { success: true, output: status };
     } else {
       return { success: true, output: 'Timer is stopped.' };
     }
@@ -420,12 +484,16 @@ export class TimerManager {
       }
       
       // Schedule next fire for repeating timers
-      if (timer.repeat && this.timers.has(timer.name) && timer.state === 'running') {
+      // PR01PH08: Check for override flags (single/nonstop)
+      const shouldRepeat = timer.forceRepeat || (timer.repeat && !timer.singleShot);
+      if (shouldRepeat && this.timers.has(timer.name) && timer.state === 'running') {
         const timerId = window.setTimeout(executeAndSchedule, timer.duration);
         this.timerIds.set(timer.name, timerId);
       } else {
-        // One-time timer complete - stop it
+        // One-time timer complete - stop it and clear override flags
         timer.state = 'stopped';
+        timer.singleShot = undefined;
+        timer.forceRepeat = undefined;
         this.timerIds.delete(timer.name);
       }
     };
@@ -555,19 +623,40 @@ export function handleTimerCommand(
 
 /**
  * Handle #START command - starts a stopped timer
+ * Supports modifiers:
+ * - #START timerName - use timer settings (repeat checkbox)
+ * - #START timerName single - run once, ignore repeat setting
+ * - #START timerName nonstop - keep repeating, ignore repeat setting
  */
 export function handleStartCommand(
   token: CommandToken,
   timerManager: TimerManager
 ): { success: boolean; error?: string } {
-  const timerName = token.args?.trim();
+  const args = token.args?.trim();
   
-  if (!timerName) {
+  if (!args) {
     const error = `#START requires a timer name`;
     timerManager.reportError(error);
     return { success: false, error };
   }
   
+  // Parse the arguments - could be "timerName", "timerName single", or "timerName nonstop"
+  const parts = args.split(/\s+/);
+  const timerName = parts[0];
+  const modifier = parts[1]?.toLowerCase();
+  
+  // Call appropriate method based on modifier
+  if (modifier === 'single') {
+    return timerManager.startTimerSingle(timerName);
+  } else if (modifier === 'nonstop') {
+    return timerManager.startTimerNonstop(timerName);
+  } else if (modifier) {
+    const error = `Unknown modifier '${modifier}' for #START. Use 'single' or 'nonstop'`;
+    timerManager.reportError(error);
+    return { success: false, error };
+  }
+  
+  // Default: use timer settings
   return timerManager.startTimer(timerName);
 }
 
