@@ -128,6 +128,9 @@ export class AutomationEngine {
   // Callback for submitting commands to MUD
   private onSubmitCommand: ((command: string) => void) | null = null;
   
+  // PR01PH08: Callback for outputting local messages to terminal
+  private terminalCallback: ((message: string) => void) | null = null;
+  
   // Callback for circuit breaker notifications
   private onCircuitBreakerTripped: ((reason: string) => void) | null = null;
   
@@ -171,7 +174,7 @@ export class AutomationEngine {
           if (trimmedCmd.startsWith('#')) {
             // Process # commands through parser
             try {
-              const result = await executeAutomationAction(trimmedCmd, this.variableStore, this.timerManager);
+              const result = await executeAutomationAction(trimmedCmd, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined);
               if (!result.success) {
                 console.warn('[Automation] Timer # command errors:', result.errors);
               }
@@ -249,6 +252,13 @@ export class AutomationEngine {
   }
 
   /**
+   * PR01PH08: Set the terminal output callback for local messages
+   */
+  setTerminalCallback(callback: (message: string) => void): void {
+    this.terminalCallback = callback;
+  }
+
+  /**
    * Set the callbacks for persisting timers to backend
    * PR01PH04: Timers need to be saved to profile storage
    */
@@ -284,13 +294,20 @@ export class AutomationEngine {
       substituteVariables: (input: string) => {
         return this.substituteVariables(input);
       },
+      // PR01PH08: Output timer status messages locally, not to MUD
+      outputMessage: (message: string) => {
+        // Write directly to terminal - don't send to MUD
+        if (this.terminalCallback) {
+          this.terminalCallback(message + '\r\n');
+        }
+      },
       // PR01PH07T03: Execute through parser for #IF/#ELSE support
       executeThroughParser: async (commands: string[]) => {
         const actionText = commands.join('\n');
         const aliasResolver = async (aliasName: string): Promise<string[]> => {
           return await this.invokeExplicitAlias(aliasName);
         };
-        const result = await executeAutomationAction(actionText, this.variableStore, this.timerManager, aliasResolver);
+        const result = await executeAutomationAction(actionText, this.variableStore, this.timerManager, aliasResolver, this.terminalCallback ?? undefined);
         for (const cmd of result.commands) {
           this.queueCommand({
             command: cmd,
@@ -419,7 +436,7 @@ export class AutomationEngine {
       if (cmd.trim().startsWith('#')) {
         // Process # commands using the evaluator (PR01PH02, PR01PH04)
         try {
-          const result = await executeAutomationAction(cmd, this.variableStore, this.timerManager);
+          const result = await executeAutomationAction(cmd, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined);
           if (!result.success) {
             console.warn('[Automation] # command errors:', result.errors);
           }
@@ -457,7 +474,7 @@ export class AutomationEngine {
         if (trimmedCmd.startsWith('#')) {
           // Process # commands using the evaluator (PR01PH02, PR01PH04)
           try {
-            const result = await executeAutomationAction(trimmedCmd, this.variableStore, this.timerManager);
+            const result = await executeAutomationAction(trimmedCmd, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined);
             if (!result.success) {
               console.warn('[Automation] Alias # command errors:', result.errors);
             }
@@ -723,7 +740,7 @@ export class AutomationEngine {
     const trimmed = replacement.trim();
     if (trimmed.startsWith('#')) {
       try {
-        const result = await executeAutomationAction(trimmed, this.variableStore, this.timerManager);
+        const result = await executeAutomationAction(trimmed, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined);
         if (!result.success) {
           console.warn('[Automation] Explicit alias # command errors:', result.errors);
         }
@@ -788,7 +805,7 @@ export class AutomationEngine {
     };
 
     // Always use executeAutomationAction for all trigger actions to ensure timeout protection (PR01PH05T03)
-    executeAutomationAction(trigger.action, this.variableStore, this.timerManager, aliasResolver)
+    executeAutomationAction(trigger.action, this.variableStore, this.timerManager, aliasResolver, this.terminalCallback ?? undefined)
       .then(result => {
         if (!result.success) {
           console.warn('[Automation] Trigger action errors:', result.errors);

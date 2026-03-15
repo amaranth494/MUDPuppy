@@ -70,6 +70,8 @@ export interface ExecutionContext {
   timerManager?: TimerManager;
   executeCommands?: (commands: string[]) => void;
   aliasResolver?: (aliasName: string) => Promise<string[]>;
+  // PR01PH08: For outputting timer status to local terminal
+  outputMessage?: (message: string) => void;
 }
 
 // AST Node types for conditions
@@ -584,7 +586,8 @@ export async function executeTokens(
   variables: VariableStore,
   maxDepth: number = DEFAULT_MAX_DEPTH,
   timerManager?: TimerManager,
-  aliasResolver?: (aliasName: string) => Promise<string[]>
+  aliasResolver?: (aliasName: string) => Promise<string[]>,
+  outputMessage?: (message: string) => void
 ): Promise<ExecutionResult> {
   const errors: ExecutionError[] = [];
   const commands: string[] = [];
@@ -596,7 +599,8 @@ export async function executeTokens(
       maxDepth,
       timerManager,
       executeCommands: undefined,
-      aliasResolver
+      aliasResolver,
+      outputMessage
     };
 
     const result = await executeTokenList(tokens, context, errors);
@@ -765,6 +769,7 @@ async function executeTokenList(
           
         case 'CHECK':
           // Handle #CHECK command - output timer status
+          // PR01PH08: Output to local terminal, NOT as MUD command
           if (context.timerManager) {
             const result = handleCheckCommand(token, context.timerManager);
             if (!result.success && result.error) {
@@ -774,12 +779,9 @@ async function executeTokenList(
                 column: token.column
               });
             } else if (result.output) {
-              // Output the timer status message via execution context
-              if (context.timerManager) {
-                // Use the execution context's output if available
-                // For now, just add it to commands to be processed
-                commands.push(`[Timer: ${result.output}]`);
-              }
+              // Output directly to terminal via outputMessage callback - DO NOT add to commands!
+              // This prevents the message from being sent to the MUD
+              context.outputMessage?.(`[Timer: ${result.output}]\r\n`);
             }
           }
           i++;
@@ -969,12 +971,14 @@ export function substituteVariables(input: string, variables: VariableStore): st
  * @param variables - Variable store for variable substitution
  * @param timerManager - Optional timer manager for timer commands
  * @param aliasResolver - Optional callback to resolve @alias invocations
+ * @param outputMessage - Optional callback for local output (e.g., timer status)
  */
 export async function executeAutomationAction(
   actionText: string,
   variables: VariableStore,
   timerManager?: TimerManager,
-  aliasResolver?: (aliasName: string) => Promise<string[]>
+  aliasResolver?: (aliasName: string) => Promise<string[]>,
+  outputMessage?: (message: string) => void
 ): Promise<ExecutionResult> {
   // Parse the action text
   const parseResult = parser.parse(actionText);
@@ -1011,7 +1015,8 @@ export async function executeAutomationAction(
     variables, 
     DEFAULT_MAX_DEPTH, 
     timerManager,
-    aliasResolver
+    aliasResolver,
+    outputMessage
   );
 }
 
@@ -1024,7 +1029,8 @@ async function executeWithTimeout(
   variables: VariableStore,
   maxDepth: number,
   timerManager?: TimerManager,
-  aliasResolver?: (aliasName: string) => Promise<string[]>
+  aliasResolver?: (aliasName: string) => Promise<string[]>,
+  outputMessage?: (message: string) => void
 ): Promise<ExecutionResult> {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   let isTimedOut = false;
@@ -1040,7 +1046,7 @@ async function executeWithTimeout(
   
   try {
     // Execute the tokens
-    const executionPromise = executeTokens(tokens, variables, maxDepth, timerManager, aliasResolver);
+    const executionPromise = executeTokens(tokens, variables, maxDepth, timerManager, aliasResolver, outputMessage);
     
     // Race between execution and timeout
     const result = await Promise.race([executionPromise, timeoutPromise]);

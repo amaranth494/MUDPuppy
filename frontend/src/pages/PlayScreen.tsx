@@ -348,6 +348,14 @@ export default function PlayScreen() {
           terminalInstanceRef.current.write(echoText);
         }
       });
+      
+      // PR01PH08: Set up terminal callback for local output (timer status, etc)
+      automationEngine.setTerminalCallback((message: string) => {
+        // Write directly to terminal - don't send to MUD
+        if (terminalInstanceRef.current) {
+          terminalInstanceRef.current.write(message);
+        }
+      });
     }
   }, [automationEngine, wsManager, profile]);
 
