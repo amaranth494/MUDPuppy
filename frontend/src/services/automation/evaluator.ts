@@ -749,11 +749,13 @@ async function executeTokenList(
                 column: token.column
               });
             } else if (result.output) {
-              // Remove brackets to avoid terminal column alignment issues
+              // Remove brackets and add bright cyan color for system messages
+              const brightCyan = '\x1b[96m';
+              const reset = '\x1b[0m';
               const formatted = result.output.includes(',') 
                 ? result.output.split(',').join('\r\n')
                 : result.output;
-              context.outputMessage?.(`\r\n${formatted}\r\n`);
+              context.outputMessage?.(`\r\n${brightCyan}${formatted}${reset}\r\n`);
             }
           }
           i++;
@@ -771,11 +773,13 @@ async function executeTokenList(
                 column: token.column
               });
             } else if (result.output) {
-              // Remove brackets to avoid terminal column alignment issues
+              // Remove brackets and add bright cyan color for system messages
+              const brightCyan = '\x1b[96m';
+              const reset = '\x1b[0m';
               const formatted = result.output.includes(',') 
                 ? result.output.split(',').join('\r\n')
                 : result.output;
-              context.outputMessage?.(`\r\n${formatted}\r\n`);
+              context.outputMessage?.(`\r\n${brightCyan}${formatted}${reset}\r\n`);
             }
           }
           i++;
@@ -795,11 +799,13 @@ async function executeTokenList(
             } else if (result.output) {
               // Output directly to terminal via outputMessage callback - DO NOT add to commands!
               // This prevents the message from being sent to the MUD
-              // Remove brackets to avoid terminal column alignment issues
+              // Remove brackets and add bright cyan color for system messages
+              const brightCyan = '\x1b[96m';
+              const reset = '\x1b[0m';
               const formatted = result.output.includes(',') 
                 ? result.output.split(',').join('\r\n')
                 : result.output;
-              context.outputMessage?.(`\r\n${formatted}\r\n`);
+              context.outputMessage?.(`\r\n${brightCyan}${formatted}${reset}\r\n`);
             }
           }
           i++;

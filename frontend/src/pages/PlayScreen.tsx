@@ -334,7 +334,9 @@ export default function PlayScreen() {
         const settings = profile?.settings;
         const shouldEcho = settings?.echo_input ?? true;
         if (shouldEcho && terminalInstanceRef.current) {
-          let echoText = '\r\n' + command + '\r\n';
+          const brightCyan = '\x1b[96m';
+          const reset = '\x1b[0m';
+          let echoText = '\r\n' + brightCyan + command + reset + '\r\n';
           if (settings?.timestamp_output) {
             const now = new Date();
             const timestamp = now.toLocaleTimeString('en-US', { 
@@ -343,7 +345,7 @@ export default function PlayScreen() {
               minute: '2-digit', 
               second: '2-digit' 
             });
-            echoText = `[${timestamp}] ${command}\r\n`;
+            echoText = '\r\n' + brightCyan + `[${timestamp}]` + reset + ' ' + brightCyan + command + reset + '\r\n';
           }
           terminalInstanceRef.current.write(echoText);
         }
@@ -392,7 +394,9 @@ export default function PlayScreen() {
         const settings = profile?.settings;
         const shouldEcho = settings?.echo_input ?? true;
         if (shouldEcho && terminalInstanceRef.current) {
-          let echoText = '\r\n' + command + '\r\n';
+          const brightCyan = '\x1b[96m';
+          const reset = '\x1b[0m';
+          let echoText = '\r\n' + brightCyan + command + reset + '\r\n';
           if (settings?.timestamp_output) {
             const now = new Date();
             const timestamp = now.toLocaleTimeString('en-US', { 
@@ -401,7 +405,7 @@ export default function PlayScreen() {
               minute: '2-digit', 
               second: '2-digit' 
             });
-            echoText = `[${timestamp}] ${command}\r\n`;
+            echoText = '\r\n' + brightCyan + `[${timestamp}]` + reset + ' ' + brightCyan + command + reset + '\r\n';
           }
           terminalInstanceRef.current.write(echoText);
         }
