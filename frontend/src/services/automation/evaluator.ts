@@ -749,11 +749,11 @@ async function executeTokenList(
                 column: token.column
               });
             } else if (result.output) {
-              // Split comma-separated values and rejoin with newlines for proper display
+              // Remove brackets to avoid terminal column alignment issues
               const formatted = result.output.includes(',') 
-                ? result.output.split(',').join('\n')
+                ? result.output.split(',').join('\r\n')
                 : result.output;
-              context.outputMessage?.(`\r\n[Timer:\r\n${formatted}]\r\n`);
+              context.outputMessage?.(`\r\n${formatted}\r\n`);
             }
           }
           i++;
@@ -771,11 +771,11 @@ async function executeTokenList(
                 column: token.column
               });
             } else if (result.output) {
-              // Split comma-separated values and rejoin with newlines for proper display
+              // Remove brackets to avoid terminal column alignment issues
               const formatted = result.output.includes(',') 
-                ? result.output.split(',').join('\n')
+                ? result.output.split(',').join('\r\n')
                 : result.output;
-              context.outputMessage?.(`\r\n[Timer:\r\n${formatted}]\r\n`);
+              context.outputMessage?.(`\r\n${formatted}\r\n`);
             }
           }
           i++;
@@ -795,11 +795,11 @@ async function executeTokenList(
             } else if (result.output) {
               // Output directly to terminal via outputMessage callback - DO NOT add to commands!
               // This prevents the message from being sent to the MUD
-              // Split comma-separated values and rejoin with newlines for proper display
+              // Remove brackets to avoid terminal column alignment issues
               const formatted = result.output.includes(',') 
-                ? result.output.split(',').join('\n')
+                ? result.output.split(',').join('\r\n')
                 : result.output;
-              context.outputMessage?.(`\r\n[Timer:\r\n${formatted}]\r\n`);
+              context.outputMessage?.(`\r\n${formatted}\r\n`);
             }
           }
           i++;
