@@ -429,7 +429,7 @@ export class TimerManager {
         status += ' [repeat]';
       }
       
-      lines.push(`  ${name}: ${durationStr} - ${status}`);
+      lines.push(`${name}: ${durationStr} - ${status}`);
     }
     
     return { success: true, output: `Timers:\n${lines.join('\n')}` };
