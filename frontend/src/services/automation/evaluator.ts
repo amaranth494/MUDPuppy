@@ -749,7 +749,7 @@ async function executeTokenList(
                 column: token.column
               });
             } else if (result.output) {
-              context.outputMessage?.(`\r\n[Timer: ${result.output}]\r\n`);
+              context.outputMessage?.(`\r\n[Timer:\r\n${result.output}]\r\n`);
             }
           }
           i++;
@@ -767,7 +767,7 @@ async function executeTokenList(
                 column: token.column
               });
             } else if (result.output) {
-              context.outputMessage?.(`\r\n[Timer: ${result.output}]\r\n`);
+              context.outputMessage?.(`\r\n[Timer:\r\n${result.output}]\r\n`);
             }
           }
           i++;
@@ -787,7 +787,7 @@ async function executeTokenList(
             } else if (result.output) {
               // Output directly to terminal via outputMessage callback - DO NOT add to commands!
               // This prevents the message from being sent to the MUD
-              context.outputMessage?.(`\r\n[Timer: ${result.output}]\r\n`);
+              context.outputMessage?.(`\r\n[Timer:\r\n${result.output}]\r\n`);
             }
           }
           i++;
