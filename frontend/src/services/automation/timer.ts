@@ -567,6 +567,8 @@ export class TimerManager {
       // PR01PH08: Check for override flags (single/nonstop)
       const shouldRepeat = timer.forceRepeat || (timer.repeat && !timer.singleShot);
       if (shouldRepeat && this.timers.has(timer.name) && timer.state === 'running') {
+        // Reset startTime for accurate remaining time calculation in #CHECK
+        timer.startTime = Date.now();
         const timerId = window.setTimeout(executeAndSchedule, timer.duration);
         this.timerIds.set(timer.name, timerId);
       } else {
