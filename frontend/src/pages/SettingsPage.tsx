@@ -1343,7 +1343,7 @@ cast heal
                           <p className="form-hint">Minimum 1000ms</p>
                         </div>
                         <div className="form-group" style={{ flex: 1 }}>
-                          <label className="form-label">Repeat</label>
+                          <label className="form-label">Repeat Mode</label>
                           {(() => {
                             // Get runtime repeat override state if connected
                             const isConnected = connectionState === 'connected';
@@ -1351,30 +1351,41 @@ cast heal
                               ? automationEngine.getTimerManager().getTimerRepeatOverride(timer.name)
                               : null;
                             
-                            // Determine effective repeat state: override takes precedence, otherwise use saved
-                            let effectiveRepeat = timer.repeat;
+                            // Determine effective repeat mode: override takes precedence, otherwise use saved
+                            // timer.repeat: true = Non-stop, false = Single run
+                            let effectiveIsNonstop = timer.repeat;
                             let overrideLabel = '';
                             if (repeatOverride === 'single') {
-                              effectiveRepeat = false;
-                              overrideLabel = ' (single)';
+                              effectiveIsNonstop = false;
+                              overrideLabel = ' (runtime: single)';
                             } else if (repeatOverride === 'nonstop') {
-                              effectiveRepeat = true;
-                              overrideLabel = ' (nonstop)';
+                              effectiveIsNonstop = true;
+                              overrideLabel = ' (runtime: nonstop)';
                             }
                             
                             return (
-                              <label className="toggle">
-                                <input
-                                  type="checkbox"
-                                  checked={effectiveRepeat}
-                                  onChange={(e) => handleUpdateTimer(timer.id, { repeat: e.target.checked })}
-                                  disabled={!!repeatOverride}
-                                />
-                                <span className="toggle-slider"></span>
-                                <span className="toggle-label">
-                                  {effectiveRepeat ? 'Repeating' : 'One-time'}{overrideLabel}
-                                </span>
-                              </label>
+                              <div className="radio-group" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <label className="radio-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <input
+                                    type="radio"
+                                    name={`timer-repeat-${timer.id}`}
+                                    checked={!effectiveIsNonstop}
+                                    onChange={() => handleUpdateTimer(timer.id, { repeat: false })}
+                                    disabled={!!repeatOverride}
+                                  />
+                                  <span>Single run</span>
+                                </label>
+                                <label className="radio-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <input
+                                    type="radio"
+                                    name={`timer-repeat-${timer.id}`}
+                                    checked={effectiveIsNonstop}
+                                    onChange={() => handleUpdateTimer(timer.id, { repeat: true })}
+                                    disabled={!!repeatOverride}
+                                  />
+                                  <span>Non-stop{overrideLabel}</span>
+                                </label>
+                              </div>
                             );
                           })()}
                         </div>
