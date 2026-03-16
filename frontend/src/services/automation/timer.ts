@@ -174,6 +174,15 @@ export class TimerManager {
   }
   
   /**
+   * Get the current runtime state of a timer ('running' or 'stopped')
+   * Returns 'stopped' if timer doesn't exist
+   */
+  getTimerState(name: string): 'running' | 'stopped' {
+    const timer = this.timers.get(name);
+    return timer?.state === 'running' ? 'running' : 'stopped';
+  }
+  
+  /**
    * Set the execution context for timer commands
    */
   setExecutionContext(context: TimerExecutionContext): void {

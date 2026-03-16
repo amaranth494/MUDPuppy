@@ -1384,32 +1384,48 @@ cast heal
                       </div>
                     </div>
                     <div className="automation-row-actions">
-                      <button
-                        type="button"
-                        className={`btn btn-small ${timer.enabled ? 'btn-primary' : 'btn-secondary'}`}
-                        onClick={async () => {
-                          // PR01PH08: Always toggle the UI state first for user feedback
-                          const newEnabled = !timer.enabled;
-                          handleUpdateTimer(timer.id, { enabled: newEnabled });
-                          
-                          // If connected, also send the runtime command to the timer
-                          if (automationEngine && connectionState === 'connected') {
-                            try {
-                              const command = newEnabled ? `#START ${timer.name}` : `#STOP ${timer.name}`;
-                              console.log('[SettingsPage] Sending timer command:', command);
-                              await automationEngine.processUserInput(command);
-                              console.log('[SettingsPage] Timer command sent successfully');
-                            } catch (err) {
-                              console.error('[SettingsPage] Failed to start/stop timer:', err);
-                            }
-                          } else {
-                            console.log('[SettingsPage] Not connected - UI toggle only, automationEngine:', !!automationEngine, 'connectionState:', connectionState);
-                          }
-                        }}
-                        title={timer.enabled ? 'Stop timer (runtime)' : 'Start timer (runtime)'}
-                      >
-                        {timer.enabled ? 'On' : 'Off'}
-                      </button>
+                      {(() => {
+                        // Get runtime state if connected
+                        const isConnected = connectionState === 'connected';
+                        const runtimeState = isConnected && automationEngine?.getTimerManager 
+                          ? automationEngine.getTimerManager().getTimerState(timer.name)
+                          : null;
+                        const isRunning = runtimeState === 'running';
+                        
+                        return (
+                          <button
+                            type="button"
+                            className={`btn btn-small ${isRunning ? 'btn-primary' : 'btn-secondary'}`}
+                            onClick={async () => {
+                              // Get current runtime state for the command
+                              const currentRuntimeState = isConnected && automationEngine?.getTimerManager
+                                ? automationEngine.getTimerManager().getTimerState(timer.name)
+                                : (timer.enabled ? 'running' : 'stopped');
+                              const shouldStart = currentRuntimeState !== 'running';
+                              
+                              // Always toggle the UI state first for user feedback
+                              handleUpdateTimer(timer.id, { enabled: shouldStart });
+                              
+                              // If connected, also send the runtime command to the timer
+                              if (automationEngine && connectionState === 'connected') {
+                                try {
+                                  const command = shouldStart ? `#START ${timer.name}` : `#STOP ${timer.name}`;
+                                  console.log('[SettingsPage] Sending timer command:', command);
+                                  await automationEngine.processUserInput(command);
+                                  console.log('[SettingsPage] Timer command sent successfully');
+                                } catch (err) {
+                                  console.error('[SettingsPage] Failed to start/stop timer:', err);
+                                }
+                              } else {
+                                console.log('[SettingsPage] Not connected - UI toggle only, automationEngine:', !!automationEngine, 'connectionState:', connectionState);
+                              }
+                            }}
+                            title={isRunning ? 'Stop timer (runtime)' : 'Start timer (runtime)'}
+                          >
+                            {isRunning ? 'On' : 'Off'}
+                          </button>
+                        );
+                      })()}
                       <button
                         className="btn btn-sm btn-icon icon-red"
                         onClick={() => handleRemoveTimer(timer.id)}
