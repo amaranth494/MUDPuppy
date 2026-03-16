@@ -644,6 +644,7 @@ async function executeTokenList(
         case 'IF':
           // Get condition from args
           const conditionStr = token.args || '';
+          console.log('[Evaluator] Processing #IF with condition:', conditionStr);
           const ast = parseCondition(conditionStr);
           
           if (!ast) {
@@ -659,9 +660,12 @@ async function executeTokenList(
           // Evaluate condition
           const result = evaluate(ast, context.variables);
           const conditionTrue = isTruthy(result);
+          console.log('[Evaluator] Condition result:', result, 'isTruthy:', conditionTrue);
           
           // Find matching #ELSE/#ENDIF
+          console.log('[Evaluator] Looking for block end from index:', i, 'tokens length:', tokens.length);
           const blockEnd = findBlockEnd(tokens, i);
+          console.log('[Evaluator] Block end found:', blockEnd);
           
           if (blockEnd === -1) {
             errors.push({
@@ -875,16 +879,22 @@ async function executeTokenList(
  * Find the end of an #IF block (#ENDIF that closes this IF)
  */
 function findBlockEnd(tokens: ParsedToken[], startIndex: number): number {
+  console.log('[findBlockEnd] Searching from index:', startIndex, 'total tokens:', tokens.length);
   let depth = 0;
   
   for (let i = startIndex; i < tokens.length; i++) {
     const token = tokens[i];
+    const cmd = token.type === 'COMMAND' ? token.command : 'N/A';
+    console.log('[findBlockEnd] Checking token', i, ':', token.type, cmd);
     
     if (token.type === 'COMMAND') {
       if (token.command === 'IF') {
         depth++;
+        console.log('[findBlockEnd] Found IF, depth:', depth);
       } else if (token.command === 'ENDIF') {
+        console.log('[findBlockEnd] Found ENDIF, depth:', depth);
         if (depth === 0) {
+          console.log('[findBlockEnd] Returning index:', i);
           return i;
         }
         depth--;
@@ -892,6 +902,7 @@ function findBlockEnd(tokens: ParsedToken[], startIndex: number): number {
     }
   }
   
+  console.log('[findBlockEnd] Returning -1, not found');
   return -1;
 }
 
