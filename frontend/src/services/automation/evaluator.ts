@@ -700,6 +700,18 @@ async function executeTokenList(
           await handleSetCommand(token, context.variables, errors);
           i++;
           continue;
+        
+        case 'ADD':
+          // Handle #ADD variable value - add to numeric variable
+          await handleAddCommand(token, context.variables, errors);
+          i++;
+          continue;
+        
+        case 'SUB':
+          // Handle #SUB variable value - subtract from numeric variable
+          await handleSubCommand(token, context.variables, errors);
+          i++;
+          continue;
           
         case 'TIMER':
           // Handle #TIMER command - create a timer
@@ -958,6 +970,184 @@ async function handleSetCommand(
     const err = error as Error;
     errors.push({
       message: err.message || 'Failed to set variable',
+      line: token.line,
+      column: token.column
+    });
+  }
+}
+
+/**
+ * Handle #ADD command - add to a numeric variable
+ * #ADD varname value
+ */
+async function handleAddCommand(
+  token: CommandToken,
+  variables: VariableStore,
+  errors: ExecutionError[]
+): Promise<void> {
+  const args = token.args || '';
+  const match = args.match(/^(\S+)\s+(.*)$/);
+  
+  if (!match) {
+    errors.push({
+      message: '#ADD requires variable name and numeric value',
+      line: token.line,
+      column: token.column
+    });
+    return;
+  }
+  
+  const [, varName, varValue] = match;
+  
+  // Check for system variable protection
+  if (isSystemVariable(varName)) {
+    errors.push({
+      message: `Cannot modify system variable: ${varName}`,
+      line: token.line,
+      column: token.column
+    });
+    return;
+  }
+  
+  // Get current value
+  const currentValue = variables.get(varName);
+  if (currentValue === undefined) {
+    errors.push({
+      message: `Variable '${varName}' does not exist. Use #SET first.`,
+      line: token.line,
+      column: token.column
+    });
+    return;
+  }
+  
+  // Parse the value to add
+  const parsedValue = parseValue(varValue.trim());
+  const addValue = evaluate(parsedValue, variables);
+  
+  // Ensure current value is numeric
+  if (typeof currentValue !== 'number') {
+    errors.push({
+      message: `Variable '${varName}' is not a number`,
+      line: token.line,
+      column: token.column
+    });
+    return;
+  }
+  
+  // Ensure add value is numeric
+  if (typeof addValue !== 'number') {
+    errors.push({
+      message: '#ADD requires a numeric value to add',
+      line: token.line,
+      column: token.column
+    });
+    return;
+  }
+  
+  const newValue = currentValue + addValue;
+  
+  // Handle session variables (%1, %2 syntax)
+  if (/^%\d+$/.test(varName)) {
+    variables.setSession(varName, newValue);
+    return;
+  }
+  
+  // Profile variable - set and persist
+  try {
+    await variables.setProfile(varName, newValue);
+  } catch (error) {
+    const err = error as Error;
+    errors.push({
+      message: err.message || 'Failed to add to variable',
+      line: token.line,
+      column: token.column
+    });
+  }
+}
+
+/**
+ * Handle #SUB command - subtract from a numeric variable
+ * #SUB varname value
+ */
+async function handleSubCommand(
+  token: CommandToken,
+  variables: VariableStore,
+  errors: ExecutionError[]
+): Promise<void> {
+  const args = token.args || '';
+  const match = args.match(/^(\S+)\s+(.*)$/);
+  
+  if (!match) {
+    errors.push({
+      message: '#SUB requires variable name and numeric value',
+      line: token.line,
+      column: token.column
+    });
+    return;
+  }
+  
+  const [, varName, varValue] = match;
+  
+  // Check for system variable protection
+  if (isSystemVariable(varName)) {
+    errors.push({
+      message: `Cannot modify system variable: ${varName}`,
+      line: token.line,
+      column: token.column
+    });
+    return;
+  }
+  
+  // Get current value
+  const currentValue = variables.get(varName);
+  if (currentValue === undefined) {
+    errors.push({
+      message: `Variable '${varName}' does not exist. Use #SET first.`,
+      line: token.line,
+      column: token.column
+    });
+    return;
+  }
+  
+  // Parse the value to subtract
+  const parsedValue = parseValue(varValue.trim());
+  const subValue = evaluate(parsedValue, variables);
+  
+  // Ensure current value is numeric
+  if (typeof currentValue !== 'number') {
+    errors.push({
+      message: `Variable '${varName}' is not a number`,
+      line: token.line,
+      column: token.column
+    });
+    return;
+  }
+  
+  // Ensure subtract value is numeric
+  if (typeof subValue !== 'number') {
+    errors.push({
+      message: '#SUB requires a numeric value to subtract',
+      line: token.line,
+      column: token.column
+    });
+    return;
+  }
+  
+  const newValue = currentValue - subValue;
+  
+  // Handle session variables (%1, %2 syntax)
+  if (/^%\d+$/.test(varName)) {
+    variables.setSession(varName, newValue);
+    return;
+  }
+  
+  // Profile variable - set and persist
+  try {
+    await variables.setProfile(varName, newValue);
+  } catch (error) {
+    const err = error as Error;
+    errors.push({
+      message: err.message || 'Failed to subtract from variable',
       line: token.line,
       column: token.column
     });

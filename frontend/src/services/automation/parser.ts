@@ -24,7 +24,7 @@ export interface Token {
 
 export interface CommandToken extends Token {
   type: 'COMMAND';
-  command: 'IF' | 'ELSE' | 'ENDIF' | 'SET' | 'TIMER' | 'ENDTIMER' | 'CANCEL' | 'START' | 'STOP' | 'CHECK';
+  command: 'IF' | 'ELSE' | 'ENDIF' | 'SET' | 'ADD' | 'SUB' | 'TIMER' | 'ENDTIMER' | 'CANCEL' | 'START' | 'STOP' | 'CHECK';
   args?: string;
 }
 
@@ -164,7 +164,7 @@ export class Parser {
     }
     
     // Validate command
-    const validCommands = ['IF', 'ELSE', 'ENDIF', 'SET', 'TIMER', 'ENDTIMER', 'CANCEL', 'START', 'STOP', 'CHECK'];
+    const validCommands = ['IF', 'ELSE', 'ENDIF', 'SET', 'ADD', 'SUB', 'TIMER', 'ENDTIMER', 'CANCEL', 'START', 'STOP', 'CHECK'];
     const upperCommand = commandName.toUpperCase();
     
     if (!validCommands.includes(upperCommand)) {
@@ -334,6 +334,28 @@ export function validateSyntax(tokens: ParsedToken[]): ParseError[] {
           if (!token.args || token.args.trim() === '') {
             errors.push({
               message: '#SET requires a variable name and value',
+              line: token.line,
+              column: token.column
+            });
+          }
+          break;
+          
+        case 'ADD':
+          // #ADD requires variable name and numeric value
+          if (!token.args || token.args.trim() === '') {
+            errors.push({
+              message: '#ADD requires a variable name and numeric value',
+              line: token.line,
+              column: token.column
+            });
+          }
+          break;
+          
+        case 'SUB':
+          // #SUB requires variable name and numeric value
+          if (!token.args || token.args.trim() === '') {
+            errors.push({
+              message: '#SUB requires a variable name and numeric value',
               line: token.line,
               column: token.column
             });
