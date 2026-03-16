@@ -183,6 +183,18 @@ export class TimerManager {
   }
   
   /**
+   * Get the runtime repeat override state for a timer
+   * Returns: 'single' (one-time), 'nonstop' (repeating), or null (use saved settings)
+   */
+  getTimerRepeatOverride(name: string): 'single' | 'nonstop' | null {
+    const timer = this.timers.get(name);
+    if (!timer) return null;
+    if (timer.singleShot) return 'single';
+    if (timer.forceRepeat) return 'nonstop';
+    return null;
+  }
+  
+  /**
    * Set the execution context for timer commands
    */
   setExecutionContext(context: TimerExecutionContext): void {

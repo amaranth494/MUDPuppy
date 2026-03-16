@@ -1344,15 +1344,39 @@ cast heal
                         </div>
                         <div className="form-group" style={{ flex: 1 }}>
                           <label className="form-label">Repeat</label>
-                          <label className="toggle">
-                            <input
-                              type="checkbox"
-                              checked={timer.repeat}
-                              onChange={(e) => handleUpdateTimer(timer.id, { repeat: e.target.checked })}
-                            />
-                            <span className="toggle-slider"></span>
-                            <span className="toggle-label">{timer.repeat ? 'Repeating' : 'One-time'}</span>
-                          </label>
+                          {(() => {
+                            // Get runtime repeat override state if connected
+                            const isConnected = connectionState === 'connected';
+                            const repeatOverride = isConnected && automationEngine?.getTimerManager
+                              ? automationEngine.getTimerManager().getTimerRepeatOverride(timer.name)
+                              : null;
+                            
+                            // Determine effective repeat state: override takes precedence, otherwise use saved
+                            let effectiveRepeat = timer.repeat;
+                            let overrideLabel = '';
+                            if (repeatOverride === 'single') {
+                              effectiveRepeat = false;
+                              overrideLabel = ' (single)';
+                            } else if (repeatOverride === 'nonstop') {
+                              effectiveRepeat = true;
+                              overrideLabel = ' (nonstop)';
+                            }
+                            
+                            return (
+                              <label className="toggle">
+                                <input
+                                  type="checkbox"
+                                  checked={effectiveRepeat}
+                                  onChange={(e) => handleUpdateTimer(timer.id, { repeat: e.target.checked })}
+                                  disabled={!!repeatOverride}
+                                />
+                                <span className="toggle-slider"></span>
+                                <span className="toggle-label">
+                                  {effectiveRepeat ? 'Repeating' : 'One-time'}{overrideLabel}
+                                </span>
+                              </label>
+                            );
+                          })()}
                         </div>
                       </div>
                       <div className="form-group">
