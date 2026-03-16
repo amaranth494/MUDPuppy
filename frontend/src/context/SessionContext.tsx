@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
-import { ConnectionState, User, Profile, Timer, TimersResponse } from '../types';
+import { ConnectionState, User, Profile, Timer, TimersResponse, Variable } from '../types';
 import { 
   checkAuth, 
   getSessionStatus, 
@@ -11,7 +11,8 @@ import {
   getTriggers,
   getEnvironment,
   getTimers,
-  putTimers
+  putTimers,
+  putEnvironment
 } from '../services/api';
 import { mapBackendError } from '../types';
 import { normalizeKeybindings } from '../services/keybindings';
@@ -363,6 +364,35 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
             }
           }
         );
+        
+        // PR01PH08: Set up variable persistence callback
+        engine.setPersistVariablesCallback(async (variables: Record<string, VariableValue>) => {
+          try {
+            // Get current variables from profile
+            const currentEnv = await getEnvironment(connectionId);
+            
+            // Merge existing variables with new ones
+            const updatedVars: Variable[] = [...(currentEnv.items || [])];
+            
+            for (const [name, value] of Object.entries(variables)) {
+              // Convert VariableValue to string (numbers become string representations)
+              const stringValue = String(value);
+              const existingIndex = updatedVars.findIndex(v => v.name === name);
+              if (existingIndex >= 0) {
+                updatedVars[existingIndex] = { ...updatedVars[existingIndex], value: stringValue };
+              } else {
+                // Generate ID for new variable
+                const newId = `${name}-${Date.now()}`;
+                updatedVars.push({ id: newId, name, value: stringValue });
+              }
+            }
+            
+            await putEnvironment(connectionId, updatedVars);
+            console.log('[Automation] Variables persisted:', Object.keys(variables).length);
+          } catch (error) {
+            console.error('[Automation] Failed to persist variables:', error);
+          }
+        });
         
         // Load timers from profile (must be AFTER setTimerCallbacks creates timerManager)
         if (timers && timers.items) {
