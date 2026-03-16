@@ -1388,16 +1388,22 @@ cast heal
                         type="button"
                         className={`btn btn-small ${timer.enabled ? 'btn-primary' : 'btn-secondary'}`}
                         onClick={async () => {
-                          // PR01PH08: If connected, send #START/#STOP command; otherwise toggle enabled
+                          // PR01PH08: Always toggle the UI state first for user feedback
+                          const newEnabled = !timer.enabled;
+                          handleUpdateTimer(timer.id, { enabled: newEnabled });
+                          
+                          // If connected, also send the runtime command to the timer
                           if (automationEngine && connectionState === 'connected') {
                             try {
-                              const command = timer.enabled ? `#STOP ${timer.name}` : `#START ${timer.name}`;
+                              const command = newEnabled ? `#START ${timer.name}` : `#STOP ${timer.name}`;
+                              console.log('[SettingsPage] Sending timer command:', command);
                               await automationEngine.processUserInput(command);
+                              console.log('[SettingsPage] Timer command sent successfully');
                             } catch (err) {
-                              console.error('Failed to start/stop timer:', err);
+                              console.error('[SettingsPage] Failed to start/stop timer:', err);
                             }
                           } else {
-                            handleUpdateTimer(timer.id, { enabled: !timer.enabled });
+                            console.log('[SettingsPage] Not connected - UI toggle only, automationEngine:', !!automationEngine, 'connectionState:', connectionState);
                           }
                         }}
                         title={timer.enabled ? 'Stop timer (runtime)' : 'Start timer (runtime)'}
