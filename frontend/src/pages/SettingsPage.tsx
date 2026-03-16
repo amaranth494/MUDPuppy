@@ -1354,13 +1354,10 @@ cast heal
                             // Determine effective repeat mode: override takes precedence, otherwise use saved
                             // timer.repeat: true = Non-stop, false = Single run
                             let effectiveIsNonstop = timer.repeat;
-                            let overrideLabel = '';
                             if (repeatOverride === 'single') {
                               effectiveIsNonstop = false;
-                              overrideLabel = ' (runtime: single)';
                             } else if (repeatOverride === 'nonstop') {
                               effectiveIsNonstop = true;
-                              overrideLabel = ' (runtime: nonstop)';
                             }
                             
                             return (
@@ -1373,7 +1370,10 @@ cast heal
                                     onChange={() => handleUpdateTimer(timer.id, { repeat: false })}
                                     disabled={!!repeatOverride}
                                   />
-                                  <span>Single run</span>
+                                  <span>
+                                    Single run
+                                    {repeatOverride === 'single' && <span style={{ color: '#888', marginLeft: '0.25rem' }}>(runtime)</span>}
+                                  </span>
                                 </label>
                                 <label className="radio-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                   <input
@@ -1383,7 +1383,10 @@ cast heal
                                     onChange={() => handleUpdateTimer(timer.id, { repeat: true })}
                                     disabled={!!repeatOverride}
                                   />
-                                  <span>Non-stop{overrideLabel}</span>
+                                  <span>
+                                    Non-stop
+                                    {repeatOverride === 'nonstop' && <span style={{ color: '#888', marginLeft: '0.25rem' }}>(runtime)</span>}
+                                  </span>
                                 </label>
                               </div>
                             );
