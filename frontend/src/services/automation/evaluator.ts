@@ -857,7 +857,9 @@ async function executeTokenList(
               });
             }
           }
-        } else {
+        } else if (!trimmedText.startsWith('#')) {
+          // Only send to MUD if it doesn't start with #
+          // Lines starting with # are automation commands that should be processed, not sent
           commands.push(trimmedText);
         }
       }
