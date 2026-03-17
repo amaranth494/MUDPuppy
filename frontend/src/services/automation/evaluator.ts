@@ -890,13 +890,15 @@ async function executeTokenList(
  * Find the end of an #IF block (#ENDIF that closes this IF)
  */
 function findBlockEnd(tokens: ParsedToken[], startIndex: number): number {
+  // Start from the next token after startIndex (skip the starting #IF)
   let depth = 0;
   
-  for (let i = startIndex; i < tokens.length; i++) {
+  for (let i = startIndex + 1; i < tokens.length; i++) {
     const token = tokens[i];
     
     if (token.type === 'COMMAND') {
       if (token.command === 'IF') {
+        // Nested #IF - increase depth
         depth++;
       } else if (token.command === 'ENDIF') {
         if (depth === 0) {
@@ -904,10 +906,6 @@ function findBlockEnd(tokens: ParsedToken[], startIndex: number): number {
           return i;
         }
         depth--;
-        // After decrementing, if depth is now 0, this ENDIF closes our IF
-        if (depth === 0) {
-          return i;
-        }
       }
     }
   }
@@ -919,24 +917,26 @@ function findBlockEnd(tokens: ParsedToken[], startIndex: number): number {
  * Find the next #ELSE or #ENDIF at the current nesting level
  */
 function findElseOrEndif(tokens: ParsedToken[], startIndex: number): number {
+  // Start from the next token after startIndex (skip the starting #IF)
+  // Depth starts at 0 because we're looking for the ELSE/ENDIF that matches
+  // the IF at position startIndex
   let depth = 0;
   
-  for (let i = startIndex; i < tokens.length; i++) {
+  for (let i = startIndex + 1; i < tokens.length; i++) {
     const token = tokens[i];
     
     if (token.type === 'COMMAND') {
       if (token.command === 'IF') {
+        // Nested #IF - increase depth
         depth++;
       } else if (token.command === 'ENDIF') {
         if (depth === 0) {
+          // This ENDIF matches our starting IF
           return i;
         }
         depth--;
-        // After decrementing, if depth is now 0, this ENDIF is at our level
-        if (depth === 0) {
-          return i;
-        }
       } else if (token.command === 'ELSE' && depth === 0) {
+        // This ELSE matches our starting IF
         return i;
       }
     }
