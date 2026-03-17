@@ -917,6 +917,10 @@ function findElseOrEndif(tokens: ParsedToken[], startIndex: number): number {
           return i;
         }
         depth--;
+        // After decrementing, if depth is now 0, this ENDIF is at our level
+        if (depth === 0) {
+          return i;
+        }
       } else if (token.command === 'ELSE' && depth === 0) {
         return i;
       }
