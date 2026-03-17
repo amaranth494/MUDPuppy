@@ -571,9 +571,8 @@ export class AutomationEngine {
       }
 
       const matchingTrigger = this.findMatchingTrigger(line);
-      console.log('[Automation] Checking line for triggers:', line.substring(0, 50), '| found:', matchingTrigger?.match);
       if (matchingTrigger) {
-        console.log('[Automation] Firing trigger:', matchingTrigger.match);
+        console.log('[Trigger] ' + matchingTrigger.match);
         this.fireTrigger(matchingTrigger);
       }
     }

@@ -939,7 +939,6 @@ async function handleSetCommand(
   errors: ExecutionError[]
 ): Promise<void> {
   const args = token.args || '';
-  console.log('[handleSetCommand] args:', JSON.stringify(args));
   const match = args.match(/^(\S+)\s+(.*)$/);
   
   if (!match) {
