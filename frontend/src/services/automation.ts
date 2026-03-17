@@ -748,10 +748,14 @@ export class AutomationEngine {
     replacement = replacement.replace(/\n/g, ';');
     
     // PR01PH07T02: Check if replacement contains # commands - process through parser
-    const trimmed = replacement.trim();
-    if (trimmed.startsWith('#')) {
+    // Check if any segment (after semicolon split) starts with #
+    const segments = replacement.split(';').map(s => s.trim()).filter(s => s.length > 0);
+    const hasHashCommand = segments.some(s => s.startsWith('#'));
+    
+    if (hasHashCommand) {
+      // Process through executeAutomationAction to handle # commands
       try {
-        const result = await executeAutomationAction(trimmed, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined);
+        const result = await executeAutomationAction(replacement, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined);
         if (!result.success) {
           console.warn('[Automation] Explicit alias # command errors:', result.errors);
         }
