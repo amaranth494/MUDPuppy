@@ -821,6 +821,7 @@ export class AutomationEngine {
         }
         // Commands are executed via timer callback or added here
         for (const cmd of result.commands) {
+          console.log('[Trigger] Action: ' + cmd);
           this.queueCommand({
             command: cmd,
             source: 'trigger',
