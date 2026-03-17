@@ -589,6 +589,7 @@ export async function executeTokens(
   aliasResolver?: (aliasName: string) => Promise<string[]>,
   outputMessage?: (message: string) => void
 ): Promise<ExecutionResult> {
+  console.log('[Evaluator] executeTokens called with', tokens.length, 'tokens');
   const errors: ExecutionError[] = [];
   const commands: string[] = [];
   
@@ -606,6 +607,8 @@ export async function executeTokens(
     const result = await executeTokenList(tokens, context, errors);
     commands.push(...result);
     
+    console.log('[Evaluator] executeTokens returning', commands.length, 'commands:', commands);
+    
     return {
       success: errors.length === 0,
       commands,
@@ -613,6 +616,7 @@ export async function executeTokens(
     };
   } catch (e) {
     const error = e as Error;
+    console.error('[Evaluator] executeTokens caught error:', error);
     errors.push({
       message: `Execution error: ${error.message}`
     });
@@ -644,9 +648,11 @@ async function executeTokenList(
         case 'IF':
           // Get condition from args
           const conditionStr = token.args || '';
+          console.log('[Evaluator] #IF condition:', conditionStr);
           const ast = parseCondition(conditionStr);
           
           if (!ast) {
+            console.log('[Evaluator] #IF failed to parse condition');
             errors.push({
               message: `Failed to parse condition: ${conditionStr}`,
               line: token.line,
@@ -659,9 +665,11 @@ async function executeTokenList(
           // Evaluate condition
           const result = evaluate(ast, context.variables);
           const conditionTrue = isTruthy(result);
+          console.log('[Evaluator] #IF evaluated:', result, 'isTruthy:', conditionTrue);
           
           // Find matching #ELSE/#ENDIF
           const blockEnd = findBlockEnd(tokens, i);
+          console.log('[Evaluator] #IF blockEnd:', blockEnd);
           
           if (blockEnd === -1) {
             errors.push({
@@ -676,11 +684,14 @@ async function executeTokenList(
           // Execute appropriate branch
           
           if (conditionTrue) {
+            console.log('[Evaluator] #IF executing IF branch');
             // Execute IF branch (tokens between IF and ELSE/ENDIF)
             const ifEnd = findElseOrEndif(tokens, i);
             const ifTokens = tokens.slice(i + 1, ifEnd);
+            console.log('[Evaluator] #IF ifTokens:', ifTokens.length);
             commands.push(...await executeTokenList(ifTokens, context, errors));
           } else {
+            console.log('[Evaluator] #IF executing ELSE branch');
             // Check for ELSE branch
             const elsePos = findElseOrEndif(tokens, i);
             const nextToken = tokens[elsePos];
@@ -688,6 +699,7 @@ async function executeTokenList(
             if (nextToken && nextToken.type === 'COMMAND' && nextToken.command === 'ELSE') {
               // Execute ELSE branch (tokens between ELSE and ENDIF)
               const elseTokens = tokens.slice(elsePos + 1, blockEnd);
+              console.log('[Evaluator] #IF elseTokens:', elseTokens.length);
               commands.push(...await executeTokenList(elseTokens, context, errors));
             }
           }
@@ -939,9 +951,11 @@ async function handleSetCommand(
   errors: ExecutionError[]
 ): Promise<void> {
   const args = token.args || '';
+  console.log('[Evaluator] #SET called with args:', args);
   const match = args.match(/^(\S+)\s+(.*)$/);
   
   if (!match) {
+    console.log('[Evaluator] #SET failed to parse args');
     errors.push({
       message: '#SET requires variable name and value',
       line: token.line,
@@ -951,10 +965,12 @@ async function handleSetCommand(
   }
   
   const [, varName, varValue] = match;
+  console.log('[Evaluator] #SET varName:', varName, 'varValue:', varValue);
   
   // Parse the value to determine type
   const parsedValue = parseValue(varValue.trim());
   const value = evaluate(parsedValue, variables);
+  console.log('[Evaluator] #SET final value:', value);
   
   // Check for system variable protection (PR01PH03T03)
   if (isSystemVariable(varName)) {
