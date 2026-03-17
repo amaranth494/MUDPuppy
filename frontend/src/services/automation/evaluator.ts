@@ -1203,8 +1203,12 @@ export async function executeAutomationAction(
   aliasResolver?: (aliasName: string) => Promise<string[]>,
   outputMessage?: (message: string) => void
 ): Promise<ExecutionResult> {
+  console.log('[Evaluator] executeAutomationAction called with:', actionText.substring(0, 100));
+  
   // Parse the action text
   const parseResult = parser.parse(actionText);
+  
+  console.log('[Evaluator] Parse result:', parseResult.success ? 'success' : 'failed', parseResult.tokens?.length ?? 0, 'tokens');
   
   if (!parseResult.success) {
     return {
