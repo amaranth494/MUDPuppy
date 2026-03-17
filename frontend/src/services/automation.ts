@@ -748,27 +748,30 @@ export class AutomationEngine {
     replacement = replacement.replace(/\n/g, ';');
     
     // PR01PH07T02: Check if replacement contains # commands - process through parser
-    // Check if any segment (after semicolon split) starts with #
+    // Split by semicolon and process each segment
     const segments = replacement.split(';').map(s => s.trim()).filter(s => s.length > 0);
-    const hasHashCommand = segments.some(s => s.startsWith('#'));
+    const finalCommands: string[] = [];
     
-    if (hasHashCommand) {
-      // Process through executeAutomationAction to handle # commands
-      try {
-        const result = await executeAutomationAction(replacement, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined);
-        if (!result.success) {
-          console.warn('[Automation] Explicit alias # command errors:', result.errors);
+    for (const segment of segments) {
+      if (segment.startsWith('#')) {
+        // Process # command through evaluator
+        try {
+          const result = await executeAutomationAction(segment, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined);
+          if (!result.success) {
+            console.warn('[Automation] Explicit alias # command errors:', result.errors);
+          }
+          // Add resulting commands (filter out # commands - they're variable assignments)
+          finalCommands.push(...result.commands);
+        } catch (error) {
+          console.error('[Automation] Explicit alias # command execution error:', error);
         }
-        // Return all resulting commands
-        return result.commands;
-      } catch (error) {
-        console.error('[Automation] Explicit alias # command execution error:', error);
-        return [];
+      } else {
+        // Regular MUD command - keep as-is
+        finalCommands.push(segment);
       }
     }
     
-    // Handle semicolons in replacement - split into individual commands
-    return this.parseCommandString(replacement);
+    return finalCommands;
   }
 
   // ============================================
