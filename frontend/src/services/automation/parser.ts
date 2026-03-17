@@ -83,10 +83,6 @@ export class Parser {
     }
 
     this.tokenize();
-
-    // DEBUG: Log tokens for debugging
-    console.log('[Parser] Input:', JSON.stringify(input));
-    console.log('[Parser] Tokens:', JSON.stringify(this.tokens, null, 2));
     
     return {
       success: this.errors.length === 0,
