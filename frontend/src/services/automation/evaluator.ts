@@ -688,15 +688,18 @@ async function executeTokenList(
             // Execute IF branch (tokens between IF and ELSE/ENDIF)
             const ifEnd = findElseOrEndif(tokens, i);
             const ifTokens = tokens.slice(i + 1, ifEnd);
-            console.log('[Evaluator] #IF ifTokens:', ifTokens.length);
+            console.log('[Evaluator] #IF ifTokens:', ifTokens.length, 'ifEnd:', ifEnd);
             commands.push(...await executeTokenList(ifTokens, context, errors));
           } else {
             console.log('[Evaluator] #IF executing ELSE branch');
             // Check for ELSE branch
             const elsePos = findElseOrEndif(tokens, i);
+            console.log('[Evaluator] #IF elsePos:', elsePos);
             const nextToken = tokens[elsePos];
+            const nextCmd = nextToken?.type === 'COMMAND' ? (nextToken as CommandToken).command : 'N/A';
+            console.log('[Evaluator] #IF nextToken:', nextCmd);
             
-            if (nextToken && nextToken.type === 'COMMAND' && nextToken.command === 'ELSE') {
+            if (nextToken && nextToken.type === 'COMMAND' && (nextToken as CommandToken).command === 'ELSE') {
               // Execute ELSE branch (tokens between ELSE and ENDIF)
               const elseTokens = tokens.slice(elsePos + 1, blockEnd);
               console.log('[Evaluator] #IF elseTokens:', elseTokens.length);
