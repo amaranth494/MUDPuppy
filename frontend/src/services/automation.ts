@@ -539,9 +539,10 @@ export class AutomationEngine {
       // Note: Trigger actions do NOT implicitly pass through alias evaluation
       // PR01PH07T02: But explicit alias invocations do go through parser
       if (processed.startsWith('@')) {
-        console.log('[Trigger] Alias: ' + processed);
+        console.log('[Alias] ' + processed);
         const aliasCommands = await this.invokeExplicitAlias(processed.substring(1));
         for (const aliasCmd of aliasCommands) {
+          console.log('[Alias] Action: ' + aliasCmd);
           processedCommands.push(aliasCmd);
         }
         continue;
