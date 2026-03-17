@@ -129,7 +129,15 @@ function AppContent() {
         
         {/* New Settings page - uses current connection or prompts to select (SP05PH04) */}
         {isNewSettingsPage && (
-          <SettingsPage />
+          <Modal
+            isOpen={isNewSettingsPage}
+            onClose={handleModalClose}
+            title="Settings"
+            onInputLockChange={setInputLocked}
+            className="modal-settings"
+          >
+            <SettingsPage />
+          </Modal>
         )}
         
         {/* Modal overlay for Connections, Account, Help pages (SP03PH03) */}
