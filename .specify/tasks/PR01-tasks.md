@@ -320,6 +320,19 @@
 - #ENDTIMER and #CANCEL are not implemented commands - #STOP is the proper command for stopping timers
 - This is working as designed - no changes needed to parser
 
+#### QA Test Results: Syntax Validation (PR01PH01T02)
+
+| ID | Test Case | Input | Expected Result | Result |
+|----|-----------|-------|-----------------|--------|
+| V01 | Valid #IF | `#IF ${hp} < 30\ncast heal\n#endif` | No errors | SKIP - #IF is not used as CLI command |
+| V02 | Missing #ENDIF | `#IF ${hp} < 30\ncast heal` | Error: Unclosed #IF block | PASS |
+| V03 | #ELSE without #IF | `#ELSE\ncast heal` | Error: #ELSE without matching #IF | PASS |
+| V04 | #ENDIF without #IF | `#ENDIF` | Error: #ENDIF without matching #IF | PASS |
+| V05 | #SET without args | `#SET` | Error: #SET requires variable name and value | PASS |
+| V06 | #TIMER without args | `#TIMER` | Error: #TIMER requires name and duration | PASS |
+| V07 | #CANCEL without args | `#CANCEL` | Error: #CANCEL requires timer name | SKIP - #CANCEL is not a valid command |
+| V08 | Unknown command | `#FOO bar` | Error: Unknown command: #FOO | PASS |
+
 ### PR01PH08T03 — Fix issues found
 
 - [ ] **Task:** Address any bugs discovered, re-test after fixes
