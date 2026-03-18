@@ -187,10 +187,13 @@ export interface Trigger {
 }
 
 // Variable type - reusable values for automation
+export type VariableType = 'string' | 'number' | 'array' | 'boolean';
+
 export interface Variable {
   id: string;
   name: string;
   value: string;
+  type?: VariableType;
 }
 
 // Timer type - time-based automation

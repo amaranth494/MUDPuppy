@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Variable } from '../types';
+import { Variable, VariableType } from '../types';
 import { getEnvironment, putEnvironment } from '../services/api';
 
 interface EnvironmentPanelProps {
@@ -121,6 +121,7 @@ export default function EnvironmentPanel({ connectionId, isConnectedToThis, onVa
       id: crypto.randomUUID(),
       name: '',
       value: '',
+      type: 'string',
     };
     setVariables([...variables, newVariable]);
   };
@@ -215,6 +216,19 @@ export default function EnvironmentPanel({ connectionId, isConnectedToThis, onVa
                     onChange={(e) => handleUpdateVariable(variable.id, { value: e.target.value })}
                   />
                   <p className="form-hint">Use ${`{` + variable.name + `}`} in aliases or triggers to use this value</p>
+                </div>
+                <div className="form-group form-group-small">
+                  <label className="form-label">Type</label>
+                  <select
+                    className="form-input"
+                    value={variable.type || 'string'}
+                    onChange={(e) => handleUpdateVariable(variable.id, { type: e.target.value as VariableType })}
+                  >
+                    <option value="string">String</option>
+                    <option value="number">Number</option>
+                    <option value="boolean">Boolean</option>
+                    <option value="array">Array</option>
+                  </select>
                 </div>
               </div>
               {variableErrors[variable.id] && (

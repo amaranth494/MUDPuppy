@@ -343,6 +343,30 @@ function parseValue(input: string): ASTNode {
 // ============================================
 
 /**
+ * Smart type inference for #SET command:
+ * - If string is numeric, convert to number
+ * - Otherwise keep as string
+ * This ensures variables are stored with the correct type for operations
+ */
+function inferType(value: VariableValue): VariableValue {
+  if (typeof value === 'string') {
+    // Try to convert to number
+    const num = parseFloat(value);
+    if (!isNaN(num) && isFinite(num)) {
+      return num;
+    }
+    
+    // Check for boolean strings
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    
+    return value;
+  }
+  
+  return value;
+}
+
+/**
  * Evaluate an AST node against variables
  */
 export function evaluate(node: ASTNode, variables: VariableStore): VariableValue {
@@ -956,7 +980,10 @@ async function handleSetCommand(
   
   // Parse the value to determine type
   const parsedValue = parseValue(varValue.trim());
-  const value = evaluate(parsedValue, variables);
+  let value = evaluate(parsedValue, variables);
+  
+  // Smart type inference: determine the best type for storage
+  value = inferType(value);
   
   // Check for system variable protection (PR01PH03T03)
   if (isSystemVariable(varName)) {

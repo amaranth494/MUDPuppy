@@ -2186,6 +2186,11 @@ body {
   margin-bottom: 0;
 }
 
+.automation-row .form-group-small {
+  flex: 0 0 100px;
+  min-width: 100px;
+}
+
 .automation-empty {
   padding: var(--spacing-lg);
   text-align: center;
