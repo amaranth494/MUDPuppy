@@ -165,6 +165,8 @@ function parseLogicalExpression(input: string): ASTNode {
   // Find the outermost AND/OR operator at the lowest precedence level
   // We need to find the rightmost AND/OR at the top level (not inside parentheses)
   
+  console.log('[Evaluator] parseLogicalExpression input:', input);
+  
   let parenDepth = 0;
   let lastAndPos = -1;
   let lastOrPos = -1;
@@ -221,6 +223,8 @@ function parseLogicalExpression(input: string): ASTNode {
  */
 function parseComparisonExpression(input: string): ASTNode {
   const trimmed = input.trim();
+  
+  console.log('[Evaluator] parseComparisonExpression:', trimmed);
   
   // Find comparison operator
   // Order matters: >=, <=, ==, != first, then >, <, =
@@ -382,12 +386,15 @@ export function evaluate(node: ASTNode, variables: VariableStore): VariableValue
     case 'comparison': {
       const left = evaluate(node.left, variables);
       const right = evaluate(node.right, variables);
+      console.log('[Evaluator] compare:', left, node.operator, right);
       return compareValues(left, right, node.operator);
     }
     
     case 'logical': {
+      console.log('[Evaluator] evaluate logical:', node.operator);
       const left = evaluate(node.left, variables);
       const leftTruthy = isTruthy(left);
+      console.log('[Evaluator] left truthy:', leftTruthy);
       
       if (node.operator === 'AND') {
         if (!leftTruthy) return false;
