@@ -128,7 +128,7 @@ export const SYSTEM_VARIABLES: Record<string, VariableValue> = {
 // Check if a variable name is a system variable
 export function isSystemVariable(name: string): boolean {
   const upperName = name.toUpperCase();
-  return upperName in SYSTEM_VARIABLES || upperName.startsWith('%');
+  return upperName in SYSTEM_VARIABLES;
 }
 
 // ============================================
