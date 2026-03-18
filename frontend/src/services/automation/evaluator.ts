@@ -93,7 +93,7 @@ export interface ValueNode {
 
 export interface ComparisonNode {
   type: 'comparison';
-  operator: '>' | '<' | '>=' | '<=' | '==';
+  operator: '>' | '<' | '>=' | '<=' | '==' | '!=' | '=';
   left: ASTNode;
   right: ASTNode;
 }
@@ -223,8 +223,8 @@ function parseComparisonExpression(input: string): ASTNode {
   const trimmed = input.trim();
   
   // Find comparison operator
-  // Order matters: >=, <=, == first, then >, <, !=
-  const operators = ['>=', '<=', '==', '!=', '>', '<'];
+  // Order matters: >=, <=, ==, != first, then >, <, =
+  const operators = ['>=', '<=', '==', '!=', '>', '<', '='];
   
   for (const op of operators) {
     const pos = findOperatorAtTopLevel(trimmed, op);

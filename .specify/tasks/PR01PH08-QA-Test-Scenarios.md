@@ -40,33 +40,33 @@
 ### Test PR01PH02T01: Condition Parser
 | ID | Test Case | Condition | Expected AST |
 |----|-----------|-----------|--------------|
-| C01 | Simple comparison | `${hp} < 30` | ComparisonNode: variable hp < value 30 |
-| C02 | Greater than | `${gold} >= 1000` | ComparisonNode: variable gold >= value 1000 |
-| C03 | String equality | `${target} == dragon` | ComparisonNode: variable target == value "dragon" |
-| C04 | AND operator | `${hp} < 50 AND ${mana} > 10` | LogicalNode: AND of two comparisons |
-| C05 | OR operator | `${hp} == 0 OR ${mana} == 0` | LogicalNode: OR of two comparisons |
+| C01 | Simple comparison | `${hp} < 30` | ComparisonNode: variable hp < value 30 | PASS |
+| C02 | Greater than | `${gold} >= 1000` | ComparisonNode: variable gold >= value 1000 | PASS |
+| C03 | String equality | `${target} == dragon` | ComparisonNode: variable target == value "dragon" | PASS |
+| C04 | AND operator | `${hp} < 50 AND ${mana} > 10` | LogicalNode: AND of two comparisons | **FAIL** - AND is not working |
+| C05 | OR operator | `${hp} == 0 OR ${mana} == 0` | LogicalNode: OR of two comparisons | TBD |
 
 ### Test PR01PH02T02: Evaluation Engine
 | ID | Test Case | Variables | Condition | Expected |
 |----|-----------|-----------|-----------|----------|
-| E01 | True comparison | hp: 20 | `${hp} < 30` | true |
-| E02 | False comparison | hp: 50 | `${hp} < 30` | false |
-| E03 | Numeric coercion | gold: "1000" | `${gold} >= 500` | true |
-| E04 | String comparison | target: "goblin" | `${target} == goblin` | true |
-| E05 | AND true | hp: 20, mana: 20 | `${hp} < 50 AND ${mana} > 10` | true |
-| E06 | AND false (first) | hp: 60, mana: 20 | `${hp} < 50 AND ${mana} > 10` | false |
-| E07 | AND false (second) | hp: 20, mana: 5 | `${hp} < 50 AND ${mana} > 10` | false |
-| E08 | OR true (first) | hp: 10, mana: 5 | `${hp} < 50 OR ${mana} > 10` | true |
-| E09 | OR true (second) | hp: 60, mana: 20 | `${hp} < 50 OR ${mana} > 10` | true |
-| E10 | OR false | hp: 60, mana: 5 | `${hp} < 50 OR ${mana} > 10` | false |
+| E01 | True comparison | hp: 20 | `${hp} < 30` | true | TBD |
+| E02 | False comparison | hp: 50 | `${hp} < 30` | false | TBD |
+| E03 | Numeric coercion | gold: "1000" | `${gold} >= 500` | true | TBD |
+| E04 | String comparison | target: "goblin" | `${target} == goblin` | true | TBD |
+| E05 | AND true | hp: 20, mana: 20 | `${hp} < 50 AND ${mana} > 10` | true | TBD |
+| E06 | AND false (first) | hp: 60, mana: 20 | `${hp} < 50 AND ${mana} > 10` | false | TBD |
+| E07 | AND false (second) | hp: 20, mana: 5 | `${hp} < 50 AND ${mana} > 10` | false | TBD |
+| E08 | OR true (first) | hp: 10, mana: 5 | `${hp} < 50 OR ${mana} > 10` | true | TBD |
+| E09 | OR true (second) | hp: 60, mana: 20 | `${hp} < 50 OR ${mana} > 10` | true | TBD |
+| E10 | OR false | hp: 60, mana: 5 | `${hp} < 50 OR ${mana} > 10` | false | TBD |
 
 ### Test PR01PH02T03: #IF/#ELSE/#ENDIF Execution
 | ID | Test Case | Input | Expected Commands |
 |----|-----------|-------|-------------------|
-| IF01 | True branch | `#IF ${hp} < 30\ncast heal\n#endif` | [cast heal] |
-| IF02 | False branch | `#IF ${hp} < 30\ncast heal\n#endif` (hp: 50) | [] |
-| IF03 | If-else true | `#IF ${hp} < 30\ncast heal\n#else\nattack\n#endif` (hp: 20) | [cast heal] |
-| IF04 | If-else false | `#IF ${hp} < 30\ncast heal\n#else\nattack\n#endif` (hp: 50) | [attack] |
+| IF01 | True branch | `#IF ${hp} < 30\ncast heal\n#endif` | [cast heal] | TBD |
+| IF02 | False branch | `#IF ${hp} < 30\ncast heal\n#endif` (hp: 50) | [] | TBD |
+| IF03 | If-else true | `#IF ${hp} < 30\ncast heal\n#else\nattack\n#endif` (hp: 20) | [cast heal] | TBD |
+| IF04 | If-else false | `#IF ${hp} < 30\ncast heal\n#else\nattack\n#endif` (hp: 50) | [attack] | TBD |
 
 ---
 
