@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getConnections, getProfileByConnection, updateProfile, getAliases, putAliases, getTriggers, putTriggers, getEnvironment, putEnvironment, getTimers, putTimers } from '../services/api';
-import { SavedConnection, ProfileSettings, UpdateProfileRequest, Alias, Trigger, Variable, Timer } from '../types';
+import { SavedConnection, ProfileSettings, UpdateProfileRequest, Alias, Trigger, Variable, VariableType, Timer } from '../types';
 import { normalizeKeybindings, eventToCanonicalKey, isValidKeybindingFormat, isValidCommand, canonicalizeKeybinding, isModifierOnly } from '../services/keybindings';
 import { useSession } from '../context/SessionContext';
 import Modal from '../components/Modal';
@@ -718,6 +718,7 @@ export default function SettingsPage() {
       id: crypto.randomUUID(),
       name: '',
       value: '',
+      type: 'string',
     };
     setVariables([...variables, newVariable]);
   };
@@ -1539,6 +1540,19 @@ cast heal
                             value={variable.value}
                             onChange={(e) => handleUpdateVariable(variable.id, { value: e.target.value })}
                           />
+                        </div>
+                        <div className="form-group form-group-small">
+                          <label className="form-label">Type</label>
+                          <select
+                            className="form-input"
+                            value={variable.type || 'string'}
+                            onChange={(e) => handleUpdateVariable(variable.id, { type: e.target.value as VariableType })}
+                          >
+                            <option value="string">String</option>
+                            <option value="number">Number</option>
+                            <option value="boolean">Boolean</option>
+                            <option value="array">Array</option>
+                          </select>
                         </div>
                       </div>
                     </div>
