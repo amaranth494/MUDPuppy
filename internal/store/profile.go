@@ -55,6 +55,7 @@ type Variable struct {
 	ID    string `json:"id"`
 	Name  string `json:"name"`
 	Value string `json:"value"`
+	Type  string `json:"type,omitempty"`
 }
 
 // Variables wraps a list of environment variables
