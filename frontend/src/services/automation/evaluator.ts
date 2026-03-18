@@ -1021,38 +1021,49 @@ async function handleAddCommand(
   }
   
   // Get current value
-  const currentValue = variables.get(varName);
-  if (currentValue === undefined) {
-    errors.push({
-      message: `Variable '${varName}' does not exist. Use #SET first.`,
-      line: token.line,
-      column: token.column
-    });
-    return;
+  let currentValue: number | undefined = variables.get(varName) as number | undefined;
+  
+  // If variable doesn't exist or isn't a number, treat as 0
+  if (currentValue === undefined || currentValue === null) {
+    currentValue = 0;
+  } else if (typeof currentValue === 'string') {
+    // Try to convert string to number
+    const num = parseFloat(currentValue);
+    if (isNaN(num)) {
+      currentValue = 0;
+    } else {
+      currentValue = num;
+    }
+  } else if (typeof currentValue === 'boolean') {
+    currentValue = currentValue ? 1 : 0;
+  }
+  
+  // Ensure current value is numeric
+  if (typeof currentValue !== 'number') {
+    currentValue = 0;
   }
   
   // Parse the value to add
   const parsedValue = parseValue(varValue.trim());
-  const addValue = evaluate(parsedValue, variables);
+  let addValue: number | undefined = evaluate(parsedValue, variables) as number | undefined;
   
-  // Ensure current value is numeric
-  if (typeof currentValue !== 'number') {
-    errors.push({
-      message: `Variable '${varName}' is not a number`,
-      line: token.line,
-      column: token.column
-    });
-    return;
+  // Ensure add value is numeric - try to convert if needed
+  if (typeof addValue === 'string') {
+    const num = parseFloat(addValue);
+    if (isNaN(num)) {
+      // Lenient: treat non-numeric strings as 0
+      addValue = 0;
+    } else {
+      addValue = num;
+    }
+  } else if (typeof addValue === 'boolean') {
+    addValue = addValue ? 1 : 0;
+  } else if (typeof addValue === 'undefined') {
+    addValue = 0;
   }
   
-  // Ensure add value is numeric
-  if (typeof addValue !== 'number') {
-    errors.push({
-      message: '#ADD requires a numeric value to add',
-      line: token.line,
-      column: token.column
-    });
-    return;
+  if (addValue === undefined) {
+    addValue = 0;
   }
   
   const newValue = currentValue + addValue;
@@ -1110,38 +1121,49 @@ async function handleSubCommand(
   }
   
   // Get current value
-  const currentValue = variables.get(varName);
-  if (currentValue === undefined) {
-    errors.push({
-      message: `Variable '${varName}' does not exist. Use #SET first.`,
-      line: token.line,
-      column: token.column
-    });
-    return;
+  let currentValue: number | undefined = variables.get(varName) as number | undefined;
+  
+  // If variable doesn't exist or isn't a number, treat as 0
+  if (currentValue === undefined || currentValue === null) {
+    currentValue = 0;
+  } else if (typeof currentValue === 'string') {
+    // Try to convert string to number
+    const num = parseFloat(currentValue);
+    if (isNaN(num)) {
+      currentValue = 0;
+    } else {
+      currentValue = num;
+    }
+  } else if (typeof currentValue === 'boolean') {
+    currentValue = currentValue ? 1 : 0;
+  }
+  
+  // Ensure current value is numeric
+  if (typeof currentValue !== 'number') {
+    currentValue = 0;
   }
   
   // Parse the value to subtract
   const parsedValue = parseValue(varValue.trim());
-  const subValue = evaluate(parsedValue, variables);
+  let subValue: number | undefined = evaluate(parsedValue, variables) as number | undefined;
   
-  // Ensure current value is numeric
-  if (typeof currentValue !== 'number') {
-    errors.push({
-      message: `Variable '${varName}' is not a number`,
-      line: token.line,
-      column: token.column
-    });
-    return;
+  // Ensure sub value is numeric - try to convert if needed
+  if (typeof subValue === 'string') {
+    const num = parseFloat(subValue);
+    if (isNaN(num)) {
+      // Lenient: treat non-numeric strings as 0
+      subValue = 0;
+    } else {
+      subValue = num;
+    }
+  } else if (typeof subValue === 'boolean') {
+    subValue = subValue ? 1 : 0;
+  } else if (typeof subValue === 'undefined') {
+    subValue = 0;
   }
   
-  // Ensure subtract value is numeric
-  if (typeof subValue !== 'number') {
-    errors.push({
-      message: '#SUB requires a numeric value to subtract',
-      line: token.line,
-      column: token.column
-    });
-    return;
+  if (subValue === undefined) {
+    subValue = 0;
   }
   
   const newValue = currentValue - subValue;
