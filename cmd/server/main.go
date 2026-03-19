@@ -214,6 +214,15 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
+	// PR01PH08: Route for getting credentials for automation (only returns password if auto_login enabled)
+	mux.HandleFunc("/api/v1/connections/{id}/credentials/auto", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			connectionsHandler.GetAutomationCredentials(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
 	mux.HandleFunc("/api/v1/connections/{id}/connect", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:

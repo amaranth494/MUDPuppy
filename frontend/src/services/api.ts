@@ -1,4 +1,4 @@
-import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, Profile, UpdateProfileRequest, Alias, Trigger, Variable, Timer, AliasesResponse, TriggersResponse, VariablesResponse, TimersResponse, HelpSection, HelpSummary } from '../types';
+import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, AutomationCredentials, Profile, UpdateProfileRequest, Alias, Trigger, Variable, Timer, AliasesResponse, TriggersResponse, VariablesResponse, TimersResponse, HelpSection, HelpSummary } from '../types';
 
 const API_BASE = '/api/v1';
 
@@ -332,6 +332,19 @@ export async function getCredentialStatus(connectionId: string): Promise<Credent
   if (!response.ok) {
     const data = await response.json();
     throw new Error(data.error || 'Failed to get credential status');
+  }
+  return await response.json();
+}
+
+// PR01PH08: Get credentials for automation (returns password only if auto_login enabled)
+export async function getAutomationCredentials(connectionId: string): Promise<AutomationCredentials> {
+  const response = await fetch(`${API_BASE}/connections/${connectionId}/credentials/auto`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to get automation credentials');
   }
   return await response.json();
 }

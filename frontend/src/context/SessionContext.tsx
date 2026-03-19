@@ -12,7 +12,9 @@ import {
   getEnvironment,
   getTimers,
   putTimers,
-  putEnvironment
+  putEnvironment,
+  getAutomationCredentials,
+  getConnection
 } from '../services/api';
 import { mapBackendError } from '../types';
 import { normalizeKeybindings } from '../services/keybindings';
@@ -290,6 +292,28 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
           variables,
           connectionId,
         });
+        
+        // Set system variables from connection data
+        try {
+          // Get character name and password from credentials (password only if auto_login enabled)
+          const autoCreds = await getAutomationCredentials(connectionId);
+          if (autoCreds.username) {
+            engine.updateSystemVariable('%CHARACTER', autoCreds.username);
+          }
+          if (autoCreds.password) {
+            engine.updateSystemVariable('%PASSWORD', autoCreds.password);
+          }
+          
+          // Get connection details for server name
+          const connDetails = await getConnection(connectionId);
+          if (connDetails.name) {
+            engine.updateSystemVariable('%SERVER', connDetails.name);
+          }
+          
+          console.log('[Automation] Set system variables from connection:', { character: autoCreds.username, password: '***', server: connDetails.name });
+        } catch (err) {
+          console.log('[Automation] Could not set system variables:', err);
+        }
       } else {
         // Quick connect - use empty automation
         engine.configure({

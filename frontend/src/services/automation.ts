@@ -238,6 +238,14 @@ export class AutomationEngine {
   }
 
   /**
+   * PR01PH08: Update a system variable (e.g., %CHARACTER, %PASSWORD, %SERVER)
+   * These are connection-based system variables that can be set programmatically
+   */
+  updateSystemVariable(name: string, value: string): void {
+    this.variableStore.setSystem(name, value);
+  }
+
+  /**
    * Get the timer manager for external access (PR01PH04)
    */
   getTimerManager(): TimerManager {

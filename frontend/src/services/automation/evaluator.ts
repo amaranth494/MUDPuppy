@@ -119,6 +119,7 @@ export const SYSTEM_VARIABLES: Record<string, VariableValue> = {
   '%TIME': '',
   '%DATE': '',
   '%CHARACTER': '',
+  '%PASSWORD': '',
   '%SERVER': '',
   '%SESSIONID': '',
   '%TICKCOUNT': 0,
@@ -129,6 +130,12 @@ export const SYSTEM_VARIABLES: Record<string, VariableValue> = {
 export function isSystemVariable(name: string): boolean {
   const upperName = name.toUpperCase();
   return upperName in SYSTEM_VARIABLES;
+}
+
+// Check if a variable is a system variable that should be set from connection
+export function isConnectionSystemVariable(name: string): boolean {
+  const upperName = name.toUpperCase();
+  return upperName === '%CHARACTER' || upperName === '%PASSWORD' || upperName === '%SERVER';
 }
 
 // ============================================
@@ -532,6 +539,11 @@ export class SimpleVariableStore implements VariableResolver {
   // System variables (read-only)
   getSystem(name: string): VariableValue | undefined {
     return this.systemVariables.get(name);
+  }
+  
+  // PR01PH08: Set system variable (used for connection-based system vars like %CHARACTER, %PASSWORD, %SERVER)
+  setSystem(name: string, value: VariableValue): void {
+    this.systemVariables.set(name, value);
   }
   
   // Session variables (temporary)

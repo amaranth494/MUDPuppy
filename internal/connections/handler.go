@@ -109,6 +109,12 @@ type CredentialStatusResponse struct {
 	AutoLoginEnabled bool   `json:"auto_login_enabled"`
 }
 
+// PR01PH08: Response type for automation credentials (includes password)
+type AutomationCredentialsResponse struct {
+	Username string `json:"username"`
+	Password string `json:"password"` // Only populated if auto_login is enabled
+}
+
 type ErrorResponse struct {
 	Error string `json:"error"`
 }
@@ -582,6 +588,61 @@ func (h *Handler) GetCredentialsStatus(w http.ResponseWriter, r *http.Request) {
 		Username:         username,
 		HasCredentials:   status.HasCredentials,
 		AutoLoginEnabled: status.AutoLoginEnabled,
+	})
+}
+
+// GetAutomationCredentials handles GET /api/v1/connections/:id/credentials/auto
+// Returns username and password only if auto_login is enabled (for automation system variables)
+func (h *Handler) GetAutomationCredentials(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := r.Context().Value("user_id")
+	if userID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userIDStr := userID.(string)
+	userUUID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		h.sendError(w, "Invalid user ID")
+		return
+	}
+
+	connID, err := h.getConnectionID(r)
+	if err != nil {
+		h.sendError(w, err.Error())
+		return
+	}
+
+	// Verify connection belongs to user
+	conn, err := h.connStore.GetByID(connID, userUUID)
+	if err != nil {
+		h.sendError(w, "Failed to verify connection")
+		return
+	}
+	if conn == nil {
+		h.sendError(w, "Connection not found")
+		return
+	}
+
+	// Use GetCredentialsForAutoLogin which only returns credentials if auto_login is enabled
+	username, password, err := h.GetCredentialsForAutoLogin(connID)
+	if err != nil {
+		log.Printf("[PR01PH08] Get automation credentials failed: %v", err)
+		// Still return empty credentials on error - don't expose internal errors
+		h.sendJSON(w, AutomationCredentialsResponse{
+			Username: "",
+			Password: "",
+		})
+		return
+	}
+
+	h.sendJSON(w, AutomationCredentialsResponse{
+		Username: username,
+		Password: password,
 	})
 }
 

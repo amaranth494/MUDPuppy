@@ -123,6 +123,12 @@ export interface CredentialStatus {
   auto_login_enabled: boolean;
 }
 
+// PR01PH08: Automation credentials response (includes password if auto_login enabled)
+export interface AutomationCredentials {
+  username: string;
+  password: string;
+}
+
 // Profile settings (SP04)
 export interface ProfileSettings {
   scrollback_limit: number;
