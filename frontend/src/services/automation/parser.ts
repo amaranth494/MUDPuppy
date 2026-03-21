@@ -1,13 +1,13 @@
 /**
  * Automation Parser Module
  * 
- * Handles tokenization and parsing of automation commands including:
- * - #IF, #ELSE, #ENDIF - conditional logic
- * - #SET - variable assignment
- * - #TIMER, #ENDTIMER - timed commands
- * - #CANCEL - cancel a timer
- * - Variable substitution ${variable_name}
+ * Handles tokenization and parsing of automation commands.
+ * Commands are defined in commands.ts - edit that file to add new commands.
+ * 
+ * PR02PH09: Now uses CommandRegistry from commands.ts for scalability.
  */
+
+import { CommandRegistry } from './commands';
 
 export type TokenType = 
   | 'COMMAND'    // #IF, #ELSE, #ENDIF, #SET, #TIMER, #ENDTIMER, #CANCEL
@@ -24,7 +24,9 @@ export interface Token {
 
 export interface CommandToken extends Token {
   type: 'COMMAND';
-  command: 'IF' | 'ELSE' | 'ENDIF' | 'SET' | 'ADD' | 'SUB' | 'TIMER' | 'ENDTIMER' | 'CANCEL' | 'START' | 'STOP' | 'CHECK';
+  // PR02PH09: Use string type to accept any command from registry
+  // Commands are validated against KNOWN_COMMANDS at parse time
+  command: string;
   args?: string;
 }
 
@@ -292,101 +294,52 @@ export function validateSyntax(tokens: ParsedToken[]): ParseError[] {
     const token = tokens[i];
     
     if (token.type === 'COMMAND') {
-      switch (token.command) {
-        case 'IF':
-          ifStack.push(token.line);
-          // #IF requires an argument (condition)
-          if (!token.args || token.args.trim() === '') {
-            errors.push({
-              message: '#IF requires a condition',
-              line: token.line,
-              column: token.column
-            });
-          }
-          break;
-          
-        case 'ELSE':
-          // #ELSE must have an #IF before it
-          if (ifStack.length === 0) {
-            errors.push({
-              message: '#ELSE without matching #IF',
-              line: token.line,
-              column: token.column
-            });
-          }
-          break;
-          
-        case 'ENDIF':
-          // #ENDIF must have an #IF before it
-          if (ifStack.length === 0) {
-            errors.push({
-              message: '#ENDIF without matching #IF',
-              line: token.line,
-              column: token.column
-            });
-          } else {
-            ifStack.pop();
-          }
-          break;
-          
-        case 'SET':
-          // #SET requires variable name and value
-          if (!token.args || token.args.trim() === '') {
-            errors.push({
-              message: '#SET requires a variable name and value',
-              line: token.line,
-              column: token.column
-            });
-          }
-          break;
-          
-        case 'ADD':
-          // #ADD requires variable name and numeric value
-          if (!token.args || token.args.trim() === '') {
-            errors.push({
-              message: '#ADD requires a variable name and numeric value',
-              line: token.line,
-              column: token.column
-            });
-          }
-          break;
-          
-        case 'SUB':
-          // #SUB requires variable name and numeric value
-          if (!token.args || token.args.trim() === '') {
-            errors.push({
-              message: '#SUB requires a variable name and numeric value',
-              line: token.line,
-              column: token.column
-            });
-          }
-          break;
-          
-        case 'TIMER':
-          // #TIMER requires name and duration
-          if (!token.args || token.args.trim() === '') {
-            errors.push({
-              message: '#TIMER requires a name and duration',
-              line: token.line,
-              column: token.column
-            });
-          }
-          break;
-          
-        case 'ENDTIMER':
-          // #ENDTIMER doesn't require args but should be checked
-          break;
-          
-        case 'CANCEL':
-          // #CANCEL requires timer name
-          if (!token.args || token.args.trim() === '') {
-            errors.push({
-              message: '#CANCEL requires a timer name',
-              line: token.line,
-              column: token.column
-            });
-          }
-          break;
+      // PR02PH09: Use CommandRegistry for validation - scalable approach
+      const cmdDef = CommandRegistry[token.command];
+      
+      if (!cmdDef) {
+        // Unknown command - this should not happen if parser is correct
+        errors.push({
+          message: `Unknown command: #${token.command}`,
+          line: token.line,
+          column: token.column
+        });
+      } else {
+        // Validate based on command definition
+        if (cmdDef.requiresArgs && (!token.args || token.args.trim() === '')) {
+          errors.push({
+            message: `#${token.command} requires arguments`,
+            line: token.line,
+            column: token.column
+          });
+        }
+        
+        // Special handling for conditional commands
+        switch (token.command) {
+          case 'IF':
+            ifStack.push(token.line);
+            break;
+          case 'ELSE':
+            if (ifStack.length === 0) {
+              errors.push({
+                message: '#ELSE without matching #IF',
+                line: token.line,
+                column: token.column
+              });
+            }
+            break;
+          case 'ENDIF':
+            if (ifStack.length === 0) {
+              errors.push({
+                message: '#ENDIF without matching #IF',
+                line: token.line,
+                column: token.column
+              });
+            } else {
+              ifStack.pop();
+            }
+            break;
+        }
       }
     }
   }

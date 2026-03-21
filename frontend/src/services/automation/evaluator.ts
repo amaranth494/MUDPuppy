@@ -864,6 +864,40 @@ async function executeTokenList(
           i++;
           continue;
           
+        case 'ECHO':
+          // Handle #ECHO command - output message to terminal
+          // PR02PH09: Echo outputs directly to local terminal
+          if (token.args) {
+            const brightGreen = '\x1b[92m';
+            const reset = '\x1b[0m';
+            context.outputMessage?.(`\r\n${brightGreen}${token.args}${reset}\r\n`);
+          }
+          i++;
+          continue;
+          
+        case 'LOG':
+          // Handle #LOG command - output to log (treated like echo for now)
+          // PR02PH09: Log outputs to terminal with different formatting
+          if (token.args) {
+            const brightYellow = '\x1b[93m';
+            const reset = '\x1b[0m';
+            context.outputMessage?.(`\r\n${brightYellow}[LOG] ${token.args}${reset}\r\n`);
+          }
+          i++;
+          continue;
+          
+        case 'HELP':
+          // Handle #HELP command - show help
+          // PR02PH09: Show help for available commands
+          {
+            const helpText = 'Available commands: #IF/#ELSE/#ENDIF, #SET, #ADD, #SUB, #TIMER, #START/#STOP/#CHECK/#CANCEL, #ECHO, #LOG, #HELP';
+            const brightCyan = '\x1b[96m';
+            const reset = '\x1b[0m';
+            context.outputMessage?.(`\r\n${brightCyan}${helpText}${reset}\r\n`);
+          }
+          i++;
+          continue;
+          
         case 'ELSE':
         case 'ENDIF':
         case 'ENDTIMER':

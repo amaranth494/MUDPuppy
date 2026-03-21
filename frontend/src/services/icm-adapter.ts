@@ -3,7 +3,12 @@
  * 
  * Provides a TypeScript interface for command validation, normalization,
  * and submission through the ICM pipeline.
+ * 
+ * PR02PH09: Commands are now imported from automation/commands.ts
+ * for a single source of truth.
  */
+
+import { KNOWN_COMMANDS } from './automation/commands';
 
 const API_BASE = '/api/v1';
 
@@ -127,13 +132,8 @@ const RESERVED_OPERATORS: Record<string, OperatorFamily> = {
   '%': '%',
 };
 
-/** Known structured commands */
-const KNOWN_STRUCTURED_COMMANDS = new Set([
-  'IF', 'ELSE', 'ENDIF',
-  'SET', 'ADD', 'SUB',
-  'TIMER', 'START', 'STOP', 'CHECK', 'CANCEL',
-  'LOG', 'ECHO', 'HELP', 'GAG', 'DELAY', 'EXPAND',
-]);
+/** Known structured commands - imported from commands.ts for single source of truth */
+// PR02PH09: Now uses KNOWN_COMMANDS from automation/commands.ts
 
 /** Known system variables */
 const KNOWN_SYSTEM_VARIABLES = new Set([
@@ -214,7 +214,7 @@ function classifyReservedOperator(input: string, op: OperatorFamily): Classifica
 function isKnownCommand(op: OperatorFamily, command: string): boolean {
   switch (op) {
     case '#':
-      return KNOWN_STRUCTURED_COMMANDS.has(command.toUpperCase());
+      return KNOWN_COMMANDS.has(command.toUpperCase());
     case '@':
       // Aliases checked at runtime
       return true;
@@ -347,7 +347,7 @@ export function validateCommand(input: string): ICMError | null {
   // Validate based on operator
   switch (classification.operator) {
     case '#':
-      if (!KNOWN_STRUCTURED_COMMANDS.has(command)) {
+      if (!KNOWN_COMMANDS.has(command)) {
         return {
           code: 'E2004',
           message: `Unknown directive: ${command}`,
