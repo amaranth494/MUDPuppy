@@ -867,7 +867,7 @@ async function executeTokenList(
         case 'ECHO':
           // Handle #ECHO command - output message to terminal
           // PR02PH09: Echo outputs directly to local terminal
-          console.log('[DEBUG] #ECHO case hit, args:', token.args, 'outputMessage:', !!context.outputMessage);
+
           if (token.args) {
             const brightGreen = '\x1b[92m';
             const reset = '\x1b[0m';
