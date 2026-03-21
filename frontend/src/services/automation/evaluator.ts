@@ -20,6 +20,94 @@ import { handleTimerCommand, handleCancelCommand, TimerManager, findTimerEnd, ha
 import { recognizeCommand } from '../icm-adapter';
 
 // ============================================
+// ANSI Color Helper Functions - PR02PH09
+// ============================================
+
+/**
+ * Get ANSI color code from color name or hex value
+ * Supports: black, red, green, yellow, blue, magenta, cyan, white
+ * Also supports hex values like FFFF00
+ */
+function getAnsiColorCode(color: string): string {
+  const colorMap: Record<string, string> = {
+    black: '\x1b[30m',
+    red: '\x1b[31m',
+    green: '\x1b[32m',
+    yellow: '\x1b[33m',
+    blue: '\x1b[34m',
+    magenta: '\x1b[35m',
+    cyan: '\x1b[36m',
+    white: '\x1b[37m',
+    // Bright variants
+    brightblack: '\x1b[90m',
+    brightred: '\x1b[91m',
+    brightgreen: '\x1b[92m',
+    brightyellow: '\x1b[93m',
+    brightblue: '\x1b[94m',
+    brightmagenta: '\x1b[95m',
+    brightcyan: '\x1b[96m',
+    brightwhite: '\x1b[97m',
+  };
+  
+  // Check named colors
+  if (colorMap[color]) {
+    return colorMap[color];
+  }
+  
+  // Handle hex color (e.g., FFFF00 -> RGB)
+  if (/^[0-9A-Fa-f]{6}$/.test(color)) {
+    const r = parseInt(color.substring(0, 2), 16);
+    const g = parseInt(color.substring(2, 4), 16);
+    const b = parseInt(color.substring(4, 6), 16);
+    // Use 256-color mode (38;5;nnn)
+    const ansi256 = 16 + Math.floor(r / 51) * 36 + Math.floor(g / 51) * 6 + Math.floor(b / 51);
+    return `\x1b[38;5;${ansi256}m`;
+  }
+  
+  // Default to white if unknown
+  return '\x1b[37m';
+}
+
+/**
+ * Get ANSI background color code
+ */
+function getAnsiBackgroundCode(color: string): string {
+  const bgColorMap: Record<string, string> = {
+    black: '\x1b[40m',
+    red: '\x1b[41m',
+    green: '\x1b[42m',
+    yellow: '\x1b[43m',
+    blue: '\x1b[44m',
+    magenta: '\x1b[45m',
+    cyan: '\x1b[46m',
+    white: '\x1b[47m',
+    brightblack: '\x1b[100m',
+    brightred: '\x1b[101m',
+    brightgreen: '\x1b[102m',
+    brightyellow: '\x1b[103m',
+    brightblue: '\x1b[104m',
+    brightmagenta: '\x1b[105m',
+    brightcyan: '\x1b[106m',
+    brightwhite: '\x1b[107m',
+  };
+  
+  if (bgColorMap[color]) {
+    return bgColorMap[color];
+  }
+  
+  // Handle hex background color
+  if (/^[0-9A-Fa-f]{6}$/.test(color)) {
+    const r = parseInt(color.substring(0, 2), 16);
+    const g = parseInt(color.substring(2, 4), 16);
+    const b = parseInt(color.substring(4, 6), 16);
+    const ansi256 = 16 + Math.floor(r / 51) * 36 + Math.floor(g / 51) * 6 + Math.floor(b / 51);
+    return `\x1b[48;5;${ansi256}m`;
+  }
+  
+  return '\x1b[47m';
+}
+
+// ============================================
 // Types
 // ============================================
 
@@ -867,11 +955,44 @@ async function executeTokenList(
         case 'ECHO':
           // Handle #ECHO command - output message to terminal
           // PR02PH09: Echo outputs directly to local terminal
+          // PR02PH09: Extended to support color options: #ECHO (color:red,bold) message
 
           if (token.args) {
-            const brightGreen = '\x1b[92m';
-            const reset = '\x1b[0m';
-            context.outputMessage?.(`\r\n${brightGreen}${token.args}${reset}\r\n`);
+            // Parse optional color specification: (color:xxx,yyy)
+            const colorMatch = token.args.match(/^\s*\(([^)]+)\)\s*(.*)$/s);
+            
+            let text = token.args;
+            let prefix = '';
+            let suffix = '';
+            
+            if (colorMatch) {
+              const options = colorMatch[1].toLowerCase();
+              text = colorMatch[2];
+              
+              // Parse color options (comma-separated)
+              const optionParts = options.split(',').map(o => o.trim());
+              
+              for (const opt of optionParts) {
+                if (opt.startsWith('color:')) {
+                  const colorValue = opt.substring(6);
+                  prefix += getAnsiColorCode(colorValue);
+                } else if (opt === 'bold') {
+                  prefix += '\x1b[1m';
+                } else if (opt === 'underline') {
+                  prefix += '\x1b[4m';
+                } else if (opt.startsWith('background:')) {
+                  const bgColor = opt.substring(11);
+                  prefix += getAnsiBackgroundCode(bgColor);
+                }
+              }
+              suffix = '\x1b[0m';
+            } else {
+              // Default: bright green
+              prefix = '\x1b[92m';
+              suffix = '\x1b[0m';
+            }
+            
+            context.outputMessage?.(`\r\n${prefix}${text}${suffix}\r\n`);
           }
           i++;
           continue;
