@@ -8,405 +8,281 @@
 
 ## Overview
 
-PR02PH09 is the Quality Assurance phase for the Internal Command Module (ICM) implementation. This plan covers both automated test verification and browser-based manual testing to ensure the ICM meets all acceptance criteria defined in PR02 specification.
+This QA plan focuses on **individual command verification** first, then complex scenarios. Before testing execution order, safety systems, or regressions, we must verify each ICM command works correctly in the CLI/UX.
 
 ---
 
-## QA Task Summary
+## ICM Command Inventory
 
-| Task | Description | Type |
-|------|-------------|------|
-| PR02PH09T01 | Deterministic Execution QA | Automated + Manual |
-| PR02PH09T02 | Ingress Route QA | Automated + Manual |
-| PR02PH09T03 | Safety Protection QA | Automated + Manual |
-| PR02PH09T04 | Literal Behavior QA | Automated + Manual |
-| PR02PH09T04B | % Namespace QA | Automated + Manual |
-| PR02PH09T05 | #LOG Governance QA | Automated + Manual |
-| PR02PH09T06 | Regression Testing | Automated + Manual |
+### Structured Directives (#)
+| Command | Purpose | Handler |
+|---------|---------|---------|
+| `#ECHO` | Output message | EchoHandler |
+| `#LOG` | Structured logging | LogHandler |
+| `#HELP` | Help display | HelpHandler |
+| `#SET` | Set user variable | SetHandler |
+| `#IF` | Conditional | IfHandler |
+| `#ELSE` | Else branch | ElseHandler |
+| `#ENDIF` | End conditional | EndIfHandler |
+| `#TIMER` | Create/update timer | TimerHandler |
+| `#START` | Start timer | StartTimerHandler |
+| `#STOP` | Stop timer | StopTimerHandler |
+| `#CHECK` | Check timer status | CheckTimerHandler |
+| `#CANCEL` | Delete timer | CancelTimerHandler |
+
+### Alias References (@)
+- `@aliasname` - Invoke alias by name
+- `@aliasname arg1 arg2` - Invoke alias with arguments
+
+### User Variables ($)
+- `$varname` - Reference user variable
+- `${varname}` - Reference user variable (canonical form)
+
+### System Variables (%)
+- `%1`, `%2`, etc. - Numeric session variables (positional)
+- `%TIME` - Current time
+- `%DATE` - Current date
+- `%CHARACTER` - Character name
+- `%SERVER` - Server name
+- `%SESSIONID` - Session ID
+- `%HOST` - Host
+- `%PORT` - Port
 
 ---
 
-## Part 1: Automated Test Verification
+## Part 1: Individual Command Verification
 
-### Prerequisites
+### Phase 1A: Verify Structured Directives
 
-1. **Run Backend Tests**
-   ```bash
-   cd internal/icm
-   go test -v -cover ./...
-   ```
+Connect to a MUD server and test each directive individually in the terminal input:
 
-2. **Expected Test Coverage Areas**
-   - Recognizer (operator identification)
-   - Validator (syntax validation)
-   - Normalizer (canonical form conversion)
-   - Registry (aliases, user variables, system variables)
-   - Engine (command execution)
-   - Classifier (internal vs pass-through)
-   - EscapeHandler (escape sequences)
-   - SafetyChecker (rate limits, timeouts)
-
-### T01: Deterministic Execution QA (Automated)
-
-**Existing Tests to Verify:**
-- `TestEngine_Process` - Verifies execution order
-- `TestEngine_ExecuteStructuredCommand` - Verifies directive processing
-
-**Additional Test Cases Required:**
-
-| Input | Expected Output | Notes |
-|-------|-----------------|-------|
-| `#echo hello` then `look` | Commands execute in order | Verify queue order |
-| `#set var value` then `$var` | Variable set then resolved | Verify variable resolution order |
-| `@alias` where alias contains `#if` | Alias expansion then directive | Verify alias→directive order |
-
-**Verification Command:**
-```bash
-go test -v -run "TestEngine_Process|TestEngine_ExecuteStructuredCommand" ./internal/icm/
+#### Test: #ECHO
 ```
-
----
-
-### T02: Ingress Route QA (Automated)
-
-**Existing Tests to Verify:**
-- All ICM component tests
-
-**Key Integration Points:**
-1. **Typed Input → ICM** - [`PlayScreen.tsx:378-384`](frontend/src/pages/PlayScreen.tsx:378)
-2. **Keybindings → ICM** - Routes through `submitCommand()` 
-3. **History Replay → ICM** - Routes through `submitCommand()`
-4. **Settings Editors → ICM** - [`SettingsPage.tsx`](frontend/src/pages/SettingsPage.tsx)
-
-**Verification Steps:**
-1. Review code integration points match spec
-2. Run full test suite to verify no regressions
-
----
-
-### T03: Safety Protection QA (Automated)
-
-**Existing Tests to Verify:**
-- `TestDefaultSafetyChecker_CheckRateLimit`
-- `TestDefaultSafetyChecker_CheckTimeout`
-
-**Test Cases:**
-
-| Safety Feature | Test Scenario | Expected Behavior |
-|----------------|--------------|-------------------|
-| Rate Limiting | Execute 100+ commands rapidly | Commands throttled after limit |
-| Timeout | Long-running command | Timeout enforced |
-| Circuit Breaker | Infinite loop detection | Circuit breaker triggers |
-
-**Verification Command:**
-```bash
-go test -v -run "TestDefaultSafetyChecker" ./internal/icm/
+#echo Hello World
 ```
+**Expected:** "Hello World" appears in terminal output
 
-**Manual Verification Required:**
-- Trigger circuit breaker through UI
-- Verify rate limiting message displayed
-
----
-
-### T04: Literal Behavior QA (Automated)
-
-**Existing Tests to Verify:**
-- `TestEscapeHandler_ResolveEscapes`
-- `TestEscapeHandler_HasEscapeSequences`
-- `TestClassifier_Classify`
-
-**Test Cases:**
-
-| Input | Expected Output | Notes |
-|-------|-----------------|-------|
-| `\#echo` | `#echo` | Escape preserved |
-| `\@alias` | `@alias` | Escape preserved |
-| `\$var` | `$var` | Escape preserved |
-| `\%sys` | `%sys` | Escape preserved |
-| `${undefined}` | `${undefined}` | Undefined variable preserved |
-| `look` | `look` (pass-through) | Non-internal command passes |
-| `&unknown` | `&unknown` (pass-through) | Unknown operator passes |
-
-**Verification Command:**
-```bash
-go test -v -run "TestEscapeHandler|TestClassifier" ./internal/icm/
+#### Test: #SET and $ Retrieval
 ```
-
----
-
-### T04B: % Namespace QA (Automated)
-
-**Existing Tests to Verify:**
-- `TestRecognizer_RecognizeSystemVariable`
-
-**Test Cases:**
-
-| Input | Expected Classification | Notes |
-|-------|----------------------|-------|
-| `%1` | Numeric system variable | Session-scoped |
-| `%42` | Numeric system variable | Session-scoped |
-| `%TIME` | Named system variable | Read-only |
-| `%CHARACTER` | Named system variable | Read-only |
-| `%` | Malformed → passes through | Backward compatible |
-| `%999` | Numeric system variable | High number |
-
-**Verification Command:**
-```bash
-go test -v -run "TestRecognizer_RecognizeSystemVariable" ./internal/icm/
+#set myvar testvalue
+$myvar
 ```
+**Expected:** Variable set, then "$myvar" resolves to "testvalue"
 
----
-
-### T05: #LOG Governance QA (Automated)
-
-**Existing Tests to Verify:**
-- `TestEngine_LogCommand`
-- `TestEngine_LogCommandPreviewDenied`
-
-**Test Cases:**
-
-| Context | Input | Expected Behavior |
-|---------|-------|-------------------|
-| Preview | `#log test` | Command validated but not executed |
-| Submission | `#log test` | Command executes (if authorized) |
-| Automation | `#log test` | Command executes (if authorized) |
-| Operational | `#log test` | Command executes with full metadata |
-
-**Verification Command:**
-```bash
-go test -v -run "TestEngine_LogCommand" ./internal/icm/
+#### Test: #IF / #ELSE / #ENDIF
 ```
-
-**Manual Verification Required:**
-- Check log output format (JSON with timestamp, level, correlation ID)
-- Verify routing to backend logging service
-
----
-
-### T06: Regression Testing (Automated)
-
-**Full Test Suite:**
-```bash
-go test -v ./internal/icm/
+#if 1 == 1
+#echo true branch
+#else
+#echo false branch
+#endif
 ```
+**Expected:** "true branch" output
 
-**Expected Results:**
-- All existing tests pass
-- No new test failures
-- Code coverage maintained above 70%
-
----
-
-## Part 2: Browser-Based Manual QA
-
-### Prerequisites
-
-1. **Start Backend Server**
-   ```bash
-   cd cmd/server
-   go run main.go
-   ```
-
-2. **Start Frontend Dev Server**
-   ```bash
-   cd frontend
-   npm run dev
-   ```
-
-3. **Open Browser** to http://localhost:5173 (or configured port)
-
-### Browser QA Environment
-
-| Element | Value |
-|---------|-------|
-| Backend URL | http://localhost:8080 |
-| Frontend URL | http://localhost:5173 |
-| Test Account | Use existing test account |
-
----
-
-### T01: Deterministic Execution QA (Browser)
-
-**Test Scenario 1: Typed Command Execution Order**
-
-1. Connect to a test MUD server
-2. Enter: `#set testvar hello`
-3. Enter: `$testvar`
-4. **Expected:** Variable set, then resolved to "hello"
-
-**Test Scenario 2: Alias Expansion Order**
-
-1. Create alias `@test` with expansion `#echo expanded`
-2. Enter: `@test`
-3. **Expected:** Alias expanded, directive executed
-
-**Test Scenario 3: Trigger Execution Order**
-
-1. Create trigger: "Welcome" → `#echo trigger fired`
-2. Receive text "Welcome" in terminal
-3. **Expected:** Trigger action executes after message display
-
----
-
-### T02: Ingress Route QA (Browser)
-
-**Test Scenario 1: Typed Input**
-
-1. Type `#echo typed test`
-2. Press Enter
-3. **Expected:** Command processed through ICM, output displayed
-
-**Test Scenario 2: Keybinding**
-
-1. Configure a keybinding (e.g., Ctrl+1 → `#echo keybinding`)
-2. Press the keybinding
-3. **Expected:** Command processed through ICM
-
-**Test Scenario 3: History Replay**
-
-1. Enter several commands
-2. Use Up arrow to navigate history
-3. Select a previous command
-4. Press Enter
-5. **Expected:** History command processed through ICM
-
----
-
-### T03: Safety Protection QA (Browser)
-
-**Test Scenario 1: Rate Limiting**
-
-1. Execute 100+ commands rapidly (e.g., `#echo test` repeated)
-2. **Expected:** After rate limit, see throttling message or delay
-
-**Test Scenario 2: Circuit Breaker**
-
-1. Create trigger with recursive expansion
-2. Trigger the loop
-3. **Expected:** Circuit breaker pauses execution, notification displayed
-
----
-
-### T04: Literal Behavior QA (Browser)
-
-**Test Scenario 1: Escape Sequences**
-
-1. Enter: `\#echo hello`
-2. **Expected:** Outputs "#echo hello" (literal, not processed)
-
-**Test Scenario 2: Undefined Variables**
-
-1. Enter: `$undefinedvar`
-2. **Expected:** Outputs "$undefinedvar" (preserved, no error)
-
-**Test Scenario 3: Unknown Operators**
-
-1. Enter: `&somecommand`
-2. **Expected:** Passes through to MUD server unchanged
-
----
-
-### T04B: % Namespace QA (Browser)
-
-**Test Scenario 1: Numeric Session Variables**
-
-1. Create alias: `@argtest %1`
-2. Enter: `@argtest hello`
-3. **Expected:** `%1` resolves to "hello"
-
-**Test Scenario 2: Named System Variables**
-
-1. Enter: `%TIME`
-2. **Expected:** Displays current time value
-
-**Test Scenario 3: Malformed % Reference**
-
-1. Enter: `%`
-2. **Expected:** Passes through literally (backward compatible)
-
----
-
-### T05: #LOG Governance QA (Browser)
-
-**Test Scenario 1: Preview Context**
-
-1. Open command preview (if available)
-2. Enter: `#log test message`
-3. **Expected:** Validation occurs, but no log entry created
-
-**Test Scenario 2: Operational Context**
-
-1. In operational mode, enter: `#log info Test message`
-2. Check backend logs
-3. **Expected:** JSON log entry with timestamp, level, correlation ID
-
----
-
-### T06: Regression Testing (Browser)
-
-**Test Scenario 1: Ordinary Commands**
-
-1. Enter: `look`, `who`, `inventory`, `say hello`
-2. **Expected:** All commands pass through to MUD server
-
-**Test Scenario 2: Existing Aliases**
-
-1. Use existing alias definitions
-2. Execute aliases
-3. **Expected:** Aliases work as before migration
-
-**Test Scenario 3: Existing Triggers**
-
-1. Use existing trigger definitions
-2. Fire triggers
-3. **Expected:** Triggers work as before migration
-
-**Test Scenario 4: Settings Editors**
-
-1. Open Settings → Aliases
-2. Create/edit/delete alias
-3. **Expected:** Validation works, aliases save correctly
-
-4. Open Settings → Triggers
-5. Create/edit/delete trigger
-6. **Expected:** Validation works, triggers save correctly
-
----
-
-## Acceptance Criteria Summary
-
-| Task | Criteria | Verification Method |
-|------|----------|-------------------|
-| T01 | Execution order: input→alias→variable→logic→queue→trigger verified | Run tests + manual |
-| T02 | Typed input, keybindings, history replay all route through ICM | Code review + manual |
-| T03 | Recursion limits, rate limits, circuit breaker fire correctly | Run tests + manual |
-| T04 | Escape sequences, undefined variables, unknown operators work | Run tests + manual |
-| T04B | % namespace resolution: numeric vs named verified | Run tests + manual |
-| T05 | #LOG governance: contexts, output format verified | Run tests + manual |
-| T06 | No regressions in existing command paths | Run tests + manual |
-
----
-
-## Test Data
-
-### Test Aliases
+#### Test: #TIMER (Create Timer)
 ```
-@test → #echo alias expansion
-@args → %1 %2 %3
+#timer testtimer 60 #echo timer fired
 ```
+**Expected:** Timer created, no error
 
-### Test Triggers
+#### Test: #START (Start Timer)
 ```
-Pattern: "Welcome" → Action: #echo Welcome trigger fired
-Pattern: "You die" → Action: #log error Player died
+#start testtimer
 ```
+**Expected:** Timer started
 
-### Test Variables
+#### Test: #CHECK (Check Timer Status)
 ```
-#set testvar testvalue
-#set counter 0
+#check testtimer
 ```
+**Expected:** Timer status displayed (running/stopped)
+
+#### Test: #STOP (Stop Timer)
+```
+#stop testtimer
+```
+**Expected:** Timer stopped
+
+#### Test: #CANCEL (Delete Timer)
+```
+#cancel testtimer
+```
+**Expected:** Timer deleted
+
+#### Test: #LOG (Operational)
+```
+#log info This is a test
+```
+**Expected:** Log entry created (context-dependent)
+
+---
+
+### Phase 1B: Verify Alias References
+
+#### Test: Simple Alias Invocation
+1. Create alias via Settings → Aliases: `@test → #echo alias works`
+2. In terminal: `@test`
+**Expected:** "alias works" output
+
+#### Test: Alias with Arguments
+1. Create alias: `@argtest → say %1`
+2. In terminal: `@argtest hello`
+**Expected:** "say hello" sent to MUD
+
+---
+
+### Phase 1C: Verify User Variables
+
+#### Test: $varname (Short Form)
+```
+#set shortvar shortvalue
+$shortvar
+```
+**Expected:** Variable value "shortvalue" displayed
+
+#### Test: ${varname} (Canonical Form)
+```
+#set longvar longvalue
+${longvar}
+```
+**Expected:** Variable value "longvalue" displayed
+
+#### Test: Undefined Variable (Should Pass Through)
+```
+$undefinedvar
+```
+**Expected:** "$undefinedvar" appears literally (no error)
+
+---
+
+### Phase 1D: Verify System Variables
+
+#### Test: Numeric Session Variables (%1, %2, etc.)
+1. Create alias: `@numtest → echo %1 %2 %2`
+2. Run: `@numtest hello world`
+**Expected:** "hello world world" output
+
+#### Test: %TIME
+```
+%TIME
+```
+**Expected:** Current time displayed (e.g., "14:30:00")
+
+#### Test: %DATE
+```
+%DATE
+```
+**Expected:** Current date displayed (e.g., "2026-03-21")
+
+#### Test: %CHARACTER (After Connection)
+```
+%CHARACTER
+```
+**Expected:** Character name displayed (if connected)
+
+#### Test: %SERVER (After Connection)
+```
+%SERVER
+```
+**Expected:** Server name displayed (if connected)
+
+---
+
+### Phase 1E: Verify Escape Sequences
+
+#### Test: \# (Literal Hash)
+```
+\#echo hello
+```
+**Expected:** "#echo hello" output (not processed as command)
+
+#### Test: \@ (Literal At)
+```
+\@myalias
+```
+**Expected:** "@myalias" output (not processed as alias)
+
+#### Test: \$ (Literal Dollar)
+```
+\$myvar
+```
+**Expected:** "$myvar" output (not processed as variable)
+
+#### Test: \% (Literal Percent)
+```
+\%TIME
+```
+**Expected:** "%TIME" output (not processed as system variable)
+
+---
+
+### Phase 1F: Verify Pass-Through Behavior
+
+#### Test: Ordinary MUD Commands
+```
+look
+who
+inventory
+say hello
+```
+**Expected:** All commands pass through to MUD server unchanged
+
+#### Test: Unknown Operator (Not Reserved)
+```
+&somecommand
+```
+**Expected:** Passes through to MUD server unchanged
+
+---
+
+## Part 2: Complex Scenario Testing
+
+After all individual commands pass, proceed to complex scenarios:
+
+### Phase 2A: Execution Order
+- Verify input → alias → variable → logic → queue → trigger order
+
+### Phase 2B: Ingress Routes
+- Typed input through ICM
+- Keybindings through ICM
+- History replay through ICM
+
+### Phase 2C: Safety Protections
+- Rate limiting
+- Circuit breaker
+- Timeout handling
+
+### Phase 2D: % Namespace Resolution
+- Numeric %<n> precedence over named
+- Malformed % handling
+
+### Phase 2E: #LOG Governance
+- Preview context denies
+- Automation/Operational contexts allow
+
+### Phase 2F: Regression Testing
+- Existing aliases still work
+- Existing triggers still work
+- Settings editors work correctly
+
+---
+
+## Acceptance Criteria
+
+| Phase | Criteria | Pass Condition |
+|-------|----------|----------------|
+| 1A | All 11 structured directives work | Each returns expected output |
+| 1B | Alias references work | Aliases expand and execute |
+| 1C | User variables work | Set/get/undefined cases |
+| 1D | System variables work | Numeric and named cases |
+| 1E | Escape sequences work | Each escape resolves correctly |
+| 1F | Pass-through works | Non-ICM commands pass through |
+| 2A | Execution order correct | Commands process in correct order |
+| 2B | All ingress routes verified | ICM used for all entry points |
+| 2C | Safety protections fire | Limits enforced correctly |
+| 2D | % namespace verified | Precedence rules work |
+| 2E | #LOG governance verified | Context restrictions work |
+| 2F | No regressions | Existing features work |
 
 ---
 
@@ -422,7 +298,7 @@ Pattern: "You die" → Action: #log error Player died
 
 ## Notes
 
-- QA may overlap with documentation refinements
-- Browser-based tests require running server and frontend
-- Use test MUD server (not production) for manual testing
-- Document any discrepancies found during QA
+- **Phase 1 must pass completely before Phase 2**
+- Use a test MUD server (not production)
+- Document any discrepancies found
+- Test with both connected and disconnected states where applicable
