@@ -7,7 +7,7 @@
  * PR02PH09: Now uses CommandRegistry from commands.ts for scalability.
  */
 
-import { CommandRegistry } from './commands';
+import { CommandRegistry, KNOWN_COMMANDS } from './commands';
 
 export type TokenType = 
   | 'COMMAND'    // #IF, #ELSE, #ENDIF, #SET, #TIMER, #ENDTIMER, #CANCEL
@@ -165,11 +165,10 @@ export class Parser {
       }
     }
     
-    // Validate command
-    const validCommands = ['IF', 'ELSE', 'ENDIF', 'SET', 'ADD', 'SUB', 'TIMER', 'ENDTIMER', 'CANCEL', 'START', 'STOP', 'CHECK'];
+    // Validate command - PR02PH09: Use KNOWN_COMMANDS for scalability
     const upperCommand = commandName.toUpperCase();
     
-    if (!validCommands.includes(upperCommand)) {
+    if (!KNOWN_COMMANDS.has(upperCommand)) {
       this.errors.push({
         message: `Unknown command: #${commandName}`,
         line: this.line,

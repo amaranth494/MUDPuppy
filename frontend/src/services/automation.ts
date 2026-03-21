@@ -468,6 +468,7 @@ export class AutomationEngine {
         // Process internal commands through evaluator
         try {
           const result = await executeAutomationAction(cmd, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined);
+          console.log('[DEBUG] executeAutomationAction result:', result);
           if (!result.success) {
             console.warn('[Automation] # command errors:', result.errors);
           }
