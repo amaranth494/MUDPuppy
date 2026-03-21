@@ -298,12 +298,21 @@ export default function PlayScreen() {
       }
     };
 
-    handleErrorRef.current = (err: string) => {
-      terminal.writeln(`\r\n[ERROR] ${err}\r\n`);
+    // PR02PH09: Use automation engine's echoLocal for consistent #ECHO styling
+    handleErrorRef.current = async (err: string) => {
+      if (automationEngine) {
+        await automationEngine.echoLocal(`[ERROR] ${err}`, { color: 'red' });
+      } else {
+        terminal.writeln(`\r\n\x1b[91m[ERROR] ${err}\x1b[0m\r\n`);
+      }
     };
 
-    handleDisconnectRef.current = () => {
-      terminal.writeln('\r\n[Disconnected]\r\n');
+    handleDisconnectRef.current = async () => {
+      if (automationEngine) {
+        await automationEngine.echoLocal('[Disconnected]', { color: 'white' });
+      } else {
+        terminal.writeln('\r\n\x1b[37m[Disconnected]\x1b[0m\r\n');
+      }
     };
 
     // Register handlers
@@ -381,11 +390,9 @@ export default function PlayScreen() {
     // PR02PH03: Validate internal commands - show error for invalid syntax
     if (classification.isInternal && command.trim()) {
       const validationError = validateCommand(command);
-      if (validationError && terminalInstanceRef.current) {
-        // Display validation error to user
-        const brightRed = '\x1b[91m';
-        const reset = '\x1b[0m';
-        terminalInstanceRef.current.write(`\r\n${brightRed}[ICM Error] ${validationError.userMessage}${reset}\r\n`);
+      if (validationError && terminalInstanceRef.current && automationEngine) {
+        // PR02PH09: Display validation error through #ECHO system
+        await automationEngine.echoLocal(`[ICM Error] ${validationError.userMessage}`, { color: 'red' });
         return; // Don't process invalid commands
       }
     }
@@ -409,23 +416,13 @@ export default function PlayScreen() {
         wsManager.sendCommand(command + '\n');
         
         // SP04PH05: Local echo - controlled by profile settings.echo_input
+        // PR02PH09: Use automation engine's echoLocal for consistent #ECHO styling
         const settings = profile?.settings;
         const shouldEcho = settings?.echo_input ?? true;
-        if (shouldEcho && terminalInstanceRef.current) {
-          const brightCyan = '\x1b[96m';
-          const reset = '\x1b[0m';
-          let echoText = brightCyan + command + reset + '\r\n';
-          if (settings?.timestamp_output) {
-            const now = new Date();
-            const timestamp = now.toLocaleTimeString('en-US', { 
-              hour12: false, 
-              hour: '2-digit', 
-              minute: '2-digit', 
-              second: '2-digit' 
-            });
-            echoText = brightCyan + `[${timestamp}]` + reset + ' ' + brightCyan + command + reset + '\r\n';
-          }
-          terminalInstanceRef.current.write(echoText);
+        const timestamp = settings?.timestamp_output ?? false;
+        if (shouldEcho && automationEngine) {
+          const displayCmd = timestamp ? `[${new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}] ${command}` : command;
+          await automationEngine.echoLocal(displayCmd, { color: 'brightcyan' });
         }
       }
     }

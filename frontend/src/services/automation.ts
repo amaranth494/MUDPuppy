@@ -289,6 +289,36 @@ export class AutomationEngine {
   }
 
   /**
+   * PR02PH09: Output a local message through the #ECHO command system
+   * This ensures all local output uses consistent styling
+   * @param message - The message to display
+   * @param options - Optional styling options (color, background, bold, underline)
+   */
+  async echoLocal(message: string, options?: {
+    color?: string;
+    background?: string;
+    bold?: boolean;
+    underline?: boolean;
+  }): Promise<void> {
+    // Build the #ECHO command with optional styling
+    let echoCmd = '#ECHO';
+    
+    if (options && (options.color || options.background || options.bold || options.underline)) {
+      const styleParts: string[] = [];
+      if (options.color) styleParts.push(`color:${options.color}`);
+      if (options.background) styleParts.push(`background:${options.background}`);
+      if (options.bold) styleParts.push('bold');
+      if (options.underline) styleParts.push('underline');
+      echoCmd += ` (${styleParts.join(',')})`;
+    }
+    
+    echoCmd += ` ${message}`;
+    
+    // Process through the evaluator (same path as user-typed #ECHO)
+    await this.processUserInput(echoCmd);
+  }
+
+  /**
    * Set the callbacks for persisting timers to backend
    * PR01PH04: Timers need to be saved to profile storage
    */
