@@ -1,0 +1,233 @@
+// Template: ICM Frontend Adapter Integration
+// Location: frontend/src/services/icm-adapter.ts
+// Usage: Add new command validation/preview functions to the adapter
+
+// =============================================================================
+// FRONTEND ADAPTER TEMPLATE
+// =============================================================================
+// This template shows how to add new command support to the frontend ICM adapter.
+// Copy relevant sections to frontend/src/services/icm-adapter.ts
+// =============================================================================
+
+/**
+ * Example: Adding validation for a new #MYCOMMAND directive
+ */
+
+// 1. Add command type to the types file (frontend/src/types/index.ts):
+//
+// export interface MyCommandOptions {
+//   requiredArg: string;
+//   optionalArg?: string;
+// }
+
+// 2. Add validation function to icm-adapter.ts:
+
+/**
+ * Validates a #MYCOMMAND directive
+ * 
+ * @param command - The raw command input
+ * @returns Validation result with any errors
+ */
+export async function validateMyCommand(command: string): Promise<ValidationResult> {
+  // Use the existing validation endpoint with preview context
+  return await apiValidateCommand(command, 'preview');
+}
+
+/**
+ * Previews a #MYCOMMAND directive execution
+ * 
+ * @param command - The command to preview
+ * @returns Preview result showing what would happen
+ */
+export async function previewMyCommand(command: string): Promise<CommandPreview> {
+  const response = await fetch('/api/icm/preview', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      raw: command,
+      context: 'preview',
+    }),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    return {
+      valid: false,
+      errors: [{
+        code: error.code,
+        message: error.message,
+      }],
+    };
+  }
+  
+  const result = await response.json();
+  return {
+    valid: true,
+    normalized: result.normalized,
+    preview: result.preview,
+  };
+}
+
+/**
+ * Submits a #MYCOMMAND directive for execution
+ * 
+ * @param command - The command to execute
+ * @returns Execution result
+ */
+export async function executeMyCommand(command: string): Promise<CommandResult> {
+  const response = await fetch('/api/icm/execute', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      raw: command,
+      context: 'submission',
+    }),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new ICMError(error.code, error.message);
+  }
+  
+  return await response.json();
+}
+
+// 3. Usage in component (e.g., SettingsPage.tsx):
+
+/*
+// Example usage in an editor component
+
+import { validateMyCommand } from '../services/icm-adapter';
+
+function MyEditor() {
+  const [errors, setErrors] = useState<string[]>([]);
+  
+  async function validateInput(value: string) {
+    if (value.startsWith('#MYCOMMAND')) {
+      const result = await validateMyCommand(value);
+      if (!result.valid && result.errors) {
+        setErrors(result.errors.map(e => e.message));
+      } else {
+        setErrors([]);
+      }
+    }
+  }
+  
+  // ... component implementation
+}
+*/
+
+// =============================================================================
+// VALIDATION RESULT TYPES
+// =============================================================================
+// These types should already exist in the codebase, but are included
+// here for reference:
+
+/*
+export interface ValidationResult {
+  valid: boolean;
+  errors?: Array<{
+    code: string;
+    message: string;
+    position?: number;
+  }>;
+}
+
+export interface CommandPreview {
+  valid: boolean;
+  normalized?: NormalizedCommand;
+  preview?: {
+    output: string;
+    effects: StateEffect[];
+  };
+  errors?: Array<{
+    code: string;
+    message: string;
+  }>;
+}
+
+export interface CommandResult {
+  output: string;
+  effects?: StateEffect[];
+  metadata?: {
+    executionTime: number;
+    handler: string;
+  };
+}
+
+export interface NormalizedCommand {
+  raw: string;
+  normalized: string;
+  operator: '#' | '@' | '$' | '%';
+  command: string;
+  args: string[];
+}
+
+export interface StateEffect {
+  type: 'variable' | 'timer' | 'trigger' | 'log' | string;
+  key: string;
+  value: unknown;
+}
+*/
+
+// =============================================================================
+// TESTING
+// =============================================================================
+// Example test cases for the adapter:
+
+/*
+// In frontend/src/services/__tests__/icm-adapter.test.ts
+
+import { validateMyCommand, previewMyCommand, executeMyCommand } from '../icm-adapter';
+
+describe('ICM Adapter - #MYCOMMAND', () => {
+  describe('validateMyCommand', () => {
+    it('should validate a correct #MYCOMMAND', async () => {
+      const result = await validateMyCommand('#MYCOMMAND arg1');
+      expect(result.valid).toBe(true);
+      expect(result.errors).toBeUndefined();
+    });
+    
+    it('should reject #MYCOMMAND without required argument', async () => {
+      const result = await validateMyCommand('#MYCOMMAND');
+      expect(result.valid).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors?.[0].code).toBe('E2001');
+    });
+  });
+  
+  describe('previewMyCommand', () => {
+    it('should return preview for #MYCOMMAND', async () => {
+      const result = await previewMyCommand('#MYCOMMAND arg1');
+      expect(result.valid).toBe(true);
+      expect(result.normalized).toBeDefined();
+    });
+  });
+});
+*/
+
+// =============================================================================
+// API ENDPOINTS REQUIRED
+// =============================================================================
+// The frontend adapter expects these backend endpoints:
+//
+// POST /api/icm/validate
+//   Body: { raw: string, context: string }
+//   Response: { valid: boolean, errors?: Array<{code, message, position?}> }
+//
+// POST /api/icm/preview
+//   Body: { raw: string, context: string }
+//   Response: { valid: boolean, normalized?, preview?, errors? }
+//
+// POST /api/icm/execute
+//   Body: { raw: string, context: string }
+//   Response: { output, effects?, metadata? }
+//
+// POST /api/icm/recognize
+//   Body: { raw: string }
+//   Response: { tokens: Array<{type, value, position}> }
+//

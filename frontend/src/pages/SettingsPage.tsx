@@ -6,6 +6,8 @@ import { normalizeKeybindings, eventToCanonicalKey, isValidKeybindingFormat, isV
 import { useSession } from '../context/SessionContext';
 import Modal from '../components/Modal';
 import { parser, validateSyntax, ParseError } from '../services/automation/parser';
+// PR02PH03: Import ICM adapter for editor validation
+import { recognizeCommand, validateCommand } from '../services/icm-adapter';
 
 // Section types
 type SettingsSection = 'general' | 'keybindings' | 'aliases' | 'triggers' | 'timers' | 'environment';
@@ -401,15 +403,44 @@ export default function SettingsPage() {
     });
   };
 
+  // PR02PH03: Enhanced validation function for timer commands using both parser and ICM
+  const validateTimerCommands = (commands: string): string[] => {
+    const errors: string[] = [];
+    
+    // First, run parser-based validation
+    const parserErrors = validateAutomationScript(commands);
+    if (parserErrors.length > 0) {
+      errors.push(...parserErrors.map(e => `Line ${e.line}: ${e.message}`));
+    }
+    
+    // PR02PH03: Also run ICM-based validation for each line
+    const lines = commands.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line) {
+        const classification = recognizeCommand(line);
+        if (classification.isInternal) {
+          const icmError = validateCommand(line);
+          if (icmError) {
+            errors.push(`Line ${i + 1}: ${icmError.userMessage}`);
+          }
+        }
+      }
+    }
+    
+    return errors;
+  };
+
   // Validate timer commands
   const validateAndUpdateTimer = (id: string, updates: Partial<Timer>) => {
     handleUpdateTimer(id, updates);
     if (updates.commands && updates.commands.includes('#')) {
-      const errors = validateAutomationScript(updates.commands);
+      // Use enhanced validation that includes ICM
+      const errors = validateTimerCommands(updates.commands);
       if (errors.length > 0) {
         setTimerSyntaxErrors(prev => ({ 
           ...prev, 
-          [id]: errors.map(e => `Line ${e.line}: ${e.message}`).join('; ') 
+          [id]: errors.join('; ') 
         }));
       } else {
         setTimerSyntaxErrors(prev => {
@@ -558,6 +589,34 @@ export default function SettingsPage() {
     return validateSyntax(result.tokens);
   };
 
+  // PR02PH03: Enhanced validation function for alias replacement using both parser and ICM
+  const validateAliasReplacement = (replacement: string): string[] => {
+    const errors: string[] = [];
+    
+    // First, run parser-based validation
+    const parserErrors = validateAutomationScript(replacement);
+    if (parserErrors.length > 0) {
+      errors.push(...parserErrors.map(e => `Line ${e.line}: ${e.message}`));
+    }
+    
+    // PR02PH03: Also run ICM-based validation for each line
+    const lines = replacement.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line) {
+        const classification = recognizeCommand(line);
+        if (classification.isInternal) {
+          const icmError = validateCommand(line);
+          if (icmError) {
+            errors.push(`Line ${i + 1}: ${icmError.userMessage}`);
+          }
+        }
+      }
+    }
+    
+    return errors;
+  };
+
   // Validate alias replacement and update error state
   const validateAndUpdateAlias = (id: string, updates: Partial<Alias>) => {
     // Update the alias first
@@ -565,10 +624,10 @@ export default function SettingsPage() {
     
     // If replacement was updated, validate it
     if (updates.replacement !== undefined) {
-      const errors = validateAutomationScript(updates.replacement);
+      // Use enhanced validation that includes ICM
+      const errors = validateAliasReplacement(updates.replacement);
       if (errors.length > 0) {
-        const errorMessage = errors.map(e => `Line ${e.line}: ${e.message}`).join('; ');
-        setAliasSyntaxErrors(prev => ({ ...prev, [id]: errorMessage }));
+        setAliasSyntaxErrors(prev => ({ ...prev, [id]: errors.join('; ') }));
         console.warn('[SettingsPage] Alias syntax validation errors:', errors);
       } else {
         // Clear error if no syntax errors
@@ -581,6 +640,34 @@ export default function SettingsPage() {
     }
   };
 
+  // PR02PH03: Enhanced validation function for trigger action using both parser and ICM
+  const validateTriggerAction = (action: string): string[] => {
+    const errors: string[] = [];
+    
+    // First, run parser-based validation
+    const parserErrors = validateAutomationScript(action);
+    if (parserErrors.length > 0) {
+      errors.push(...parserErrors.map(e => `Line ${e.line}: ${e.message}`));
+    }
+    
+    // PR02PH03: Also run ICM-based validation for each line
+    const lines = action.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line) {
+        const classification = recognizeCommand(line);
+        if (classification.isInternal) {
+          const icmError = validateCommand(line);
+          if (icmError) {
+            errors.push(`Line ${i + 1}: ${icmError.userMessage}`);
+          }
+        }
+      }
+    }
+    
+    return errors;
+  };
+
   // Validate trigger action and update error state
   const validateAndUpdateTrigger = (id: string, updates: Partial<Trigger>) => {
     // Update the trigger first
@@ -588,10 +675,10 @@ export default function SettingsPage() {
     
     // If action was updated, validate it
     if (updates.action !== undefined) {
-      const errors = validateAutomationScript(updates.action);
+      // Use enhanced validation that includes ICM
+      const errors = validateTriggerAction(updates.action);
       if (errors.length > 0) {
-        const errorMessage = errors.map(e => `Line ${e.line}: ${e.message}`).join('; ');
-        setTriggerSyntaxErrors(prev => ({ ...prev, [id]: errorMessage }));
+        setTriggerSyntaxErrors(prev => ({ ...prev, [id]: errors.join('; ') }));
         console.warn('[SettingsPage] Trigger syntax validation errors:', errors);
       } else {
         // Clear error if no syntax errors

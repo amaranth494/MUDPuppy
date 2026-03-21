@@ -8,6 +8,8 @@
 import { Trigger, AutomationAliases, AutomationTriggers, AutomationVariables } from '../types';
 import { SimpleVariableStore, VariableValue, executeAutomationAction } from './automation/evaluator';
 import { TimerManager, SavedTimer } from './automation/timer';
+// PR02PH06: Import ICM adapter for command classification
+import { recognizeCommand } from './icm-adapter';
 
 // ============================================
 // Types
@@ -75,6 +77,25 @@ const MAX_COMMAND_HISTORY = 50;
 
 // Loop detection threshold - same command repeated this many times triggers protection
 const LOOP_DETECTION_THRESHOLD = 50;
+
+// ============================================
+// PR02PH06: Helper Functions using ICM
+// ============================================
+
+/**
+ * PR02PH06: Check if a command is an internal command using ICM classification
+ * This consolidates multiple redundant startsWith('#') checks throughout the code
+ * 
+ * @param input - The command string to check
+ * @returns true if the command is an internal command (#, @, $, % families)
+ */
+function isInternalCommand(input: string): boolean {
+  if (!input || !input.trim()) {
+    return false;
+  }
+  const classification = recognizeCommand(input);
+  return classification.isInternal;
+}
 
 // Loop detection time window in ms
 const LOOP_DETECTION_WINDOW_MS = 2000;
@@ -171,8 +192,9 @@ export class AutomationEngine {
       executeThroughParser: async (commands: string[]): Promise<void> => {
         for (const cmd of commands) {
           const trimmedCmd = cmd.trim();
-          if (trimmedCmd.startsWith('#')) {
-            // Process # commands through parser
+          // PR02PH06: Use ICM classification instead of redundant prefix check
+          if (isInternalCommand(trimmedCmd)) {
+            // Process internal commands through parser
             try {
               const result = await executeAutomationAction(trimmedCmd, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined);
               if (!result.success) {
@@ -440,9 +462,9 @@ export class AutomationEngine {
     const processedCommands: ProcessedCommand[] = [];
     
     for (const cmd of commands) {
-      // Check if this is a # command (IF, SET, TIMER, CANCEL)
-      if (cmd.trim().startsWith('#')) {
-        // Process # commands using the evaluator (PR01PH02, PR01PH04)
+      // PR02PH06: Use ICM classification instead of redundant prefix check
+      if (isInternalCommand(cmd)) {
+        // Process internal commands through evaluator
         try {
           const result = await executeAutomationAction(cmd, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined);
           if (!result.success) {
@@ -479,8 +501,9 @@ export class AutomationEngine {
       for (const expandedCmd of expansions.commands) {
         // PR01PH07T02: Check if expanded command contains # commands - parse through automation action
         const trimmedCmd = expandedCmd.trim();
-        if (trimmedCmd.startsWith('#')) {
-          // Process # commands using the evaluator (PR01PH02, PR01PH04)
+        // PR02PH06: Use ICM classification instead of redundant prefix check
+        if (isInternalCommand(trimmedCmd)) {
+          // Process internal commands using the evaluator
           try {
             const result = await executeAutomationAction(trimmedCmd, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined);
             if (!result.success) {
@@ -543,10 +566,12 @@ export class AutomationEngine {
       // Variable substitution
       let processed = this.substituteVariables(cmd);
       
+      // PR02PH06: Use ICM classification instead of redundant prefix check
       // Check for explicit alias invocation (@alias)
       // Note: Trigger actions do NOT implicitly pass through alias evaluation
       // PR01PH07T02: But explicit alias invocations do go through parser
-      if (processed.startsWith('@')) {
+      const aliasClassification = recognizeCommand(processed);
+      if (aliasClassification.operator === '@') {
         console.log('[Alias] ' + processed);
         const aliasCommands = await this.invokeExplicitAlias(processed.substring(1));
         for (const aliasCmd of aliasCommands) {

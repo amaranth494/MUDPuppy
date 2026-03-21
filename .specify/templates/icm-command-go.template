@@ -1,0 +1,245 @@
+// Template: ICM Structured Command Handler
+// Location: internal/icm/handlers/
+// Usage: Copy this template to create a new #COMMAND handler
+
+package icm
+
+import (
+	"fmt"
+	"time"
+)
+
+// =============================================================================
+// COMMAND SPECIFICATION
+// =============================================================================
+// Command Name: COMMANDNAME
+// Operator Family: # (Structured Directive)
+// Purpose: [One sentence describing what this command does]
+// Syntax: #COMMANDNAME <required_arg> [optional_arg]
+// Execution Contexts: Preview, Submission, Automation, Operational
+// Authority Required: CanExecute (for submission/automation/operational)
+// Persistence: [None / Profile / Session]
+// =============================================================================
+
+// CommandNameHandler handles the #COMMANDNAME directive
+type CommandNameHandler struct {
+	// Add any required state fields here
+	// Example: customConfig *Config
+}
+
+// NewCommandNameHandler creates a new #COMMANDNAME handler
+func NewCommandNameHandler() *CommandNameHandler {
+	return &CommandNameHandler{
+		// Initialize state fields
+	}
+}
+
+// Handle executes the #COMMANDNAME directive
+//
+// Execution Contexts: This handler supports:
+// - Preview: Validates syntax, returns preview information
+// - Submission: Validates and executes user command
+// - Automation: Executes from alias/trigger/timer
+// - Operational: Executes from service tooling
+func (h *CommandNameHandler) Handle(ctx *ExecutionContext, cmd *NormalizedCommand) (*CommandResult, *ICMError) {
+	// Validate context authorization
+	if !h.canExecute(*ctx) {
+		return nil, NewICMError(E4002ContextNotAllowed, 
+			fmt.Sprintf("#COMMANDNAME not allowed in %s context", *ctx), nil)
+	}
+
+	// Parse arguments
+	if len(cmd.Args) < 1 {
+		return nil, NewICMError(E2001MissingArgument, 
+			"#COMMANDNAME requires at least 1 argument", nil)
+	}
+
+	requiredArg := cmd.Args[0]
+	var optionalArg string
+	if len(cmd.Args) > 1 {
+		optionalArg = cmd.Args[1]
+	}
+
+	// Implement command logic
+	// ...
+
+	// Return result
+	return &CommandResult{
+		Output: "result output",
+		Effects: []StateEffect{
+			{
+				Type:  "effect_type", // "variable", "timer", "trigger", "log", etc.
+				Key:   "effect_key",
+				Value: "effect_value",
+			},
+		},
+		Metadata: ResultMetadata{
+			ExecutionTime: time.Since(time.Now()).Milliseconds(),
+			Handler:       "COMMANDNAME",
+		},
+	}, nil
+}
+
+// canExecute returns true if the context allows execution
+func (h *CommandNameHandler) canExecute(ctx ExecutionContext) bool {
+	switch ctx {
+	case ContextPreview:
+		return false // Preview can only validate, not execute
+	case ContextSubmission:
+		return true
+	case ContextAutomation:
+		return true
+	case ContextOperational:
+		return true
+	default:
+		return false
+	}
+}
+
+// Validate validates the command arguments
+// This is called during the validation phase before Handle
+func (h *CommandNameHandler) Validate(cmd *NormalizedCommand) *ICMError {
+	// Check argument count
+	if len(cmd.Args) < 1 {
+		return NewICMError(E2001MissingArgument, 
+			"#COMMANDNAME requires at least 1 argument", nil)
+	}
+
+	// Validate argument format
+	// Example: check for valid number, valid regex, etc.
+	// if !isValidFormat(cmd.Args[0]) {
+	//     return NewICMError(E2002InvalidArgument, 
+	//         "Invalid argument format", nil)
+	// }
+
+	return nil
+}
+
+// Name returns the command name
+func (h *CommandNameHandler) Name() string {
+	return "COMMANDNAME"
+}
+
+// Description returns the command description for help system
+func (h *CommandNameHandler) Description() string {
+	return "Description of what this command does"
+}
+
+// HelpText returns detailed help information
+func (h *CommandNameHandler) HelpText() string {
+	return `#COMMANDNAME - [Short description]
+
+Syntax: #COMMANDNAME <required> [optional]
+
+Arguments:
+  required  - Description of required argument
+  optional - Description of optional argument (default: default_value)
+
+Examples:
+  #COMMANDNAME myarg
+  #COMMANDNAME myarg myoptional
+
+Context: Preview, Submission, Automation, Operational
+Authority: CanExecute`
+}
+
+// =============================================================================
+// REGISTRATION
+// =============================================================================
+// To register this handler, add to dispatcher.go in registerBuiltInHandlers():
+//
+//   d.RegisterHandler(OperatorStructured, "COMMANDNAME", NewCommandNameHandler())
+//
+// =============================================================================
+
+// =============================================================================
+// TESTS
+// =============================================================================
+// Example test cases to add to internal/icm/icm_test.go:
+//
+// func TestCommandNameHandler_Validate(t *testing.T) {
+//     handler := &CommandNameHandler{}
+//     
+//     tests := []struct {
+//         name    string
+//         cmd     *NormalizedCommand
+//         wantErr bool
+//         errCode string
+//     }{
+//         {
+//             name: "valid command",
+//             cmd: &NormalizedCommand{
+//                 Command: "COMMANDNAME",
+//                 Args:    []string{"arg1"},
+//             },
+//             wantErr: false,
+//         },
+//         {
+//             name: "missing argument",
+//             cmd: &NormalizedCommand{
+//                 Command: "COMMANDNAME",
+//                 Args:    []string{},
+//             },
+//             wantErr: true,
+//             errCode: "E2001",
+//         },
+//     }
+//     
+//     for _, tt := range tests {
+//         t.Run(tt.name, func(t *testing.T) {
+//             err := handler.Validate(tt.cmd)
+//             if tt.wantErr {
+//                 assert.Error(t, err)
+//                 if tt.errCode != "" {
+//                     assert.Contains(t, err.Code, tt.errCode)
+//                 }
+//             } else {
+//                 assert.NoError(t, err)
+//             }
+//         })
+//     }
+// }
+//
+// func TestCommandNameHandler_Handle(t *testing.T) {
+//     handler := &CommandNameHandler{}
+//     
+//     tests := []struct {
+//         name    string
+//         ctx     ExecutionContext
+//         cmd     *NormalizedCommand
+//         wantErr bool
+//     }{
+//         {
+//             name: "valid execution",
+//             ctx:  ContextSubmission,
+//             cmd: &NormalizedCommand{
+//                 Command: "COMMANDNAME",
+//                 Args:    []string{"arg1"},
+//             },
+//             wantErr: false,
+//         },
+//         {
+//             name: "preview context",
+//             ctx:  ContextPreview,
+//             cmd: &NormalizedCommand{
+//                 Command: "COMMANDNAME",
+//                 Args:    []string{"arg1"},
+//             },
+//             wantErr: true,
+//         },
+//     }
+//     
+//     for _, tt := range tests {
+//         t.Run(tt.name, func(t *testing.T) {
+//             result, err := handler.Handle(&tt.ctx, tt.cmd)
+//             if tt.wantErr {
+//                 assert.Error(t, err)
+//             } else {
+//                 assert.NoError(t, err)
+//                 assert.NotNil(t, result)
+//             }
+//         })
+//     }
+// }
+//
+// =============================================================================

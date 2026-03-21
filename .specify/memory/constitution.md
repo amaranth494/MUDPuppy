@@ -41,31 +41,36 @@ This evolution allows the platform to grow from a playable client into a feature
 ### IV. Automation Scalability
 Automation engines (aliases, triggers, timers, variables) must be designed to scale from simple rule-based MVP functionality to more advanced sandboxed scripting in later phases. The architecture must support this growth without breaking early implementations.
 
-### IV.0 Automation Execution Model
-Automation objects (aliases, triggers, variables, timers, and automation logic) execute within the client runtime rather than the backend service.
+### IV.0 Frontend and Backend Responsibility Model
+The platform is divided into two constitutional layers:
 
-The backend service remains responsible for:
-- Session proxying
-- Authentication
-- Profile persistence
-- Logging
+**Frontend responsibilities:**
+- Presentation and visual interpretation
+- Automation authoring, editing, and inspection
+- Help, validation messaging, and user-facing debugging surfaces
+- Session controls and command entry UX
+- Optional local, ephemeral convenience behaviors that do not become the authoritative source of truth
 
-Automation safety protections must still be enforced within the client runtime, including:
-- Circuit breaker protections
-- Evaluation timeouts
-- Loop detection
-- Trigger rate limiting
+**Backend responsibilities:**
+- Session proxying and authoritative MUD connection ownership
+- Authentication and multi-tenant enforcement
+- Protocol negotiation and stream normalization
+- Profile persistence, logging, observability, and operational controls
+- Authoritative automation execution when automation interacts with live session state or game-state
+- Enforcement of automation safety limits, quotas, and execution boundaries
 
-This clarification aligns constitutional doctrine with the client-runtime automation model used in SP05 and PR01.
+Automation may be authored and inspected in the frontend, but automation that interacts with live session state, parsed output, timers, triggers, command dispatch, or operational tooling is constitutionally a backend responsibility.
 
 ### IV.a Automation Logic Scope
-The client will support structured command logic, but not general-purpose scripting languages.
+The platform will support structured command logic, but not general-purpose scripting languages.
 
 Automation must remain:
 - **deterministic** — predictable execution every time
 - **bounded** — limited resources and execution time
-- **inspectable by users** — visible and editable in the UI
+- **inspectable by users** through the frontend UI
 - **safe against runaway execution** — protected by safety systems
+
+Automation authoring and visibility belong to the frontend experience. Authoritative automation execution belongs to the backend automation engine when rules interact with session-state, game-state, timers, triggers, command dispatch, or operational tooling.
 
 Automation features must therefore follow these constraints:
 
@@ -111,7 +116,7 @@ Directives must:
 
 *Timer definitions persist in connection profiles, while runtime countdown state remains session-scoped.*
 
-These directives act as control instructions for the automation engine, not commands sent to the MUD server. This maintains clear separation between client-side automation and server commands.
+These directives act as control instructions for the automation engine, not commands sent directly to the MUD server. They are authored and surfaced through the frontend, but resolved and executed through the authoritative automation and command-processing architecture.
 
 ### IV.d Automation Transparency
 Automation must always remain visible and debuggable to the user.
@@ -136,6 +141,63 @@ To enforce this, automation must be processed in this order:
 6. Trigger evaluation
 
 This ensures predictable automation behavior and simplifies debugging.
+
+### IV.f Unified Internal Command Architecture
+The platform shall maintain a single authoritative Internal Command Module responsible for recognizing, parsing, validating, normalizing, and dispatching all internal command forms and operator-led references.
+
+This module is the authoritative home for internal command semantics.
+
+It must govern:
+- structured directives beginning with #
+- alias and internal reference operators such as @
+- variable and system reference operators such as %, $, and equivalent forms
+- future operator families added in later specifications
+
+No UI surface, input hook, history pathway, keybinding handler, alias subsystem, trigger subsystem, or service feature may define competing authoritative operator behavior outside this module.
+
+### IV.g Command-First Development Preference
+When a feature, reusable system action, or developer-facing utility can reasonably be expressed as an internal command managed by the Internal Command Module, that approach is preferred over bespoke scattered function implementations.
+
+This preference exists to enforce:
+- deterministic behavior
+- shared validation and escaping rules
+- centralized observability
+- reusable tooling
+- simpler QA
+- clearer documentation
+- scalable extension of future operator families
+
+Private implementation helpers may still exist, but they must sit beneath the command model rather than replacing or fragmenting it.
+
+### IV.h Internal Command Safety and Governance
+Any internal command affecting automation, variables, timers, dispatch, logging, session behavior, or other operational features must inherit the existing constitutional safeguards and platform protections.
+
+No internal command may bypass:
+- recursion depth limits
+- command dispatch limits
+- trigger cooldown enforcement
+- command queue backpressure
+- circuit breaker halt conditions
+- authentication requirements
+- multi-tenant security protections
+- audit and observability requirements
+
+Commands intended for end users must remain human-readable, inspectable, and documentable.
+Commands intended primarily for internal service or developer workflows may remain non-user-facing, but must still be standardized through the Internal Command Module.
+
+### IV.i Standardized Logging Directives
+Logging is a first-class platform concern.
+
+When logging behavior can be modeled as an internal command, a standardized directive-based approach is preferred over ad hoc logging calls scattered throughout the codebase.
+
+Standardized logging directives must enforce:
+- consistent formatting
+- level taxonomy
+- routing behavior
+- correlation metadata
+- centralized discoverability for debugging and operations
+
+A directive such as #LOG is constitutionally consistent with this doctrine, provided its execution remains service-aligned and does not violate the service-first architecture.
 
 ### V. Modern Web Application Standards
 Beyond MUD-specific functionality, this is a modern web application. Authentication, account management, profile persistence, administrative tooling, logging, monitoring, and security must be first-class citizens. User data, configurations, and session artifacts must persist reliably in the cloud and follow users across devices.
@@ -202,9 +264,10 @@ All database schema changes must be versioned via a migration tool.
 - The migration tool must track applied versions in the database
 
 **Automation Engine**
-- Rule-based processing for MVP (aliases, triggers, timers, variables)
-- Sandboxed execution environment for advanced scripting
-- Event-driven architecture for trigger firing
+- Authoritative execution engine for aliases, triggers, timers, variables, and structured command logic
+- Sandboxed execution environment for advanced scripting and future automation expansion
+- Event-driven processing tied to normalized session output and command dispatch
+- Enforcement point for automation safety, quotas, and observability
 
 ### Frontend Architecture
 The browser-based client is a modern SPA (Single Page Application):
@@ -240,6 +303,10 @@ Post-MVP, the architecture must support migrating from xterm.js terminal renderi
 - Accessibility overlays and screen reader support
 - Rich media integration
 The migration path from MVP (xterm.js) to Phase N (structured events) must be planned and documented.
+
+**Automation UX Responsibilities**
+- Rule editors, inspectors, documentation surfaces, pause/resume controls, validation messages, and debugging visibility
+- The frontend may assist authoring and preview, but it is not the authoritative runtime for session-state automation
 
 ### Minimum UI Contract for MVP
 
@@ -533,21 +600,26 @@ Performance and reliability are constitutional values. Exact numeric thresholds 
 - Automation metrics: trigger execution time, failure rate, rules engine throughput
 - System metrics: active concurrent sessions, API response latency (p50, p95, p99), error rate by type
 
-### Automation Sandbox Boundaries
-Automation runs server-side and must be strictly sandboxed:
+### Automation Runtime and Sandbox Boundaries
+Authoritative automation executes in the backend service and must be strictly sandboxed.
 
 **Execution Constraints:**
-- No filesystem access
-- No arbitrary outbound network calls (MUD connections are exception)
+- No filesystem access except explicitly approved service-owned logging/persistence paths
+- No arbitrary outbound network calls beyond approved service-managed MUD connectivity
 - No subprocess execution
-- Deterministic timeout boundaries (max 5 seconds per script)
-- Memory-limited execution environment (10MB per automation)
+- Deterministic timeout boundaries
+- Memory-limited execution environment
+- Enforced recursion, dispatch, cooldown, queue, and circuit-breaker protections
 
 **Isolation:**
 - Per-user execution context
-- No shared state between automation rules
 - No access to other users' data
-- Quota enforcement: max 1000 automation executions per minute per user
+- No unauthorized shared state across users
+- Quota enforcement by user, session, and service policy
+
+**Frontend Role:**
+- The frontend may provide local preview, validation, editing assistance, and non-authoritative convenience behavior
+- The frontend is not the authoritative execution environment for automation that interacts with live session-state or game-state
 
 ### Versioning Strategy
 Frontend and backend evolve independently. Versioning ensures compatibility:
@@ -671,7 +743,7 @@ Working Branch → Push to Staging → Push to Master → Switch to Staging → 
 
 **Important:** This is the VERY LAST step for EVERY spec. No spec is considered complete until this workflow is executed.
 
-**Version**: 1.20.0 | **Ratified**: 2026-02-23 | **Last Amended**: 2026-03-13
+**Version**: 1.22.0 | **Ratified**: 2026-02-23 | **Last Amended**: 2026-03-19
 
 **Amendment v1.20.0:** Removed any doctrine references to logic nesting limits. The existing safety systems (recursion, dispatch, cooldowns, circuit breaker, backpressure) are sufficient to govern automation execution.
 

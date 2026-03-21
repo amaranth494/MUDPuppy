@@ -16,6 +16,8 @@
 
 import { ParsedToken, CommandToken, parser, validateSyntax } from './parser';
 import { handleTimerCommand, handleCancelCommand, TimerManager, findTimerEnd, handleStartCommand, handleStopCommand, handleCheckCommand } from './timer';
+// PR02PH06: Import ICM adapter for command classification
+import { recognizeCommand } from '../icm-adapter';
 
 // ============================================
 // Types
@@ -882,7 +884,9 @@ async function executeTokenList(
       if (text.trim()) {
         // Check for @alias invocation - resolve if aliasResolver is provided
         const trimmedText = text.trim();
-        if (trimmedText.startsWith('@') && context.aliasResolver) {
+        // PR02PH06: Use ICM classification instead of redundant prefix check
+        const textClassification = recognizeCommand(trimmedText);
+        if (textClassification.operator === '@' && context.aliasResolver) {
           const aliasName = trimmedText.substring(1).trim();
           if (aliasName) {
             try {
@@ -896,10 +900,14 @@ async function executeTokenList(
               });
             }
           }
-        } else if (!trimmedText.startsWith('#')) {
-          // Only send to MUD if it doesn't start with #
-          // Lines starting with # are automation commands that should be processed, not sent
-          commands.push(trimmedText);
+        } else {
+          // PR02PH06: Use ICM classification - send to MUD only if not internal command
+          const cmdClassification = recognizeCommand(trimmedText);
+          if (!cmdClassification.isInternal) {
+            // Only send to MUD if it's not an internal command
+            // Lines starting with # are automation commands that should be processed, not sent
+            commands.push(trimmedText);
+          }
         }
       }
       i++;

@@ -5,6 +5,8 @@ import '@xterm/xterm/css/xterm.css';
 import { useSession } from '../context/SessionContext';
 import { useInputInterceptor } from '../hooks/useInputInterceptor';
 import { ProfileSettings } from '../types';
+// PR02PH03: Import ICM adapter for command classification and validation
+import { recognizeCommand, validateCommand } from '../services/icm-adapter';
 
 // Enable text selection in terminal
 const terminalSelectionStyle = {
@@ -363,6 +365,7 @@ export default function PlayScreen() {
 
   // SP04: Single submitCommand function - canonical entry point for all commands
   // Both typing and keybindings route through this same function
+  // PR02PH03: Now also routes through ICM adapter for classification and validation
   const submitCommand = useCallback(async (_source: 'typing' | 'keybinding', text: string) => {
     // SP03PH03: Gate command submission when modal is open
     if (isInputLocked) {
@@ -371,6 +374,21 @@ export default function PlayScreen() {
     
     // Don't trim - allow blank lines for MUDs
     const command = text;
+    
+    // PR02PH03: ICM classification - determine if this is an internal command or pass-through
+    const classification = recognizeCommand(command);
+    
+    // PR02PH03: Validate internal commands - show error for invalid syntax
+    if (classification.isInternal && command.trim()) {
+      const validationError = validateCommand(command);
+      if (validationError && terminalInstanceRef.current) {
+        // Display validation error to user
+        const brightRed = '\x1b[91m';
+        const reset = '\x1b[0m';
+        terminalInstanceRef.current.write(`\r\n${brightRed}[ICM Error] ${validationError.userMessage}${reset}\r\n`);
+        return; // Don't process invalid commands
+      }
+    }
     
     if (wsManager && connectionState === 'connected') {
       // SP05: Process through automation engine (aliases, variables)

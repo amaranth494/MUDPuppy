@@ -1,0 +1,55 @@
+{
+  "slug": "internal-commands",
+  "title": "Internal Commands",
+  "description": "Learn about internal commands and operators in MUDPuppy",
+  "sections": [
+    {
+      "title": "What Are Internal Commands?",
+      "content": "Internal commands are special instructions that MUDPuppy processes before sending to the MUD server. They provide automation features like variables, aliases, conditionals, and timers.\n\nInternal commands start with a special operator character: #, @, $, or %"
+    },
+    {
+      "title": "Operator Overview",
+      "content": "MUDPuppy recognizes four operator families:\n\n| Operator | Purpose | Example |\n|----------|---------|---------|\n| # | Structured directives | #IF, #SET, #TIMER |\n| @ | Alias references | @attack |\n| $ | User variables | $target, ${target} |\n| % | System variables | %1, %TIME |\n\nThese operators let you create powerful automation scripts."
+    },
+    {
+      "title": "Escape Sequences",
+      "content": "If you need to use the operator characters literally (not as commands), prefix them with a backslash:\n\n| Escape | Result |\n|--------|--------|\n| \\# | Literal # character |\n| \\@ | Literal @ character |\n| \\$ | Literal $ character |\n| \\% | Literal % character |\n\nExample: Typing '\\#hello' sends '#hello' to the MUD server."
+    },
+    {
+      "title": "User Variables ($)",
+      "content": "User variables store values you define for use in aliases and triggers.\n\n**Syntax:** $variablename or ${variablename}\n\n**Creating a variable:**\n#SET target=goblin\n\n**Using a variable:**\nkill $target\n→ kill goblin\n\nVariables persist across sessions and can be edited in the Variables panel."
+    },
+    {
+      "title": "System Variables (%)",
+      "content": "System variables provide access to session and client information.\n\n**Numeric form (%1, %2, etc.):**\nSession-scoped arguments, cleared on disconnect.\n- %1 - First argument\n- %2 - Second argument\n- And so on...\n\n**Named form (%TIME, %CHARACTER, etc.):**\nRead-only client data.\n- %TIME - Current time\n- %DATE - Current date\n- %CHARACTER - Your character name\n- %SERVER - MUD server address\n- %SESSIONID - Session identifier\n- %HOST - Host address\n- %PORT - Port number"
+    },
+    {
+      "title": "Alias References (@)",
+      "content": "Use @ to invoke an alias by name.\n\n**Syntax:** @aliasname\n\nIf you have an alias named 'attack' with pattern 'k' and replacement 'kill $target', you can also invoke it directly:\n\n@attack\n\nThis is useful in triggers or timers when you want to call an alias by name."
+    },
+    {
+      "title": "Structured Directives (#)",
+      "content": "Structured directives control automation behavior:\n\n| Directive | Description |\n|-----------|-------------|\n| #IF condition | Begin conditional block |\n| #ELSE | Alternate condition branch |\n| #ENDIF | End conditional block |\n| #SET name=value | Assign value to variable |\n| #TIMER name=seconds | Create/update timer |\n| #START timer | Start a timer |\n| #STOP timer | Stop a timer |\n| #CHECK timer | Check timer status |\n| #CANCEL timer | Delete a timer |\n\nDirectives must be typed as complete commands (not in alias patterns)."
+    },
+    {
+      "title": "#IF Conditionals",
+      "content": "Use #IF to conditionally execute commands:\n\n#IF $target=goblin\n  kill $target\n  get gold\n#ELSE\n  say I don't see a goblin here!\n#ENDIF\n\n**Comparison operators:**\n- = (equals)\n- != (not equals)\n\n**Combining conditions:**\n#IF $target=goblin AND $weapon=sword\n  attack!\n#ENDIF"
+    },
+    {
+      "title": "#SET Variable Assignment",
+      "content": "Use #SET to create or update variables:\n\n#SET target=dragon\n#SET heal=potion\n\n**Using in aliases:**\nPattern: 'k'\nReplacement: 'kill $target'\n\nNow typing 'k' sends 'kill dragon'.\n\n**Important:** Variables are profile-specific and persist across sessions."
+    },
+    {
+      "title": "#TIMER Timer Commands",
+      "content": "Timers execute commands at regular intervals:\n\n**Create a timer:**\n#TIMER heal=30\n\nThis creates a timer named 'heal' that fires every 30 seconds.\n\n**Timer commands:**\n- #START heal - Start the timer\n- #STOP heal - Stop the timer  \n- #CHECK heal - Check timer status\n- #CANCEL heal - Delete the timer\n\nThe timer action comes from your configured triggers."
+    },
+    {
+      "title": "Pass-Through Behavior",
+      "content": "Most text you type is sent directly to the MUD server:\n\n- Regular commands (look, get sword, say hello) pass through\n- Unknown commands with operators return errors\n- Undefined variables pass through literally (${undefined} stays as ${undefined})\n\nThis ensures compatibility with MUD servers that use similar syntax."
+    },
+    {
+      "title": "Command Processing Order",
+      "content": "When you type a command, MUDPuppy processes it in this order:\n\n1. **Input** - You type a command\n2. **Alias expansion** - @ references and aliases are expanded\n3. **Variable substitution** - $ and % variables are replaced\n4. **Logic evaluation** - #IF/#ELSE/#ENDIF blocks are evaluated\n5. **Queue dispatch** - Commands are queued for execution\n6. **Trigger evaluation** - Triggers monitor output\n\nThis deterministic order ensures predictable automation behavior."
+    }
+  ]
+}

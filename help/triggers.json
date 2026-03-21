@@ -24,12 +24,24 @@
       "content": "Each trigger executes a single command when matched. To send multiple commands, use command chaining with semicolons:\n\nExample:\n- Match: 'You are hungry'\n- Action: 'eat bread;drink water'\n\nThis sends both commands in sequence when the trigger fires."
     },
     {
+      "title": "Using Variables in Triggers",
+      "content": "Variables work in trigger actions:\n\n**User variables ($):**\n- Match: 'You are hungry'\n- Action: 'eat ${food}'\n\nThis sends 'eat bread' if food=bread.\n\n**System variables (%):**\n- Match: 'You welcome $CHARACTER'\n- Action: 'say Thanks for the welcome, %CHARACTER!'\n\nThis uses the character name in the response."
+    },
+    {
+      "title": "Using Aliases in Triggers",
+      "content": "You can invoke aliases directly in triggers using @:\n\n**Direct alias invocation (@):**\n- Match: 'You attack the goblin'\n- Action: '@attack'\n\nThis invokes the 'attack' alias.\n\nThis is useful when you want triggers to use complex alias logic."
+    },
+    {
+      "title": "Using Conditionals in Triggers",
+      "content": "You can use #IF conditionals in trigger actions:\n\nExample:\n- Match: 'You see a monster'\n- Action: '#IF $auto_attack=ON kill $target #ENDIF'\n\nThe command only fires if the condition is true."
+    },
+    {
       "title": "Client-Side Execution",
       "content": "Important: Triggers execute client-side only:\n\n- They run in your MUDPuppy client\n- They don't modify the game state directly\n- Some games may not respond as expected to automated commands\n- Some MUDs prohibit or limit automation\n\nUse triggers responsibly and check the game's rules regarding automation."
     },
     {
       "title": "Troubleshooting Triggers",
-      "content": "If a trigger isn't firing:\n\n1. **Check if enabled** - Triggers can be toggled on/off\n2. **Verify the match text** - Make sure it matches exactly (case-sensitive)\n3. **Check cooldown** - Wait longer than the cooldown period\n4. **Test with Echo** - Enable trigger echo to see matches in the terminal\n\nUse the 'Add Example' button in the Trigger Editor for ready-to-use trigger templates."
+      "content": "If a trigger isn't firing:\n\n1. **Check if enabled** - Triggers can be toggled on/off\n2. **Verify the match text** - Make sure it matches exactly (case-sensitive)\n3. **Check cooldown** - Wait longer than the cooldown period\n4. **Test with Echo** - Enable trigger echo to see matches in the terminal\n5. **Check variables** - Make sure referenced variables exist\n\nUse the 'Add Example' button in the Trigger Editor for ready-to-use trigger templates."
     }
   ]
 }

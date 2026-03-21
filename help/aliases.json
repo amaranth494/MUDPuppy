@@ -26,6 +26,14 @@
     {
       "title": "Alias Priority",
       "content": "When you have multiple aliases that could match:\n\n- Aliases are processed in order (top to bottom)\n- The first matching alias is applied\n- Only one alias transforms each command\n\nUse the up/down arrows to reorder aliases and control which one takes priority."
+    },
+    {
+      "title": "Direct Alias Invocation (@)",
+      "content": "You can invoke an alias directly by name using the @ operator:\n\n**Syntax:** @aliasname\n\nThis is useful when:\n- Using aliases in triggers or timers\n- You want to ensure a specific alias is called\n- Calling an alias from another alias\n\nExample:\nIf you have an alias named 'attack':\n- Pattern: 'k'\n- Replacement: 'kill $target'\n\nYou can invoke it directly:\n@attack\n\nThis executes the alias expansion immediately."
+    },
+    {
+      "title": "Variables in Aliases",
+      "content": "Aliases work great with variables:\n\nExample:\n- Variable: target = dragon\n- Alias pattern: 'k'\n- Alias replacement: 'kill $target'\n\nWhen you type 'k', it sends 'kill dragon'.\n\nChange the variable with #SET:\n#SET target=goblin\n\nNow 'k' sends 'kill goblin' instead!"
     }
   ]
 }

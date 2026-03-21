@@ -1,0 +1,160 @@
+// Template: ICM System Variable Definition
+// Location: internal/icm/registry.go (registerDefaultSystemVariables)
+// Usage: Add new system variables to the registry
+
+// =============================================================================
+// SYSTEM VARIABLE SPECIFICATION
+// =============================================================================
+// Variable Name: MYVARIABLE
+// Operator Family: % (System Variable - Named)
+// Type: [Read-Only / Writable]
+// Scope: [Session / Profile]
+// Purpose: [One sentence describing what this variable provides]
+// =============================================================================
+
+// =============================================================================
+// OPTION 1: Add to Default System Variables
+// =============================================================================
+// In internal/icm/registry.go, add to registerDefaultSystemVariables():
+//
+// func (r *Registry) registerDefaultSystemVariables() {
+//     defaults := []struct {
+//         name        string
+//         description string
+//         getter      func() string
+//     }{
+//         // ... existing entries ...
+//         {"MYVARIABLE", "Description of what this variable provides", func() string {
+//             // Return the current value
+//             // This might come from session state, config, etc.
+//             return r.getMyVariableValue()
+//         }},
+//     }
+//     // ... rest of function
+// }
+
+// =============================================================================
+// OPTION 2: Dynamic Registration
+// =============================================================================
+// For variables that need runtime registration:
+//
+// func RegisterMyVariable(registry *Registry, valueProvider func() string) error {
+//     return registry.RegisterSystemVariable("MYVARIABLE", &SystemVariableDefinition{
+//         Name:        "MYVARIABLE",
+//         Description: "Description of what this variable provides",
+//         IsReadOnly:  true,  // or false for writable
+//         Getter:      valueProvider,
+//     })
+// }
+
+// =============================================================================
+// OPTION 3: Session-Scoped Variable
+// =============================================================================
+// For session-scoped variables (like numeric %1, %2):
+//
+// type SessionVariableStore struct {
+//     mu       sync.RWMutex
+//     variables map[string]map[int]string  // sessionID -> index -> value
+// }
+//
+// func (s *SessionVariableStore) Get(sessionID string, index int) (string, bool) {
+//     s.mu.RLock()
+//     defer s.mu.RUnlock()
+//     
+//     if sessionVars, ok := s.variables[sessionID]; ok {
+//         if val, ok := sessionVars[index]; ok {
+//             return val, true
+//         }
+//     }
+//     return "", false
+// }
+//
+// func (s *SessionVariableStore) Set(sessionID string, index int, value string) {
+//     s.mu.Lock()
+//     defer s.mu.Unlock()
+//     
+//     if s.variables == nil {
+//         s.variables = make(map[string]map[int]string)
+//     }
+//     if s.variables[sessionID] == nil {
+//         s.variables[sessionID] = make(map[int]string)
+//     }
+//     s.variables[sessionID][index] = value
+// }
+//
+// func (s *SessionVariableStore) Clear(sessionID string) {
+//     s.mu.Lock()
+//     defer s.mu.Unlock()
+//     delete(s.variables, sessionID)
+// }
+
+// =============================================================================
+// SYSTEM VARIABLE RESOLUTION
+// =============================================================================
+// System variables are resolved in internal/icm/engine.go:
+// The resolveVariables() function iterates through normalized commands
+// and looks up %VARIABLE references in the registry.
+//
+// For special handling (like numeric session variables), you may need to
+// modify the recognizer or engine to detect the variable type.
+
+// =============================================================================
+// TESTS
+// =============================================================================
+// Example test cases to add to internal/icm/icm_test.go:
+//
+// func TestSystemVariable_MyVariable(t *testing.T) {
+//     registry := NewRegistry()
+//     
+//     // Test that the variable exists
+//     exists := registry.HasSystemVariable("MYVARIABLE")
+//     assert.True(t, exists, "MYVARIABLE should be registered")
+//     
+//     // Test getting the variable value
+//     value, ok := registry.GetSystemVariable("MYVARIABLE")
+//     assert.True(t, ok, "MYVARIABLE should be retrievable")
+//     assert.NotEmpty(t, value, "MYVARIABLE should have a value")
+//     
+//     // Test that it's read-only (if applicable)
+//     def := registry.systemVariables["MYVARIABLE"]
+//     if def != nil {
+//         assert.True(t, def.IsReadOnly, "MYVARIABLE should be read-only")
+//     }
+// }
+//
+// func TestRecognizer_SystemVariable(t *testing.T) {
+//     tests := []struct {
+//         name  string
+//         input string
+//         want  string
+//     }{
+//         {
+//             name:  "named system variable",
+//             input: "%MYVARIABLE",
+//             want:  "MYVARIABLE",
+//         },
+//         {
+//             name:  "system variable in text",
+//             input: "hello %MYVARIABLE world",
+//             want:  "MYVARIABLE",
+//         },
+//     }
+//     
+//     r := NewRecognizer()
+//     for _, tt := range tests {
+//         t.Run(tt.name, func(t *testing.T) {
+//             tokens := r.Recognize(tt.input)
+//             // Check that system variable token is present
+//             found := false
+//             for _, tok := range tokens {
+//                 if tok.Type == TokenSystemVariable && tok.Value == tt.want {
+//                     found = true
+//                     break
+//                 }
+//             }
+//             assert.True(t, found, "Should find system variable token")
+//         })
+//     }
+// }
+//
+// =============================================================================

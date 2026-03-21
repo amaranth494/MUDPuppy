@@ -5,19 +5,23 @@
   "sections": [
     {
       "title": "What Are Variables?",
-      "content": "Variables are named placeholders that store values you can use in aliases and triggers. They make your automation more flexible and reusable.\n\nInstead of hardcoding values, you can use variables that are easy to change."
+      "content": "Variables are named placeholders that store values you can use in aliases and triggers. They make your automation more flexible and reusable.\n\nMUDPuppy has two types of variables:\n- **User variables ($)** - Values you define and can change\n- **System variables (%)** - Automatic values from the client"
     },
     {
-      "title": "Variable Syntax",
-      "content": "Use the ${variable_name} syntax to reference variables:\n\n| Variable | Usage | Example Result |\n|----------|-------|----------------|\n| target | cast ${target} | cast goblin |\n| heal | drink ${heal} | drink potion |\n| attack | kill ${attack} | kill dragon |\n\nThe ${...} is replaced with the variable's value when the command is sent."
+      "title": "User Variable Syntax",
+      "content": "Use the $ or ${variable_name} syntax to reference user variables:\n\n| Variable | Usage | Example Result |\n|----------|-------|----------------|\n| target | cast ${target} | cast goblin |\n| heal | drink ${heal} | drink potion |\n| attack | kill ${attack} | kill dragon |\n\nThe ${...} is replaced with the variable's value when the command is sent.\n\nYou can use either $name or ${name} - they mean the same thing."
     },
     {
-      "title": "Creating a Variable",
-      "content": "To create a variable:\n\n1. Go to Connection Settings\n2. Navigate to Environment Variables\n3. Click 'Add Variable'\n4. Enter a name (e.g., 'target')\n5. Enter the value (e.g., 'goblin')\n6. Click Save\n\nYour variable is available immediately in aliases and triggers."
+      "title": "System Variable Syntax",
+      "content": "System variables provide automatic client information:\n\n**Numeric form (%1, %2, etc.):**\nThese are session-scoped arguments:\n- %1 - First argument after command\n- %2 - Second argument\n- And so on...\n\nThese are automatically populated during alias/trigger expansion and cleared when you disconnect.\n\n**Named form (%TIME, %CHARACTER, etc.):**\nThese are read-only client values:\n| Variable | Description |\n|----------|-------------|\n| %TIME | Current time (HH:MM:SS) |\n| %DATE | Current date (YYYY-MM-DD) |\n| %CHARACTER | Your character name |\n| %SERVER | MUD server address |\n| %SESSIONID | Session identifier |\n| %HOST | Host address |\n| %PORT | Port number |"
+    },
+    {
+      "title": "Creating a User Variable",
+      "content": "To create a user variable:\n\n1. Go to Connection Settings\n2. Navigate to Environment Variables\n3. Click 'Add Variable'\n4. Enter a name (e.g., 'target')\n5. Enter the value (e.g., 'goblin')\n6. Click Save\n\nYour variable is available immediately in aliases and triggers.\n\nYou can also create variables using the #SET command:\n#SET target=dragon"
     },
     {
       "title": "Using Variables in Aliases",
-      "content": "Variables work seamlessly with aliases:\n\nExample 1 - Combat alias:\n- Pattern: 'k'\n- Type: prefix\n- Replacement: kill ${target}\n\nWhen you type 'k goblin', it sends 'kill goblin'.\nIf you change target='dragon', it sends 'kill dragon'.\n\nExample 2 - Healer alias:\n- Pattern: 'h'\n- Type: exact\n- Replacement: heal ${heal}\n\nType 'h' to drink your configured healing item."
+      "content": "Variables work seamlessly with aliases:\n\nExample 1 - Combat alias:\n- Pattern: 'k'\n- Type: prefix\n- Replacement: kill ${target}\n\nWhen you type 'k goblin', it sends 'kill goblin'.\nIf you change target='dragon', it sends 'kill dragon' automatically.\n\nExample 2 - Healer alias:\n- Pattern: 'h'\n- Type: exact\n- Replacement: drink ${heal}\n\nType 'h' to drink your configured healing item."
     },
     {
       "title": "Using Variables in Triggers",
@@ -25,11 +29,15 @@
     },
     {
       "title": "Variable Persistence",
-      "content": "Variables are saved with your connection profile:\n\n- They persist across sessions\n- They're specific to each saved connection\n- Changing a variable affects all aliases/triggers that use it\n\nThis makes it easy to switch between different targets or configurations."
+      "content": "User variables are saved with your connection profile:\n\n- They persist across sessions\n- They're specific to each saved connection\n- Changing a variable affects all aliases/triggers that use it\n\nSystem variables (%1, %2, etc.) are session-scoped:\n- They exist only for your current session\n- They're cleared when you disconnect\n- They're automatically set during alias/trigger expansion"
     },
     {
       "title": "Example Workflow",
       "content": "Here's a practical example:\n\n1. Create variable: target = goblin\n2. Create variable: heal = potion\n3. Create alias: pattern='k', replacement='kill ${target}'\n4. Create alias: pattern='dr', replacement='drink ${heal}'\n\nNow:\n- Type 'k' to kill goblins\n- Type 'dr' to drink potions\n\nWhen you want to fight dragons instead:\n- Change target = dragon\n- Now 'k' kills dragons automatically!\n\nUse the 'Add Example' button for ready-to-use variable templates."
+    },
+    {
+      "title": "Undefined Variables",
+      "content": "If you reference a variable that doesn't exist, it passes through literally:\n\n- ${undefined} → ${undefined}\n- $nonexistent → $nonexistent\n\nThis lets MUD commands work normally if the variable isn't set."
     }
   ]
 }
