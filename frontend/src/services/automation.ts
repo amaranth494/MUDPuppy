@@ -464,6 +464,7 @@ export class AutomationEngine {
     for (const cmd of commands) {
       // PR02PH06: Use ICM classification instead of redundant prefix check
       if (isInternalCommand(cmd)) {
+        console.log('[DEBUG] isInternalCommand true for:', cmd);
         // Process internal commands through evaluator
         try {
           const result = await executeAutomationAction(cmd, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined);
