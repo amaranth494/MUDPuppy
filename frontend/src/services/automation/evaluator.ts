@@ -998,15 +998,38 @@ async function executeTokenList(
           continue;
           
         case 'LOG':
-          // Handle #LOG command - output to log (treated like echo for now)
-          // PR02PH09: Log outputs to terminal with different formatting
-          if (token.args) {
-            const brightYellow = '\x1b[93m';
-            const reset = '\x1b[0m';
-            context.outputMessage?.(`\r\n${brightYellow}[LOG] ${token.args}${reset}\r\n`);
-          }
-          i++;
-          continue;
+           // Handle #LOG command - output to log
+           // PR02PH09: Log outputs to terminal with different formatting
+           // PR02PH09: Extended to support output targets: #LOG (to:console) message
+           if (token.args) {
+             // Parse optional target specification: (to:xxx)
+             const targetMatch = token.args.match(/^\\s*\\(([^)]+)\\)\\s*(.*)$/s);
+             
+             let text = token.args;
+             let target = 'terminal'; // default target
+             
+             if (targetMatch) {
+               const options = targetMatch[1].toLowerCase();
+               text = targetMatch[2];
+               
+               // Parse target options
+               if (options.startsWith('to:')) {
+                 target = options.substring(3);
+               }
+             }
+             
+             if (target === 'console') {
+               // Send to web console (F12)
+               console.log(`[LOG] ${text}`);
+             } else {
+               // Default: output to terminal with bright yellow formatting
+               const brightYellow = '\x1b[93m';
+               const reset = '\x1b[0m';
+               context.outputMessage?.(`\r\n${brightYellow}[LOG] ${text}${reset}\r\n`);
+             }
+           }
+           i++;
+           continue;
           
         case 'HELP':
           // Handle #HELP command - show help
