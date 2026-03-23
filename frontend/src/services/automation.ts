@@ -10,6 +10,7 @@ import { SimpleVariableStore, VariableValue, executeAutomationAction } from './a
 import { TimerManager, SavedTimer } from './automation/timer';
 // PR02PH06: Import ICM adapter for command classification
 import { recognizeCommand } from './icm-adapter';
+import { logToConsole } from './log';
 
 // ============================================
 // Types
@@ -163,10 +164,10 @@ export class AutomationEngine {
     this.timerManager = new TimerManager({
       maxTimers: 10,
       onTimerFire: (timer) => {
-        console.log(`[Timer] '${timer.name}' fired (count: ${timer.fireCount})`);
+        logToConsole(`Timer: '${timer.name}' fired (count: ${timer.fireCount})`);
       },
       onTimerCancel: (name) => {
-        console.log(`[Timer] '${name}' cancelled`);
+        logToConsole(`Timer: '${name}' cancelled`);
       },
       onError: (error) => {
         console.error(`[Timer] Error: ${error}`);
@@ -329,10 +330,10 @@ export class AutomationEngine {
     this.timerManager = new TimerManager({
       maxTimers: 10,
       onTimerFire: (timer) => {
-        console.log(`[Timer] '${timer.name}' fired (count: ${timer.fireCount})`);
+        logToConsole(`Timer: '${timer.name}' fired (count: ${timer.fireCount})`);
       },
       onTimerCancel: (name) => {
-        console.log(`[Timer] '${name}' cancelled`);
+        logToConsole(`Timer: '${name}' cancelled`);
       },
       onTimerSave,
       onTimerDelete,
@@ -603,10 +604,10 @@ export class AutomationEngine {
       // PR01PH07T02: But explicit alias invocations do go through parser
       const aliasClassification = recognizeCommand(processed);
       if (aliasClassification.operator === '@') {
-        console.log('[Alias] ' + processed);
+        logToConsole('Alias: ' + processed);
         const aliasCommands = await this.invokeExplicitAlias(processed.substring(1));
         for (const aliasCmd of aliasCommands) {
-          console.log('[Alias] Action: ' + aliasCmd);
+          logToConsole('Alias Action: ' + aliasCmd);
           processedCommands.push(aliasCmd);
         }
         continue;
@@ -638,7 +639,7 @@ export class AutomationEngine {
 
       const matchingTrigger = this.findMatchingTrigger(line);
       if (matchingTrigger) {
-        console.log('[Trigger] ' + matchingTrigger.match);
+        logToConsole('Trigger: ' + matchingTrigger.match);
         this.fireTrigger(matchingTrigger);
       }
     }
@@ -894,7 +895,7 @@ export class AutomationEngine {
         }
         // Commands are executed via timer callback or added here
         for (const cmd of result.commands) {
-          console.log('[Trigger] Action: ' + cmd);
+          logToConsole('Trigger Action: ' + cmd);
           this.queueCommand({
             command: cmd,
             source: 'trigger',

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { useSession } from '../context/SessionContext';
 import { getRecentConnections, deleteConnection } from '../services/api';
+import { logToConsole } from '../services/log';
 import { SavedConnection } from '../types';
 
 // Format a date as relative time (e.g., "5 min ago", "1 day ago")
@@ -70,11 +71,11 @@ export default function QuickConnectModal({ isOpen, onClose, onInputLockChange }
 
   // Load recent connections
   const loadRecentConnections = async () => {
-    console.log('[QuickConnect] Loading recent connections...');
+        logToConsole('QuickConnect: Loading recent connections...');
     setLoadingRecent(true);
     try {
       const recent = await getRecentConnections();
-      console.log('[QuickConnect] Got recent connections:', recent);
+            logToConsole('QuickConnect: Got recent connections: ' + recent.length);
       setRecentConnections(recent);
     } catch (err) {
       console.error('[QuickConnect] Failed to load recent connections:', err);

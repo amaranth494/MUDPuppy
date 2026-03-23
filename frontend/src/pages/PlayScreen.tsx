@@ -7,6 +7,7 @@ import { useInputInterceptor } from '../hooks/useInputInterceptor';
 import { ProfileSettings } from '../types';
 // PR02PH03: Import ICM adapter for command classification and validation
 import { recognizeCommand, validateCommand } from '../services/icm-adapter';
+import { logToConsole } from '../services/log';
 
 // Enable text selection in terminal
 const terminalSelectionStyle = {
@@ -93,10 +94,10 @@ export default function PlayScreen() {
     // [SP03PH05T06] Debug: Apply selection style AFTER terminal.open()
     if (terminalRef.current) {
       const xtermElement = terminalRef.current.querySelector('.xterm') as HTMLElement;
-      console.log('[SP03PH05T06] xtermElement found:', !!xtermElement);
+            logToConsole('SP03PH05T06: xtermElement found: ' + !!xtermElement);
       if (xtermElement) {
         Object.assign(xtermElement.style, terminalSelectionStyle);
-        console.log('[SP03PH05T06] Applied selection style');
+              logToConsole('SP03PH05T06: Applied selection style');
       }
     }
 
@@ -481,11 +482,11 @@ export default function PlayScreen() {
             
             // SP03PH05T06: Handle Ctrl+C / Cmd+C - copy from terminal if text is selected there
             if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-              console.log('[SP03PH05T06] Input field: Ctrl+C detected');
+                            logToConsole('SP03PH05T06: Input field - Ctrl+C detected');
               // Try to copy from terminal selection
               if (terminalInstanceRef.current) {
-                const selection = terminalInstanceRef.current.getSelection();
-                console.log('[SP03PH05T06] Input field: terminal selection:', selection ? `"${selection.substring(0, 20)}..."` : 'empty');
+                                const selection = terminalInstanceRef.current.getSelection();
+                logToConsole('SP03PH05T06: Input field - terminal selection: ' + (selection ? `"${selection.substring(0, 20)}..."` : 'empty'));
                 if (selection && selection.length > 0) {
                   e.preventDefault();
                   navigator.clipboard.writeText(selection);

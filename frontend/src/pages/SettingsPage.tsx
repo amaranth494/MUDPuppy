@@ -8,6 +8,7 @@ import Modal from '../components/Modal';
 import { parser, validateSyntax, ParseError } from '../services/automation/parser';
 // PR02PH03: Import ICM adapter for editor validation
 import { recognizeCommand, validateCommand } from '../services/icm-adapter';
+import { logToConsole } from '../services/log';
 
 // Section types
 type SettingsSection = 'general' | 'keybindings' | 'aliases' | 'triggers' | 'timers' | 'environment';
@@ -1536,14 +1537,14 @@ cast heal
                               if (automationEngine && connectionState === 'connected') {
                                 try {
                                   const command = shouldStart ? `#START ${timer.name}` : `#STOP ${timer.name}`;
-                                  console.log('[SettingsPage] Sending timer command:', command);
+                                                                    logToConsole('SettingsPage: Sending timer command: ' + command);
                                   await automationEngine.processUserInput(command);
-                                  console.log('[SettingsPage] Timer command sent successfully');
+                                                                    logToConsole('SettingsPage: Timer command sent successfully');
                                 } catch (err) {
                                   console.error('[SettingsPage] Failed to start/stop timer:', err);
                                 }
                               } else {
-                                console.log('[SettingsPage] Not connected - UI toggle only, automationEngine:', !!automationEngine, 'connectionState:', connectionState);
+                                                                logToConsole('SettingsPage: Not connected - UI toggle only, automationEngine: ' + !!automationEngine + ' connectionState: ' + connectionState);
                               }
                             }}
                             title={isRunning ? 'Stop timer (runtime)' : 'Start timer (runtime)'}

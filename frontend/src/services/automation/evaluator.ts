@@ -1018,25 +1018,29 @@ async function executeTokenList(
                }
              }
              
+             // Helper to get timestamp
+             const now = new Date();
+             const timestamp = now.toISOString().replace('T', ' ').substring(0, 19);
+             
              if (target === 'console') {
                 // Send to web console (F12)
-                console.log(`[LOG] ${text}`);
+                console.log(`[LOG] ${timestamp} ${text}`);
               } else if (target === 'local') {
                 // Send to terminal only
                 const brightYellow = '\x1b[93m';
                 const reset = '\x1b[0m';
-                context.outputMessage?.(`\r\n${brightYellow}[LOG] ${text}${reset}\r\n`);
+                context.outputMessage?.(`\r\n${brightYellow}[LOG] ${timestamp} ${text}${reset}\r\n`);
               } else if (target.includes('console') && target.includes('local')) {
                 // Multi-target: send to both console and terminal
-                console.log(`[LOG] ${text}`);
+                console.log(`[LOG] ${timestamp} ${text}`);
                 const brightYellow = '\x1b[93m';
                 const reset = '\x1b[0m';
-                context.outputMessage?.(`\r\n${brightYellow}[LOG] ${text}${reset}\r\n`);
+                context.outputMessage?.(`\r\n${brightYellow}[LOG] ${timestamp} ${text}${reset}\r\n`);
               } else {
                 // Default: output to terminal with bright yellow formatting
                 const brightYellow = '\x1b[93m';
                 const reset = '\x1b[0m';
-                context.outputMessage?.(`\r\n${brightYellow}[LOG] ${text}${reset}\r\n`);
+                context.outputMessage?.(`\r\n${brightYellow}[LOG] ${timestamp} ${text}${reset}\r\n`);
               }
            }
            i++;

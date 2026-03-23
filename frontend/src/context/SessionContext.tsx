@@ -21,6 +21,7 @@ import { normalizeKeybindings } from '../services/keybindings';
 import { getAutomationEngine, AutomationEngine } from '../services/automation';
 import { VariableValue } from '../services/automation/evaluator';
 import { SavedTimer } from '../services/automation/timer';
+import { logToConsole } from '../services/log';
 
 interface SessionContextType {
   user: User | null;
@@ -129,13 +130,13 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   // Disable automation entirely (SP06PH07)
   // This sets a flag that prevents automation from processing and persists to the server
   const disableAutomation = useCallback(async () => {
-    console.log('[Automation] disableAutomation called');
+    logToConsole('Automation: disableAutomation called');
     // Capture the current session ID - ignore if session changed
     const sessionId = connectionSessionRef.current;
     
     // Don't persist if we don't have a valid connection or profile
     if (!currentConnectionId || !profile) {
-      console.log('[Automation] disableAutomation: No connection or profile, disabling');
+      logToConsole('Automation: disableAutomation - No connection or profile, disabling');
       setAutomationDisabled(true);
       setAutomationError(null);
       return;
@@ -146,7 +147,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
     
     // Persist to server via profile settings - but check session first
     if (connectionSessionRef.current !== sessionId) {
-      console.log('disableAutomation: session changed, skipping profile update');
+      logToConsole('Automation: disableAutomation - session changed, skipping profile update');
       return;
     }
     
@@ -168,7 +169,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   // Re-enable automation after user disabled it (SP06PH07)
   // This persists to the server
   const enableAutomation = useCallback(async () => {
-    console.log('enableAutomation called, session:', connectionSessionRef.current, 'currentConnectionId:', currentConnectionId, 'profile:', profile?.id);
+    logToConsole('Automation: enableAutomation called, session: ' + connectionSessionRef.current + ' currentConnectionId: ' + currentConnectionId + ' profile: ' + profile?.id);
     
     // Capture the current session ID - ignore if session changed
     const sessionId = connectionSessionRef.current;
@@ -181,7 +182,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
     
     // Check if session changed - if so, skip the update
     if (connectionSessionRef.current !== sessionId) {
-      console.log('enableAutomation: session changed, skipping profile update');
+      logToConsole('Automation: enableAutomation - session changed, skipping profile update');
       setAutomationDisabled(false);
       return;
     }
@@ -234,7 +235,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   }, []);
 
   const connect = useCallback(async (mudHost: string, mudPort: number, connectionId?: string) => {
-    console.log('[Automation] connect() called - mudHost:', mudHost, 'mudPort:', mudPort, 'connectionId:', connectionId);
+    logToConsole('Automation: connect() called - mudHost: ' + mudHost + ' mudPort: ' + mudPort + ' connectionId: ' + connectionId);
     
     // Increment session ID to invalidate any pending profile updates from previous sessions
     connectionSessionRef.current++;
@@ -246,7 +247,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
     // This ensures keybindings are available immediately after connect
     if (connectionId) {
       try {
-        console.log('[Automation] Fetching profile for connectionId:', connectionId);
+        logToConsole('Automation: Fetching profile for connectionId: ' + connectionId);
         const fetchedProfile = await getProfileByConnection(connectionId);
         // Normalize keybindings to canonical format
         const normalizedProfile: Profile = {
@@ -255,7 +256,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
         };
         setProfile(normalizedProfile);
         setCurrentConnectionId(connectionId);
-        console.log('[Automation] Profile loaded:', normalizedProfile?.id, 'automation_enabled:', normalizedProfile?.settings?.automation_enabled);
+        logToConsole('Automation: Profile loaded: ' + normalizedProfile?.id + ' automation_enabled: ' + normalizedProfile?.settings?.automation_enabled);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load profile';
         setError(mapBackendError(errorMessage));
@@ -264,7 +265,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       }
     } else {
       // Quick connect without saved connection - use defaults
-      console.log('[Automation] Quick connect - setting profile to null');
+      logToConsole('Automation: Quick connect - setting profile to null');
       setProfile(null);
       setCurrentConnectionId(null);
     }
@@ -310,9 +311,9 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
             engine.updateSystemVariable('%SERVER', connDetails.name);
           }
           
-          console.log('[Automation] Set system variables from connection:', { character: autoCreds.username, password: '***', server: connDetails.name });
+          logToConsole('Automation: Set system variables from connection: ' + JSON.stringify({ character: autoCreds.username, password: '***', server: connDetails.name }));
         } catch (err) {
-          console.log('[Automation] Could not set system variables:', err);
+          logToConsole('Automation: Could not set system variables: ' + err);
         }
       } else {
         // Quick connect - use empty automation
@@ -326,13 +327,13 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       
       // Set up circuit breaker callback
       engine.setCircuitBreakerCallback((reason: string) => {
-        console.log('[Automation] Circuit breaker tripped:', reason);
+        logToConsole('Automation: Circuit breaker tripped: ' + reason);
         setAutomationError(reason);
       });
       
       // PR01PH06: Set up variable change callback for UI sync
       engine.setVariableChangeCallback((name: string, value: VariableValue) => {
-        console.log('[Automation] Variable changed:', name, '=', value);
+        logToConsole('Automation: Variable changed: ' + name + ' = ' + value);
         triggerVariablesRefresh();
       });
       
@@ -371,7 +372,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
               }
               
               await putTimers(connectionId, updatedTimers);
-              console.log('[Automation] Timer saved:', timer.name);
+              logToConsole('Automation: Timer saved: ' + timer.name);
             } catch (error) {
               console.error('[Automation] Failed to save timer:', error);
             }
@@ -382,7 +383,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
               const currentTimers = await getTimers(connectionId);
               const updatedTimers = currentTimers.items.filter(t => t.name !== timerName);
               await putTimers(connectionId, updatedTimers);
-              console.log('[Automation] Timer deleted:', timerName);
+              logToConsole('Automation: Timer deleted: ' + timerName);
             } catch (error) {
               console.error('[Automation] Failed to delete timer:', error);
             }
@@ -412,7 +413,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
             }
             
             await putEnvironment(connectionId, updatedVars);
-            console.log('[Automation] Variables persisted:', Object.keys(variables).length);
+            logToConsole('Automation: Variables persisted: ' + Object.keys(variables).length);
           } catch (error) {
             console.error('[Automation] Failed to persist variables:', error);
           }
@@ -427,7 +428,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
             commands: typeof t.commands === 'string' ? t.commands.split('\n').filter((c: string) => c.trim()) : t.commands,
           }));
           engine.loadTimers(savedTimers);
-          console.log('[Automation] Timers loaded:', savedTimers.length);
+          logToConsole('Automation: Timers loaded: ' + savedTimers.length);
         }
       }
       
@@ -436,9 +437,9 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       
       // SP06PH07: Load automation_enabled from profile settings (persisted per connection)
       const isAutomationEnabled = profile?.settings?.automation_enabled ?? true;
-      console.log('[Automation] Loading profile settings - automation_enabled:', isAutomationEnabled, 'profile:', profile?.id);
+      logToConsole('Automation: Loading profile settings - automation_enabled: ' + isAutomationEnabled + ' profile: ' + profile?.id);
       if (!isAutomationEnabled) {
-        console.log('[Automation] Disabled due to profile setting (automation_enabled = false)');
+        logToConsole('Automation: Disabled due to profile setting (automation_enabled = false)');
       }
       setAutomationDisabled(!isAutomationEnabled);
     } catch (err) {
