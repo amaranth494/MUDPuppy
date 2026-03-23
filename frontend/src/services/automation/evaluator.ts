@@ -998,6 +998,7 @@ async function executeTokenList(
           continue;
           
         case 'LOG':
+            console.log('[DEBUG] LOG case hit');
            // Handle #LOG command - output to log
            // PR02PH09: Log outputs to terminal with different formatting
            // PR02PH09: Extended to support output targets: #LOG (to:console) message
