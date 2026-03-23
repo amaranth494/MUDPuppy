@@ -1004,7 +1004,9 @@ async function executeTokenList(
            // PR02PH09: Extended to support output targets: #LOG (to:console) message
            if (token.args) {
              // Parse optional target specification: (to:xxx)
-             const targetMatch = token.args.match(/^\\s*\\(([^)]+)\\)\\s*(.*)$/s);
+              console.log('[DEBUG] token.args:', JSON.stringify(token.args));
+             const targetMatch = token.args.match(/^\s*\(([^)]+)\)\s*(.*)$/s);
+              console.log('[DEBUG] targetMatch:', targetMatch);
              
              let text = token.args;
              let target = 'terminal'; // default target // default target
