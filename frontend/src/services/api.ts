@@ -1,4 +1,5 @@
 import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, AutomationCredentials, Profile, UpdateProfileRequest, Alias, Trigger, Variable, Timer, AliasesResponse, TriggersResponse, VariablesResponse, TimersResponse, HelpSection, HelpSummary } from '../types';
+import { logErrorToConsole } from './log';
 
 const API_BASE = '/api/v1';
 
@@ -24,7 +25,7 @@ export async function checkAuth(): Promise<User | null> {
     }
     return null;
   } catch (error) {
-    console.error('Auth check failed:', error);
+        logErrorToConsole('Auth check failed: ' + error);
     return null;
   }
 }
@@ -107,7 +108,7 @@ export class WebSocketManager {
       };
       
       this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+              logErrorToConsole('WebSocket error: ' + error);
         reject(new Error('WebSocket connection failed'));
       };
       
@@ -116,7 +117,7 @@ export class WebSocketManager {
           const message: WSMessage = JSON.parse(event.data);
           this.handleMessage(message);
         } catch (error) {
-          console.error('Failed to parse WebSocket message:', error);
+                    logErrorToConsole('Failed to parse WebSocket message: ' + error);
         }
       };
       
