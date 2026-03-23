@@ -1005,9 +1005,6 @@ async function executeTokenList(
              // Parse optional target specification: (to:xxx)
              const targetMatch = token.args.match(/^\\s*\\(([^)]+)\\)\\s*(.*)$/s);
              
-             // PR02PH09: Debug logging for LOG command parsing
-             // console.log(`[LOG DEBUG] token.args: "${token.args}", targetMatch:`, targetMatch);
-             
              let text = token.args;
              let target = 'terminal'; // default target
              
@@ -1015,13 +1012,9 @@ async function executeTokenList(
                const options = targetMatch[1].toLowerCase();
                text = targetMatch[2];
                
-               // PR02PH09: Debug logging for parsed values
-               // console.log(`[LOG DEBUG] options: "${options}", text: "${text}"`);
-               
                // Parse target options
                if (options.startsWith('to:')) {
                  target = options.substring(3);
-                 // console.log(`[LOG DEBUG] target set to: "${target}"`);
                }
              }
              
