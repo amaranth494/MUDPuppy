@@ -1007,7 +1007,7 @@ async function executeTokenList(
              const targetMatch = token.args.match(/^\\s*\\(([^)]+)\\)\\s*(.*)$/s);
              
              let text = token.args;
-             let target = 'console'; // DEBUG // default target
+             let target = 'terminal'; // default target // default target
              
              if (targetMatch) {
                const options = targetMatch[1].toLowerCase();
