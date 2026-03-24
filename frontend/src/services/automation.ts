@@ -604,10 +604,10 @@ export class AutomationEngine {
       // PR01PH07T02: But explicit alias invocations do go through parser
       const aliasClassification = recognizeCommand(processed);
       if (aliasClassification.operator === '@') {
-        logToConsole('[automation.ts] Alias: ' + processed);
+        logToConsole('[automation.ts:processUserInput] Alias: ' + processed);
         const aliasCommands = await this.invokeExplicitAlias(processed.substring(1));
         for (const aliasCmd of aliasCommands) {
-          logToConsole('[automation.ts] Alias Action: ' + aliasCmd);
+          logToConsole('[automation.ts:processUserInput] Alias Action: ' + aliasCmd);
           processedCommands.push(aliasCmd);
         }
         continue;
@@ -639,7 +639,7 @@ export class AutomationEngine {
 
       const matchingTrigger = this.findMatchingTrigger(line);
       if (matchingTrigger) {
-        logToConsole('[automation.ts] Trigger: ' + matchingTrigger.match);
+        logToConsole('[automation.ts:processUserInput] Trigger: ' + matchingTrigger.match);
         this.fireTrigger(matchingTrigger);
       }
     }
@@ -895,7 +895,7 @@ export class AutomationEngine {
         }
         // Commands are executed via timer callback or added here
         for (const cmd of result.commands) {
-          logToConsole('[automation.ts] Trigger Action: ' + cmd);
+          logToConsole('[automation.ts:fireTrigger] Trigger Action: ' + cmd);
           this.queueCommand({
             command: cmd,
             source: 'trigger',
