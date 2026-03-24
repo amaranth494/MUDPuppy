@@ -23,10 +23,17 @@ function getCallerLocation(): string {
     const fileName = caller.getFileName() || 'unknown';
     const lineNumber = caller.getLineNumber() || 0;
     
-    // Extract just the filename from full path
-    const shortName = fileName.split('/').pop() || fileName.split('\\').pop() || fileName;
+    // Extract relative path from src/ directory
+    let relativePath = fileName;
+    const srcIndex = fileName.indexOf('src/');
+    if (srcIndex !== -1) {
+      relativePath = fileName.substring(srcIndex + 4); // +4 to skip 'src/'
+    } else {
+      // Fallback: just use filename if src/ not found
+      relativePath = fileName.split('/').pop() || fileName.split('\\').pop() || fileName;
+    }
     
-    return `[${shortName}:${lineNumber}]`;
+    return `[${relativePath}:${lineNumber}]`;
   }
   
   return '';
