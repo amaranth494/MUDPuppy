@@ -2,15 +2,42 @@
 // All console.log calls should use this to ensure consistent formatting
 
 /**
+ * Parse function name from raw stack trace string
+ * Chrome format: "at functionName (file:line:col)" or "at file:line:col"
+ */
+function parseFunctionNameFromStack(stackString: string, callerIndex: number): string | null {
+  const lines = stackString.split('\n');
+  // Skip first line (Error), find the caller line
+  const callerLine = lines[callerIndex + 1]; // +1 because lines[0] is "Error"
+  
+  if (!callerLine) return null;
+  
+  // Match "at functionName (file:line:col)" or "at functionName@file:line:col"
+  const match = callerLine.match(/at\s+([^\s(]+)/);
+  if (match && match[1]) {
+    const name = match[1];
+    // Filter out internal/framework names
+    if (name === 'Object' || name === 'Function' || name === '<anonymous>') {
+      return null;
+    }
+    return name;
+  }
+  return null;
+}
+
+/**
  * Get caller's file, line, and function name from stack trace
  * Returns format: [filename:line] or [filename:line funcName]
  */
 function getCallerLocation(): string {
+  const err = new Error();
+  const stackString = err.stack || '';
+  
+  // First try CallSite API
   const originalPrepareStackTrace = Error.prepareStackTrace;
   Error.prepareStackTrace = (_, stack) => stack;
   
-  const err = new Error();
-  const stack = err.stack as unknown as NodeJS.CallSite[];
+  const stackTrace = err.stack as unknown as NodeJS.CallSite[];
   
   Error.prepareStackTrace = originalPrepareStackTrace;
   
@@ -18,28 +45,32 @@ function getCallerLocation(): string {
   // stack[0] = getCallerLocation
   // stack[1] = logToConsole/logErrorToConsole
   // stack[2] = actual caller
-  if (stack && stack.length > 2) {
-    const caller = stack[2];
+  if (stackTrace && stackTrace.length > 2) {
+    const caller = stackTrace[2];
     const fileName = caller.getFileName() || 'unknown';
     const lineNumber = caller.getLineNumber() || 0;
-    let functionName = caller.getFunctionName(); // Get the function name
+    let functionName = caller.getFunctionName();
     
-    // Fallback: Try to get function name from method name or 'this' context
+    // Fallback: Try to get function name from method name
     if (!functionName && caller.getMethodName) {
       functionName = caller.getMethodName();
+    }
+    
+    // Final fallback: Parse from raw stack string
+    if (!functionName) {
+      functionName = parseFunctionNameFromStack(stackString, 2);
     }
     
     // Extract relative path from src/ directory
     let relativePath = fileName;
     const srcIndex = fileName.indexOf('src/');
     if (srcIndex !== -1) {
-      relativePath = fileName.substring(srcIndex + 4); // +4 to skip 'src/'
+      relativePath = fileName.substring(srcIndex + 4);
     } else {
-      // Fallback: just use filename if src/ not found
       relativePath = fileName.split('/').pop() || fileName.split('\\').pop() || fileName;
     }
     
-    // Include function name if available (might be minified like "a", "b", etc.)
+    // Include function name if available
     if (functionName) {
       return `[${relativePath}:${lineNumber} ${functionName}]`;
     }
