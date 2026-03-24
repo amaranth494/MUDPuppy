@@ -22,7 +22,12 @@ function getCallerLocation(): string {
     const caller = stack[2];
     const fileName = caller.getFileName() || 'unknown';
     const lineNumber = caller.getLineNumber() || 0;
-    const functionName = caller.getFunctionName(); // Get the function name
+    let functionName = caller.getFunctionName(); // Get the function name
+    
+    // Fallback: Try to get function name from method name or 'this' context
+    if (!functionName && caller.getMethodName) {
+      functionName = caller.getMethodName();
+    }
     
     // Extract relative path from src/ directory
     let relativePath = fileName;
@@ -34,7 +39,7 @@ function getCallerLocation(): string {
       relativePath = fileName.split('/').pop() || fileName.split('\\').pop() || fileName;
     }
     
-    // Include function name if available
+    // Include function name if available (might be minified like "a", "b", etc.)
     if (functionName) {
       return `[${relativePath}:${lineNumber} ${functionName}]`;
     }
