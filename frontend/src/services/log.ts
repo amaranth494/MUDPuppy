@@ -2,8 +2,8 @@
 // All console.log calls should use this to ensure consistent formatting
 
 /**
- * Get caller's file and line from stack trace
- * Returns format: [filename:line]
+ * Get caller's file, line, and function name from stack trace
+ * Returns format: [filename:line] or [filename:line funcName]
  */
 function getCallerLocation(): string {
   const originalPrepareStackTrace = Error.prepareStackTrace;
@@ -22,6 +22,7 @@ function getCallerLocation(): string {
     const caller = stack[2];
     const fileName = caller.getFileName() || 'unknown';
     const lineNumber = caller.getLineNumber() || 0;
+    const functionName = caller.getFunctionName(); // Get the function name
     
     // Extract relative path from src/ directory
     let relativePath = fileName;
@@ -33,6 +34,10 @@ function getCallerLocation(): string {
       relativePath = fileName.split('/').pop() || fileName.split('\\').pop() || fileName;
     }
     
+    // Include function name if available
+    if (functionName) {
+      return `[${relativePath}:${lineNumber} ${functionName}]`;
+    }
     return `[${relativePath}:${lineNumber}]`;
   }
   
