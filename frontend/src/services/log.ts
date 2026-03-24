@@ -4,8 +4,10 @@
 /**
  * Parse caller info from raw stack trace string
  * Chrome format: "at functionName (file:line:col)" or "at file:line:col"
+ * Production format: file:line:col (no "at" prefix when minified)
  */
 function parseCallerFromStack(stackString: string): { fileName: string; lineNumber: number; functionName: string | null } {
+  // Debug: show first few lines of stack (comment out in production)
   const lines = stackString.split('\n').filter(line => line.trim());
   
   // Find the first "at" line that's NOT from our bundled logger (index-XXXXXX.js or log.ts)
@@ -13,21 +15,29 @@ function parseCallerFromStack(stackString: string): { fileName: string; lineNumb
     const line = lines[i];
     
     // Skip lines from our logging utility (both dev and production bundle names)
-    if (line.includes('log.ts') || line.includes('index-') && line.includes('.js:')) continue;
+    if (line.includes('log.ts') || (line.includes('index-') && line.includes('.js:'))) continue;
     
-    // Match Chrome/Firefox format: "at functionName (file:line:col)" or "at functionName@file:line:col" or "at file:line:col"
-    const match = line.match(/at\s+(?:([\w$]+)\s+)?\(?([^:]+):(\d+)/);
+    // Try Chrome format: "at functionName (file:line:col)"
+    let match = line.match(/at\s+(?:([\w$]+)\s+)?\(?([^:]+):(\d+)/);
     if (match) {
       const functionName = match[1] || null;
       const fileName = match[2] || 'unknown';
       const lineNumber = parseInt(match[3], 10) || 0;
       
       // Filter out internal/minified names
-      if (functionName && (functionName === 'Object' || functionName === 'Function' || functionName === 't' || functionName === 'e' || functionName.includes('<anonymous>'))) {
+      if (functionName && (functionName === 'Object' || functionName === 'Function' || functionName.includes('<anonymous>'))) {
         continue;
       }
       
       return { fileName, lineNumber, functionName };
+    }
+    
+    // Try production format: "file:line:col" (no "at" prefix)
+    match = line.match(/^([^:]+):(\d+)/);
+    if (match) {
+      const fileName = match[1] || 'unknown';
+      const lineNumber = parseInt(match[2], 10) || 0;
+      return { fileName, lineNumber, functionName: null };
     }
   }
   
