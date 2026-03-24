@@ -1537,14 +1537,14 @@ cast heal
                               if (automationEngine && connectionState === 'connected') {
                                 try {
                                   const command = shouldStart ? `#START ${timer.name}` : `#STOP ${timer.name}`;
-                                                                    logToConsole('SettingsPage: Sending timer command: ' + command);
+                                                                    logToConsole('[SettingsPage.tsx:toggleTimer] SettingsPage: Sending timer command: ' + command);
                                   await automationEngine.processUserInput(command);
-                                                                    logToConsole('SettingsPage: Timer command sent successfully');
+                                                                    logToConsole('[SettingsPage.tsx:toggleTimer] SettingsPage: Timer command sent successfully');
                                 } catch (err) {
                                   console.error('[SettingsPage] Failed to start/stop timer:', err);
                                 }
                               } else {
-                                                                logToConsole('SettingsPage: Not connected - UI toggle only, automationEngine: ' + !!automationEngine + ' connectionState: ' + connectionState);
+                                                                logToConsole('[SettingsPage.tsx:toggleTimer] SettingsPage: Not connected - UI toggle only, automationEngine: ' + !!automationEngine + ' connectionState: ' + connectionState);
                               }
                             }}
                             title={isRunning ? 'Stop timer (runtime)' : 'Start timer (runtime)'}

@@ -164,10 +164,10 @@ export class AutomationEngine {
     this.timerManager = new TimerManager({
       maxTimers: 10,
       onTimerFire: (timer) => {
-        logToConsole(`Timer: '${timer.name}' fired (count: ${timer.fireCount})`);
+        logToConsole(`[automation.ts:constructor] Timer: '${timer.name}' fired (count: ${timer.fireCount})`);
       },
       onTimerCancel: (name) => {
-        logToConsole(`Timer: '${name}' cancelled`);
+        logToConsole(`[automation.ts:constructor] Timer: '${name}' cancelled`);
       },
       onError: (error) => {
         console.error(`[Timer] Error: ${error}`);
@@ -330,10 +330,10 @@ export class AutomationEngine {
     this.timerManager = new TimerManager({
       maxTimers: 10,
       onTimerFire: (timer) => {
-        logToConsole(`Timer: '${timer.name}' fired (count: ${timer.fireCount})`);
+        logToConsole(`[automation.ts:setTimerCallbacks] Timer: '${timer.name}' fired (count: ${timer.fireCount})`);
       },
       onTimerCancel: (name) => {
-        logToConsole(`Timer: '${name}' cancelled`);
+        logToConsole(`[automation.ts:setTimerCallbacks] Timer: '${name}' cancelled`);
       },
       onTimerSave,
       onTimerDelete,
@@ -604,10 +604,10 @@ export class AutomationEngine {
       // PR01PH07T02: But explicit alias invocations do go through parser
       const aliasClassification = recognizeCommand(processed);
       if (aliasClassification.operator === '@') {
-        logToConsole('Alias: ' + processed);
+        logToConsole('[automation.ts] Alias: ' + processed);
         const aliasCommands = await this.invokeExplicitAlias(processed.substring(1));
         for (const aliasCmd of aliasCommands) {
-          logToConsole('Alias Action: ' + aliasCmd);
+          logToConsole('[automation.ts] Alias Action: ' + aliasCmd);
           processedCommands.push(aliasCmd);
         }
         continue;
@@ -639,7 +639,7 @@ export class AutomationEngine {
 
       const matchingTrigger = this.findMatchingTrigger(line);
       if (matchingTrigger) {
-        logToConsole('Trigger: ' + matchingTrigger.match);
+        logToConsole('[automation.ts] Trigger: ' + matchingTrigger.match);
         this.fireTrigger(matchingTrigger);
       }
     }
@@ -895,7 +895,7 @@ export class AutomationEngine {
         }
         // Commands are executed via timer callback or added here
         for (const cmd of result.commands) {
-          logToConsole('Trigger Action: ' + cmd);
+          logToConsole('[automation.ts] Trigger Action: ' + cmd);
           this.queueCommand({
             command: cmd,
             source: 'trigger',

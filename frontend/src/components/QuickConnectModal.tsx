@@ -71,11 +71,11 @@ export default function QuickConnectModal({ isOpen, onClose, onInputLockChange }
 
   // Load recent connections
   const loadRecentConnections = async () => {
-        logToConsole('QuickConnect: Loading recent connections...');
+        logToConsole('[QuickConnectModal.tsx:loadRecentConnections] QuickConnect: Loading recent connections...');
     setLoadingRecent(true);
     try {
       const recent = await getRecentConnections();
-            logToConsole('QuickConnect: Got recent connections: ' + recent.length);
+            logToConsole('[QuickConnectModal.tsx:loadRecentConnections] QuickConnect: Got recent connections: ' + recent.length);
       setRecentConnections(recent);
     } catch (err) {
       console.error('[QuickConnect] Failed to load recent connections:', err);

@@ -94,10 +94,10 @@ export default function PlayScreen() {
     // [SP03PH05T06] Debug: Apply selection style AFTER terminal.open()
     if (terminalRef.current) {
       const xtermElement = terminalRef.current.querySelector('.xterm') as HTMLElement;
-            logToConsole('SP03PH05T06: xtermElement found: ' + !!xtermElement);
+            logToConsole('[PlayScreen.tsx:handleTerminalReady] SP03PH05T06: xtermElement found: ' + !!xtermElement);
       if (xtermElement) {
         Object.assign(xtermElement.style, terminalSelectionStyle);
-              logToConsole('SP03PH05T06: Applied selection style');
+              logToConsole('[PlayScreen.tsx:handleTerminalReady] SP03PH05T06: Applied selection style');
       }
     }
 
@@ -482,11 +482,11 @@ export default function PlayScreen() {
             
             // SP03PH05T06: Handle Ctrl+C / Cmd+C - copy from terminal if text is selected there
             if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-                            logToConsole('SP03PH05T06: Input field - Ctrl+C detected');
+                            logToConsole('[PlayScreen.tsx:handleKeyDown] SP03PH05T06: Input field - Ctrl+C detected');
               // Try to copy from terminal selection
               if (terminalInstanceRef.current) {
                                 const selection = terminalInstanceRef.current.getSelection();
-                logToConsole('SP03PH05T06: Input field - terminal selection: ' + (selection ? `"${selection.substring(0, 20)}..."` : 'empty'));
+                logToConsole('[PlayScreen.tsx:handleKeyDown] SP03PH05T06: Input field - terminal selection: ' + (selection ? `"${selection.substring(0, 20)}..."` : 'empty'));
                 if (selection && selection.length > 0) {
                   e.preventDefault();
                   navigator.clipboard.writeText(selection);

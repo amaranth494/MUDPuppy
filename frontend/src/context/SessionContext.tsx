@@ -130,13 +130,13 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   // Disable automation entirely (SP06PH07)
   // This sets a flag that prevents automation from processing and persists to the server
   const disableAutomation = useCallback(async () => {
-    logToConsole('Automation: disableAutomation called');
+    logToConsole('[SessionContext.tsx:disableAutomation] Automation: disableAutomation called');
     // Capture the current session ID - ignore if session changed
     const sessionId = connectionSessionRef.current;
     
     // Don't persist if we don't have a valid connection or profile
     if (!currentConnectionId || !profile) {
-      logToConsole('Automation: disableAutomation - No connection or profile, disabling');
+      logToConsole('[SessionContext.tsx:disableAutomation] Automation: disableAutomation - No connection or profile, disabling');
       setAutomationDisabled(true);
       setAutomationError(null);
       return;
@@ -147,7 +147,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
     
     // Persist to server via profile settings - but check session first
     if (connectionSessionRef.current !== sessionId) {
-      logToConsole('Automation: disableAutomation - session changed, skipping profile update');
+      logToConsole('[SessionContext.tsx:disableAutomation] Automation: disableAutomation - session changed, skipping profile update');
       return;
     }
     
@@ -169,7 +169,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   // Re-enable automation after user disabled it (SP06PH07)
   // This persists to the server
   const enableAutomation = useCallback(async () => {
-    logToConsole('Automation: enableAutomation called, session: ' + connectionSessionRef.current + ' currentConnectionId: ' + currentConnectionId + ' profile: ' + profile?.id);
+    logToConsole('[SessionContext.tsx:enableAutomation] Automation: enableAutomation called, session: ' + connectionSessionRef.current + ' currentConnectionId: ' + currentConnectionId + ' profile: ' + profile?.id);
     
     // Capture the current session ID - ignore if session changed
     const sessionId = connectionSessionRef.current;
@@ -182,7 +182,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
     
     // Check if session changed - if so, skip the update
     if (connectionSessionRef.current !== sessionId) {
-      logToConsole('Automation: enableAutomation - session changed, skipping profile update');
+      logToConsole('[SessionContext.tsx:enableAutomation] Automation: enableAutomation - session changed, skipping profile update');
       setAutomationDisabled(false);
       return;
     }
@@ -235,7 +235,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   }, []);
 
   const connect = useCallback(async (mudHost: string, mudPort: number, connectionId?: string) => {
-    logToConsole('Automation: connect() called - mudHost: ' + mudHost + ' mudPort: ' + mudPort + ' connectionId: ' + connectionId);
+    logToConsole('[SessionContext.tsx:connect] Automation: connect() called - mudHost: ' + mudHost + ' mudPort: ' + mudPort + ' connectionId: ' + connectionId);
     
     // Increment session ID to invalidate any pending profile updates from previous sessions
     connectionSessionRef.current++;
@@ -247,7 +247,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
     // This ensures keybindings are available immediately after connect
     if (connectionId) {
       try {
-        logToConsole('Automation: Fetching profile for connectionId: ' + connectionId);
+        logToConsole('[SessionContext.tsx:connect] Automation: Fetching profile for connectionId: ' + connectionId);
         const fetchedProfile = await getProfileByConnection(connectionId);
         // Normalize keybindings to canonical format
         const normalizedProfile: Profile = {
@@ -256,7 +256,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
         };
         setProfile(normalizedProfile);
         setCurrentConnectionId(connectionId);
-        logToConsole('Automation: Profile loaded: ' + normalizedProfile?.id + ' automation_enabled: ' + normalizedProfile?.settings?.automation_enabled);
+        logToConsole('[SessionContext.tsx:connect] Automation: Profile loaded: ' + normalizedProfile?.id + ' automation_enabled: ' + normalizedProfile?.settings?.automation_enabled);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to load profile';
         setError(mapBackendError(errorMessage));
@@ -265,7 +265,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       }
     } else {
       // Quick connect without saved connection - use defaults
-      logToConsole('Automation: Quick connect - setting profile to null');
+      logToConsole('[SessionContext.tsx:connect] Automation: Quick connect - setting profile to null');
       setProfile(null);
       setCurrentConnectionId(null);
     }
@@ -311,9 +311,9 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
             engine.updateSystemVariable('%SERVER', connDetails.name);
           }
           
-          logToConsole('Automation: Set system variables from connection: ' + JSON.stringify({ character: autoCreds.username, password: '***', server: connDetails.name }));
+          logToConsole('[SessionContext.tsx:connect] Automation: Set system variables from connection: ' + JSON.stringify({ character: autoCreds.username, password: '***', server: connDetails.name }));
         } catch (err) {
-          logToConsole('Automation: Could not set system variables: ' + err);
+          logToConsole('[SessionContext.tsx:connect] Automation: Could not set system variables: ' + err);
         }
       } else {
         // Quick connect - use empty automation
@@ -327,13 +327,13 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       
       // Set up circuit breaker callback
       engine.setCircuitBreakerCallback((reason: string) => {
-        logToConsole('Automation: Circuit breaker tripped: ' + reason);
+        logToConsole('[SessionContext.tsx:connect] Automation: Circuit breaker tripped: ' + reason);
         setAutomationError(reason);
       });
       
       // PR01PH06: Set up variable change callback for UI sync
       engine.setVariableChangeCallback((name: string, value: VariableValue) => {
-        logToConsole('Automation: Variable changed: ' + name + ' = ' + value);
+        logToConsole('[SessionContext.tsx:connect] Automation: Variable changed: ' + name + ' = ' + value);
         triggerVariablesRefresh();
       });
       
@@ -372,7 +372,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
               }
               
               await putTimers(connectionId, updatedTimers);
-              logToConsole('Automation: Timer saved: ' + timer.name);
+              logToConsole('[SessionContext.tsx:saveTimer] Automation: Timer saved: ' + timer.name);
             } catch (error) {
               console.error('[Automation] Failed to save timer:', error);
             }
@@ -383,7 +383,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
               const currentTimers = await getTimers(connectionId);
               const updatedTimers = currentTimers.items.filter(t => t.name !== timerName);
               await putTimers(connectionId, updatedTimers);
-              logToConsole('Automation: Timer deleted: ' + timerName);
+              logToConsole('[SessionContext.tsx:deleteTimer] Automation: Timer deleted: ' + timerName);
             } catch (error) {
               console.error('[Automation] Failed to delete timer:', error);
             }
@@ -413,7 +413,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
             }
             
             await putEnvironment(connectionId, updatedVars);
-            logToConsole('Automation: Variables persisted: ' + Object.keys(variables).length);
+            logToConsole('[SessionContext.tsx:saveVariables] Automation: Variables persisted: ' + Object.keys(variables).length);
           } catch (error) {
             console.error('[Automation] Failed to persist variables:', error);
           }
@@ -428,7 +428,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
             commands: typeof t.commands === 'string' ? t.commands.split('\n').filter((c: string) => c.trim()) : t.commands,
           }));
           engine.loadTimers(savedTimers);
-          logToConsole('Automation: Timers loaded: ' + savedTimers.length);
+          logToConsole('[SessionContext.tsx:loadAutomation] Automation: Timers loaded: ' + savedTimers.length);
         }
       }
       
@@ -437,9 +437,9 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       
       // SP06PH07: Load automation_enabled from profile settings (persisted per connection)
       const isAutomationEnabled = profile?.settings?.automation_enabled ?? true;
-      logToConsole('Automation: Loading profile settings - automation_enabled: ' + isAutomationEnabled + ' profile: ' + profile?.id);
+      logToConsole('[SessionContext.tsx:loadAutomation] Automation: Loading profile settings - automation_enabled: ' + isAutomationEnabled + ' profile: ' + profile?.id);
       if (!isAutomationEnabled) {
-        logToConsole('Automation: Disabled due to profile setting (automation_enabled = false)');
+        logToConsole('[SessionContext.tsx:loadAutomation] Automation: Disabled due to profile setting (automation_enabled = false)');
       }
       setAutomationDisabled(!isAutomationEnabled);
     } catch (err) {
