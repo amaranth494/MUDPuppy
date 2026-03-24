@@ -25,7 +25,7 @@ export async function checkAuth(): Promise<User | null> {
     }
     return null;
   } catch (error) {
-        logErrorToConsole('Auth check failed: ' + error);
+    logErrorToConsole('Auth check failed: ' + error);
     return null;
   }
 }
