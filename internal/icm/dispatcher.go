@@ -279,7 +279,7 @@ func (h *EchoHandler) Handle(ctx *ExecutionContext, cmd *NormalizedCommand) (*Co
 
 	// PR02PH09: Add timestamp to local output for consistency with console logging
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	output = "[" + timestamp + "] " + output
+	output = "[LOG] " + timestamp + " [ECHO] " + output
 
 	return &CommandResult{
 		Output: output,
