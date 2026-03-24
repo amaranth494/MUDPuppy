@@ -375,8 +375,8 @@ export function validateCommand(input: string): ICMError | null {
       if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(parts[0])) {
         return {
           code: 'E2002',
-          message: 'Invalid variable name',
-          userMessage: 'Invalid variable name',
+          message: `Invalid variable name: ${parts[0]}`,
+          userMessage: `Invalid variable name: ${parts[0]}`,
         };
       }
       break;
