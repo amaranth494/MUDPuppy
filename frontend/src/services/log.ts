@@ -10,12 +10,16 @@ function getCallerLocation(): string {
   const err = new Error();
   const stack = err.stack || '';
   
-  // Parse stack - find first non-log.ts line
+  // Parse stack - look at first few lines
   const lines = stack.split('\n');
-  for (let i = 1; i < lines.length; i++) {
+  
+  // Skip: Error line, getCallerLocation, formatTimestamp, logToConsole, etc.
+  // Start from index 4 to get past our internal functions
+  for (let i = 4; i < Math.min(10, lines.length); i++) {
     const line = lines[i];
+    if (!line.trim()) continue;
     
-    // Skip lines from our logging utility
+    // Skip our logging utility lines
     if (line.includes('log.ts')) continue;
     
     // Match pattern: "at functionName (file:line:col)" or "at file:line:col"
@@ -23,19 +27,18 @@ function getCallerLocation(): string {
     if (match) {
       const funcName = match[1] || '';
       const fileName = match[2];
+      const lineNum = match[3];
       
-      // Extract just the filename (not full path)
+      // Extract just the filename
       const shortName = fileName.split('/').pop() || fileName.split('\\').pop() || fileName;
       
-      // Skip internal/bundled names
-      if (shortName.includes('index-') || shortName === 'unknown') {
-        continue;
-      }
+      // Skip bundled files
+      if (shortName.includes('index-')) continue;
       
       if (funcName) {
         return `[${shortName}:${funcName}]`;
       }
-      return `[${shortName}]`;
+      return `[${shortName}:${lineNum}]`;
     }
   }
   
