@@ -2,27 +2,36 @@
 // All console.log calls should use this to ensure consistent formatting
 
 /**
- * Parse function name from raw stack trace string
+ * Parse caller info from raw stack trace string
  * Chrome format: "at functionName (file:line:col)" or "at file:line:col"
  */
-function parseFunctionNameFromStack(stackString: string, callerIndex: number): string | null {
-  const lines = stackString.split('\n');
-  // Skip first line (Error), find the caller line
-  const callerLine = lines[callerIndex + 1]; // +1 because lines[0] is "Error"
+function parseCallerFromStack(stackString: string): { fileName: string; lineNumber: number; functionName: string | null } {
+  const lines = stackString.split('\n').filter(line => line.trim());
   
-  if (!callerLine) return null;
-  
-  // Match "at functionName (file:line:col)" or "at functionName@file:line:col"
-  const match = callerLine.match(/at\s+([^\s(]+)/);
-  if (match && match[1]) {
-    const name = match[1];
-    // Filter out internal/framework names
-    if (name === 'Object' || name === 'Function' || name === '<anonymous>') {
-      return null;
+  // Find the first "at" line that's NOT from log.ts (our logging utility)
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    
+    // Skip lines from our logging utility
+    if (line.includes('log.ts')) continue;
+    
+    // Match "at functionName (file:line:col)" or "at functionName@file:line:col"
+    const match = line.match(/at\s+(?:([^\s(]+)\s+)?\(?([^:]+):(\d+)/);
+    if (match) {
+      const functionName = match[1] || null;
+      const fileName = match[2] || 'unknown';
+      const lineNumber = parseInt(match[3], 10) || 0;
+      
+      // Filter out internal names
+      if (functionName && (functionName === 'Object' || functionName === 'Function' || functionName.includes('<anonymous>'))) {
+        continue;
+      }
+      
+      return { fileName, lineNumber, functionName };
     }
-    return name;
   }
-  return null;
+  
+  return { fileName: 'unknown', lineNumber: 0, functionName: null };
 }
 
 /**
@@ -33,51 +42,23 @@ function getCallerLocation(): string {
   const err = new Error();
   const stackString = err.stack || '';
   
-  // First try CallSite API
-  const originalPrepareStackTrace = Error.prepareStackTrace;
-  Error.prepareStackTrace = (_, stack) => stack;
+  // Use raw stack parsing (works reliably in both dev and production)
+  const caller = parseCallerFromStack(stackString);
   
-  const stackTrace = err.stack as unknown as NodeJS.CallSite[];
-  
-  Error.prepareStackTrace = originalPrepareStackTrace;
-  
-  // Skip: getCallerLocation, logToConsole/logErrorToConsole, and the actual caller
-  // stack[0] = getCallerLocation
-  // stack[1] = logToConsole/logErrorToConsole
-  // stack[2] = actual caller
-  if (stackTrace && stackTrace.length > 2) {
-    const caller = stackTrace[2];
-    const fileName = caller.getFileName() || 'unknown';
-    const lineNumber = caller.getLineNumber() || 0;
-    let functionName = caller.getFunctionName();
-    
-    // Fallback: Try to get function name from method name
-    if (!functionName && caller.getMethodName) {
-      functionName = caller.getMethodName();
-    }
-    
-    // Final fallback: Parse from raw stack string
-    if (!functionName) {
-      functionName = parseFunctionNameFromStack(stackString, 2);
-    }
-    
-    // Extract relative path from src/ directory
-    let relativePath = fileName;
-    const srcIndex = fileName.indexOf('src/');
-    if (srcIndex !== -1) {
-      relativePath = fileName.substring(srcIndex + 4);
-    } else {
-      relativePath = fileName.split('/').pop() || fileName.split('\\').pop() || fileName;
-    }
-    
-    // Include function name if available
-    if (functionName) {
-      return `[${relativePath}:${lineNumber} ${functionName}]`;
-    }
-    return `[${relativePath}:${lineNumber}]`;
+  // Extract relative path from src/ directory
+  let relativePath = caller.fileName;
+  const srcIndex = caller.fileName.indexOf('src/');
+  if (srcIndex !== -1) {
+    relativePath = caller.fileName.substring(srcIndex + 4);
+  } else {
+    relativePath = caller.fileName.split('/').pop() || caller.fileName.split('\\').pop() || caller.fileName;
   }
   
-  return '';
+  // Include function name if available
+  if (caller.functionName) {
+    return `[${relativePath}:${caller.lineNumber} ${caller.functionName}]`;
+  }
+  return `[${relativePath}:${caller.lineNumber}]`;
 }
 
 /**
