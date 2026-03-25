@@ -353,6 +353,8 @@ func (h *Handler) GetEnvironment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("[DEBUG GetEnvironment] Returning variables: %+v", profile.Variables.Items)
+
 	h.sendJSON(w, VariablesResponse{Items: profile.Variables.Items})
 }
 
@@ -400,6 +402,7 @@ func (h *Handler) PutEnvironment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update variables
+	log.Printf("[DEBUG PutEnvironment] Received variables: %+v", req.Items)
 	updates := &store.ProfileUpdate{
 		Variables: &store.Variables{Items: req.Items},
 	}
