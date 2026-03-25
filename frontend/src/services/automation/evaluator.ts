@@ -1281,9 +1281,13 @@ async function handleSetCommand(
         line: token.line,
         column: token.column
       });
-      // Output error to local terminal via outputMessage callback
+      // Output error to local terminal via #LOG formatting
       if (outputMessage) {
-        outputMessage(`\x1b[31m[ICM] ${errorMsg}\x1b[0m\r\n`);
+        const now = new Date();
+        const timestamp = now.toISOString().replace('T', ' ').substring(0, 19);
+        const brightYellow = '\x1b[93m';
+        const reset = '\x1b[0m';
+        outputMessage(`\r\n${brightYellow}[LOG] ${timestamp} ${errorMsg}${reset}\r\n`);
       }
       return;
     }
