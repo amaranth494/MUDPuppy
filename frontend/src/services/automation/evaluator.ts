@@ -1318,6 +1318,55 @@ async function handleSetCommand(
     });
     return;
   }
+
+  // PR02PH09: Validate type compatibility - ensure value matches specified type
+  if (options.type) {
+    const typeLower = options.type.toLowerCase();
+    let validationError: string | null = null;
+
+    // Check number type
+    if (typeLower === 'number' || typeLower === 'integer') {
+      if (typeof value !== 'number' || isNaN(value) || !isFinite(value)) {
+        validationError = `Type 'number' requires a valid numeric value, got: ${typeof value === 'number' ? (isNaN(value) ? 'NaN' : !isFinite(value) ? 'Infinity' : value) : String(value)}`;
+      }
+    }
+    // Check boolean type
+    else if (typeLower === 'boolean') {
+      if (typeof value !== 'boolean') {
+        validationError = `Type 'boolean' requires 'true' or 'false', got: ${String(value)}`;
+      }
+    }
+    // Check array type - requires delimiter
+    else if (typeLower === 'array') {
+      if (typeof value === 'string') {
+        // Check for common delimiters: comma, semicolon, pipe, tab
+        const hasDelimiter = /[,;\t|]/.test(value);
+        if (!hasDelimiter) {
+          validationError = `Type 'array' requires a delimiter (comma, semicolon, pipe, or tab) to separate elements, got: ${value}`;
+        }
+      } else if (!Array.isArray(value)) {
+        validationError = `Type 'array' requires a string with delimiters or an array, got: ${typeof value}`;
+      }
+    }
+
+    // If validation failed, output error and return
+    if (validationError) {
+      errors.push({
+        message: validationError,
+        line: token.line,
+        column: token.column
+      });
+      // Output error to local terminal via #LOG formatting
+      if (outputMessage) {
+        const now = new Date();
+        const timestamp = now.toISOString().replace('T', ' ').substring(0, 19);
+        const brightYellow = '\x1b[93m';
+        const reset = '\x1b[0m';
+        outputMessage(`\r\n${brightYellow}[LOG] ${timestamp} ${validationError}${reset}\r\n`);
+      }
+      return;
+    }
+  }
   
   // Handle session variables (%1, %2 syntax) - PR01PH03T04
   if (/^%\d+$/.test(varName)) {
