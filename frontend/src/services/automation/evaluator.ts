@@ -651,11 +651,9 @@ export class SimpleVariableStore implements VariableResolver {
     
     // PR02PH09: Store explicit type if provided
     if (type) {
-      console.log('[DEBUG SimpleVariableStore] Storing type for', name, ':', type);
       this.profileVariableTypes.set(name, type);
     } else {
       // Clear explicit type if not provided (will infer from value)
-      console.log('[DEBUG SimpleVariableStore] Clearing type for', name);
       this.profileVariableTypes.delete(name);
     }
     
