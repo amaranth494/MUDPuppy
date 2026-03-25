@@ -229,6 +229,31 @@ export function isConnectionSystemVariable(name: string): boolean {
 }
 
 // ============================================
+// Option Parser - PR02PH09
+// ============================================
+
+/**
+ * Extract options like (type:string) from args string
+ * Returns { options: Record<string, string>, remainingArgs: string }
+ * Example: "(type:string) number eleven" -> { options: {type: "string"}, remainingArgs: "number eleven" }
+ */
+function extractOptions(args: string): { options: Record<string, string>; remainingArgs: string } {
+  const options: Record<string, string> = {};
+  const trimmed = args.trim();
+  
+  // Check if args starts with an option in parentheses
+  const optionMatch = trimmed.match(/^\(([^:]+):([^)]+)\)\s+(.*)$/);
+  
+  if (optionMatch) {
+    options[optionMatch[1]] = optionMatch[2];
+    return { options, remainingArgs: optionMatch[3] };
+  }
+  
+  // No options found, return original args as remaining
+  return { options, remainingArgs: trimmed };
+}
+
+// ============================================
 // Condition Parser
 // ============================================
 
@@ -1182,7 +1207,12 @@ async function handleSetCommand(
   errors: ExecutionError[]
 ): Promise<void> {
   const args = token.args || '';
-  const match = args.match(/^(\S+)\s+(.*)$/);
+  
+  // PR02PH09: Extract options from args (e.g., (type:string))
+  const { options, remainingArgs } = extractOptions(args);
+  
+  // Parse the remaining args for variable name and value
+  const match = remainingArgs.match(/^(\S+)\s+(.*)$/);
   
   if (!match) {
     errors.push({
@@ -1199,8 +1229,27 @@ async function handleSetCommand(
   const parsedValue = parseValue(varValue.trim());
   let value = evaluate(parsedValue, variables);
   
-  // Smart type inference: determine the best type for storage
-  value = inferType(value);
+  // PR02PH09: If type option is specified, force that type
+  if (options.type) {
+    switch (options.type.toLowerCase()) {
+      case 'string':
+        value = String(value);
+        break;
+      case 'number':
+      case 'integer':
+        value = Number(value);
+        break;
+      case 'boolean':
+        value = value === true || value === 'true' || value === '1' || value === 1;
+        break;
+      default:
+        // Unknown type, use smart inference
+        value = inferType(value);
+    }
+  } else {
+    // Smart type inference: determine the best type for storage
+    value = inferType(value);
+  }
   
   // Check for system variable protection (PR01PH03T03)
   if (isSystemVariable(varName)) {

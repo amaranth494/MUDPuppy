@@ -392,8 +392,8 @@ export default function PlayScreen() {
     if (classification.isInternal && command.trim()) {
       const validationError = validateCommand(command);
       if (validationError && terminalInstanceRef.current && automationEngine) {
-        // PR02PH09: Display validation error through #ECHO system
-        await automationEngine.echoLocal(`[ICM Error] ${validationError.userMessage}`, { color: 'brightred', background: 'brightblack', bold: true });
+        // PR02PH09: Display validation error through #LOG command with local output
+        await automationEngine.processUserInput(`#LOG(to:local) [ICM] ${validationError.userMessage}`);
         return; // Don't process invalid commands
       }
     }
