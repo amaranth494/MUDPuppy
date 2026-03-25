@@ -19,7 +19,7 @@ import {
 import { mapBackendError } from '../types';
 import { normalizeKeybindings } from '../services/keybindings';
 import { getAutomationEngine, AutomationEngine } from '../services/automation';
-import { VariableValue } from '../services/automation/evaluator';
+import { VariableValue, VariableWithType } from '../services/automation/evaluator';
 import { SavedTimer } from '../services/automation/timer';
 import { logToConsole } from '../services/log';
 
@@ -391,7 +391,8 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
         );
         
         // PR01PH08: Set up variable persistence callback
-        engine.setPersistVariablesCallback(async (variables: Record<string, VariableValue>) => {
+        // PR02PH09: Updated to include type information when persisting variables
+        engine.setPersistVariablesCallback(async (variables: Record<string, VariableWithType>) => {
           try {
             // Get current variables from profile
             const currentEnv = await getEnvironment(connectionId);
@@ -399,16 +400,27 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
             // Merge existing variables with new ones
             const updatedVars: Variable[] = [...(currentEnv.items || [])];
             
-            for (const [name, value] of Object.entries(variables)) {
-              // Convert VariableValue to string (numbers become string representations)
-              const stringValue = String(value);
+            for (const [name, varData] of Object.entries(variables)) {
+              // Extract value and optional type
+              const stringValue = String(varData.value);
               const existingIndex = updatedVars.findIndex(v => v.name === name);
               if (existingIndex >= 0) {
-                updatedVars[existingIndex] = { ...updatedVars[existingIndex], value: stringValue };
+                // Update existing variable - preserve type if explicitly set
+                updatedVars[existingIndex] = { 
+                  ...updatedVars[existingIndex], 
+                  value: stringValue,
+                  // PR02PH09: Include type if explicitly specified
+                  ...(varData.type ? { type: varData.type } : {})
+                };
               } else {
                 // Generate ID for new variable
                 const newId = `${name}-${Date.now()}`;
-                updatedVars.push({ id: newId, name, value: stringValue });
+                // PR02PH09: Include type if explicitly specified
+                const newVar: Variable = { id: newId, name, value: stringValue };
+                if (varData.type) {
+                  newVar.type = varData.type;
+                }
+                updatedVars.push(newVar);
               }
             }
             

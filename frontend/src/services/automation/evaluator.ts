@@ -18,6 +18,8 @@ import { ParsedToken, CommandToken, parser, validateSyntax } from './parser';
 import { handleTimerCommand, handleCancelCommand, TimerManager, findTimerEnd, handleStartCommand, handleStopCommand, handleCheckCommand } from './timer';
 // PR02PH06: Import ICM adapter for command classification
 import { recognizeCommand } from '../icm-adapter';
+// PR02PH09: Import VariableType for type tracking
+import { VariableType } from '../../types';
 
 // ============================================
 // ANSI Color Helper Functions - PR02PH09
@@ -123,7 +125,8 @@ export type VariableValue = string | number | boolean;
 export interface VariableResolver {
   // Profile variables (persisted with profile)
   getProfile(name: string): VariableValue | undefined;
-  setProfile(name: string, value: VariableValue): void;
+  // PR02PH09: setProfile now accepts optional type parameter
+  setProfile(name: string, value: VariableValue, type?: VariableType): void | Promise<void>;
   
   // System variables (read-only, managed by system)
   getSystem(name: string): VariableValue | undefined;
@@ -597,13 +600,19 @@ function isTruthy(value: VariableValue): boolean {
  * #SET command:
  * - Backend write fails → value does not persist, automation continues, failure is logged
  */
+
+// PR02PH09: Type for variable persistence with explicit type information
+export type VariableWithType = { value: VariableValue; type?: VariableType };
+
 export class SimpleVariableStore implements VariableResolver {
   private profileVariables: Map<string, VariableValue> = new Map();
+  // PR02PH09: Track explicit types for variables (set via type option)
+  private profileVariableTypes: Map<string, VariableType> = new Map();
   private systemVariables: Map<string, VariableValue> = new Map();
   private sessionVariables: Map<string, VariableValue> = new Map();
   
-  // Callback for persisting profile variables to backend
-  private onPersistProfile: ((variables: Record<string, VariableValue>) => Promise<void>) | null = null;
+  // Callback for persisting profile variables to backend (now includes type)
+  private onPersistProfile: ((variables: Record<string, VariableWithType>) => Promise<void>) | null = null;
   
   // Callback for notifying UI of variable changes
   private onVariableChange: ((name: string, value: VariableValue) => void) | null = null;
@@ -611,7 +620,7 @@ export class SimpleVariableStore implements VariableResolver {
   /**
    * Set the persistence callback for profile variables
    */
-  setPersistCallback(callback: (variables: Record<string, VariableValue>) => Promise<void>): void {
+  setPersistCallback(callback: (variables: Record<string, VariableWithType>) => Promise<void>): void {
     this.onPersistProfile = callback;
   }
   
@@ -627,13 +636,26 @@ export class SimpleVariableStore implements VariableResolver {
     return this.profileVariables.get(name);
   }
   
-  async setProfile(name: string, value: VariableValue): Promise<void> {
+  // PR02PH09: Get the explicit type for a profile variable (if set via type option)
+  getProfileType(name: string): VariableType | undefined {
+    return this.profileVariableTypes.get(name);
+  }
+  
+  async setProfile(name: string, value: VariableValue, type?: VariableType): Promise<void> {
     // Check for system variable protection (PR01PH03T03)
     if (isSystemVariable(name)) {
       throw new Error(`Cannot modify system variable: ${name}`);
     }
     
     this.profileVariables.set(name, value);
+    
+    // PR02PH09: Store explicit type if provided
+    if (type) {
+      this.profileVariableTypes.set(name, type);
+    } else {
+      // Clear explicit type if not provided (will infer from value)
+      this.profileVariableTypes.delete(name);
+    }
     
     // Notify UI of change
     if (this.onVariableChange) {
@@ -643,7 +665,8 @@ export class SimpleVariableStore implements VariableResolver {
     // Persist to backend if callback is set
     if (this.onPersistProfile) {
       try {
-        await this.onPersistProfile(this.toObject());
+        // PR02PH09: Pass variables with their types
+        await this.onPersistProfile(this.toObjectWithTypes());
       } catch (error) {
         console.error('[SimpleVariableStore] Failed to persist variable:', error);
         // Don't throw - variable is still set in memory
@@ -702,6 +725,18 @@ export class SimpleVariableStore implements VariableResolver {
     const obj: Record<string, VariableValue> = {};
     this.profileVariables.forEach((value, key) => {
       obj[key] = value;
+    });
+    return obj;
+  }
+  
+  // PR02PH09: Get all variables with their types for persistence
+  toObjectWithTypes(): Record<string, { value: VariableValue; type?: VariableType }> {
+    const obj: Record<string, { value: VariableValue; type?: VariableType }> = {};
+    this.profileVariables.forEach((value, key) => {
+      obj[key] = {
+        value,
+        type: this.profileVariableTypes.get(key)
+      };
     });
     return obj;
   }
@@ -1267,9 +1302,29 @@ async function handleSetCommand(
     return;
   }
   
-  // Profile variable - set and persist
+  // PR02PH09: Determine the explicit type from options
+  let explicitType: VariableType | undefined;
+  if (options.type) {
+    switch (options.type.toLowerCase()) {
+      case 'string':
+        explicitType = 'string';
+        break;
+      case 'number':
+      case 'integer':
+        explicitType = 'number';
+        break;
+      case 'boolean':
+        explicitType = 'boolean';
+        break;
+      case 'array':
+        explicitType = 'array';
+        break;
+    }
+  }
+  
+  // Profile variable - set and persist (with explicit type if specified)
   try {
-    await variables.setProfile(varName, value);
+    await variables.setProfile(varName, value, explicitType);
   } catch (error) {
     const err = error as Error;
     errors.push({

@@ -6,7 +6,7 @@
  */
 
 import { Trigger, AutomationAliases, AutomationTriggers, AutomationVariables } from '../types';
-import { SimpleVariableStore, VariableValue, executeAutomationAction } from './automation/evaluator';
+import { SimpleVariableStore, VariableValue, VariableWithType, executeAutomationAction } from './automation/evaluator';
 import { TimerManager, SavedTimer } from './automation/timer';
 // PR02PH06: Import ICM adapter for command classification
 import { recognizeCommand } from './icm-adapter';
@@ -242,7 +242,7 @@ export class AutomationEngine {
   /**
    * Set the callback for persisting variables to backend
    */
-  setPersistVariablesCallback(callback: (variables: Record<string, VariableValue>) => Promise<void>): void {
+  setPersistVariablesCallback(callback: (variables: Record<string, VariableWithType>) => Promise<void>): void {
     this.variableStore.setPersistCallback(callback);
   }
   
