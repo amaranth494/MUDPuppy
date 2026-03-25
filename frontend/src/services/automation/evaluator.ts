@@ -891,7 +891,7 @@ async function executeTokenList(
           
         case 'SET':
           // Handle #SET variable value (async for persistence)
-          await handleSetCommand(token, context.variables, errors);
+          await handleSetCommand(token, context.variables, errors, context.outputMessage);
           i++;
           continue;
         
@@ -1244,7 +1244,8 @@ function findElseOrEndif(tokens: ParsedToken[], startIndex: number): number {
 async function handleSetCommand(
   token: CommandToken,
   variables: VariableStore,
-  errors: ExecutionError[]
+  errors: ExecutionError[],
+  outputMessage?: (message: string) => void
 ): Promise<void> {
   const args = token.args || '';
   
@@ -1271,6 +1272,21 @@ async function handleSetCommand(
   
   // PR02PH09: If type option is specified, force that type
   if (options.type) {
+    const validTypes = ['string', 'number', 'integer', 'boolean', 'array'];
+    if (!validTypes.includes(options.type.toLowerCase())) {
+      // Invalid type - add error message
+      const errorMsg = `Invalid type '${options.type}'. Valid types are: string, number, boolean, array`;
+      errors.push({
+        message: errorMsg,
+        line: token.line,
+        column: token.column
+      });
+      // Output error to local terminal via outputMessage callback
+      if (outputMessage) {
+        outputMessage(`\x1b[31m[ICM] ${errorMsg}\x1b[0m\r\n`);
+      }
+      return;
+    }
     switch (options.type.toLowerCase()) {
       case 'string':
         value = String(value);
@@ -1283,7 +1299,7 @@ async function handleSetCommand(
         value = value === true || value === 'true' || value === '1' || value === 1;
         break;
       default:
-        // Unknown type, use smart inference
+        // Unknown type should not reach here due to validation above
         value = inferType(value);
     }
   } else {
