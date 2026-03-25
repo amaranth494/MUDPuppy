@@ -651,9 +651,11 @@ export class SimpleVariableStore implements VariableResolver {
     
     // PR02PH09: Store explicit type if provided
     if (type) {
+      console.log('[DEBUG SimpleVariableStore] Storing type for', name, ':', type);
       this.profileVariableTypes.set(name, type);
     } else {
       // Clear explicit type if not provided (will infer from value)
+      console.log('[DEBUG SimpleVariableStore] Clearing type for', name);
       this.profileVariableTypes.delete(name);
     }
     
@@ -733,11 +735,14 @@ export class SimpleVariableStore implements VariableResolver {
   toObjectWithTypes(): Record<string, { value: VariableValue; type?: VariableType }> {
     const obj: Record<string, { value: VariableValue; type?: VariableType }> = {};
     this.profileVariables.forEach((value, key) => {
+      const varType = this.profileVariableTypes.get(key);
+      console.log('[DEBUG toObjectWithTypes] key=', key, 'value=', value, 'type=', varType);
       obj[key] = {
         value,
-        type: this.profileVariableTypes.get(key)
+        type: varType
       };
     });
+    console.log('[DEBUG toObjectWithTypes] returning obj with', Object.keys(obj).length, 'entries');
     return obj;
   }
   
@@ -1305,6 +1310,7 @@ async function handleSetCommand(
   // PR02PH09: Determine the explicit type from options
   let explicitType: VariableType | undefined;
   if (options.type) {
+    console.log('[DEBUG] options.type =', options.type);
     switch (options.type.toLowerCase()) {
       case 'string':
         explicitType = 'string';
@@ -1320,11 +1326,14 @@ async function handleSetCommand(
         explicitType = 'array';
         break;
     }
+    console.log('[DEBUG] explicitType determined =', explicitType);
   }
   
   // Profile variable - set and persist (with explicit type if specified)
   try {
+    console.log('[DEBUG] Calling setProfile with name=', varName, 'value=', value, 'type=', explicitType);
     await variables.setProfile(varName, value, explicitType);
+    console.log('[DEBUG] setProfile completed');
   } catch (error) {
     const err = error as Error;
     errors.push({
