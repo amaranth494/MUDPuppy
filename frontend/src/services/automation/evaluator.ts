@@ -1330,7 +1330,6 @@ async function handleSetCommand(
   // PR02PH09: Determine the explicit type from options
   let explicitType: VariableType | undefined;
   if (options.type) {
-    console.log('[DEBUG] options.type =', options.type);
     switch (options.type.toLowerCase()) {
       case 'string':
         explicitType = 'string';
@@ -1346,14 +1345,11 @@ async function handleSetCommand(
         explicitType = 'array';
         break;
     }
-    console.log('[DEBUG] explicitType determined =', explicitType);
   }
   
   // Profile variable - set and persist (with explicit type if specified)
   try {
-    console.log('[DEBUG] Calling setProfile with name=', varName, 'value=', value, 'type=', explicitType);
     await variables.setProfile(varName, value, explicitType);
-    console.log('[DEBUG] setProfile completed');
   } catch (error) {
     const err = error as Error;
     errors.push({
