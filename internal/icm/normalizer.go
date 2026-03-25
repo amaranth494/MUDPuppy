@@ -6,6 +6,9 @@ import (
 	"unicode"
 )
 
+// optionPattern matches options like (type:string) or (expires:3600)
+var optionPattern = regexp.MustCompile(`^\(([^:]+):([^)]+)\)$`)
+
 // Normalizer handles command normalization to canonical form
 type Normalizer struct {
 	// escape sequences to process
@@ -52,7 +55,9 @@ func (n *Normalizer) Normalize(parsed *RecognizeResult) *NormalizedCommand {
 	case OperatorStructured:
 		nc.Operator = OperatorStructured
 		nc.Command = strings.ToUpper(parsed.Command)
-		nc.Args = n.normalizeArgs(parsed.Args)
+		// Extract options and normalize remaining args
+		nc.Options, nc.Args = n.extractOptions(parsed.Args)
+		nc.Args = n.normalizeArgs(nc.Args)
 		nc.Transformations = append(nc.Transformations, "case_fold_command")
 
 	case OperatorAlias:
@@ -79,6 +84,22 @@ func (n *Normalizer) Normalize(parsed *RecognizeResult) *NormalizedCommand {
 	nc.RequiresExecution = n.requiresExecution(nc)
 
 	return nc
+}
+
+// extractOptions extracts options like (type:string) from args and returns options map and remaining args
+func (n *Normalizer) extractOptions(args []string) (map[string]string, []string) {
+	options := make(map[string]string)
+	var remaining []string
+
+	for _, arg := range args {
+		if match := optionPattern.FindStringSubmatch(arg); match != nil {
+			options[match[1]] = match[2]
+		} else {
+			remaining = append(remaining, arg)
+		}
+	}
+
+	return options, remaining
 }
 
 // normalizeArgs normalizes command arguments

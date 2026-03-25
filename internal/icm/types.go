@@ -86,6 +86,9 @@ type NormalizedCommand struct {
 	Command  string
 	Args     []string
 
+	// Options extracted from arguments (e.g., (type:string))
+	Options map[string]string
+
 	// Metadata
 	OriginalInput   string
 	Transformations []string
