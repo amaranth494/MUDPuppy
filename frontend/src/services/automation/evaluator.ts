@@ -1327,7 +1327,14 @@ async function handleSetCommand(
     // Check number type
     if (typeLower === 'number' || typeLower === 'integer') {
       if (typeof value !== 'number' || isNaN(value) || !isFinite(value)) {
-        validationError = `Type 'number' requires a valid numeric value, got: ${typeof value === 'number' ? (isNaN(value) ? 'NaN' : !isFinite(value) ? 'Infinity' : value) : String(value)}`;
+        let numError = '';
+        if (typeof value === 'number') {
+          if (isNaN(value)) numError = 'value is not a valid number';
+          else if (!isFinite(value)) numError = 'value is infinite';
+        } else {
+          numError = `got '${String(value)}' which cannot be converted to a number`;
+        }
+        validationError = `Type 'number' requires a valid numeric value, ${numError}`;
       }
     }
     // Check boolean type
