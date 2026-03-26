@@ -1343,14 +1343,18 @@ async function handleSetCommand(
         validationError = `Type 'boolean' requires 'true' or 'false', got: ${String(value)}`;
       }
     }
-    // Check array type - supports {} wrapper or single items
+    // Check array type - supports {} wrapper with comma delimiter or single items
     else if (typeLower === 'array') {
       if (typeof value === 'string') {
         // Check for {} wrapper syntax
         const trimmed = value.trim();
         if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-          // {} wrapped values are always valid arrays
-          // Inner content will be parsed by the backend
+          // {} wrapped values require comma delimiter between items
+          const innerContent = trimmed.slice(1, -1).trim();
+          const hasCommaDelimiter = innerContent.includes(',');
+          if (!hasCommaDelimiter && innerContent.length > 0) {
+            validationError = `Type 'array' with {} wrapper requires comma delimiter between items, e.g., {item1,item2}`;
+          }
         } else {
           // Check for common delimiters: comma, semicolon, pipe, tab
           const hasDelimiter = /[,;\t|]/.test(value);
