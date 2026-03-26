@@ -1343,16 +1343,24 @@ async function handleSetCommand(
         validationError = `Type 'boolean' requires 'true' or 'false', got: ${String(value)}`;
       }
     }
-    // Check array type - requires delimiter
+    // Check array type - supports {} wrapper or single items
     else if (typeLower === 'array') {
       if (typeof value === 'string') {
-        // Check for common delimiters: comma, semicolon, pipe, tab
-        const hasDelimiter = /[,;\t|]/.test(value);
-        if (!hasDelimiter) {
-          validationError = `Type 'array' requires a delimiter (comma, semicolon, pipe, or tab) to separate elements, got: ${value}`;
+        // Check for {} wrapper syntax
+        const trimmed = value.trim();
+        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+          // {} wrapped values are always valid arrays
+          // Inner content will be parsed by the backend
+        } else {
+          // Check for common delimiters: comma, semicolon, pipe, tab
+          const hasDelimiter = /[,;\t|]/.test(value);
+          if (!hasDelimiter) {
+            // Allow single-item arrays without delimiter
+            // The value will be stored as a single-element array
+          }
         }
       } else if (!Array.isArray(value)) {
-        validationError = `Type 'array' requires a string with delimiters or an array, got: ${typeof value}`;
+        validationError = `Type 'array' requires a string (with optional {} wrapper or delimiters) or an array, got: ${typeof value}`;
       }
     }
 
