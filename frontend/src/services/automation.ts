@@ -508,8 +508,8 @@ export class AutomationEngine {
       if (isInternalCommand(cmd)) {
         // Process internal commands through evaluator
         try {
-          // PR02PH09: Pass helpResolver to enable #HELP to fetch from backend
-          const result = await executeAutomationAction(cmd, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined, this.helpResolver ?? undefined);
+          // PR02PH09: Pass helpResolver and source='cli' to enable #HELP and block #IF in CLI
+          const result = await executeAutomationAction(cmd, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined, this.helpResolver ?? undefined, 'cli');
 
           if (!result.success) {
             console.warn('[Automation] # command errors:', result.errors);

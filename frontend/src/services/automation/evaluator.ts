@@ -167,6 +167,8 @@ export interface ExecutionContext {
   outputMessage?: (message: string) => void;
   // PR02PH09: For fetching help content from backend
   helpResolver?: (topic?: string) => Promise<{ title: string; description: string; sections: { title: string; content: string }[] } | null>;
+  // PR02PH09: Source context to distinguish CLI from Triggers/Aliases/Timers
+  source?: 'cli' | 'trigger' | 'alias' | 'timer';
 }
 
 // AST Node types for conditions
@@ -783,7 +785,9 @@ export async function executeTokens(
   aliasResolver?: (aliasName: string) => Promise<string[]>,
   outputMessage?: (message: string) => void,
   // PR02PH09: For fetching help content in #HELP command
-  helpResolver?: (topic?: string) => Promise<{ title: string; description: string; sections: { title: string; content: string }[] } | null>
+  helpResolver?: (topic?: string) => Promise<{ title: string; description: string; sections: { title: string; content: string }[] } | null>,
+  // PR02PH09: Source context to distinguish CLI from Triggers/Aliases/Timers
+  source?: 'cli' | 'trigger' | 'alias' | 'timer'
 ): Promise<ExecutionResult> {
   const errors: ExecutionError[] = [];
   const commands: string[] = [];
@@ -797,7 +801,8 @@ export async function executeTokens(
       executeCommands: undefined,
       aliasResolver,
       outputMessage,
-      helpResolver
+      helpResolver,
+      source
     };
 
     const result = await executeTokenList(tokens, context, errors);
@@ -840,11 +845,11 @@ async function executeTokenList(
       switch (token.command) {
         case 'IF':
           // PR02PH09: #IF is only available in Triggers/Aliases/Timers, not CLI
-          // If outputMessage exists, this is CLI - show error and skip
-          if (context.outputMessage) {
+          // Only block if explicitly from CLI source
+          if (context.source === 'cli') {
             const brightYellow = '\x1b[93m';
             const reset = '\x1b[0m';
-            context.outputMessage(`\r\n${brightYellow}[LOG] These commands are unavailable in the CLI, please make use of their functions in the Connection Settings. See Help "#IF, #ELSE, #ENDIF" for more information.${reset}\r\n`);
+            context.outputMessage?.(`\r\n${brightYellow}[LOG] These commands are unavailable in the CLI, please make use of their functions in the Connection Settings. See Help "#IF, #ELSE, #ENDIF" for more information.${reset}\r\n`);
             i++;
             continue;
           }
@@ -1138,22 +1143,22 @@ async function executeTokenList(
           
         case 'ELSE':
           // PR02PH09: #ELSE is only available in Triggers/Aliases/Timers, not CLI
-          // If outputMessage exists, this is CLI - show error and skip
-          if (context.outputMessage) {
+          // Only block if explicitly from CLI source
+          if (context.source === 'cli') {
             const brightYellow = '\x1b[93m';
             const reset = '\x1b[0m';
-            context.outputMessage(`\r\n${brightYellow}[LOG] These commands are unavailable in the CLI, please make use of their functions in the Connection Settings. See Help "#IF, #ELSE, #ENDIF" for more information.${reset}\r\n`);
+            context.outputMessage?.(`\r\n${brightYellow}[LOG] These commands are unavailable in the CLI, please make use of their functions in the Connection Settings. See Help "#IF, #ELSE, #ENDIF" for more information.${reset}\r\n`);
           }
           i++;
           continue;
           
         case 'ENDIF':
           // PR02PH09: #ENDIF is only available in Triggers/Aliases/Timers, not CLI
-          // If outputMessage exists, this is CLI - show error and skip
-          if (context.outputMessage) {
+          // Only block if explicitly from CLI source
+          if (context.source === 'cli') {
             const brightYellow = '\x1b[93m';
             const reset = '\x1b[0m';
-            context.outputMessage(`\r\n${brightYellow}[LOG] These commands are unavailable in the CLI, please make use of their functions in the Connection Settings. See Help "#IF, #ELSE, #ENDIF" for more information.${reset}\r\n`);
+            context.outputMessage?.(`\r\n${brightYellow}[LOG] These commands are unavailable in the CLI, please make use of their functions in the Connection Settings. See Help "#IF, #ELSE, #ENDIF" for more information.${reset}\r\n`);
           }
           i++;
           continue;
@@ -1701,7 +1706,9 @@ export async function executeAutomationAction(
   aliasResolver?: (aliasName: string) => Promise<string[]>,
   outputMessage?: (message: string) => void,
   // PR02PH09: For fetching help content in #HELP command
-  helpResolver?: (topic?: string) => Promise<{ title: string; description: string; sections: { title: string; content: string }[] } | null>
+  helpResolver?: (topic?: string) => Promise<{ title: string; description: string; sections: { title: string; content: string }[] } | null>,
+  // PR02PH09: Source context to distinguish CLI from Triggers/Aliases/Timers
+  source?: 'cli' | 'trigger' | 'alias' | 'timer'
 ): Promise<ExecutionResult> {
   // Parse the action text
   const parseResult = parser.parse(actionText);
@@ -1740,7 +1747,8 @@ export async function executeAutomationAction(
     timerManager,
     aliasResolver,
     outputMessage,
-    helpResolver
+    helpResolver,
+    source
   );
 }
 
@@ -1756,7 +1764,9 @@ async function executeWithTimeout(
   aliasResolver?: (aliasName: string) => Promise<string[]>,
   outputMessage?: (message: string) => void,
   // PR02PH09: For fetching help content in #HELP command
-  helpResolver?: (topic?: string) => Promise<{ title: string; description: string; sections: { title: string; content: string }[] } | null>
+  helpResolver?: (topic?: string) => Promise<{ title: string; description: string; sections: { title: string; content: string }[] } | null>,
+  // PR02PH09: Source context to distinguish CLI from Triggers/Aliases/Timers
+  source?: 'cli' | 'trigger' | 'alias' | 'timer'
 ): Promise<ExecutionResult> {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   let isTimedOut = false;
@@ -1772,7 +1782,7 @@ async function executeWithTimeout(
   
   try {
     // Execute the tokens
-    const executionPromise = executeTokens(tokens, variables, maxDepth, timerManager, aliasResolver, outputMessage, helpResolver);
+    const executionPromise = executeTokens(tokens, variables, maxDepth, timerManager, aliasResolver, outputMessage, helpResolver, source);
     
     // Race between execution and timeout
     const result = await Promise.race([executionPromise, timeoutPromise]);
