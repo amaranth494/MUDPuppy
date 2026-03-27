@@ -163,8 +163,10 @@ export interface ExecutionContext {
   timerManager?: TimerManager;
   executeCommands?: (commands: string[]) => void;
   aliasResolver?: (aliasName: string) => Promise<string[]>;
-  // PR01PH08: For outputting timer status to local terminal
+  // PR02PH09: For outputting timer status to local terminal
   outputMessage?: (message: string) => void;
+  // PR02PH09: For fetching help content from backend
+  helpResolver?: (topic?: string) => Promise<{ title: string; description: string; sections: { title: string; content: string }[] } | null>;
 }
 
 // AST Node types for conditions
@@ -779,7 +781,9 @@ export async function executeTokens(
   maxDepth: number = DEFAULT_MAX_DEPTH,
   timerManager?: TimerManager,
   aliasResolver?: (aliasName: string) => Promise<string[]>,
-  outputMessage?: (message: string) => void
+  outputMessage?: (message: string) => void,
+  // PR02PH09: For fetching help content in #HELP command
+  helpResolver?: (topic?: string) => Promise<{ title: string; description: string; sections: { title: string; content: string }[] } | null>
 ): Promise<ExecutionResult> {
   const errors: ExecutionError[] = [];
   const commands: string[] = [];
@@ -792,7 +796,8 @@ export async function executeTokens(
       timerManager,
       executeCommands: undefined,
       aliasResolver,
-      outputMessage
+      outputMessage,
+      helpResolver
     };
 
     const result = await executeTokenList(tokens, context, errors);
@@ -1111,12 +1116,13 @@ async function executeTokenList(
           
         case 'HELP':
           // Handle #HELP command - show help
-          // PR02PH09: Show help for available commands
+          // PR02PH09: Commented out - help should come from Help modal, not CLI
+          // Keeping command in KNOWN_COMMANDS for potential future use
           {
-            const helpText = 'Available commands: #IF/#ELSE/#ENDIF, #SET, #ADD, #SUB, #TIMER, #START/#STOP/#CHECK/#CANCEL, #ECHO, #LOG, #HELP';
-            const brightCyan = '\x1b[96m';
+            const helpText = 'Use the Help menu (F1) or click Help in the sidebar for documentation';
+            const brightYellow = '\x1b[93m';
             const reset = '\x1b[0m';
-            context.outputMessage?.(`\r\n${brightCyan}${helpText}${reset}\r\n`);
+            context.outputMessage?.(`\r\n${brightYellow}${helpText}${reset}\r\n`);
           }
           i++;
           continue;
@@ -1664,7 +1670,9 @@ export async function executeAutomationAction(
   variables: VariableStore,
   timerManager?: TimerManager,
   aliasResolver?: (aliasName: string) => Promise<string[]>,
-  outputMessage?: (message: string) => void
+  outputMessage?: (message: string) => void,
+  // PR02PH09: For fetching help content in #HELP command
+  helpResolver?: (topic?: string) => Promise<{ title: string; description: string; sections: { title: string; content: string }[] } | null>
 ): Promise<ExecutionResult> {
   // Parse the action text
   const parseResult = parser.parse(actionText);
@@ -1702,7 +1710,8 @@ export async function executeAutomationAction(
     DEFAULT_MAX_DEPTH, 
     timerManager,
     aliasResolver,
-    outputMessage
+    outputMessage,
+    helpResolver
   );
 }
 
@@ -1716,7 +1725,9 @@ async function executeWithTimeout(
   maxDepth: number,
   timerManager?: TimerManager,
   aliasResolver?: (aliasName: string) => Promise<string[]>,
-  outputMessage?: (message: string) => void
+  outputMessage?: (message: string) => void,
+  // PR02PH09: For fetching help content in #HELP command
+  helpResolver?: (topic?: string) => Promise<{ title: string; description: string; sections: { title: string; content: string }[] } | null>
 ): Promise<ExecutionResult> {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   let isTimedOut = false;
@@ -1732,7 +1743,7 @@ async function executeWithTimeout(
   
   try {
     // Execute the tokens
-    const executionPromise = executeTokens(tokens, variables, maxDepth, timerManager, aliasResolver, outputMessage);
+    const executionPromise = executeTokens(tokens, variables, maxDepth, timerManager, aliasResolver, outputMessage, helpResolver);
     
     // Race between execution and timeout
     const result = await Promise.race([executionPromise, timeoutPromise]);

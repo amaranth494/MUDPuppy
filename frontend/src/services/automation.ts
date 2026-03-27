@@ -158,6 +158,9 @@ export class AutomationEngine {
   
   // Timer manager (PR01PH04)
   private timerManager: TimerManager;
+  
+  // PR02PH09: Callback for fetching help content from backend
+  private helpResolver: ((topic?: string) => Promise<{ title: string; description: string; sections: { title: string; content: string }[] } | null>) | null = null;
 
   constructor() {
     this.variableStore = new SimpleVariableStore();
@@ -287,6 +290,14 @@ export class AutomationEngine {
    */
   setTerminalCallback(callback: (message: string) => void): void {
     this.terminalCallback = callback;
+  }
+
+  /**
+   * PR02PH09: Set the help resolver callback for #HELP command
+   * This allows the evaluator to fetch help content from the backend
+   */
+  setHelpResolver(callback: (topic?: string) => Promise<{ title: string; description: string; sections: { title: string; content: string }[] } | null>): void {
+    this.helpResolver = callback;
   }
 
   /**
@@ -497,7 +508,8 @@ export class AutomationEngine {
       if (isInternalCommand(cmd)) {
         // Process internal commands through evaluator
         try {
-          const result = await executeAutomationAction(cmd, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined);
+          // PR02PH09: Pass helpResolver to enable #HELP to fetch from backend
+          const result = await executeAutomationAction(cmd, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined, this.helpResolver ?? undefined);
 
           if (!result.success) {
             console.warn('[Automation] # command errors:', result.errors);
