@@ -1119,7 +1119,7 @@ async function executeTokenList(
           // PR02PH09: Commented out - help should come from Help modal, not CLI
           // Keeping command in KNOWN_COMMANDS for potential future use
           {
-            const helpText = 'Use the Help menu (F1) or click Help in the sidebar for documentation';
+            const helpText = 'Use the Help menu in the sidebar for documentation';
             const brightYellow = '\x1b[93m';
             const reset = '\x1b[0m';
             context.outputMessage?.(`\r\n${brightYellow}${helpText}${reset}\r\n`);
