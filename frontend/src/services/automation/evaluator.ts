@@ -839,6 +839,15 @@ async function executeTokenList(
     if (token.type === 'COMMAND') {
       switch (token.command) {
         case 'IF':
+          // PR02PH09: #IF is only available in Triggers/Aliases/Timers, not CLI
+          // If outputMessage exists, this is CLI - show error and skip
+          if (context.outputMessage) {
+            const brightYellow = '\x1b[93m';
+            const reset = '\x1b[0m';
+            context.outputMessage(`\r\n${brightYellow}[LOG] #IF is only available in Triggers, Aliases, and Timers. Use the Settings menu to create these.${reset}\r\n`);
+            i++;
+            continue;
+          }
           // Get condition from args
           const conditionStr = token.args || '';
           const ast = parseCondition(conditionStr);
@@ -1128,7 +1137,27 @@ async function executeTokenList(
           continue;
           
         case 'ELSE':
+          // PR02PH09: #ELSE is only available in Triggers/Aliases/Timers, not CLI
+          // If outputMessage exists, this is CLI - show error and skip
+          if (context.outputMessage) {
+            const brightYellow = '\x1b[93m';
+            const reset = '\x1b[0m';
+            context.outputMessage(`\r\n${brightYellow}[LOG] #ELSE is only available in Triggers, Aliases, and Timers. Use the Settings menu to create these.${reset}\r\n`);
+          }
+          i++;
+          continue;
+          
         case 'ENDIF':
+          // PR02PH09: #ENDIF is only available in Triggers/Aliases/Timers, not CLI
+          // If outputMessage exists, this is CLI - show error and skip
+          if (context.outputMessage) {
+            const brightYellow = '\x1b[93m';
+            const reset = '\x1b[0m';
+            context.outputMessage(`\r\n${brightYellow}[LOG] #ENDIF is only available in Triggers, Aliases, and Timers. Use the Settings menu to create these.${reset}\r\n`);
+          }
+          i++;
+          continue;
+          
         case 'ENDTIMER':
           // These are handled elsewhere or are not direct execution commands
           // For now, skip them in inline execution
