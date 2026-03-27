@@ -40,8 +40,13 @@ Task involved troubleshooting issues discovered during manual QA of the ICM (Int
 
 ### Phase 6: #HELP Command
 - **Issue**: #HELP showed hardcoded list instead of useful help
-- **Decision**: Commented out #HELP - users should use Help modal (F1) instead
-- **Deployment**: Pushed to staging (commit e18bd75)
+- **Decision**: Commented out #HELP - users should use Help modal in sidebar instead
+- **Deployment**: Pushed to staging (commit cdb0a34)
+
+### Phase 7: #IF/#ELSE/#ENDIF CLI Blocking
+- **Issue**: #IF/#ELSE/#ENDIF should not be available in CLI, only in Triggers/Aliases/Timers
+- **Fix**: Added check for context.outputMessage to detect CLI usage, show error directing users to Settings menu
+- **Deployment**: Pushed to staging (commit e2c2fb7)
 
 ## Deployment Process
 Following constitutional deployment process from `.specify/memory/constitution.md`:

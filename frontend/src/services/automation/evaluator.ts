@@ -844,7 +844,7 @@ async function executeTokenList(
           if (context.outputMessage) {
             const brightYellow = '\x1b[93m';
             const reset = '\x1b[0m';
-            context.outputMessage(`\r\n${brightYellow}[LOG] #IF is only available in Triggers, Aliases, and Timers. Use the Settings menu to create these.${reset}\r\n`);
+            context.outputMessage(`\r\n${brightYellow}[LOG] These commands are unavailable in the CLI, please make use of their functions in the Connection Settings. See Help "#IF, #ELSE, #ENDIF" for more information.${reset}\r\n`);
             i++;
             continue;
           }
@@ -1142,7 +1142,7 @@ async function executeTokenList(
           if (context.outputMessage) {
             const brightYellow = '\x1b[93m';
             const reset = '\x1b[0m';
-            context.outputMessage(`\r\n${brightYellow}[LOG] #ELSE is only available in Triggers, Aliases, and Timers. Use the Settings menu to create these.${reset}\r\n`);
+            context.outputMessage(`\r\n${brightYellow}[LOG] These commands are unavailable in the CLI, please make use of their functions in the Connection Settings. See Help "#IF, #ELSE, #ENDIF" for more information.${reset}\r\n`);
           }
           i++;
           continue;
@@ -1153,7 +1153,7 @@ async function executeTokenList(
           if (context.outputMessage) {
             const brightYellow = '\x1b[93m';
             const reset = '\x1b[0m';
-            context.outputMessage(`\r\n${brightYellow}[LOG] #ENDIF is only available in Triggers, Aliases, and Timers. Use the Settings menu to create these.${reset}\r\n`);
+            context.outputMessage(`\r\n${brightYellow}[LOG] These commands are unavailable in the CLI, please make use of their functions in the Connection Settings. See Help "#IF, #ELSE, #ENDIF" for more information.${reset}\r\n`);
           }
           i++;
           continue;
