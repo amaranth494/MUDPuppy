@@ -513,6 +513,12 @@ export class AutomationEngine {
 
           if (!result.success) {
             console.warn('[Automation] # command errors:', result.errors);
+            // PR02PH09: Output errors to terminal via #LOG command
+            if (this.terminalCallback && result.errors.length > 0) {
+              for (const error of result.errors) {
+                this.terminalCallback(`\r\n[LOG] ${error.message}\r\n`);
+              }
+            }
           }
           // Commands are executed via timer callback or added here
           for (const execCmd of result.commands) {
