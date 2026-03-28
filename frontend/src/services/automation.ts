@@ -200,7 +200,7 @@ export class AutomationEngine {
           if (isInternalCommand(trimmedCmd)) {
             // Process internal commands through parser
             try {
-              const result = await executeAutomationAction(trimmedCmd, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined);
+              const result = await executeAutomationAction(trimmedCmd, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined, undefined, 'timer');
               if (!result.success) {
                 console.warn('[Automation] Timer # command errors:', result.errors);
               }
@@ -379,7 +379,7 @@ export class AutomationEngine {
         const aliasResolver = async (aliasName: string): Promise<string[]> => {
           return await this.invokeExplicitAlias(aliasName);
         };
-        const result = await executeAutomationAction(actionText, this.variableStore, this.timerManager, aliasResolver, this.terminalCallback ?? undefined);
+        const result = await executeAutomationAction(actionText, this.variableStore, this.timerManager, aliasResolver, this.terminalCallback ?? undefined, undefined, 'alias');
         for (const cmd of result.commands) {
           this.queueCommand({
             command: cmd,
@@ -549,7 +549,7 @@ export class AutomationEngine {
         if (isInternalCommand(trimmedCmd)) {
           // Process internal commands using the evaluator
           try {
-            const result = await executeAutomationAction(trimmedCmd, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined);
+            const result = await executeAutomationAction(trimmedCmd, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined, undefined, 'cli');
             if (!result.success) {
               console.warn('[Automation] Alias # command errors:', result.errors);
             }
@@ -833,7 +833,7 @@ export class AutomationEngine {
       if (segment.startsWith('#')) {
         // Process # command through evaluator
         try {
-          const result = await executeAutomationAction(segment, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined);
+          const result = await executeAutomationAction(segment, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined, undefined, 'timer');
           if (!result.success) {
             console.warn('[Automation] Explicit alias # command errors:', result.errors);
           }
@@ -900,7 +900,7 @@ export class AutomationEngine {
     };
 
     // Always use executeAutomationAction for all trigger actions to ensure timeout protection (PR01PH05T03)
-    executeAutomationAction(trigger.action, this.variableStore, this.timerManager, aliasResolver, this.terminalCallback ?? undefined)
+    executeAutomationAction(trigger.action, this.variableStore, this.timerManager, aliasResolver, this.terminalCallback ?? undefined, undefined, 'trigger')
       .then(result => {
         if (!result.success) {
           console.warn('[Automation] Trigger action errors:', result.errors);
