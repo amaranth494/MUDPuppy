@@ -846,6 +846,7 @@ async function executeTokenList(
         case 'IF':
           // PR02PH09: #IF is only available in Triggers/Aliases/Timers, not CLI
           // Only block if explicitly from CLI source
+          console.log('[Evaluator] #IF: context.source =', context.source);
           if (context.source === 'cli') {
             const brightYellow = '\x1b[93m';
             const reset = '\x1b[0m';

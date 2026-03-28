@@ -509,7 +509,9 @@ export class AutomationEngine {
         // Process internal commands through evaluator
         try {
           // PR02PH09: Pass helpResolver and source='cli' to enable #HELP and block #IF in CLI
+          console.log('[Automation] processUserInput: executing # command:', cmd, 'source=cli');
           const result = await executeAutomationAction(cmd, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined, this.helpResolver ?? undefined, 'cli');
+          console.log('[Automation] processUserInput: result:', result);
 
           if (!result.success) {
             console.warn('[Automation] # command errors:', result.errors);
