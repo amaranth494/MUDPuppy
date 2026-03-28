@@ -846,7 +846,6 @@ async function executeTokenList(
         case 'IF':
           // PR02PH09: #IF is only available in Triggers/Aliases/Timers, not CLI
           // Only block if explicitly from CLI source
-          console.log('[Evaluator] #IF: context.source =', context.source);
           if (context.source === 'cli') {
             const brightYellow = '\x1b[93m';
             const reset = '\x1b[0m';
@@ -1726,18 +1725,23 @@ export async function executeAutomationAction(
     };
   }
   
-  // Validate syntax
-  const validationErrors = validateSyntax(parseResult.tokens);
-  if (validationErrors.length > 0) {
-    return {
-      success: false,
-      commands: [],
-      errors: validationErrors.map((e) => ({
-        message: e.message,
-        line: e.line,
-        column: e.column
-      }))
-    };
+  // Validate syntax - PR02PH09: Skip for conditional commands in CLI (handled by evaluator)
+  const hasConditionalCommand = parseResult.tokens.some(t => t.type === 'COMMAND' && ['IF', 'ELSE', 'ENDIF'].includes(t.command));
+  const shouldSkipValidation = hasConditionalCommand && source === 'cli';
+  
+  if (!shouldSkipValidation) {
+    const validationErrors = validateSyntax(parseResult.tokens);
+    if (validationErrors.length > 0) {
+      return {
+        success: false,
+        commands: [],
+        errors: validationErrors.map((e) => ({
+          message: e.message,
+          line: e.line,
+          column: e.column
+        }))
+      };
+    }
   }
   
   // Execute with timeout protection (PR01PH05T03)

@@ -389,12 +389,18 @@ export default function PlayScreen() {
     const classification = recognizeCommand(command);
     
     // PR02PH03: Validate internal commands - show error for invalid syntax
+    // PR02PH09: Skip validation for #IF/#ELSE/#ENDIF - let evaluator handle CLI blocking
     if (classification.isInternal && command.trim()) {
-      const validationError = validateCommand(command);
-      if (validationError && terminalInstanceRef.current && automationEngine) {
-        // PR02PH09: Display validation error through #LOG command with local output
-        await automationEngine.processUserInput(`#LOG(to:local) [ICM] ${validationError.userMessage}`);
-        return; // Don't process invalid commands
+      // Skip validation for conditional commands - evaluator will show CLI blocking message
+      const isConditionalCommand = /^#\s*(IF|ELSE|ENDIF)\s/i.test(command);
+      
+      if (!isConditionalCommand) {
+        const validationError = validateCommand(command);
+        if (validationError && terminalInstanceRef.current && automationEngine) {
+          // PR02PH09: Display validation error through #LOG command with local output
+          await automationEngine.processUserInput(`#LOG(to:local) [ICM] ${validationError.userMessage}`);
+          return; // Don't process invalid commands
+        }
       }
     }
     
