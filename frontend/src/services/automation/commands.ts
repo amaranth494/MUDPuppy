@@ -99,12 +99,13 @@ export const CommandRegistry: Record<string, CommandDefinition> = {
     requiresArgs: true,
     description: 'Check timer status',
   },
-  'CANCEL': {
-    name: 'CANCEL',
-    category: CommandCategories.TIMER,
-    requiresArgs: true,
-    description: 'Cancel a timer',
-  },
+  // PR02PH09: CANCEL removed - user doesn't need it
+  // 'CANCEL': {
+  //   name: 'CANCEL',
+  //   category: CommandCategories.TIMER,
+  //   requiresArgs: true,
+  //   description: 'Cancel a timer',
+  // },
   
   // Output commands
   'ECHO': {

@@ -29,7 +29,7 @@
     },
     {
       "title": "Structured Directives (#)",
-      "content": "Structured directives control automation behavior:\n\n| Directive | Description |\n|-----------|-------------|\n| #IF condition | Begin conditional block |\n| #ELSE | Alternate condition branch |\n| #ENDIF | End conditional block |\n| #SET name=value | Assign value to variable |\n| #TIMER name=seconds | Create/update timer |\n| #START timer | Start a timer |\n| #STOP timer | Stop a timer |\n| #CHECK timer | Check timer status |\n| #CANCEL timer | Delete a timer |\n\nDirectives must be typed as complete commands (not in alias patterns)."
+      "content": "Structured directives control automation behavior:\n\n| Directive | Description |\n|-----------|-------------|\n| #IF condition | Begin conditional block |\n| #ELSE | Alternate condition branch |\n| #ENDIF | End conditional block |\n| #SET name=value | Assign value to variable |\n| #TIMER name=seconds | Create/update timer |\n| #START timer | Start a timer |\n| #STOP timer | Stop a timer |\n| #CHECK timer | Check timer status |\n\nDirectives must be typed as complete commands (not in alias patterns)."
     },
     {
       "title": "#IF Conditionals",
@@ -41,7 +41,7 @@
     },
     {
       "title": "#TIMER Timer Commands",
-      "content": "Timers execute commands at regular intervals:\n\n**Create a timer:**\n#TIMER heal=30\n\nThis creates a timer named 'heal' that fires every 30 seconds.\n\n**Timer commands:**\n- #START heal - Start the timer\n- #STOP heal - Stop the timer  \n- #CHECK heal - Check timer status\n- #CANCEL heal - Delete the timer\n\nThe timer action comes from your configured triggers."
+      "content": "Timers execute commands at regular intervals:\n\n**Create a timer:**\n#TIMER heal=30\n\nThis creates a timer named 'heal' that fires every 30 seconds.\n\n**Timer commands:**\n- #START heal - Start the timer\n- #STOP heal - Stop the timer  \n- #CHECK heal - Check timer status\n\nThe timer action comes from your configured triggers."
     },
     {
       "title": "Pass-Through Behavior",

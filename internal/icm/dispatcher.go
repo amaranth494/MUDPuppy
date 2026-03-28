@@ -166,7 +166,8 @@ func (d *Dispatcher) registerBuiltInHandlers() {
 	d.RegisterHandler(OperatorStructured, "START", &StartTimerHandler{})
 	d.RegisterHandler(OperatorStructured, "STOP", &StopTimerHandler{})
 	d.RegisterHandler(OperatorStructured, "CHECK", &CheckTimerHandler{})
-	d.RegisterHandler(OperatorStructured, "CANCEL", &CancelTimerHandler{})
+	// PR02PH09: User does not need #CANCEL - commented out
+	// d.RegisterHandler(OperatorStructured, "CANCEL", &CancelTimerHandler{})
 }
 
 // RegisterHandler registers a command handler

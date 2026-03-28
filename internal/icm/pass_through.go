@@ -295,7 +295,8 @@ func (c *PassThroughClassifier) isKnownCommand(family rune, command string) bool
 			"IF": true, "ELSE": true, "ENDIF": true,
 			"SET": true, "ADD": true, "SUB": true,
 			"TIMER": true, "START": true, "STOP": true,
-			"CHECK": true, "CANCEL": true,
+			"CHECK": true,
+			// PR02PH09: CANCEL removed - user doesn't need it
 			"LOG": true, "ECHO": true, "HELP": true,
 			"GAG": true, "DELAY": true, "EXPAND": true,
 		}
