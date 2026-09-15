@@ -612,6 +612,8 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
     try {
       // Close WebSocket first
       if (wsManager) {
+        // 02-06 fix: print [Disconnected] before the handlers are torn down
+        wsManager.notifyDisconnect();
         wsManager.disconnect();
         setWsManager(null);
       }

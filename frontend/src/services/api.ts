@@ -97,6 +97,10 @@ export class WebSocketManager {
   private errorHandlers: ((error: string) => void)[] = [];
   private statusHandlers: ((status: string) => void)[] = [];
   private disconnectHandlers: (() => void)[] = [];
+  // 02-06 fix: a user-initiated disconnect must print [Disconnected] too. PlayScreen
+  // unregisters its handlers before ws.onclose fires, so notify synchronously and
+  // remember that we did, so onclose does not fire the handlers a second time.
+  private disconnectNotified = false;
   // 02-04-02: best-effort live push of autopilot state changes (D-10)
   private autopilotHandlers: ((state: string, cause?: string) => void)[] = [];
 
@@ -106,6 +110,7 @@ export class WebSocketManager {
       const wsUrl = `${protocol}//${window.location.host}/api/v1/session/stream`;
       
       this.ws = new WebSocket(wsUrl);
+      this.disconnectNotified = false;
       
       this.ws.onopen = () => {
         resolve();
@@ -126,7 +131,10 @@ export class WebSocketManager {
       };
       
       this.ws.onclose = () => {
-        this.disconnectHandlers.forEach(handler => handler());
+        if (!this.disconnectNotified) {
+          this.disconnectNotified = true;
+          this.disconnectHandlers.forEach(handler => handler());
+        }
         this.ws = null;
       };
     });
@@ -241,6 +249,12 @@ export class WebSocketManager {
     if (index > -1) {
       this.autopilotHandlers.splice(index, 1);
     }
+  }
+
+  notifyDisconnect(): void {
+    if (this.disconnectNotified) return;
+    this.disconnectNotified = true;
+    this.disconnectHandlers.forEach(handler => handler());
   }
 
   disconnect(): void {
