@@ -10,3 +10,11 @@ scripts/*.sh text eol=lf
 # string (e.g. "400"). A CRLF-converted fixture would leave a trailing \r
 # on that comparison and break every self-test check.
 scripts/fixtures/**/*.json text eol=lf
+
+# internal/policy/safety-and-abuse-policy-v1.md is go:embed-ed verbatim into
+# the server binary and must stay byte-identical to its approved source at
+# .specify/specs/safety-and-abuse-policy-v1.md (T-1-SC diff gate). Without
+# this rule, a Windows checkout with core.autocrlf=true silently converts
+# it to CRLF, breaking the byte-identical guarantee and the diff -u gate
+# in plan 01-05's test report.
+internal/policy/*.md text eol=lf

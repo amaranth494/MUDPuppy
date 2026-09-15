@@ -1,0 +1,653 @@
+### go build ./...
+EXIT: 0
+
+### go test ./... -v
+?   	github.com/amaranth494/MudPuppy/cmd/server	[no test files]
+?   	github.com/amaranth494/MudPuppy/internal/auth	[no test files]
+?   	github.com/amaranth494/MudPuppy/internal/config	[no test files]
+?   	github.com/amaranth494/MudPuppy/internal/connections	[no test files]
+?   	github.com/amaranth494/MudPuppy/internal/crypto	[no test files]
+?   	github.com/amaranth494/MudPuppy/internal/email	[no test files]
+?   	github.com/amaranth494/MudPuppy/internal/help	[no test files]
+=== RUN   TestRecognizer_RecognizeStructured
+=== RUN   TestRecognizer_RecognizeStructured/#echo_hello
+=== RUN   TestRecognizer_RecognizeStructured/#SET_myvar_=_value
+=== RUN   TestRecognizer_RecognizeStructured/#if_$foo_==_bar
+=== RUN   TestRecognizer_RecognizeStructured/#timer_mytimer_60_#echo_hello
+=== RUN   TestRecognizer_RecognizeStructured/#log_message
+=== RUN   TestRecognizer_RecognizeStructured/#help
+=== RUN   TestRecognizer_RecognizeStructured/#___set___var___value
+--- PASS: TestRecognizer_RecognizeStructured (0.00s)
+    --- PASS: TestRecognizer_RecognizeStructured/#echo_hello (0.00s)
+    --- PASS: TestRecognizer_RecognizeStructured/#SET_myvar_=_value (0.00s)
+    --- PASS: TestRecognizer_RecognizeStructured/#if_$foo_==_bar (0.00s)
+    --- PASS: TestRecognizer_RecognizeStructured/#timer_mytimer_60_#echo_hello (0.00s)
+    --- PASS: TestRecognizer_RecognizeStructured/#log_message (0.00s)
+    --- PASS: TestRecognizer_RecognizeStructured/#help (0.00s)
+    --- PASS: TestRecognizer_RecognizeStructured/#___set___var___value (0.00s)
+=== RUN   TestRecognizer_RecognizeAlias
+=== RUN   TestRecognizer_RecognizeAlias/@myalias
+=== RUN   TestRecognizer_RecognizeAlias/@myalias_arg1_arg2
+=== RUN   TestRecognizer_RecognizeAlias/@_alias
+=== RUN   TestRecognizer_RecognizeAlias/@___alias___arg
+--- PASS: TestRecognizer_RecognizeAlias (0.00s)
+    --- PASS: TestRecognizer_RecognizeAlias/@myalias (0.00s)
+    --- PASS: TestRecognizer_RecognizeAlias/@myalias_arg1_arg2 (0.00s)
+    --- PASS: TestRecognizer_RecognizeAlias/@_alias (0.00s)
+    --- PASS: TestRecognizer_RecognizeAlias/@___alias___arg (0.00s)
+=== RUN   TestRecognizer_RecognizeUserVariable
+=== RUN   TestRecognizer_RecognizeUserVariable/$myvar
+=== RUN   TestRecognizer_RecognizeUserVariable/$myvar_value
+=== RUN   TestRecognizer_RecognizeUserVariable/${myvar}
+=== RUN   TestRecognizer_RecognizeUserVariable/${myvar}_value
+=== RUN   TestRecognizer_RecognizeUserVariable/$var1_$var2
+--- PASS: TestRecognizer_RecognizeUserVariable (0.00s)
+    --- PASS: TestRecognizer_RecognizeUserVariable/$myvar (0.00s)
+    --- PASS: TestRecognizer_RecognizeUserVariable/$myvar_value (0.00s)
+    --- PASS: TestRecognizer_RecognizeUserVariable/${myvar} (0.00s)
+    --- PASS: TestRecognizer_RecognizeUserVariable/${myvar}_value (0.00s)
+    --- PASS: TestRecognizer_RecognizeUserVariable/$var1_$var2 (0.00s)
+=== RUN   TestRecognizer_RecognizeSystemVariable
+=== RUN   TestRecognizer_RecognizeSystemVariable/%1
+=== RUN   TestRecognizer_RecognizeSystemVariable/%42
+=== RUN   TestRecognizer_RecognizeSystemVariable/%TIME
+=== RUN   TestRecognizer_RecognizeSystemVariable/%CHARACTER
+=== RUN   TestRecognizer_RecognizeSystemVariable/%1_value
+=== RUN   TestRecognizer_RecognizeSystemVariable/%TIME_value
+=== RUN   TestRecognizer_RecognizeSystemVariable/%
+--- PASS: TestRecognizer_RecognizeSystemVariable (0.00s)
+    --- PASS: TestRecognizer_RecognizeSystemVariable/%1 (0.00s)
+    --- PASS: TestRecognizer_RecognizeSystemVariable/%42 (0.00s)
+    --- PASS: TestRecognizer_RecognizeSystemVariable/%TIME (0.00s)
+    --- PASS: TestRecognizer_RecognizeSystemVariable/%CHARACTER (0.00s)
+    --- PASS: TestRecognizer_RecognizeSystemVariable/%1_value (0.00s)
+    --- PASS: TestRecognizer_RecognizeSystemVariable/%TIME_value (0.00s)
+    --- PASS: TestRecognizer_RecognizeSystemVariable/% (0.00s)
+=== RUN   TestRecognizer_NotInternal
+=== RUN   TestRecognizer_NotInternal/look
+=== RUN   TestRecognizer_NotInternal/say_hello
+=== RUN   TestRecognizer_NotInternal/who
+=== RUN   TestRecognizer_NotInternal/inventory
+=== RUN   TestRecognizer_NotInternal/go_north
+=== RUN   TestRecognizer_NotInternal/#00
+=== RUN   TestRecognizer_NotInternal/___
+--- PASS: TestRecognizer_NotInternal (0.00s)
+    --- PASS: TestRecognizer_NotInternal/look (0.00s)
+    --- PASS: TestRecognizer_NotInternal/say_hello (0.00s)
+    --- PASS: TestRecognizer_NotInternal/who (0.00s)
+    --- PASS: TestRecognizer_NotInternal/inventory (0.00s)
+    --- PASS: TestRecognizer_NotInternal/go_north (0.00s)
+    --- PASS: TestRecognizer_NotInternal/#00 (0.00s)
+    --- PASS: TestRecognizer_NotInternal/___ (0.00s)
+=== RUN   TestNormalizer_Normalize
+=== RUN   TestNormalizer_Normalize/#echo_hello
+=== RUN   TestNormalizer_Normalize/#__set__var__value
+=== RUN   TestNormalizer_Normalize/@myalias_arg
+=== RUN   TestNormalizer_Normalize/$myvar
+=== RUN   TestNormalizer_Normalize/${myvar}
+=== RUN   TestNormalizer_Normalize/%42
+=== RUN   TestNormalizer_Normalize/%TIME
+--- PASS: TestNormalizer_Normalize (0.00s)
+    --- PASS: TestNormalizer_Normalize/#echo_hello (0.00s)
+    --- PASS: TestNormalizer_Normalize/#__set__var__value (0.00s)
+    --- PASS: TestNormalizer_Normalize/@myalias_arg (0.00s)
+    --- PASS: TestNormalizer_Normalize/$myvar (0.00s)
+    --- PASS: TestNormalizer_Normalize/${myvar} (0.00s)
+    --- PASS: TestNormalizer_Normalize/%42 (0.00s)
+    --- PASS: TestNormalizer_Normalize/%TIME (0.00s)
+=== RUN   TestValidator_Validate
+=== RUN   TestValidator_Validate/#echo_hello
+=== RUN   TestValidator_Validate/#set_var_value
+=== RUN   TestValidator_Validate/#if_$foo_==_bar
+=== RUN   TestValidator_Validate/#timer_mytimer_60_#echo_hello
+=== RUN   TestValidator_Validate/#whatev
+=== RUN   TestValidator_Validate/@validalias
+=== RUN   TestValidator_Validate/$validvar
+=== RUN   TestValidator_Validate/%1
+=== RUN   TestValidator_Validate/%TIME
+--- PASS: TestValidator_Validate (0.00s)
+    --- PASS: TestValidator_Validate/#echo_hello (0.00s)
+    --- PASS: TestValidator_Validate/#set_var_value (0.00s)
+    --- PASS: TestValidator_Validate/#if_$foo_==_bar (0.00s)
+    --- PASS: TestValidator_Validate/#timer_mytimer_60_#echo_hello (0.00s)
+    --- PASS: TestValidator_Validate/#whatev (0.00s)
+    --- PASS: TestValidator_Validate/@validalias (0.00s)
+    --- PASS: TestValidator_Validate/$validvar (0.00s)
+    --- PASS: TestValidator_Validate/%1 (0.00s)
+    --- PASS: TestValidator_Validate/%TIME (0.00s)
+=== RUN   TestClassifier_Classify
+=== RUN   TestClassifier_Classify/look
+=== RUN   TestClassifier_Classify/#echo_hello
+=== RUN   TestClassifier_Classify/@myalias
+=== RUN   TestClassifier_Classify/$myvar
+=== RUN   TestClassifier_Classify/%1
+=== RUN   TestClassifier_Classify/&somecommand
+=== RUN   TestClassifier_Classify/#00
+--- PASS: TestClassifier_Classify (0.00s)
+    --- PASS: TestClassifier_Classify/look (0.00s)
+    --- PASS: TestClassifier_Classify/#echo_hello (0.00s)
+    --- PASS: TestClassifier_Classify/@myalias (0.00s)
+    --- PASS: TestClassifier_Classify/$myvar (0.00s)
+    --- PASS: TestClassifier_Classify/%1 (0.00s)
+    --- PASS: TestClassifier_Classify/&somecommand (0.00s)
+    --- PASS: TestClassifier_Classify/#00 (0.00s)
+=== RUN   TestEscapeHandler_ResolveEscapes
+=== RUN   TestEscapeHandler_ResolveEscapes/\#echo
+=== RUN   TestEscapeHandler_ResolveEscapes/\@alias
+=== RUN   TestEscapeHandler_ResolveEscapes/\$var
+=== RUN   TestEscapeHandler_ResolveEscapes/\%sys
+=== RUN   TestEscapeHandler_ResolveEscapes/\\
+=== RUN   TestEscapeHandler_ResolveEscapes/\n
+=== RUN   TestEscapeHandler_ResolveEscapes/\t
+=== RUN   TestEscapeHandler_ResolveEscapes/hello_world
+=== RUN   TestEscapeHandler_ResolveEscapes/no_escapes_here
+--- PASS: TestEscapeHandler_ResolveEscapes (0.00s)
+    --- PASS: TestEscapeHandler_ResolveEscapes/\#echo (0.00s)
+    --- PASS: TestEscapeHandler_ResolveEscapes/\@alias (0.00s)
+    --- PASS: TestEscapeHandler_ResolveEscapes/\$var (0.00s)
+    --- PASS: TestEscapeHandler_ResolveEscapes/\%sys (0.00s)
+    --- PASS: TestEscapeHandler_ResolveEscapes/\\ (0.00s)
+    --- PASS: TestEscapeHandler_ResolveEscapes/\n (0.00s)
+    --- PASS: TestEscapeHandler_ResolveEscapes/\t (0.00s)
+    --- PASS: TestEscapeHandler_ResolveEscapes/hello_world (0.00s)
+    --- PASS: TestEscapeHandler_ResolveEscapes/no_escapes_here (0.00s)
+=== RUN   TestEscapeHandler_HasEscapeSequences
+=== RUN   TestEscapeHandler_HasEscapeSequences/\#echo
+=== RUN   TestEscapeHandler_HasEscapeSequences/hello
+=== RUN   TestEscapeHandler_HasEscapeSequences/no_escapes
+=== RUN   TestEscapeHandler_HasEscapeSequences/mixed\#here
+=== RUN   TestEscapeHandler_HasEscapeSequences/#00
+--- PASS: TestEscapeHandler_HasEscapeSequences (0.00s)
+    --- PASS: TestEscapeHandler_HasEscapeSequences/\#echo (0.00s)
+    --- PASS: TestEscapeHandler_HasEscapeSequences/hello (0.00s)
+    --- PASS: TestEscapeHandler_HasEscapeSequences/no_escapes (0.00s)
+    --- PASS: TestEscapeHandler_HasEscapeSequences/mixed\#here (0.00s)
+    --- PASS: TestEscapeHandler_HasEscapeSequences/#00 (0.00s)
+=== RUN   TestEngine_Process
+=== RUN   TestEngine_Process/look
+=== RUN   TestEngine_Process/#echo_hello
+=== RUN   TestEngine_Process/#set_var_value
+--- PASS: TestEngine_Process (0.00s)
+    --- PASS: TestEngine_Process/look (0.00s)
+    --- PASS: TestEngine_Process/#echo_hello (0.00s)
+    --- PASS: TestEngine_Process/#set_var_value (0.00s)
+=== RUN   TestRegistry_RegisterAlias
+--- PASS: TestRegistry_RegisterAlias (0.00s)
+=== RUN   TestRegistry_SetUserVariable
+--- PASS: TestRegistry_SetUserVariable (0.00s)
+=== RUN   TestRegistry_SystemVariables
+--- PASS: TestRegistry_SystemVariables (0.00s)
+=== RUN   TestDefaultSafetyChecker_CheckRateLimit
+--- PASS: TestDefaultSafetyChecker_CheckRateLimit (0.00s)
+=== RUN   TestDefaultSafetyChecker_CheckTimeout
+--- PASS: TestDefaultSafetyChecker_CheckTimeout (0.00s)
+=== RUN   TestEngine_ExecuteStructuredCommand
+=== RUN   TestEngine_ExecuteStructuredCommand/#echo_hello
+=== RUN   TestEngine_ExecuteStructuredCommand/#set_myvar_myvalue
+=== RUN   TestEngine_ExecuteStructuredCommand/#timer_mytimer_60_#echo_hello
+--- PASS: TestEngine_ExecuteStructuredCommand (0.00s)
+    --- PASS: TestEngine_ExecuteStructuredCommand/#echo_hello (0.00s)
+    --- PASS: TestEngine_ExecuteStructuredCommand/#set_myvar_myvalue (0.00s)
+    --- PASS: TestEngine_ExecuteStructuredCommand/#timer_mytimer_60_#echo_hello (0.00s)
+=== RUN   TestEngine_LogCommand
+--- PASS: TestEngine_LogCommand (0.00s)
+=== RUN   TestEngine_LogCommandPreviewDenied
+--- PASS: TestEngine_LogCommandPreviewDenied (0.00s)
+=== RUN   TestEngine_TimerCommands
+=== RUN   TestEngine_TimerCommands/#start_mytimer
+=== RUN   TestEngine_TimerCommands/#stop_mytimer
+=== RUN   TestEngine_TimerCommands/#check_mytimer
+=== RUN   TestEngine_TimerCommands/#cancel_mytimer
+--- PASS: TestEngine_TimerCommands (0.00s)
+    --- PASS: TestEngine_TimerCommands/#start_mytimer (0.00s)
+    --- PASS: TestEngine_TimerCommands/#stop_mytimer (0.00s)
+    --- PASS: TestEngine_TimerCommands/#check_mytimer (0.00s)
+    --- PASS: TestEngine_TimerCommands/#cancel_mytimer (0.00s)
+=== RUN   TestEngine_SessionManagement
+--- PASS: TestEngine_SessionManagement (0.00s)
+=== RUN   TestEngine_CommandHistory
+--- PASS: TestEngine_CommandHistory (0.00s)
+=== RUN   TestEngine_StateEffects
+--- PASS: TestEngine_StateEffects (0.00s)
+=== RUN   TestDispatcher_SafetyEnforcement
+--- PASS: TestDispatcher_SafetyEnforcement (0.00s)
+=== RUN   TestLogHandler_Governance
+--- PASS: TestLogHandler_Governance (0.00s)
+=== RUN   TestAuthorityLevels
+--- PASS: TestAuthorityLevels (0.00s)
+=== RUN   TestHandlerRegistration
+=== RUN   TestHandlerRegistration/ECHO
+=== RUN   TestHandlerRegistration/LOG
+=== RUN   TestHandlerRegistration/SET
+=== RUN   TestHandlerRegistration/IF
+=== RUN   TestHandlerRegistration/TIMER
+=== RUN   TestHandlerRegistration/ELSE
+=== RUN   TestHandlerRegistration/ENDIF
+=== RUN   TestHandlerRegistration/START
+=== RUN   TestHandlerRegistration/STOP
+=== RUN   TestHandlerRegistration/CHECK
+=== RUN   TestHandlerRegistration/CANCEL
+    icm_test.go:790: Handler "CANCEL" not registered
+=== RUN   TestHandlerRegistration/UNKNOWN
+--- FAIL: TestHandlerRegistration (0.00s)
+    --- PASS: TestHandlerRegistration/ECHO (0.00s)
+    --- PASS: TestHandlerRegistration/LOG (0.00s)
+    --- PASS: TestHandlerRegistration/SET (0.00s)
+    --- PASS: TestHandlerRegistration/IF (0.00s)
+    --- PASS: TestHandlerRegistration/TIMER (0.00s)
+    --- PASS: TestHandlerRegistration/ELSE (0.00s)
+    --- PASS: TestHandlerRegistration/ENDIF (0.00s)
+    --- PASS: TestHandlerRegistration/START (0.00s)
+    --- PASS: TestHandlerRegistration/STOP (0.00s)
+    --- PASS: TestHandlerRegistration/CHECK (0.00s)
+    --- FAIL: TestHandlerRegistration/CANCEL (0.00s)
+    --- PASS: TestHandlerRegistration/UNKNOWN (0.00s)
+=== RUN   TestEndToEnd_CommandPipeline
+--- PASS: TestEndToEnd_CommandPipeline (0.00s)
+FAIL
+FAIL	github.com/amaranth494/MudPuppy/internal/icm	0.457s
+?   	github.com/amaranth494/MudPuppy/internal/metrics	[no test files]
+=== RUN   TestParseVersion
+=== RUN   TestParseVersion/version_on_third_line
+=== RUN   TestParseVersion/extra_surrounding_whitespace_still_trims
+=== RUN   TestParseVersion/no_header_present_yields_empty_string
+=== RUN   TestParseVersion/header_appearing_later_in_the_document_is_still_found
+--- PASS: TestParseVersion (0.00s)
+    --- PASS: TestParseVersion/version_on_third_line (0.00s)
+    --- PASS: TestParseVersion/extra_surrounding_whitespace_still_trims (0.00s)
+    --- PASS: TestParseVersion/no_header_present_yields_empty_string (0.00s)
+    --- PASS: TestParseVersion/header_appearing_later_in_the_document_is_still_found (0.00s)
+=== RUN   TestVersionOfEmbeddedPolicy
+--- PASS: TestVersionOfEmbeddedPolicy (0.00s)
+=== RUN   TestTextOfEmbeddedPolicy
+--- PASS: TestTextOfEmbeddedPolicy (0.00s)
+PASS
+ok  	github.com/amaranth494/MudPuppy/internal/policy	0.332s
+=== RUN   TestAISettingsRoundTrip
+2026/09/15 09:16:45 [AI-PLAYER] ai settings saved connection_id=bf988feb-a49b-48e2-bd25-219a1a5241d5 model_name_blank=false call_cap_blank=false threshold_blank=false
+--- PASS: TestAISettingsRoundTrip (0.00s)
+=== RUN   TestAISettingsBlankRoundTrip
+2026/09/15 09:16:45 [AI-PLAYER] ai settings saved connection_id=b4a8eaef-1d5b-437f-b956-7ac468c6d8f5 model_name_blank=true call_cap_blank=true threshold_blank=true
+--- PASS: TestAISettingsBlankRoundTrip (0.00s)
+=== RUN   TestAISettingsRejectsOverLengthText
+--- PASS: TestAISettingsRejectsOverLengthText (0.00s)
+=== RUN   TestAISettingsCannotSetAcceptance
+2026/09/15 09:16:45 [AI-PLAYER] ai settings saved connection_id=02297176-6d6c-463a-bb04-c8c67216f897 model_name_blank=true call_cap_blank=true threshold_blank=true
+--- PASS: TestAISettingsCannotSetAcceptance (0.00s)
+=== RUN   TestPolicyAcceptUsesServerVersion
+2026/09/15 09:16:45 [AI-PLAYER] policy accepted connection_id=44dc2ee2-ab47-45d0-9e3b-63eec4475d1a user_id=1343a0c8-8890-4312-be04-79c2cb279b15 version=1.0 accepted_at=2026-01-01T00:00:00Z
+2026/09/15 09:16:45 [AI-PLAYER] policy already accepted connection_id=44dc2ee2-ab47-45d0-9e3b-63eec4475d1a version=1.0 accepted_at=2026-01-01T00:00:00Z
+--- PASS: TestPolicyAcceptUsesServerVersion (0.00s)
+=== RUN   TestEngageGateHandlerRefusesWithoutAcceptance
+2026/09/15 09:16:45 [AI-PLAYER] engage gate connection_id=89740cbe-e4b2-4402-8ff9-22aa92c9e1ff allowed=false
+--- PASS: TestEngageGateHandlerRefusesWithoutAcceptance (0.00s)
+=== RUN   TestEngageGateHandlerAllowsAfterAcceptance
+2026/09/15 09:16:45 [AI-PLAYER] engage gate connection_id=2fa4e062-b1e7-4824-bb42-be330d989c44 allowed=true
+--- PASS: TestEngageGateHandlerAllowsAfterAcceptance (0.00s)
+=== RUN   TestAIPlayerLogLinesAreEmitted
+--- PASS: TestAIPlayerLogLinesAreEmitted (0.00s)
+PASS
+ok  	github.com/amaranth494/MudPuppy/internal/profiles	0.509s
+?   	github.com/amaranth494/MudPuppy/internal/redis	[no test files]
+?   	github.com/amaranth494/MudPuppy/internal/session	[no test files]
+=== RUN   TestResolveAISettings
+=== RUN   TestResolveAISettings/all_blank_resolves_to_server_default_model,_no_cap,_threshold_3
+=== RUN   TestResolveAISettings/explicit_model_name_passes_through_unchanged
+=== RUN   TestResolveAISettings/explicit_call_cap_25_sets_CallCapSet_and_CallCap
+=== RUN   TestResolveAISettings/explicit_disengage_threshold_1_passes_through_unchanged
+--- PASS: TestResolveAISettings (0.00s)
+    --- PASS: TestResolveAISettings/all_blank_resolves_to_server_default_model,_no_cap,_threshold_3 (0.00s)
+    --- PASS: TestResolveAISettings/explicit_model_name_passes_through_unchanged (0.00s)
+    --- PASS: TestResolveAISettings/explicit_call_cap_25_sets_CallCapSet_and_CallCap (0.00s)
+    --- PASS: TestResolveAISettings/explicit_disengage_threshold_1_passes_through_unchanged (0.00s)
+=== RUN   TestEngageGateAllowed
+=== RUN   TestEngageGateAllowed/both_nil_is_refused
+=== RUN   TestEngageGateAllowed/version_set,_timestamp_nil_is_refused
+=== RUN   TestEngageGateAllowed/version_nil,_timestamp_set_is_refused
+=== RUN   TestEngageGateAllowed/version_is_empty_string_with_timestamp_set_is_refused
+=== RUN   TestEngageGateAllowed/both_set_is_allowed
+--- PASS: TestEngageGateAllowed (0.00s)
+    --- PASS: TestEngageGateAllowed/both_nil_is_refused (0.00s)
+    --- PASS: TestEngageGateAllowed/version_set,_timestamp_nil_is_refused (0.00s)
+    --- PASS: TestEngageGateAllowed/version_nil,_timestamp_set_is_refused (0.00s)
+    --- PASS: TestEngageGateAllowed/version_is_empty_string_with_timestamp_set_is_refused (0.00s)
+    --- PASS: TestEngageGateAllowed/both_set_is_allowed (0.00s)
+=== RUN   TestEngageGateRefusalMessageIsPhase2Contract
+--- PASS: TestEngageGateRefusalMessageIsPhase2Contract (0.00s)
+PASS
+ok  	github.com/amaranth494/MudPuppy/internal/store	0.349s
+FAIL
+EXIT: 1
+
+### BASELINE ANNOTATION
+The single FAIL above (`internal/icm` `TestHandlerRegistration/CANCEL`, "Handler \"CANCEL\" not registered") is a pre-existing failure that predates this phase. It is confirmed present at the phase base commit 61e970b and in every prior plan's SUMMARY (01-01, 01-02, 01-03) as an out-of-scope, unrelated finding. No file under internal/icm is touched by this phase. It does not block: internal/store, internal/policy and internal/profiles are all fully green (see the ok lines above for those three packages).
+
+### DEVIATION NOTE (Rule 1 - bug fix, applied before this diff step)
+The first run of the command below (git blob content prior to this task) showed every line as changed because this Windows checkout's `core.autocrlf=true` had silently converted `internal/policy/safety-and-abuse-policy-v1.md` (a go:embed-sourced file) to CRLF line endings on checkout, while the source `.specify/specs/safety-and-abuse-policy-v1.md` stayed LF -- a byte-for-byte divergence in a file that is embedded verbatim into the server binary and served to end users. Fixed by stripping the CR characters (`sed -i 's/\r$//'`) and adding a `.gitattributes` rule (`internal/policy/*.md text eol=lf`) so a future checkout cannot reintroduce it. The command below is the post-fix, passing result.
+
+### diff -u .specify/specs/safety-and-abuse-policy-v1.md internal/policy/safety-and-abuse-policy-v1.md
+EXIT: 0
+(empty diff output above confirms the embedded copy is byte-identical to the approved source document)
+
+### go test ./internal/store/... -run TestResolveAISettings -v
+=== RUN   TestResolveAISettings
+=== RUN   TestResolveAISettings/all_blank_resolves_to_server_default_model,_no_cap,_threshold_3
+=== RUN   TestResolveAISettings/explicit_model_name_passes_through_unchanged
+=== RUN   TestResolveAISettings/explicit_call_cap_25_sets_CallCapSet_and_CallCap
+=== RUN   TestResolveAISettings/explicit_disengage_threshold_1_passes_through_unchanged
+--- PASS: TestResolveAISettings (0.00s)
+    --- PASS: TestResolveAISettings/all_blank_resolves_to_server_default_model,_no_cap,_threshold_3 (0.00s)
+    --- PASS: TestResolveAISettings/explicit_model_name_passes_through_unchanged (0.00s)
+    --- PASS: TestResolveAISettings/explicit_call_cap_25_sets_CallCapSet_and_CallCap (0.00s)
+    --- PASS: TestResolveAISettings/explicit_disengage_threshold_1_passes_through_unchanged (0.00s)
+PASS
+ok  	github.com/amaranth494/MudPuppy/internal/store	0.331s
+EXIT: 0
+
+### go test ./internal/store/... -run TestEngageGate -v
+=== RUN   TestEngageGateAllowed
+=== RUN   TestEngageGateAllowed/both_nil_is_refused
+=== RUN   TestEngageGateAllowed/version_set,_timestamp_nil_is_refused
+=== RUN   TestEngageGateAllowed/version_nil,_timestamp_set_is_refused
+=== RUN   TestEngageGateAllowed/version_is_empty_string_with_timestamp_set_is_refused
+=== RUN   TestEngageGateAllowed/both_set_is_allowed
+--- PASS: TestEngageGateAllowed (0.00s)
+    --- PASS: TestEngageGateAllowed/both_nil_is_refused (0.00s)
+    --- PASS: TestEngageGateAllowed/version_set,_timestamp_nil_is_refused (0.00s)
+    --- PASS: TestEngageGateAllowed/version_nil,_timestamp_set_is_refused (0.00s)
+    --- PASS: TestEngageGateAllowed/version_is_empty_string_with_timestamp_set_is_refused (0.00s)
+    --- PASS: TestEngageGateAllowed/both_set_is_allowed (0.00s)
+=== RUN   TestEngageGateRefusalMessageIsPhase2Contract
+--- PASS: TestEngageGateRefusalMessageIsPhase2Contract (0.00s)
+PASS
+ok  	github.com/amaranth494/MudPuppy/internal/store	0.331s
+EXIT: 0
+
+### go test ./internal/policy/... -run TestParseVersion -v
+=== RUN   TestParseVersion
+=== RUN   TestParseVersion/version_on_third_line
+=== RUN   TestParseVersion/extra_surrounding_whitespace_still_trims
+=== RUN   TestParseVersion/no_header_present_yields_empty_string
+=== RUN   TestParseVersion/header_appearing_later_in_the_document_is_still_found
+--- PASS: TestParseVersion (0.00s)
+    --- PASS: TestParseVersion/version_on_third_line (0.00s)
+    --- PASS: TestParseVersion/extra_surrounding_whitespace_still_trims (0.00s)
+    --- PASS: TestParseVersion/no_header_present_yields_empty_string (0.00s)
+    --- PASS: TestParseVersion/header_appearing_later_in_the_document_is_still_found (0.00s)
+PASS
+ok  	github.com/amaranth494/MudPuppy/internal/policy	0.329s
+EXIT: 0
+
+### go test ./internal/profiles/... -run TestAISettings -v
+=== RUN   TestAISettingsRoundTrip
+2026/09/15 09:18:12 [AI-PLAYER] ai settings saved connection_id=e1e7c56c-0d0d-45f5-98f5-efd4b74a9bd6 model_name_blank=false call_cap_blank=false threshold_blank=false
+--- PASS: TestAISettingsRoundTrip (0.00s)
+=== RUN   TestAISettingsBlankRoundTrip
+2026/09/15 09:18:12 [AI-PLAYER] ai settings saved connection_id=c5cac5f9-ae90-4aab-a375-80782198c405 model_name_blank=true call_cap_blank=true threshold_blank=true
+--- PASS: TestAISettingsBlankRoundTrip (0.00s)
+=== RUN   TestAISettingsRejectsOverLengthText
+--- PASS: TestAISettingsRejectsOverLengthText (0.00s)
+=== RUN   TestAISettingsCannotSetAcceptance
+2026/09/15 09:18:12 [AI-PLAYER] ai settings saved connection_id=c764abd6-b84f-4d29-a541-30645f5c61da model_name_blank=true call_cap_blank=true threshold_blank=true
+--- PASS: TestAISettingsCannotSetAcceptance (0.00s)
+PASS
+ok  	github.com/amaranth494/MudPuppy/internal/profiles	0.485s
+EXIT: 0
+
+### go test ./internal/profiles/... -run TestEngageGateHandler -v
+=== RUN   TestEngageGateHandlerRefusesWithoutAcceptance
+2026/09/15 09:18:16 [AI-PLAYER] engage gate connection_id=e6e46c68-7b1a-4d20-b05b-15c64d80f946 allowed=false
+--- PASS: TestEngageGateHandlerRefusesWithoutAcceptance (0.00s)
+=== RUN   TestEngageGateHandlerAllowsAfterAcceptance
+2026/09/15 09:18:16 [AI-PLAYER] engage gate connection_id=7450f37d-c691-4264-9684-2276968f8be5 allowed=true
+--- PASS: TestEngageGateHandlerAllowsAfterAcceptance (0.00s)
+PASS
+ok  	github.com/amaranth494/MudPuppy/internal/profiles	0.465s
+EXIT: 0
+
+### go test ./internal/profiles/... -run TestAIPlayerLogLines -v
+=== RUN   TestAIPlayerLogLinesAreEmitted
+--- PASS: TestAIPlayerLogLinesAreEmitted (0.00s)
+PASS
+ok  	github.com/amaranth494/MudPuppy/internal/profiles	0.478s
+EXIT: 0
+
+### bash scripts/verify-phase1.sh --self-test /tmp/phase1-selftest.txt
+================================================================
+Phase 1 canned-report harness -- scripts/verify-phase1.sh
+Run started (UTC): 2026-09-15T16:18:33Z
+Mode: --self-test (fixtures: scripts/fixtures/phase1/, no server)
+BASE_URL: http://fixture.invalid
+CONNECTION_ID: 00000000-0000-0000-0000-000000000000
+git rev-parse --short HEAD: 2c85132
+================================================================
+
+
+---- Step 1: GET policy on a fresh, never-accepted profile ----
+GET /api/v1/profiles/$CONNECTION_ID/policy -> HTTP 200
+{"text":"AI Player Safety and Abuse Policy. This policy governs automated play, session b...[truncated, full text not printed to report - T-1-11]","version":"1.0","accepted":false,"accepted_at":null,"accepted_version":null}
+PASS C3: policy shows accepted=false before any acceptance (got: false)
+PASS C4: policy version equals 1.0 (got: 1.0)
+
+---- Step 2: GET engage-gate before acceptance (expect refusal) ----
+GET /api/v1/profiles/$CONNECTION_ID/engage-gate -> HTTP 200
+{"allowed":false,"message":"AI Player has not been configured for this connection. Accept the Safety and Abuse policy in AI Player settings before engaging autopilot."}
+PASS C3: engage-gate refuses before acceptance (allowed=false) (got: false)
+PASS C3: engage-gate refusal message matches the exact Phase 2 contract string (got: AI Player has not been configured for this connection. Accept the Safety and Abuse policy in AI Player settings before engaging autopilot.)
+
+---- Step 3: PUT ai-settings blank, then GET -- blanks round-trip unchanged ----
+PUT /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
+{"conduct_rules":"","approach_guidance":"","ai_settings":{"model_name":"","call_cap":null,"disengage_threshold":null}}
+GET /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
+{"conduct_rules":"","approach_guidance":"","ai_settings":{"model_name":"","call_cap":null,"disengage_threshold":null}}
+PASS C1: GET after blank PUT returns empty model_name (got: )
+PASS C1: GET after blank PUT returns call_cap=null (not 0) (got: null)
+PASS C1: GET after blank PUT returns disengage_threshold=null (not 0) (got: null)
+PASS C1: ai_settings object has exactly the three keys model_name/call_cap/disengage_threshold (got: 3)
+
+---- Step 4: PUT ai-settings with conduct_rules of 20001 characters -- expect 400 rejection ----
+PUT /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 400
+{"error":"Conduct rules must be 20000 characters or less"}
+PASS C1: over-length conduct_rules rejected with HTTP 400 (status 400)
+PASS C1: over-length rejection body matches the exact error string (got: {"error":"Conduct rules must be 20000 characters or less"})
+
+---- Step 5: PUT ai-settings carrying forged acceptance fields, then GET policy -- acceptance must not be forgeable ----
+PUT /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
+{"conduct_rules":"","approach_guidance":"","ai_settings":{"model_name":"","call_cap":null,"disengage_threshold":null}}
+GET /api/v1/profiles/$CONNECTION_ID/policy -> HTTP 200
+{"text":"AI Player Safety and Abuse Policy. This policy governs automated play, session b...[truncated, full text not printed to report - T-1-11]","version":"1.0","accepted":false,"accepted_at":null,"accepted_version":null}
+PASS C4: policy still shows accepted=false after an ai-settings PUT carrying forged acceptance fields (got: false)
+PASS C4: accepted_version is still null after the forgery attempt (not 9.9) (got: null)
+
+---- Step 6: POST policy/accept -- first acceptance ----
+POST /api/v1/profiles/$CONNECTION_ID/policy/accept -> HTTP 200
+{"text":"AI Player Safety and Abuse Policy. This policy governs automated play, session b...[truncated, full text not printed to report - T-1-11]","version":"1.0","accepted":true,"accepted_at":"2026-09-15T12:00:00Z","accepted_version":"1.0"}
+PASS C4: first accept records accepted=true (got: true)
+PASS C4: first accept records accepted_version=1.0 (got: 1.0)
+PASS C4: first accept records a non-empty accepted_at timestamp (got: 2026-09-15T12:00:00Z)
+
+---- Step 7: POST policy/accept again -- one-time acceptance, proven by a repeat call ----
+POST /api/v1/profiles/$CONNECTION_ID/policy/accept -> HTTP 200
+{"text":"AI Player Safety and Abuse Policy. This policy governs automated play, session b...[truncated, full text not printed to report - T-1-11]","version":"1.0","accepted":true,"accepted_at":"2026-09-15T12:00:00Z","accepted_version":"1.0"}
+PASS C4: repeat accept echoes the original accepted_at timestamp unchanged (got: 2026-09-15T12:00:00Z)
+PASS C4: repeat accept still shows accepted_version=1.0 (got: 1.0)
+
+---- Step 8: GET engage-gate after acceptance (expect allow) ----
+GET /api/v1/profiles/$CONNECTION_ID/engage-gate -> HTTP 200
+{"allowed":true}
+PASS C3: engage-gate allows after acceptance (allowed=true) (got: true)
+PASS C3: engage-gate carries no refusal message once allowed (message absent/empty)
+
+---- Step 9: PUT ai-settings with populated values, then GET -- values round-trip identically ----
+PUT /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
+{"conduct_rules":"no PKing","approach_guidance":"level cautiously","ai_settings":{"model_name":"gemini-2.5-pro","call_cap":25,"disengage_threshold":2}}
+GET /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
+{"conduct_rules":"no PKing","approach_guidance":"level cautiously","ai_settings":{"model_name":"gemini-2.5-pro","call_cap":25,"disengage_threshold":2}}
+PASS C2: conduct_rules round-trips identically (got: no PKing)
+PASS C2: approach_guidance round-trips identically (got: level cautiously)
+PASS C2: model_name round-trips identically (got: gemini-2.5-pro)
+PASS C2: call_cap round-trips identically (got: 25)
+PASS C2: disengage_threshold round-trips identically (got: 2)
+
+---- Step 10: GET timers, PUT the same body back unchanged, then GET ai-settings -- an unrelated save leaves AI fields intact ----
+GET /api/v1/profiles/$CONNECTION_ID/timers -> HTTP 200
+{"items":[{"id":"t1","name":"Regen Check","duration":60000,"repeat":true,"commands":"score","enabled":true}]}
+PUT /api/v1/profiles/$CONNECTION_ID/timers -> HTTP 200
+{"items":[{"id":"t1","name":"Regen Check","duration":60000,"repeat":true,"commands":"score","enabled":true}]}
+GET /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
+{"conduct_rules":"no PKing","approach_guidance":"level cautiously","ai_settings":{"model_name":"gemini-2.5-pro","call_cap":25,"disengage_threshold":2}}
+PASS C2: conduct_rules unchanged after an unrelated timers save (got: no PKing)
+PASS C2: approach_guidance unchanged after an unrelated timers save (got: level cautiously)
+PASS C2: model_name unchanged after an unrelated timers save (got: gemini-2.5-pro)
+PASS C2: call_cap unchanged after an unrelated timers save (got: 25)
+PASS C2: disengage_threshold unchanged after an unrelated timers save (got: 2)
+
+================================================================
+SUMMARY
+================================================================
+C1: PASS
+C2: PASS
+C3: PASS
+C4: PASS
+TOTAL CHECKS: 29  FAILURES: 0
+
+================================================================
+GO TEST: skipped (--self-test mode -- the fixtures are the subject of this run, not the Go suite)
+================================================================
+EXIT: 0
+
+### contents of /tmp/phase1-selftest.txt
+================================================================
+Phase 1 canned-report harness -- scripts/verify-phase1.sh
+Run started (UTC): 2026-09-15T16:18:33Z
+Mode: --self-test (fixtures: scripts/fixtures/phase1/, no server)
+BASE_URL: http://fixture.invalid
+CONNECTION_ID: 00000000-0000-0000-0000-000000000000
+git rev-parse --short HEAD: 2c85132
+================================================================
+
+
+---- Step 1: GET policy on a fresh, never-accepted profile ----
+GET /api/v1/profiles/$CONNECTION_ID/policy -> HTTP 200
+{"text":"AI Player Safety and Abuse Policy. This policy governs automated play, session b...[truncated, full text not printed to report - T-1-11]","version":"1.0","accepted":false,"accepted_at":null,"accepted_version":null}
+PASS C3: policy shows accepted=false before any acceptance (got: false)
+PASS C4: policy version equals 1.0 (got: 1.0)
+
+---- Step 2: GET engage-gate before acceptance (expect refusal) ----
+GET /api/v1/profiles/$CONNECTION_ID/engage-gate -> HTTP 200
+{"allowed":false,"message":"AI Player has not been configured for this connection. Accept the Safety and Abuse policy in AI Player settings before engaging autopilot."}
+PASS C3: engage-gate refuses before acceptance (allowed=false) (got: false)
+PASS C3: engage-gate refusal message matches the exact Phase 2 contract string (got: AI Player has not been configured for this connection. Accept the Safety and Abuse policy in AI Player settings before engaging autopilot.)
+
+---- Step 3: PUT ai-settings blank, then GET -- blanks round-trip unchanged ----
+PUT /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
+{"conduct_rules":"","approach_guidance":"","ai_settings":{"model_name":"","call_cap":null,"disengage_threshold":null}}
+GET /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
+{"conduct_rules":"","approach_guidance":"","ai_settings":{"model_name":"","call_cap":null,"disengage_threshold":null}}
+PASS C1: GET after blank PUT returns empty model_name (got: )
+PASS C1: GET after blank PUT returns call_cap=null (not 0) (got: null)
+PASS C1: GET after blank PUT returns disengage_threshold=null (not 0) (got: null)
+PASS C1: ai_settings object has exactly the three keys model_name/call_cap/disengage_threshold (got: 3)
+
+---- Step 4: PUT ai-settings with conduct_rules of 20001 characters -- expect 400 rejection ----
+PUT /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 400
+{"error":"Conduct rules must be 20000 characters or less"}
+PASS C1: over-length conduct_rules rejected with HTTP 400 (status 400)
+PASS C1: over-length rejection body matches the exact error string (got: {"error":"Conduct rules must be 20000 characters or less"})
+
+---- Step 5: PUT ai-settings carrying forged acceptance fields, then GET policy -- acceptance must not be forgeable ----
+PUT /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
+{"conduct_rules":"","approach_guidance":"","ai_settings":{"model_name":"","call_cap":null,"disengage_threshold":null}}
+GET /api/v1/profiles/$CONNECTION_ID/policy -> HTTP 200
+{"text":"AI Player Safety and Abuse Policy. This policy governs automated play, session b...[truncated, full text not printed to report - T-1-11]","version":"1.0","accepted":false,"accepted_at":null,"accepted_version":null}
+PASS C4: policy still shows accepted=false after an ai-settings PUT carrying forged acceptance fields (got: false)
+PASS C4: accepted_version is still null after the forgery attempt (not 9.9) (got: null)
+
+---- Step 6: POST policy/accept -- first acceptance ----
+POST /api/v1/profiles/$CONNECTION_ID/policy/accept -> HTTP 200
+{"text":"AI Player Safety and Abuse Policy. This policy governs automated play, session b...[truncated, full text not printed to report - T-1-11]","version":"1.0","accepted":true,"accepted_at":"2026-09-15T12:00:00Z","accepted_version":"1.0"}
+PASS C4: first accept records accepted=true (got: true)
+PASS C4: first accept records accepted_version=1.0 (got: 1.0)
+PASS C4: first accept records a non-empty accepted_at timestamp (got: 2026-09-15T12:00:00Z)
+
+---- Step 7: POST policy/accept again -- one-time acceptance, proven by a repeat call ----
+POST /api/v1/profiles/$CONNECTION_ID/policy/accept -> HTTP 200
+{"text":"AI Player Safety and Abuse Policy. This policy governs automated play, session b...[truncated, full text not printed to report - T-1-11]","version":"1.0","accepted":true,"accepted_at":"2026-09-15T12:00:00Z","accepted_version":"1.0"}
+PASS C4: repeat accept echoes the original accepted_at timestamp unchanged (got: 2026-09-15T12:00:00Z)
+PASS C4: repeat accept still shows accepted_version=1.0 (got: 1.0)
+
+---- Step 8: GET engage-gate after acceptance (expect allow) ----
+GET /api/v1/profiles/$CONNECTION_ID/engage-gate -> HTTP 200
+{"allowed":true}
+PASS C3: engage-gate allows after acceptance (allowed=true) (got: true)
+PASS C3: engage-gate carries no refusal message once allowed (message absent/empty)
+
+---- Step 9: PUT ai-settings with populated values, then GET -- values round-trip identically ----
+PUT /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
+{"conduct_rules":"no PKing","approach_guidance":"level cautiously","ai_settings":{"model_name":"gemini-2.5-pro","call_cap":25,"disengage_threshold":2}}
+GET /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
+{"conduct_rules":"no PKing","approach_guidance":"level cautiously","ai_settings":{"model_name":"gemini-2.5-pro","call_cap":25,"disengage_threshold":2}}
+PASS C2: conduct_rules round-trips identically (got: no PKing)
+PASS C2: approach_guidance round-trips identically (got: level cautiously)
+PASS C2: model_name round-trips identically (got: gemini-2.5-pro)
+PASS C2: call_cap round-trips identically (got: 25)
+PASS C2: disengage_threshold round-trips identically (got: 2)
+
+---- Step 10: GET timers, PUT the same body back unchanged, then GET ai-settings -- an unrelated save leaves AI fields intact ----
+GET /api/v1/profiles/$CONNECTION_ID/timers -> HTTP 200
+{"items":[{"id":"t1","name":"Regen Check","duration":60000,"repeat":true,"commands":"score","enabled":true}]}
+PUT /api/v1/profiles/$CONNECTION_ID/timers -> HTTP 200
+{"items":[{"id":"t1","name":"Regen Check","duration":60000,"repeat":true,"commands":"score","enabled":true}]}
+GET /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
+{"conduct_rules":"no PKing","approach_guidance":"level cautiously","ai_settings":{"model_name":"gemini-2.5-pro","call_cap":25,"disengage_threshold":2}}
+PASS C2: conduct_rules unchanged after an unrelated timers save (got: no PKing)
+PASS C2: approach_guidance unchanged after an unrelated timers save (got: level cautiously)
+PASS C2: model_name unchanged after an unrelated timers save (got: gemini-2.5-pro)
+PASS C2: call_cap unchanged after an unrelated timers save (got: 25)
+PASS C2: disengage_threshold unchanged after an unrelated timers save (got: 2)
+
+================================================================
+SUMMARY
+================================================================
+C1: PASS
+C2: PASS
+C3: PASS
+C4: PASS
+TOTAL CHECKS: 29  FAILURES: 0
+
+================================================================
+GO TEST: skipped (--self-test mode -- the fixtures are the subject of this run, not the Go suite)
+================================================================
+
+EXIT: 0
+
+### cd frontend && npm run build
+
+> mudpuppy-frontend@0.1.0 build
+> tsc && vite build
+
+[36mvite v5.4.21 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 67 modules transformed.
+[1m[33m[plugin:vite:reporter][39m[22m [33m[plugin vite:reporter] 
+(!) D:/Projects/MUDPuppy/frontend/src/services/api.ts is dynamically imported by D:/Projects/MUDPuppy/frontend/src/context/SessionContext.tsx, D:/Projects/MUDPuppy/frontend/src/context/SessionContext.tsx but also statically imported by D:/Projects/MUDPuppy/frontend/src/components/AIPlayerPanel.tsx, D:/Projects/MUDPuppy/frontend/src/components/ConnectionsHubModal.tsx, D:/Projects/MUDPuppy/frontend/src/components/QuickConnectModal.tsx, D:/Projects/MUDPuppy/frontend/src/components/Sidebar.tsx, D:/Projects/MUDPuppy/frontend/src/context/SessionContext.tsx, D:/Projects/MUDPuppy/frontend/src/pages/ConnectionsPage.tsx, D:/Projects/MUDPuppy/frontend/src/pages/HelpPage.tsx, D:/Projects/MUDPuppy/frontend/src/pages/SettingsPage.tsx, dynamic import will not move module into another chunk.
+[39m
+rendering chunks...
+computing gzip size...
+[2m../public/[22m[32mindex.html                 [39m[1m[2m  0.48 kB[22m[1m[22m[2m │ gzip:   0.32 kB[22m
+[2m../public/[22m[35massets/index-B2cjWadd.css  [39m[1m[2m 38.47 kB[22m[1m[22m[2m │ gzip:   6.84 kB[22m
+[2m../public/[22m[36massets/index-CFTVAbpJ.js   [39m[1m[33m608.72 kB[39m[22m[2m │ gzip: 163.62 kB[22m[2m │ map: 1,921.19 kB[22m
+[33m
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+[32m✓ built in 2.75s[39m
+EXIT: 0
+
+### DEPENDENCY DRIFT
+### git diff --stat 61e970b -- go.mod frontend/package.json
+EXIT: 0
+(empty output above confirms zero dependency drift since the phase base commit 61e970b -- T-1-SC)
+
+GO TEST EXIT: 1
