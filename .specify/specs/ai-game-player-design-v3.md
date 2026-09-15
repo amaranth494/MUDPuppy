@@ -13,23 +13,23 @@ Extend MUDPuppy so a game character can be driven either by its human owner or b
 
 The project is complete when all of the following are true, demonstrated on Alter Aeon from the staging environment:
 
-1. The owner can create a game profile, accept the Safety and Abuse policy on it, and hand-play the character normally. The AI cannot be engaged on any profile that has not accepted the current policy version.
+1. The owner can create a game profile, accept the Safety and Abuse policy on it, and hand-play the character normally. The AI cannot be configured or engaged on any profile that has not accepted the policy.
 2. With autopilot engaged, the AI plays continuously toward the session goal the owner set, and every decision it makes is visible with its reasoning as it happens.
 3. Typing any game command instantly disengages autopilot and the command goes through. Re-engaging picks up cleanly from the current game situation.
 4. The owner can coach the AI from a chat pane while it plays, see the guidance take effect on the next decision, and promote a piece of guidance into the profile permanently.
 5. Every session ends with a recorded debrief and updated progression tally, and across at least three consecutive goal sessions the tally shows improvement while required coaching declines.
-6. All mechanical safety limits hold under test: call cap, no AI-initiated reconnect, disengage on repeated errors or disconnect, conservative defaults when profile settings are blank.
+6. All mechanical safety limits hold under test: call cap when one is set, no AI-initiated reconnect, disengage on repeated errors or disconnect, and safe behaviour when profile settings are blank (no cap, informative failure, no crash, regular play unaffected).
 
 ## Deliverables
 
 ### D1: Profile foundation and policy gate
 
-The connection profile becomes the single per-game home for the AI. Add to profiles: conduct rules (text, handed to the model), approach guidance (text), and AI settings (model names, call cap per session, disengage thresholds). Add the Safety and Abuse policy acceptance flow. Reconnect is not an AI setting: it remains governed by the connection profile's existing reconnect toggle, which is independent of the AI and unchanged by this work.
+The connection profile becomes the single per-game home for the AI. Add to profiles: conduct rules (text, handed to the model), approach guidance (text), and AI settings (model name, call cap per session, disengage threshold). Add the Safety and Abuse policy acceptance flow. Reconnect is not an AI setting: it remains governed by the connection profile's existing reconnect toggle, which is independent of the AI and unchanged by this work.
 
 Accepted when:
-- A profile stores and returns all new fields; blank mechanical settings resolve to conservative engine defaults (capped calls, default disengage thresholds).
-- Attempting to engage the AI on a profile without a recorded acceptance of the current policy version is refused with a clear message, and the policy is presented for acceptance.
-- Acceptance is recorded per profile with timestamp and policy version; changing the policy version requires re-acceptance.
+- A profile stores and returns all new fields. A blank model name means the server's configured default; a blank call cap means no cap; a blank disengage threshold means the engine's built-in error handling applies: any AI failure produces an informative error in the play screen, the AI disengages, and regular play continues. The AI must never crash the server or the session.
+- The first time the owner opens the AI configuration for a profile, the policy is presented and must be accepted before AI settings can be edited or the AI engaged; attempting to engage the AI on a profile without a recorded acceptance is refused with a clear message.
+- Acceptance is recorded once per profile with a timestamp and the policy version accepted. It does not expire and a later policy change does not require re-acceptance. Deleting the profile discards the acceptance, so a new profile for the same game is asked once again.
 
 ### D2: Autopilot switch
 

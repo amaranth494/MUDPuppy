@@ -3,7 +3,7 @@
 Policy version: 1.0
 Date: 2026-09-14
 
-This policy must be accepted for each game profile before the AI player can be engaged on that profile. Accepting it is a statement that you, the profile owner, take responsibility for what the AI does on that game under your account. Acceptance is recorded per profile with timestamp and policy version, and re-acceptance is required when the policy changes.
+This policy must be accepted for each game profile before the AI player can be engaged on that profile. Accepting it is a statement that you, the profile owner, take responsibility for what the AI does on that game under your account. Acceptance is recorded once per profile with timestamp and policy version; it does not expire and is not re-asked when the policy changes.
 
 ## 1. Respect the game's rules
 

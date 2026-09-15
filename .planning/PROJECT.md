@@ -68,7 +68,7 @@ Requirement IDs come from `.planning/intel/requirements.md` and are quoted from 
 - **Directive grammar**: `#AUTO ON` / `#AUTO OFF` join the existing `#` grammar; the play-screen indicator must always match the true state. (CON-directive-grammar)
 - **Model config**: Model names and API key from environment; nothing hard-coded. (CON-model-config)
 - **Profile schema**: New per-profile data: conduct rules, approach guidance, AI settings (model names, call cap per session, disengage thresholds; no reconnect field), policy acceptance record (timestamp + version), learned notes, progression samples (keyed by profile and character), session debriefs, session log with decisions and reasoning and manual-driving stretches. (CON-profile-schema)
-- **Conservative defaults**: Blank mechanical settings resolve to capped calls and default disengage thresholds; the AI never initiates a reconnect regardless of settings. (CON-conservative-defaults)
+- **Blank-setting defaults**: A blank model name means the server default; a blank call cap means no cap; a blank disengage threshold means the engine's built-in error handling: any AI failure produces an informative error, disengages, and never crashes or interrupts regular play. The AI never initiates a reconnect regardless of settings. (CON-conservative-defaults, owner decision 2026-09-15)
 - **Loop pacing**: Read/decide/act paces to the game's turn rhythm; never floods the server. (CON-loop-pacing, CON-policy-rate-limits)
 - **Mechanical halts**: Call cap halts with a visible notice; repeated errors or malformed model output disengage with a visible notice; disconnect while engaged lands on disengaged. (CON-mechanical-halts)
 - **No game knowledge in the engine**: No intent detection, area detection, or behaviour analysis in the plumbing. Status commands used for the progression tally are profile configuration, not engine code. (CON-engine-has-no-game-knowledge)
@@ -96,7 +96,7 @@ Requirement IDs come from `.planning/intel/requirements.md` and are quoted from 
 | DEC-profile-scoped-game-knowledge | All game-specific knowledge lives on the connection profile; the engine enforces numbers, flags, and the gate. | Settled |
 | DEC-staging-only-until-acceptance | Develop and test on Railway staging; production untouched until D8 passes. | Settled |
 | DEC-existing-infra-is-the-base | Existing MUDPuppy infrastructure is the reference and base. | Settled |
-| DEC-policy-v1-is-current-version | Policy 1.0 is the version the D1 gate checks; a version change forces re-acceptance on every profile. | Settled |
+| DEC-policy-accept-once | Policy acceptance is one-time per profile: shown the first time AI configuration is opened, never expires, never re-asked on policy change, discarded with the profile. Version 1.0 is recorded for the record only. (Owner, 2026-09-15; design D1 amended.) | Locked |
 | DEC-alter-aeon-acceptance-target | Completion is demonstrated on Alter Aeon, from staging, under the owner's supervision. | Settled |
 | DEC-version-scope-exclusions | Out of scope list above governs this version. | Settled |
 

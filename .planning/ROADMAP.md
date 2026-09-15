@@ -16,7 +16,7 @@ Branch: `ai-player` (exists from `staging`, carries the ICM). Environment: Railw
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Profile Foundation and Policy Gate** - Profiles gain conduct rules, approach guidance, AI settings with conservative defaults, and a versioned Safety and Abuse policy acceptance that gates engagement
+- [ ] **Phase 1: Profile Foundation and Policy Gate** - Profiles gain conduct rules, approach guidance, AI settings with conservative defaults, and a one-time Safety and Abuse policy acceptance that gates AI configuration and engagement
 - [ ] **Phase 2: Autopilot Switch** - `#AUTO ON` / `#AUTO OFF`, a server-owned engaged state with a truthful indicator, the wheel-grab rule, and disconnect-lands-disengaged, all with no AI behind it
 - [ ] **Phase 3: One AI Decision** - ICM engine wired server-side, Gemini connected from env config, one decision made and issued through the automation context, reasoning shown live and persisted
 - [ ] **Phase 4: Continuous Play** - Session goal, paced read/decide/act loop, call cap and error disengage with visible notices, clean reassessment on re-engage, all safety limits under test
@@ -28,20 +28,20 @@ Decimal phases appear between their surrounding integers in numeric order.
 ## Phase Details
 
 ### Phase 1: Profile Foundation and Policy Gate
-**Goal**: The connection profile is the single per-game home for the AI, and no profile can have the AI engaged until its owner has accepted the current Safety and Abuse policy version on it.
+**Goal**: The connection profile is the single per-game home for the AI, and no profile can have the AI configured or engaged until its owner has accepted the Safety and Abuse policy on it, once.
 **Depends on**: Nothing (first phase)
 **Requirements**: REQ-profile-ai-fields, REQ-policy-gate
 **Success Criteria** (what must be TRUE):
-  1. A profile stores and returns conduct rules, approach guidance, and AI settings (model names, call cap per session, disengage thresholds); blank mechanical settings resolve to conservative engine defaults (capped calls, default disengage thresholds). There is no reconnect field in AI settings.
+  1. A profile stores and returns conduct rules, approach guidance, and AI settings (model name, call cap per session, disengage threshold). A blank model name means the server default, a blank call cap means no cap, and a blank threshold means the engine's built-in error handling: any AI failure yields an informative error in the play screen and disengages without crashing or interrupting regular play. There is no reconnect field in AI settings.
   2. The owner can read and edit conduct rules, approach guidance, and AI settings for a profile from the browser, and the values survive a page reload and a new session.
-  3. Attempting to engage the AI on a profile without a recorded acceptance of the current policy version is refused with a clear message, and the policy text is presented for acceptance.
-  4. Acceptance is recorded per profile with timestamp and policy version; changing the policy version (currently 1.0) requires re-acceptance on every profile.
+  3. The first time the owner opens the AI Player configuration for a profile, the policy is presented and must be accepted before AI settings can be edited; the server-side engage gate refuses any profile without a recorded acceptance, with a clear message.
+  4. Acceptance is recorded once per profile with timestamp and the policy version accepted (currently 1.0); it never expires, a later policy change does not require re-acceptance, and deleting the profile discards it.
 **Plans**: TBD
 **UI hint**: yes
 
-**Phase Validation** (how the success criteria are demonstrated): Diagnostic: `go test` covers default resolution for blank AI settings and the engage-gate decision (no acceptance, stale version, current version); a database inspection of a migrated profile shows the new fields and an acceptance record carrying policy version 1.0 and a timestamp. Player-observable: edit the three fields in the profile editor, reload, values persist; call the engage gate on an un-accepted profile and receive the refusal message plus the policy text; accept, call again, it passes; bump the policy version and it refuses again.
+**Phase Validation** (how the success criteria are demonstrated): Diagnostic: `go test` covers default resolution for blank AI settings and the engage-gate decision (not accepted, accepted); a database inspection of a migrated profile shows the new fields and the acceptance columns carrying policy version 1.0 and a timestamp. Player-observable: open the AI Player section on a fresh profile and the policy appears first; accept once, then the settings editor is usable; edit the three fields, reload, values persist; call the engage gate on an un-accepted profile and receive the refusal message; on the accepted profile it passes; delete the profile, recreate it, and the policy is asked again.
 
-Implementation notes for planning: new golang-migrate migration starting at `010` (profiles gain conduct_rules, approach_guidance, ai_settings JSONB, policy acceptance columns or a per-profile acceptance table); new GET/PUT sub-resource(s) under `/api/v1/profiles/{connection_id}/...` in `internal/profiles`; a server-side engage-gate check that Phase 2's `#AUTO ON` will call; conservative defaults live in Go, not in the frontend. Policy text is served from the server so the version the owner accepts is the version the gate checks.
+Implementation notes for planning: new golang-migrate migration starting at `010` (profiles gain conduct_rules, approach_guidance, ai_settings JSONB, and policy acceptance columns: version accepted plus timestamp); new GET/PUT sub-resource(s) under `/api/v1/profiles/{connection_id}/...` in `internal/profiles`; a server-side engage-gate check that Phase 2's `#AUTO ON` will call; conservative defaults live in Go, not in the frontend. Policy text is served from the server from a markdown file embedded in the Go binary; the version string in its header is what gets recorded on acceptance.
 
 ### Phase 2: Autopilot Switch
 **Goal**: The owner can engage and disengage autopilot from the terminal and always see the true state; taking the wheel is instant and lossless; a disconnect always lands on disengaged. No AI intelligence exists yet.
@@ -83,11 +83,11 @@ Implementation notes for planning: a server-side tap on the MUD output stream (`
   1. The owner sets a session goal, and the loop runs read, decide, act continuously against a live game toward that goal, pacing itself to the game's turn rhythm rather than flooding it, with every decision visible with its reasoning as it happens.
   2. The session call cap halts the loop with a visible notice when reached; repeated errors or malformed model output disengage with a visible notice.
   3. Typing any game command instantly disengages autopilot and the command goes through; re-engagement after manual driving demonstrably reassesses the situation rather than resuming a stale plan.
-  4. All mechanical safety limits hold under automated test: call cap, no AI-initiated reconnect, disengage on repeated errors or disconnect, conservative defaults when profile settings are blank.
+  4. All mechanical safety limits hold under automated test: call cap when one is set, no AI-initiated reconnect, disengage on repeated errors or disconnect, and safe behaviour with blank settings (no cap, informative failure, no crash, regular play unaffected).
 **Plans**: TBD
 **UI hint**: yes
 
-**Phase Validation** (how the success criteria are demonstrated): Diagnostic: `go test ./internal/...` passes a suite that exercises all four mechanical limits (call cap halt, error-count disengage, disconnect disengage, conservative defaults). Player-observable on staging: set a goal and watch the loop issue decisions paced to game output; set a small call cap and see the loop halt with the notice; take the wheel, re-engage, and confirm from the logged reasoning that the first new decision describes the current situation, not the previous plan.
+**Phase Validation** (how the success criteria are demonstrated): Diagnostic: `go test ./internal/...` passes a suite that exercises all four mechanical limits (call cap halt when a cap is set, error disengage with an informative notice, disconnect disengage, and blank-settings behaviour: no cap, no crash). Player-observable on staging: set a goal and watch the loop issue decisions paced to game output; set a small call cap and see the loop halt with the notice; take the wheel, re-engage, and confirm from the logged reasoning that the first new decision describes the current situation, not the previous plan.
 
 Implementation notes for planning: the loop is a server-side goroutine per engaged session, cancellable by disengage; pacing waits for new game output or a floor interval rather than issuing on a fixed clock; the call counter and error counter are per AI session and compared against the resolved (default or profile) settings; re-engage constructs a fresh prompt from current game text and does not carry the previous loop's plan; Go tests cover the four limits (this repo has near-zero test coverage, so the test scaffolding is created here).
 

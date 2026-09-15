@@ -11,8 +11,8 @@ Delivery ordering (from the source): D1 -> D2 -> D3 -> D4 strictly sequential; D
 
 ### D1: Profile foundation and policy gate
 
-- [ ] **REQ-profile-ai-fields**: The connection profile stores conduct rules (text, handed to the model), approach guidance (text), and AI settings (model names, call cap per session, disengage thresholds). Reconnect is not an AI setting. Acceptance: "A profile stores and returns all new fields; blank mechanical settings resolve to conservative engine defaults (capped calls, default disengage thresholds)."
-- [ ] **REQ-policy-gate**: The Safety and Abuse policy acceptance flow. Acceptance: "Attempting to engage the AI on a profile without a recorded acceptance of the current policy version is refused with a clear message, and the policy is presented for acceptance." and "Acceptance is recorded per profile with timestamp and policy version; changing the policy version requires re-acceptance."
+- [ ] **REQ-profile-ai-fields**: The connection profile stores conduct rules (text, handed to the model), approach guidance (text), and AI settings (model name, call cap per session, disengage threshold). Reconnect is not an AI setting. Acceptance: "A profile stores and returns all new fields. A blank model name means the server's configured default; a blank call cap means no cap; a blank disengage threshold means the engine's built-in error handling applies: any AI failure produces an informative error in the play screen, the AI disengages, and regular play continues. The AI must never crash the server or the session."
+- [ ] **REQ-policy-gate**: The Safety and Abuse policy acceptance flow. Acceptance: "The first time the owner opens the AI configuration for a profile, the policy is presented and must be accepted before AI settings can be edited or the AI engaged; attempting to engage the AI on a profile without a recorded acceptance is refused with a clear message." and "Acceptance is recorded once per profile with a timestamp and the policy version accepted. It does not expire and a later policy change does not require re-acceptance. Deleting the profile discards the acceptance."
 
 ### D2: Autopilot switch
 
@@ -57,12 +57,12 @@ Delivery ordering (from the source): D1 -> D2 -> D3 -> D4 strictly sequential; D
 
 ### Definition of complete (cross-cutting)
 
-- [ ] **REQ-doc-hand-play-and-gate** (item 1): "The owner can create a game profile, accept the Safety and Abuse policy on it, and hand-play the character normally. The AI cannot be engaged on any profile that has not accepted the current policy version." Maps to REQ-policy-gate, REQ-autopilot-directives.
+- [ ] **REQ-doc-hand-play-and-gate** (item 1): "The owner can create a game profile, accept the Safety and Abuse policy on it, and hand-play the character normally. The AI cannot be configured or engaged on any profile that has not accepted the policy." Maps to REQ-policy-gate, REQ-autopilot-directives.
 - [ ] **REQ-doc-continuous-visible-play** (item 2): "With autopilot engaged, the AI plays continuously toward the session goal the owner set, and every decision it makes is visible with its reasoning as it happens." Maps to REQ-continuous-loop, REQ-reasoning-visibility.
 - [ ] **REQ-doc-wheel-grab-and-reengage** (item 3): "Typing any game command instantly disengages autopilot and the command goes through. Re-engaging picks up cleanly from the current game situation." Maps to REQ-wheel-grab, REQ-reengage-reassess.
 - [ ] **REQ-doc-coaching** (item 4): "The owner can coach the AI from a chat pane while it plays, see the guidance take effect on the next decision, and promote a piece of guidance into the profile permanently." Maps to REQ-coaching-chat, REQ-promote-guidance.
 - [ ] **REQ-improvement-trend** (item 5): "Every session ends with a recorded debrief and updated progression tally, and across at least three consecutive goal sessions the tally shows improvement while required coaching declines." Maps to REQ-session-debrief, REQ-progression-tally; adds the three-session trend as its own measurable criterion.
-- [ ] **REQ-safety-limits-hold** (item 6): "All mechanical safety limits hold under test: call cap, no AI-initiated reconnect, disengage on repeated errors or disconnect, conservative defaults when profile settings are blank." Maps to REQ-call-cap-and-error-disengage, REQ-no-auto-reconnect, REQ-profile-ai-fields.
+- [ ] **REQ-safety-limits-hold** (item 6): "All mechanical safety limits hold under test: call cap when one is set, no AI-initiated reconnect, disengage on repeated errors or disconnect, and safe behaviour when profile settings are blank (no cap, informative failure, no crash, regular play unaffected)." Maps to REQ-call-cap-and-error-disengage, REQ-no-auto-reconnect, REQ-profile-ai-fields.
 
 ## v2 Requirements
 
