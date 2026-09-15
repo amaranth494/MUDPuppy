@@ -1,4 +1,6 @@
 ---
+title: Phase 1 code review warnings carried forward
+area: profiles
 created: 2026-09-15
 source: .planning/phases/01-profile-foundation-and-policy-gate/01-REVIEW.md
 phase_origin: 01
