@@ -39,12 +39,14 @@ created: 2026-09-15
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| TBD (planner assigns) | — | — | REQ-profile-ai-fields | — | Blank model name, call cap, and disengage threshold resolve to Go-side defaults; non-blank values round-trip unchanged | unit | `go test ./internal/store/... -run TestResolveAISettings -v` | ❌ W0 | ⬜ pending |
-| TBD (planner assigns) | — | — | REQ-profile-ai-fields | — | New columns present on a migrated `profiles` row with correct types and defaults | diagnostic (DB) | `SELECT conduct_rules, approach_guidance, ai_settings, policy_version_accepted, policy_accepted_at FROM profiles LIMIT 1;` | n/a | ⬜ pending |
-| TBD (planner assigns) | — | — | REQ-profile-ai-fields | — | `PUT` then `GET` of the AI sub-resource returns the stored values; validation rejects over-length text with a specific message | handler (`httptest`) or HTTP | `go test ./internal/profiles/... -run TestAISettings -v` | ❌ W0 | ⬜ pending |
-| TBD (planner assigns) | — | — | REQ-policy-gate | — | Engage gate returns refuse when no acceptance is recorded, allow when version and timestamp are set | unit | `go test ./internal/store/... -run TestEngageGate -v` | ❌ W0 | ⬜ pending |
-| TBD (planner assigns) | — | — | REQ-policy-gate | — | Embedded policy text serves with parsed version `1.0` | unit | `go test ./internal/policy/... -run TestParseVersion -v` | ❌ W0 | ⬜ pending |
-| TBD (planner assigns) | — | — | REQ-policy-gate | — | Gate endpoint on an un-accepted profile returns the refusal message; on an accepted profile it passes | diagnostic (HTTP) | `curl` against the running server, or `httptest` handler test | ❌ W0 | ⬜ pending |
+| 01-01-03 | 01 | 1 | REQ-profile-ai-fields | — | Blank model name, call cap, and disengage threshold resolve to Go-side defaults; non-blank values round-trip unchanged | unit | `go test ./internal/store/... -run TestResolveAISettings -v` | ❌ W0 (created by 01-01-03) | ⬜ pending |
+| 01-05-02 | 05 | 4 | REQ-profile-ai-fields | T-1-10 | New columns present on a migrated `profiles` row with correct types and defaults | diagnostic (DB) | `SELECT conduct_rules, approach_guidance, ai_settings, policy_version_accepted, policy_accepted_at FROM profiles LIMIT 1;` | n/a | ⬜ pending |
+| 01-03-03 | 03 | 2 | REQ-profile-ai-fields | T-1-04 | `PUT` then `GET` of the AI sub-resource returns the stored values; validation rejects over-length text with a specific message | handler (`httptest`) | `go test ./internal/profiles/... -run TestAISettings -v` | ❌ W0 (created by 01-03-03) | ⬜ pending |
+| 01-01-03 | 01 | 1 | REQ-policy-gate | T-1-05 | Engage gate returns refuse when no acceptance is recorded, allow when version and timestamp are set | unit | `go test ./internal/store/... -run TestEngageGate -v` | ❌ W0 (created by 01-01-03) | ⬜ pending |
+| 01-02-02 | 02 | 1 | REQ-policy-gate | T-1-02 | Embedded policy text serves with parsed version `1.0` | unit | `go test ./internal/policy/... -run TestParseVersion -v` | ❌ W0 (created by 01-02-02) | ⬜ pending |
+| 01-03-03 | 03 | 2 | REQ-policy-gate | T-1-05 | Gate endpoint on an un-accepted profile returns the refusal message; on an accepted profile it passes | handler (`httptest`) | `go test ./internal/profiles/... -run TestEngageGateHandler -v` | ❌ W0 (created by 01-03-03) | ⬜ pending |
+| 01-03-03 | 03 | 2 | REQ-policy-gate | T-1-01, T-1-02 | A `PUT` to ai-settings carrying acceptance fields writes neither column; accept records the server-parsed version once | handler (`httptest`) | `go test ./internal/profiles/... -run "TestAISettingsCannotSetAcceptance\|TestPolicyAcceptUsesServerVersion" -v` | ❌ W0 (created by 01-03-03) | ⬜ pending |
+| 01-05-03 | 05 | 4 | REQ-profile-ai-fields, REQ-policy-gate | T-1-05, T-1-06 | Fresh profile shows policy first, accept reveals the editor, values persist across reload and session, an unrelated timers save leaves AI fields intact, delete and recreate re-asks | player-observable (browser) | manual walkthrough per the ROADMAP Phase Validation line | n/a | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -52,9 +54,9 @@ created: 2026-09-15
 
 ## Wave 0 Requirements
 
-- [ ] `internal/store/profile_test.go` — new file; blank-setting resolution and engage-gate decision — REQ-profile-ai-fields, REQ-policy-gate
-- [ ] `internal/policy/policy_test.go` — new file; version parsing from the embedded policy markdown — REQ-policy-gate
-- [ ] `internal/profiles/handler_test.go` — new file (optional but recommended); `httptest` coverage of the AI sub-resource and gate endpoint validation paths — REQ-profile-ai-fields, REQ-policy-gate
+- [ ] `internal/store/profile_test.go` — task 01-01-03 (plan 01, wave 1); blank-setting resolution and engage-gate decision — REQ-profile-ai-fields, REQ-policy-gate
+- [ ] `internal/policy/policy_test.go` — task 01-02-02 (plan 02, wave 1); version parsing from the embedded policy markdown — REQ-policy-gate
+- [ ] `internal/profiles/handler_test.go` — task 01-03-03 (plan 03, wave 2); `httptest` coverage of the AI sub-resource round-trip, validation, acceptance-forgery refusal and the gate endpoint — REQ-profile-ai-fields, REQ-policy-gate
 - [ ] Framework install: none — `testing` is stdlib and already in use
 
 ---

@@ -36,7 +36,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. The owner can read and edit conduct rules, approach guidance, and AI settings for a profile from the browser, and the values survive a page reload and a new session.
   3. The first time the owner opens the AI Player configuration for a profile, the policy is presented and must be accepted before AI settings can be edited; the server-side engage gate refuses any profile without a recorded acceptance, with a clear message.
   4. Acceptance is recorded once per profile with timestamp and the policy version accepted (currently 1.0); it never expires, a later policy change does not require re-acceptance, and deleting the profile discards it.
-**Plans**: TBD
+**Plans**: 5 plans
+Plans:
+- [ ] 01-01-PLAN.md — Profile row carries AI fields and a one-time policy acceptance record, with blanks resolved in Go
+- [ ] 01-02-PLAN.md — Policy text and version 1.0 ship inside the server binary
+- [ ] 01-03-PLAN.md — AI settings, the policy, one-time acceptance and the engage gate are reachable over HTTP
+- [ ] 01-04-PLAN.md — The owner accepts the policy and edits AI settings from the browser
+- [ ] 01-05-PLAN.md — Phase 1 demonstrated on staging: the gate holds, settings persist, acceptance dies with the profile
 **UI hint**: yes
 
 **Phase Validation** (how the success criteria are demonstrated): Diagnostic: `go test` covers default resolution for blank AI settings and the engage-gate decision (not accepted, accepted); a database inspection of a migrated profile shows the new fields and the acceptance columns carrying policy version 1.0 and a timestamp. Player-observable: open the AI Player section on a fresh profile and the policy appears first; accept once, then the settings editor is usable; edit the three fields, reload, values persist; call the engage gate on an un-accepted profile and receive the refusal message; on the accepted profile it passes; delete the profile, recreate it, and the policy is asked again.
@@ -159,7 +165,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Profile Foundation and Policy Gate | 0/TBD | Not started | - |
+| 1. Profile Foundation and Policy Gate | 0/5 | Planned | - |
 | 2. Autopilot Switch | 0/TBD | Not started | - |
 | 3. One AI Decision | 0/TBD | Not started | - |
 | 4. Continuous Play | 0/TBD | Not started | - |
