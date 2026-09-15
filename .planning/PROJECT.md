@@ -15,12 +15,12 @@ The owner can hand the wheel to the AI and take it back instantly, always seeing
 The existing MUDPuppy product is taken as-is per owner decision; its prior specs are excluded and nothing from them is tracked here.
 
 - [x] D1 Profile foundation and policy gate: REQ-profile-ai-fields, REQ-policy-gate — Validated in Phase 1: Profile Foundation and Policy Gate (2026-09-15). Proof filed under `.planning/phases/01-profile-foundation-and-policy-gate/evidence/`: staging startup log showing migration 010 applied, canned report passing C1-C4, `[AI-PLAYER]` log excerpt, and seven end-user screenshots. Verification 4/4.
+- [x] D2 Autopilot switch: REQ-autopilot-directives, REQ-wheel-grab, REQ-no-auto-reconnect, plus REQ-doc-hand-play-and-gate — Validated in Phase 2: Autopilot Switch (2026-09-15). Proof filed under `.planning/phases/02-autopilot-switch/evidence/`: test report, harness self-test, canned report against staging (22 checks, 0 failures), `[AI-PLAYER]` log excerpt with every transition cause, and nine end-user screenshots. Verification 4/4; owner approved via the Autopilot Switch Evidence Dossier. Three code-review criticals fixed in b5c8bf5: the switch is bound to the connected profile and resumes only onto it.
 
 ### Active
 
 Requirement IDs come from `.planning/intel/requirements.md` and are quoted from the design's D1-D8 "Accepted when" bullets and Definition of complete. Full list with acceptance text in `.planning/REQUIREMENTS.md`.
 
-- [ ] D2 Autopilot switch: REQ-autopilot-directives, REQ-wheel-grab, REQ-no-auto-reconnect
 - [ ] D3 One AI decision: REQ-single-decision, REQ-reasoning-visibility, REQ-env-config
 - [ ] D4 Continuous play: REQ-continuous-loop, REQ-call-cap-and-error-disengage, REQ-reengage-reassess
 - [ ] D5 Coaching channel: REQ-coaching-chat, REQ-pause-resume, REQ-promote-guidance
@@ -112,4 +112,4 @@ Requirement IDs come from `.planning/intel/requirements.md` and are quoted from 
 | The Phase 6 debrief records the amount of coaching required in the session. | Definition of complete item 5 requires "required coaching declines" to be measurable across sessions; without a recorded count the Phase 8 trend cannot be shown. Derived from REQ-improvement-trend, not invented. | Pending |
 
 ---
-*Last updated: 2026-09-15 after Phase 1 completed and verified on staging and the owner amended D2 disconnect behaviour during the Phase 2 discussion (DEC-autopilot-waits-across-disconnect)*
+*Last updated: 2026-09-15 after Phase 2 completed, verified on staging, and approved by the owner; the switch now binds to the connected profile (code review fix b5c8bf5)*
