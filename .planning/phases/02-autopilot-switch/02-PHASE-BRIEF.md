@@ -1,6 +1,6 @@
 # Phase 2 Brief — Autopilot Switch
 
-**Status:** Awaiting owner approval for execution (planned 2026-09-15).
+**Status:** Approved by the owner on 2026-09-15 for execution.
 
 **Purpose:** Owner review before execution. Everything here is lifted from `.planning/ROADMAP.md` §Phase 2 and the seven PLAN.md files; nothing is new. Approve this, and Phase 2 goes to `/gsd-execute-phase 2`.
 
