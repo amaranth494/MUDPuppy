@@ -1,5 +1,7 @@
 # Phase 1 Brief — Profile Foundation and Policy Gate
 
+**Status:** Approved by the owner on 2026-09-15 for execution.
+
 **Purpose:** Owner review before execution. Everything here is lifted from `.planning/ROADMAP.md` §Phase 1 and the six PLAN.md files; nothing is new. Approve this, and Phase 1 goes to `/gsd-execute-phase 1`.
 
 **Evidence rule (owner-directed, binding for this and every later phase):** every success criterion and acceptance criterion is proven by one of two artifact types, and nothing else.
