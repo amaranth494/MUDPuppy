@@ -91,8 +91,8 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 02-04-PLAN.md — `#AUTO` is a directive the owner can type, and the browser labels every command human or automation
-- [ ] 02-05-PLAN.md — One command turns the Phase 2 HTTP sequence into a canned PASS/FAIL report per success criterion
+- [x] 02-04-PLAN.md — `#AUTO` is a directive the owner can type, and the browser labels every command human or automation
+- [x] 02-05-PLAN.md — One command turns the Phase 2 HTTP sequence into a canned PASS/FAIL report per success criterion
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -227,7 +227,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Profile Foundation and Policy Gate | 6/6 | Complete    | 2026-09-15 |
-| 2. Autopilot Switch | 3/7 | In Progress|  |
+| 2. Autopilot Switch | 5/7 | In Progress|  |
 | 3. One AI Decision | 0/TBD | Not started | - |
 | 4. Continuous Play | 0/TBD | Not started | - |
 | 5. Coaching Channel | 0/TBD | Not started | - |
