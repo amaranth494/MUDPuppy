@@ -86,8 +86,8 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 02-02-PLAN.md — The switch answers over HTTP and refuses without the policy gate or a connected game
-- [ ] 02-03-PLAN.md — Typing takes the wheel; triggers and timers do not
+- [x] 02-02-PLAN.md — The switch answers over HTTP and refuses without the policy gate or a connected game
+- [x] 02-03-PLAN.md — Typing takes the wheel; triggers and timers do not
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -227,7 +227,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Profile Foundation and Policy Gate | 6/6 | Complete    | 2026-09-15 |
-| 2. Autopilot Switch | 1/7 | In Progress|  |
+| 2. Autopilot Switch | 3/7 | In Progress|  |
 | 3. One AI Decision | 0/TBD | Not started | - |
 | 4. Continuous Play | 0/TBD | Not started | - |
 | 5. Coaching Channel | 0/TBD | Not started | - |
