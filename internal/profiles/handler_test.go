@@ -20,6 +20,12 @@ import (
 type fakeProfileStore struct {
 	profile    *store.Profile
 	lastUpdate *store.ProfileUpdate
+
+	// acceptPolicyReturnsNil, when true, makes AcceptPolicy return (nil, nil)
+	// regardless of profile state — simulating store.ProfileStore.AcceptPolicy's
+	// documented behavior when the profile row is missing (e.g. deleted
+	// mid-request) (CR-01).
+	acceptPolicyReturnsNil bool
 }
 
 func (f *fakeProfileStore) GetProfile(userID, profileID uuid.UUID) (*store.Profile, error) {
@@ -54,6 +60,9 @@ func (f *fakeProfileStore) UpdateProfile(userID, profileID uuid.UUID, updates *s
 }
 
 func (f *fakeProfileStore) AcceptPolicy(userID, profileID uuid.UUID, version string) (*store.Profile, error) {
+	if f.acceptPolicyReturnsNil {
+		return nil, nil
+	}
 	if f.profile == nil || f.profile.ID != profileID || f.profile.UserID != userID {
 		return nil, nil
 	}
@@ -288,6 +297,38 @@ func TestPolicyAcceptUsesServerVersion(t *testing.T) {
 	}
 	if second.AcceptedAt == nil || *second.AcceptedAt != firstTimestamp {
 		t.Errorf("second AcceptedAt = %v, want unchanged %q", second.AcceptedAt, firstTimestamp)
+	}
+}
+
+func TestPolicyAcceptHandlesProfileDeletedMidRequest(t *testing.T) {
+	userID := uuid.New()
+	profileID := uuid.New()
+	connectionID := uuid.New()
+	fake := &fakeProfileStore{profile: newTestProfile(userID, profileID, connectionID)}
+	h := &Handler{profileStore: fake}
+
+	// Simulate the profile being deleted between the initial
+	// getProfileByConnectionID fetch and the AcceptPolicy write: the
+	// fake's AcceptPolicy returns (nil, nil), matching store.ProfileStore's
+	// documented not-found behavior (CR-01).
+	fake.acceptPolicyReturnsNil = true
+
+	path := "/api/v1/profiles/" + connectionID.String() + "/policy/accept"
+	req := newTestRequest(http.MethodPost, path, userID, nil)
+	rec := httptest.NewRecorder()
+
+	h.AcceptPolicy(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, body = %s, want %d", rec.Code, rec.Body.String(), http.StatusBadRequest)
+	}
+
+	var got ErrorResponse
+	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if got.Error != "Profile not found" {
+		t.Errorf("Error = %q, want %q", got.Error, "Profile not found")
 	}
 }
 

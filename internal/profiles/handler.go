@@ -636,6 +636,10 @@ func (h *Handler) AcceptPolicy(w http.ResponseWriter, r *http.Request) {
 		h.sendError(w, "Failed to record acceptance")
 		return
 	}
+	if updatedProfile == nil {
+		h.sendError(w, "Profile not found")
+		return
+	}
 
 	connectionID, _ := h.getConnectionIDFromPath(r)
 	userIDVal := r.Context().Value("user_id")
