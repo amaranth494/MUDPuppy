@@ -9,9 +9,10 @@ import { parser, validateSyntax, ParseError } from '../services/automation/parse
 // PR02PH03: Import ICM adapter for editor validation
 import { recognizeCommand, validateCommand } from '../services/icm-adapter';
 import { logToConsole } from '../services/log';
+import AIPlayerPanel from '../components/AIPlayerPanel';
 
 // Section types
-type SettingsSection = 'general' | 'keybindings' | 'aliases' | 'triggers' | 'timers' | 'environment';
+type SettingsSection = 'general' | 'keybindings' | 'aliases' | 'triggers' | 'timers' | 'environment' | 'ai-player';
 
 // Section definition
 interface Section {
@@ -27,6 +28,7 @@ const SECTIONS: Section[] = [
   { id: 'triggers', label: 'Triggers', icon: '⚓' },
   { id: 'timers', label: 'Timers', icon: '⏱' },
   { id: 'environment', label: 'Environment', icon: '📦' },
+  { id: 'ai-player', label: 'AI Player', icon: '🤖' },
 ];
 
 export default function SettingsPage() {
@@ -1683,6 +1685,11 @@ cast heal
                 </button>
               </div>
             </div>
+          )}
+
+          {/* AI Player Section */}
+          {activeSection === 'ai-player' && connectionId && (
+            <AIPlayerPanel connectionId={connectionId} />
           )}
         </div>
       </div>
