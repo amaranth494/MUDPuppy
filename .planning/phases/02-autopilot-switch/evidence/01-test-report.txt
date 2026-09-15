@@ -1,0 +1,871 @@
+### go build ./...
+EXIT: 0
+
+### go vet ./internal/session/... ./cmd/...
+EXIT: 0
+
+### go test ./... -v
+?   	github.com/amaranth494/MudPuppy/cmd/server	[no test files]
+?   	github.com/amaranth494/MudPuppy/internal/auth	[no test files]
+?   	github.com/amaranth494/MudPuppy/internal/config	[no test files]
+?   	github.com/amaranth494/MudPuppy/internal/connections	[no test files]
+?   	github.com/amaranth494/MudPuppy/internal/crypto	[no test files]
+?   	github.com/amaranth494/MudPuppy/internal/email	[no test files]
+?   	github.com/amaranth494/MudPuppy/internal/help	[no test files]
+=== RUN   TestRecognizer_RecognizeStructured
+=== RUN   TestRecognizer_RecognizeStructured/#echo_hello
+=== RUN   TestRecognizer_RecognizeStructured/#SET_myvar_=_value
+=== RUN   TestRecognizer_RecognizeStructured/#if_$foo_==_bar
+=== RUN   TestRecognizer_RecognizeStructured/#timer_mytimer_60_#echo_hello
+=== RUN   TestRecognizer_RecognizeStructured/#log_message
+=== RUN   TestRecognizer_RecognizeStructured/#help
+=== RUN   TestRecognizer_RecognizeStructured/#___set___var___value
+--- PASS: TestRecognizer_RecognizeStructured (0.00s)
+    --- PASS: TestRecognizer_RecognizeStructured/#echo_hello (0.00s)
+    --- PASS: TestRecognizer_RecognizeStructured/#SET_myvar_=_value (0.00s)
+    --- PASS: TestRecognizer_RecognizeStructured/#if_$foo_==_bar (0.00s)
+    --- PASS: TestRecognizer_RecognizeStructured/#timer_mytimer_60_#echo_hello (0.00s)
+    --- PASS: TestRecognizer_RecognizeStructured/#log_message (0.00s)
+    --- PASS: TestRecognizer_RecognizeStructured/#help (0.00s)
+    --- PASS: TestRecognizer_RecognizeStructured/#___set___var___value (0.00s)
+=== RUN   TestRecognizer_RecognizeAlias
+=== RUN   TestRecognizer_RecognizeAlias/@myalias
+=== RUN   TestRecognizer_RecognizeAlias/@myalias_arg1_arg2
+=== RUN   TestRecognizer_RecognizeAlias/@_alias
+=== RUN   TestRecognizer_RecognizeAlias/@___alias___arg
+--- PASS: TestRecognizer_RecognizeAlias (0.00s)
+    --- PASS: TestRecognizer_RecognizeAlias/@myalias (0.00s)
+    --- PASS: TestRecognizer_RecognizeAlias/@myalias_arg1_arg2 (0.00s)
+    --- PASS: TestRecognizer_RecognizeAlias/@_alias (0.00s)
+    --- PASS: TestRecognizer_RecognizeAlias/@___alias___arg (0.00s)
+=== RUN   TestRecognizer_RecognizeUserVariable
+=== RUN   TestRecognizer_RecognizeUserVariable/$myvar
+=== RUN   TestRecognizer_RecognizeUserVariable/$myvar_value
+=== RUN   TestRecognizer_RecognizeUserVariable/${myvar}
+=== RUN   TestRecognizer_RecognizeUserVariable/${myvar}_value
+=== RUN   TestRecognizer_RecognizeUserVariable/$var1_$var2
+--- PASS: TestRecognizer_RecognizeUserVariable (0.00s)
+    --- PASS: TestRecognizer_RecognizeUserVariable/$myvar (0.00s)
+    --- PASS: TestRecognizer_RecognizeUserVariable/$myvar_value (0.00s)
+    --- PASS: TestRecognizer_RecognizeUserVariable/${myvar} (0.00s)
+    --- PASS: TestRecognizer_RecognizeUserVariable/${myvar}_value (0.00s)
+    --- PASS: TestRecognizer_RecognizeUserVariable/$var1_$var2 (0.00s)
+=== RUN   TestRecognizer_RecognizeSystemVariable
+=== RUN   TestRecognizer_RecognizeSystemVariable/%1
+=== RUN   TestRecognizer_RecognizeSystemVariable/%42
+=== RUN   TestRecognizer_RecognizeSystemVariable/%TIME
+=== RUN   TestRecognizer_RecognizeSystemVariable/%CHARACTER
+=== RUN   TestRecognizer_RecognizeSystemVariable/%1_value
+=== RUN   TestRecognizer_RecognizeSystemVariable/%TIME_value
+=== RUN   TestRecognizer_RecognizeSystemVariable/%
+--- PASS: TestRecognizer_RecognizeSystemVariable (0.00s)
+    --- PASS: TestRecognizer_RecognizeSystemVariable/%1 (0.00s)
+    --- PASS: TestRecognizer_RecognizeSystemVariable/%42 (0.00s)
+    --- PASS: TestRecognizer_RecognizeSystemVariable/%TIME (0.00s)
+    --- PASS: TestRecognizer_RecognizeSystemVariable/%CHARACTER (0.00s)
+    --- PASS: TestRecognizer_RecognizeSystemVariable/%1_value (0.00s)
+    --- PASS: TestRecognizer_RecognizeSystemVariable/%TIME_value (0.00s)
+    --- PASS: TestRecognizer_RecognizeSystemVariable/% (0.00s)
+=== RUN   TestRecognizer_NotInternal
+=== RUN   TestRecognizer_NotInternal/look
+=== RUN   TestRecognizer_NotInternal/say_hello
+=== RUN   TestRecognizer_NotInternal/who
+=== RUN   TestRecognizer_NotInternal/inventory
+=== RUN   TestRecognizer_NotInternal/go_north
+=== RUN   TestRecognizer_NotInternal/#00
+=== RUN   TestRecognizer_NotInternal/___
+--- PASS: TestRecognizer_NotInternal (0.00s)
+    --- PASS: TestRecognizer_NotInternal/look (0.00s)
+    --- PASS: TestRecognizer_NotInternal/say_hello (0.00s)
+    --- PASS: TestRecognizer_NotInternal/who (0.00s)
+    --- PASS: TestRecognizer_NotInternal/inventory (0.00s)
+    --- PASS: TestRecognizer_NotInternal/go_north (0.00s)
+    --- PASS: TestRecognizer_NotInternal/#00 (0.00s)
+    --- PASS: TestRecognizer_NotInternal/___ (0.00s)
+=== RUN   TestNormalizer_Normalize
+=== RUN   TestNormalizer_Normalize/#echo_hello
+=== RUN   TestNormalizer_Normalize/#__set__var__value
+=== RUN   TestNormalizer_Normalize/@myalias_arg
+=== RUN   TestNormalizer_Normalize/$myvar
+=== RUN   TestNormalizer_Normalize/${myvar}
+=== RUN   TestNormalizer_Normalize/%42
+=== RUN   TestNormalizer_Normalize/%TIME
+--- PASS: TestNormalizer_Normalize (0.00s)
+    --- PASS: TestNormalizer_Normalize/#echo_hello (0.00s)
+    --- PASS: TestNormalizer_Normalize/#__set__var__value (0.00s)
+    --- PASS: TestNormalizer_Normalize/@myalias_arg (0.00s)
+    --- PASS: TestNormalizer_Normalize/$myvar (0.00s)
+    --- PASS: TestNormalizer_Normalize/${myvar} (0.00s)
+    --- PASS: TestNormalizer_Normalize/%42 (0.00s)
+    --- PASS: TestNormalizer_Normalize/%TIME (0.00s)
+=== RUN   TestValidator_Validate
+=== RUN   TestValidator_Validate/#echo_hello
+=== RUN   TestValidator_Validate/#set_var_value
+=== RUN   TestValidator_Validate/#if_$foo_==_bar
+=== RUN   TestValidator_Validate/#timer_mytimer_60_#echo_hello
+=== RUN   TestValidator_Validate/#whatev
+=== RUN   TestValidator_Validate/@validalias
+=== RUN   TestValidator_Validate/$validvar
+=== RUN   TestValidator_Validate/%1
+=== RUN   TestValidator_Validate/%TIME
+--- PASS: TestValidator_Validate (0.00s)
+    --- PASS: TestValidator_Validate/#echo_hello (0.00s)
+    --- PASS: TestValidator_Validate/#set_var_value (0.00s)
+    --- PASS: TestValidator_Validate/#if_$foo_==_bar (0.00s)
+    --- PASS: TestValidator_Validate/#timer_mytimer_60_#echo_hello (0.00s)
+    --- PASS: TestValidator_Validate/#whatev (0.00s)
+    --- PASS: TestValidator_Validate/@validalias (0.00s)
+    --- PASS: TestValidator_Validate/$validvar (0.00s)
+    --- PASS: TestValidator_Validate/%1 (0.00s)
+    --- PASS: TestValidator_Validate/%TIME (0.00s)
+=== RUN   TestClassifier_Classify
+=== RUN   TestClassifier_Classify/look
+=== RUN   TestClassifier_Classify/#echo_hello
+=== RUN   TestClassifier_Classify/@myalias
+=== RUN   TestClassifier_Classify/$myvar
+=== RUN   TestClassifier_Classify/%1
+=== RUN   TestClassifier_Classify/&somecommand
+=== RUN   TestClassifier_Classify/#00
+--- PASS: TestClassifier_Classify (0.00s)
+    --- PASS: TestClassifier_Classify/look (0.00s)
+    --- PASS: TestClassifier_Classify/#echo_hello (0.00s)
+    --- PASS: TestClassifier_Classify/@myalias (0.00s)
+    --- PASS: TestClassifier_Classify/$myvar (0.00s)
+    --- PASS: TestClassifier_Classify/%1 (0.00s)
+    --- PASS: TestClassifier_Classify/&somecommand (0.00s)
+    --- PASS: TestClassifier_Classify/#00 (0.00s)
+=== RUN   TestEscapeHandler_ResolveEscapes
+=== RUN   TestEscapeHandler_ResolveEscapes/\#echo
+=== RUN   TestEscapeHandler_ResolveEscapes/\@alias
+=== RUN   TestEscapeHandler_ResolveEscapes/\$var
+=== RUN   TestEscapeHandler_ResolveEscapes/\%sys
+=== RUN   TestEscapeHandler_ResolveEscapes/\\
+=== RUN   TestEscapeHandler_ResolveEscapes/\n
+=== RUN   TestEscapeHandler_ResolveEscapes/\t
+=== RUN   TestEscapeHandler_ResolveEscapes/hello_world
+=== RUN   TestEscapeHandler_ResolveEscapes/no_escapes_here
+--- PASS: TestEscapeHandler_ResolveEscapes (0.00s)
+    --- PASS: TestEscapeHandler_ResolveEscapes/\#echo (0.00s)
+    --- PASS: TestEscapeHandler_ResolveEscapes/\@alias (0.00s)
+    --- PASS: TestEscapeHandler_ResolveEscapes/\$var (0.00s)
+    --- PASS: TestEscapeHandler_ResolveEscapes/\%sys (0.00s)
+    --- PASS: TestEscapeHandler_ResolveEscapes/\\ (0.00s)
+    --- PASS: TestEscapeHandler_ResolveEscapes/\n (0.00s)
+    --- PASS: TestEscapeHandler_ResolveEscapes/\t (0.00s)
+    --- PASS: TestEscapeHandler_ResolveEscapes/hello_world (0.00s)
+    --- PASS: TestEscapeHandler_ResolveEscapes/no_escapes_here (0.00s)
+=== RUN   TestEscapeHandler_HasEscapeSequences
+=== RUN   TestEscapeHandler_HasEscapeSequences/\#echo
+=== RUN   TestEscapeHandler_HasEscapeSequences/hello
+=== RUN   TestEscapeHandler_HasEscapeSequences/no_escapes
+=== RUN   TestEscapeHandler_HasEscapeSequences/mixed\#here
+=== RUN   TestEscapeHandler_HasEscapeSequences/#00
+--- PASS: TestEscapeHandler_HasEscapeSequences (0.00s)
+    --- PASS: TestEscapeHandler_HasEscapeSequences/\#echo (0.00s)
+    --- PASS: TestEscapeHandler_HasEscapeSequences/hello (0.00s)
+    --- PASS: TestEscapeHandler_HasEscapeSequences/no_escapes (0.00s)
+    --- PASS: TestEscapeHandler_HasEscapeSequences/mixed\#here (0.00s)
+    --- PASS: TestEscapeHandler_HasEscapeSequences/#00 (0.00s)
+=== RUN   TestEngine_Process
+=== RUN   TestEngine_Process/look
+=== RUN   TestEngine_Process/#echo_hello
+=== RUN   TestEngine_Process/#set_var_value
+--- PASS: TestEngine_Process (0.00s)
+    --- PASS: TestEngine_Process/look (0.00s)
+    --- PASS: TestEngine_Process/#echo_hello (0.00s)
+    --- PASS: TestEngine_Process/#set_var_value (0.00s)
+=== RUN   TestRegistry_RegisterAlias
+--- PASS: TestRegistry_RegisterAlias (0.00s)
+=== RUN   TestRegistry_SetUserVariable
+--- PASS: TestRegistry_SetUserVariable (0.00s)
+=== RUN   TestRegistry_SystemVariables
+--- PASS: TestRegistry_SystemVariables (0.00s)
+=== RUN   TestDefaultSafetyChecker_CheckRateLimit
+--- PASS: TestDefaultSafetyChecker_CheckRateLimit (0.00s)
+=== RUN   TestDefaultSafetyChecker_CheckTimeout
+--- PASS: TestDefaultSafetyChecker_CheckTimeout (0.00s)
+=== RUN   TestEngine_ExecuteStructuredCommand
+=== RUN   TestEngine_ExecuteStructuredCommand/#echo_hello
+=== RUN   TestEngine_ExecuteStructuredCommand/#set_myvar_myvalue
+=== RUN   TestEngine_ExecuteStructuredCommand/#timer_mytimer_60_#echo_hello
+--- PASS: TestEngine_ExecuteStructuredCommand (0.00s)
+    --- PASS: TestEngine_ExecuteStructuredCommand/#echo_hello (0.00s)
+    --- PASS: TestEngine_ExecuteStructuredCommand/#set_myvar_myvalue (0.00s)
+    --- PASS: TestEngine_ExecuteStructuredCommand/#timer_mytimer_60_#echo_hello (0.00s)
+=== RUN   TestEngine_LogCommand
+--- PASS: TestEngine_LogCommand (0.00s)
+=== RUN   TestEngine_LogCommandPreviewDenied
+--- PASS: TestEngine_LogCommandPreviewDenied (0.00s)
+=== RUN   TestEngine_TimerCommands
+=== RUN   TestEngine_TimerCommands/#start_mytimer
+=== RUN   TestEngine_TimerCommands/#stop_mytimer
+=== RUN   TestEngine_TimerCommands/#check_mytimer
+=== RUN   TestEngine_TimerCommands/#cancel_mytimer
+--- PASS: TestEngine_TimerCommands (0.00s)
+    --- PASS: TestEngine_TimerCommands/#start_mytimer (0.00s)
+    --- PASS: TestEngine_TimerCommands/#stop_mytimer (0.00s)
+    --- PASS: TestEngine_TimerCommands/#check_mytimer (0.00s)
+    --- PASS: TestEngine_TimerCommands/#cancel_mytimer (0.00s)
+=== RUN   TestEngine_SessionManagement
+--- PASS: TestEngine_SessionManagement (0.00s)
+=== RUN   TestEngine_CommandHistory
+--- PASS: TestEngine_CommandHistory (0.00s)
+=== RUN   TestEngine_StateEffects
+--- PASS: TestEngine_StateEffects (0.00s)
+=== RUN   TestDispatcher_SafetyEnforcement
+--- PASS: TestDispatcher_SafetyEnforcement (0.00s)
+=== RUN   TestLogHandler_Governance
+--- PASS: TestLogHandler_Governance (0.00s)
+=== RUN   TestAuthorityLevels
+--- PASS: TestAuthorityLevels (0.00s)
+=== RUN   TestHandlerRegistration
+=== RUN   TestHandlerRegistration/ECHO
+=== RUN   TestHandlerRegistration/LOG
+=== RUN   TestHandlerRegistration/SET
+=== RUN   TestHandlerRegistration/IF
+=== RUN   TestHandlerRegistration/TIMER
+=== RUN   TestHandlerRegistration/ELSE
+=== RUN   TestHandlerRegistration/ENDIF
+=== RUN   TestHandlerRegistration/START
+=== RUN   TestHandlerRegistration/STOP
+=== RUN   TestHandlerRegistration/CHECK
+=== RUN   TestHandlerRegistration/CANCEL
+    icm_test.go:790: Handler "CANCEL" not registered
+=== RUN   TestHandlerRegistration/UNKNOWN
+--- FAIL: TestHandlerRegistration (0.00s)
+    --- PASS: TestHandlerRegistration/ECHO (0.00s)
+    --- PASS: TestHandlerRegistration/LOG (0.00s)
+    --- PASS: TestHandlerRegistration/SET (0.00s)
+    --- PASS: TestHandlerRegistration/IF (0.00s)
+    --- PASS: TestHandlerRegistration/TIMER (0.00s)
+    --- PASS: TestHandlerRegistration/ELSE (0.00s)
+    --- PASS: TestHandlerRegistration/ENDIF (0.00s)
+    --- PASS: TestHandlerRegistration/START (0.00s)
+    --- PASS: TestHandlerRegistration/STOP (0.00s)
+    --- PASS: TestHandlerRegistration/CHECK (0.00s)
+    --- FAIL: TestHandlerRegistration/CANCEL (0.00s)
+    --- PASS: TestHandlerRegistration/UNKNOWN (0.00s)
+=== RUN   TestEndToEnd_CommandPipeline
+--- PASS: TestEndToEnd_CommandPipeline (0.00s)
+FAIL
+FAIL	github.com/amaranth494/MudPuppy/internal/icm	0.542s
+?   	github.com/amaranth494/MudPuppy/internal/metrics	[no test files]
+=== RUN   TestParseVersion
+=== RUN   TestParseVersion/version_on_third_line
+=== RUN   TestParseVersion/extra_surrounding_whitespace_still_trims
+=== RUN   TestParseVersion/no_header_present_yields_empty_string
+=== RUN   TestParseVersion/header_appearing_later_in_the_document_is_still_found
+--- PASS: TestParseVersion (0.00s)
+    --- PASS: TestParseVersion/version_on_third_line (0.00s)
+    --- PASS: TestParseVersion/extra_surrounding_whitespace_still_trims (0.00s)
+    --- PASS: TestParseVersion/no_header_present_yields_empty_string (0.00s)
+    --- PASS: TestParseVersion/header_appearing_later_in_the_document_is_still_found (0.00s)
+=== RUN   TestVersionOfEmbeddedPolicy
+--- PASS: TestVersionOfEmbeddedPolicy (0.00s)
+=== RUN   TestTextOfEmbeddedPolicy
+--- PASS: TestTextOfEmbeddedPolicy (0.00s)
+PASS
+ok  	github.com/amaranth494/MudPuppy/internal/policy	0.379s
+=== RUN   TestAISettingsRoundTrip
+2026/09/15 14:01:59 [AI-PLAYER] ai settings saved connection_id=93521109-2cdc-4932-b261-fb4341417f78 model_name_blank=false call_cap_blank=false threshold_blank=false
+--- PASS: TestAISettingsRoundTrip (0.00s)
+=== RUN   TestAISettingsBlankRoundTrip
+2026/09/15 14:01:59 [AI-PLAYER] ai settings saved connection_id=f47f70f5-b572-4e01-aaf4-2a25631024ed model_name_blank=true call_cap_blank=true threshold_blank=true
+--- PASS: TestAISettingsBlankRoundTrip (0.00s)
+=== RUN   TestAISettingsRejectsOverLengthText
+--- PASS: TestAISettingsRejectsOverLengthText (0.00s)
+=== RUN   TestAISettingsCannotSetAcceptance
+2026/09/15 14:01:59 [AI-PLAYER] ai settings saved connection_id=40fd7ba4-e54f-4ef2-9797-c244166e0594 model_name_blank=true call_cap_blank=true threshold_blank=true
+--- PASS: TestAISettingsCannotSetAcceptance (0.00s)
+=== RUN   TestPolicyAcceptUsesServerVersion
+2026/09/15 14:01:59 [AI-PLAYER] policy accepted connection_id=24cfe0c8-4969-4a99-9a2d-2e288439ed85 user_id=824412e9-f2e5-4095-b223-149101aac363 version=1.0 accepted_at=2026-01-01T00:00:00Z
+2026/09/15 14:01:59 [AI-PLAYER] policy already accepted connection_id=24cfe0c8-4969-4a99-9a2d-2e288439ed85 version=1.0 accepted_at=2026-01-01T00:00:00Z
+--- PASS: TestPolicyAcceptUsesServerVersion (0.00s)
+=== RUN   TestPolicyAcceptHandlesProfileDeletedMidRequest
+--- PASS: TestPolicyAcceptHandlesProfileDeletedMidRequest (0.00s)
+=== RUN   TestEngageGateHandlerRefusesWithoutAcceptance
+2026/09/15 14:01:59 [AI-PLAYER] engage gate connection_id=54e6e9e5-2c7d-4c09-bf17-93ffb850ce88 allowed=false
+--- PASS: TestEngageGateHandlerRefusesWithoutAcceptance (0.00s)
+=== RUN   TestEngageGateHandlerAllowsAfterAcceptance
+2026/09/15 14:01:59 [AI-PLAYER] engage gate connection_id=a925d443-438d-4960-93b4-8c5009106952 allowed=true
+--- PASS: TestEngageGateHandlerAllowsAfterAcceptance (0.00s)
+=== RUN   TestAIPlayerLogLinesAreEmitted
+--- PASS: TestAIPlayerLogLinesAreEmitted (0.00s)
+PASS
+ok  	github.com/amaranth494/MudPuppy/internal/profiles	0.577s
+?   	github.com/amaranth494/MudPuppy/internal/redis	[no test files]
+=== RUN   TestAutopilotTransitions
+=== RUN   TestAutopilotTransitions/off_Engage_on
+=== RUN   TestAutopilotTransitions/on_Engage_unchanged
+=== RUN   TestAutopilotTransitions/waiting_Engage_unchanged
+=== RUN   TestAutopilotTransitions/on_Disengage_off
+=== RUN   TestAutopilotTransitions/waiting_Disengage_off
+=== RUN   TestAutopilotTransitions/off_Disengage_unchanged
+=== RUN   TestAutopilotTransitions/on_EnterWaiting_waiting
+=== RUN   TestAutopilotTransitions/off_EnterWaiting_unchanged
+=== RUN   TestAutopilotTransitions/waiting_EnterWaiting_unchanged
+=== RUN   TestAutopilotTransitions/waiting_Resume_on
+=== RUN   TestAutopilotTransitions/off_Resume_unchanged
+=== RUN   TestAutopilotTransitions/on_Resume_unchanged
+--- PASS: TestAutopilotTransitions (0.00s)
+    --- PASS: TestAutopilotTransitions/off_Engage_on (0.00s)
+    --- PASS: TestAutopilotTransitions/on_Engage_unchanged (0.00s)
+    --- PASS: TestAutopilotTransitions/waiting_Engage_unchanged (0.00s)
+    --- PASS: TestAutopilotTransitions/on_Disengage_off (0.00s)
+    --- PASS: TestAutopilotTransitions/waiting_Disengage_off (0.00s)
+    --- PASS: TestAutopilotTransitions/off_Disengage_unchanged (0.00s)
+    --- PASS: TestAutopilotTransitions/on_EnterWaiting_waiting (0.00s)
+    --- PASS: TestAutopilotTransitions/off_EnterWaiting_unchanged (0.00s)
+    --- PASS: TestAutopilotTransitions/waiting_EnterWaiting_unchanged (0.00s)
+    --- PASS: TestAutopilotTransitions/waiting_Resume_on (0.00s)
+    --- PASS: TestAutopilotTransitions/off_Resume_unchanged (0.00s)
+    --- PASS: TestAutopilotTransitions/on_Resume_unchanged (0.00s)
+=== RUN   TestAutopilotHandler
+=== RUN   TestAutopilotHandler/unauthenticated_is_401
+=== RUN   TestAutopilotHandler/wrong_method_is_405
+=== RUN   TestAutopilotHandler/refused_when_gate_refuses
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=783677e3-aff0-4e3a-9b8b-dd61a17c5eff connection_id=47a2ca78-e4dd-46b3-b8b0-62839baef23c old=off new=off cause=refused-gate
+=== RUN   TestAutopilotHandler/refused_when_gate_passes_but_no_connected_session
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=7e589649-dcaa-4ec1-a8dc-b4deb3eebc39 connection_id= old=off new=off cause=refused-no-session
+=== RUN   TestAutopilotHandler/engages_when_gate_passes_and_session_connected
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=d6624f37-c1bb-42b1-9adc-2b679bd0976c connection_id=6bbdb4ea-5e66-47aa-be94-341cb3a9bc64 old=off new=on cause=engage
+=== RUN   TestAutopilotHandler/repeat_on_is_already_on
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=5dcde9b6-474a-4c46-8a40-8f1a43b6324a connection_id=53660e79-4599-4bbd-8f8d-6f235af47d6a old=off new=on cause=engage
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=5dcde9b6-474a-4c46-8a40-8f1a43b6324a connection_id=53660e79-4599-4bbd-8f8d-6f235af47d6a old=on new=on cause=already-on
+=== RUN   TestAutopilotHandler/off_then_off_again
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=c45eb58a-578a-48cf-b5c2-8c35907aec57 connection_id=e038ad9e-1280-48cd-8c31-64eeca8eed3c old=off new=on cause=engage
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=c45eb58a-578a-48cf-b5c2-8c35907aec57 connection_id=e038ad9e-1280-48cd-8c31-64eeca8eed3c old=on new=off cause=disengage
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=c45eb58a-578a-48cf-b5c2-8c35907aec57 connection_id=e038ad9e-1280-48cd-8c31-64eeca8eed3c old=off new=off cause=already-off
+=== RUN   TestAutopilotHandler/off_is_allowed_even_when_gate_refuses
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=d4573e41-8833-46ee-a472-e7052a4f7227 connection_id=84bcc2ad-78fc-4b00-8e04-384222feb0de old=off new=on cause=engage
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=d4573e41-8833-46ee-a472-e7052a4f7227 connection_id=84bcc2ad-78fc-4b00-8e04-384222feb0de old=on new=off cause=disengage
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=d4573e41-8833-46ee-a472-e7052a4f7227 connection_id=84bcc2ad-78fc-4b00-8e04-384222feb0de old=off new=off cause=already-off
+=== RUN   TestAutopilotHandler/status_carries_gate_result
+=== RUN   TestAutopilotHandler/invalid_action_is_400
+=== RUN   TestAutopilotHandler/nil_gate_callback_refuses
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=1b9624b8-85cd-4de8-ba24-4917baee03f9 connection_id=f324cd8a-6e5a-4946-8836-b011ac535068 old=off new=off cause=refused-gate
+=== RUN   TestAutopilotHandler/body_cannot_name_another_user
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=b2c9fa94-1c52-4c2b-b79f-6462ddbaf45b connection_id=866eb70c-c806-4887-9577-ab41d9a61314 old=off new=on cause=engage
+--- PASS: TestAutopilotHandler (0.00s)
+    --- PASS: TestAutopilotHandler/unauthenticated_is_401 (0.00s)
+    --- PASS: TestAutopilotHandler/wrong_method_is_405 (0.00s)
+    --- PASS: TestAutopilotHandler/refused_when_gate_refuses (0.00s)
+    --- PASS: TestAutopilotHandler/refused_when_gate_passes_but_no_connected_session (0.00s)
+    --- PASS: TestAutopilotHandler/engages_when_gate_passes_and_session_connected (0.00s)
+    --- PASS: TestAutopilotHandler/repeat_on_is_already_on (0.00s)
+    --- PASS: TestAutopilotHandler/off_then_off_again (0.00s)
+    --- PASS: TestAutopilotHandler/off_is_allowed_even_when_gate_refuses (0.00s)
+    --- PASS: TestAutopilotHandler/status_carries_gate_result (0.00s)
+    --- PASS: TestAutopilotHandler/invalid_action_is_400 (0.00s)
+    --- PASS: TestAutopilotHandler/nil_gate_callback_refuses (0.00s)
+    --- PASS: TestAutopilotHandler/body_cannot_name_another_user (0.00s)
+=== RUN   TestStatusCarriesAutopilotState
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=41092981-f4f9-4471-ba8d-d5e38b16c85c connection_id=ea8be6ce-f73c-4a97-aa85-b3ccdbf977cc old=off new=on cause=engage
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=41092981-f4f9-4471-ba8d-d5e38b16c85c connection_id=ea8be6ce-f73c-4a97-aa85-b3ccdbf977cc old=on new=off cause=disengage
+--- PASS: TestStatusCarriesAutopilotState (0.00s)
+=== RUN   TestEngageAutopilot
+=== RUN   TestEngageAutopilot/refused_without_connected_session
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=user-1 connection_id= old=off new=off cause=refused-no-session
+=== RUN   TestEngageAutopilot/engages_with_connected_session
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=user-2 connection_id=conn-1 old=off new=on cause=engage
+=== RUN   TestEngageAutopilot/repeat_engage_is_a_no_op
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=user-3 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=user-3 connection_id=conn-1 old=on new=on cause=already-on
+=== RUN   TestEngageAutopilot/disengage_then_disengage_again
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=user-4 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=user-4 connection_id=conn-1 old=on new=off cause=disengage
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=user-4 connection_id=conn-1 old=off new=off cause=already-off
+--- PASS: TestEngageAutopilot (0.00s)
+    --- PASS: TestEngageAutopilot/refused_without_connected_session (0.00s)
+    --- PASS: TestEngageAutopilot/engages_with_connected_session (0.00s)
+    --- PASS: TestEngageAutopilot/repeat_engage_is_a_no_op (0.00s)
+    --- PASS: TestEngageAutopilot/disengage_then_disengage_again (0.00s)
+=== RUN   TestWaitingSurvivesDisconnectAndResumesOnConnect
+=== RUN   TestWaitingSurvivesDisconnectAndResumesOnConnect/waiting_survives_disconnect_and_resumes_on_connect
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=user-5 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=user-5 connection_id=conn-1 old=on new=waiting cause=disconnect
+2026/09/15 14:02:00 [SP02PH01T07] Connection closed: user=user-5, host=, port=0, duration=2562047h47m16.854775807s, reason=remote_close
+2026/09/15 14:02:00 [SP02PH01T07] Session disconnected: user=user-5, reason=remote_close, duration=2562047h47m16.854775807s
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=user-5 connection_id=conn-1 old=waiting new=on cause=resume
+=== RUN   TestWaitingSurvivesDisconnectAndResumesOnConnect/off_while_waiting_stays_off_after_reconnect
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=user-6 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=user-6 connection_id=conn-1 old=on new=waiting cause=disconnect
+2026/09/15 14:02:00 [SP02PH01T07] Connection closed: user=user-6, host=, port=0, duration=2562047h47m16.854775807s, reason=remote_close
+2026/09/15 14:02:00 [SP02PH01T07] Session disconnected: user=user-6, reason=remote_close, duration=2562047h47m16.854775807s
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=user-6 connection_id=conn-1 old=waiting new=off cause=disengage
+=== RUN   TestWaitingSurvivesDisconnectAndResumesOnConnect/disconnect_while_off_changes_nothing
+2026/09/15 14:02:00 [SP02PH01T07] Connection closed: user=user-7, host=, port=0, duration=2562047h47m16.854775807s, reason=remote_close
+2026/09/15 14:02:00 [SP02PH01T07] Session disconnected: user=user-7, reason=remote_close, duration=2562047h47m16.854775807s
+--- PASS: TestWaitingSurvivesDisconnectAndResumesOnConnect (0.00s)
+    --- PASS: TestWaitingSurvivesDisconnectAndResumesOnConnect/waiting_survives_disconnect_and_resumes_on_connect (0.00s)
+    --- PASS: TestWaitingSurvivesDisconnectAndResumesOnConnect/off_while_waiting_stays_off_after_reconnect (0.00s)
+    --- PASS: TestWaitingSurvivesDisconnectAndResumesOnConnect/disconnect_while_off_changes_nothing (0.00s)
+=== RUN   TestWheelGrabSourceRule
+=== RUN   TestWheelGrabSourceRule/classifier
+=== RUN   TestWheelGrabSourceRule/classifier/#00
+=== RUN   TestWheelGrabSourceRule/classifier/user
+=== RUN   TestWheelGrabSourceRule/classifier/alias
+=== RUN   TestWheelGrabSourceRule/classifier/trigger
+=== RUN   TestWheelGrabSourceRule/classifier/timer
+=== RUN   TestWheelGrabSourceRule/classifier/TRIGGER
+=== RUN   TestWheelGrabSourceRule/classifier/not-a-real-source
+=== RUN   TestWheelGrabSourceRule/decision
+=== RUN   TestWheelGrabSourceRule/decision/human_source_disengages
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=wg-user-1 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=wg-user-1 connection_id=conn-1 old=on new=off cause=wheel-grab
+=== RUN   TestWheelGrabSourceRule/decision/alias_source_disengages
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=wg-user-2 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=wg-user-2 connection_id=conn-1 old=on new=off cause=wheel-grab
+=== RUN   TestWheelGrabSourceRule/decision/blank_source_disengages
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=wg-user-3 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=wg-user-3 connection_id=conn-1 old=on new=off cause=wheel-grab
+=== RUN   TestWheelGrabSourceRule/decision/trigger_source_leaves_it_on
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=wg-user-4 connection_id=conn-1 old=off new=on cause=engage
+=== RUN   TestWheelGrabSourceRule/decision/off_stays_off
+=== RUN   TestWheelGrabSourceRule/decision/waiting_is_not_grabbed
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=wg-user-6 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=wg-user-6 connection_id=conn-1 old=on new=waiting cause=disconnect
+2026/09/15 14:02:00 [SP02PH01T07] Connection closed: user=wg-user-6, host=, port=0, duration=2562047h47m16.854775807s, reason=remote_close
+2026/09/15 14:02:00 [SP02PH01T07] Session disconnected: user=wg-user-6, reason=remote_close, duration=2562047h47m16.854775807s
+=== RUN   TestWheelGrabSourceRule/decision/second_user_untouched
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=wg-user-a connection_id=conn-a old=off new=on cause=engage
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=wg-user-b connection_id=conn-b old=off new=on cause=engage
+2026/09/15 14:02:00 [AI-PLAYER] autopilot user_id=wg-user-a connection_id=conn-a old=on new=off cause=wheel-grab
+--- PASS: TestWheelGrabSourceRule (0.00s)
+    --- PASS: TestWheelGrabSourceRule/classifier (0.00s)
+        --- PASS: TestWheelGrabSourceRule/classifier/#00 (0.00s)
+        --- PASS: TestWheelGrabSourceRule/classifier/user (0.00s)
+        --- PASS: TestWheelGrabSourceRule/classifier/alias (0.00s)
+        --- PASS: TestWheelGrabSourceRule/classifier/trigger (0.00s)
+        --- PASS: TestWheelGrabSourceRule/classifier/timer (0.00s)
+        --- PASS: TestWheelGrabSourceRule/classifier/TRIGGER (0.00s)
+        --- PASS: TestWheelGrabSourceRule/classifier/not-a-real-source (0.00s)
+    --- PASS: TestWheelGrabSourceRule/decision (0.00s)
+        --- PASS: TestWheelGrabSourceRule/decision/human_source_disengages (0.00s)
+        --- PASS: TestWheelGrabSourceRule/decision/alias_source_disengages (0.00s)
+        --- PASS: TestWheelGrabSourceRule/decision/blank_source_disengages (0.00s)
+        --- PASS: TestWheelGrabSourceRule/decision/trigger_source_leaves_it_on (0.00s)
+        --- PASS: TestWheelGrabSourceRule/decision/off_stays_off (0.00s)
+        --- PASS: TestWheelGrabSourceRule/decision/waiting_is_not_grabbed (0.00s)
+        --- PASS: TestWheelGrabSourceRule/decision/second_user_untouched (0.00s)
+PASS
+ok  	github.com/amaranth494/MudPuppy/internal/session	0.629s
+=== RUN   TestResolveAISettings
+=== RUN   TestResolveAISettings/all_blank_resolves_to_server_default_model,_no_cap,_threshold_3
+=== RUN   TestResolveAISettings/explicit_model_name_passes_through_unchanged
+=== RUN   TestResolveAISettings/explicit_call_cap_25_sets_CallCapSet_and_CallCap
+=== RUN   TestResolveAISettings/explicit_disengage_threshold_1_passes_through_unchanged
+--- PASS: TestResolveAISettings (0.00s)
+    --- PASS: TestResolveAISettings/all_blank_resolves_to_server_default_model,_no_cap,_threshold_3 (0.00s)
+    --- PASS: TestResolveAISettings/explicit_model_name_passes_through_unchanged (0.00s)
+    --- PASS: TestResolveAISettings/explicit_call_cap_25_sets_CallCapSet_and_CallCap (0.00s)
+    --- PASS: TestResolveAISettings/explicit_disengage_threshold_1_passes_through_unchanged (0.00s)
+=== RUN   TestEngageGateAllowed
+=== RUN   TestEngageGateAllowed/both_nil_is_refused
+=== RUN   TestEngageGateAllowed/version_set,_timestamp_nil_is_refused
+=== RUN   TestEngageGateAllowed/version_nil,_timestamp_set_is_refused
+=== RUN   TestEngageGateAllowed/version_is_empty_string_with_timestamp_set_is_refused
+=== RUN   TestEngageGateAllowed/both_set_is_allowed
+--- PASS: TestEngageGateAllowed (0.00s)
+    --- PASS: TestEngageGateAllowed/both_nil_is_refused (0.00s)
+    --- PASS: TestEngageGateAllowed/version_set,_timestamp_nil_is_refused (0.00s)
+    --- PASS: TestEngageGateAllowed/version_nil,_timestamp_set_is_refused (0.00s)
+    --- PASS: TestEngageGateAllowed/version_is_empty_string_with_timestamp_set_is_refused (0.00s)
+    --- PASS: TestEngageGateAllowed/both_set_is_allowed (0.00s)
+=== RUN   TestEngageGateRefusalMessageIsPhase2Contract
+--- PASS: TestEngageGateRefusalMessageIsPhase2Contract (0.00s)
+PASS
+ok  	github.com/amaranth494/MudPuppy/internal/store	0.425s
+FAIL
+EXIT: 1
+
+### BASELINE ANNOTATION
+The single FAIL above (`internal/icm` `TestHandlerRegistration/CANCEL`, "Handler \"CANCEL\" not registered") is a pre-existing failure that predates this phase. It is confirmed present at the phase base commit 628a038 and in Phase 1's own evidence/01-test-report.txt (internal/icm TestHandlerRegistration/CANCEL, same message). No file under internal/icm is touched by this phase. It does not block: internal/session and internal/store are both fully green (see the ok lines above for those two packages, which is what this phase's acceptance criteria require).
+
+### go test ./internal/session/... -race -v
+=== RUN   TestAutopilotTransitions
+=== RUN   TestAutopilotTransitions/off_Engage_on
+=== RUN   TestAutopilotTransitions/on_Engage_unchanged
+=== RUN   TestAutopilotTransitions/waiting_Engage_unchanged
+=== RUN   TestAutopilotTransitions/on_Disengage_off
+=== RUN   TestAutopilotTransitions/waiting_Disengage_off
+=== RUN   TestAutopilotTransitions/off_Disengage_unchanged
+=== RUN   TestAutopilotTransitions/on_EnterWaiting_waiting
+=== RUN   TestAutopilotTransitions/off_EnterWaiting_unchanged
+=== RUN   TestAutopilotTransitions/waiting_EnterWaiting_unchanged
+=== RUN   TestAutopilotTransitions/waiting_Resume_on
+=== RUN   TestAutopilotTransitions/off_Resume_unchanged
+=== RUN   TestAutopilotTransitions/on_Resume_unchanged
+--- PASS: TestAutopilotTransitions (0.00s)
+    --- PASS: TestAutopilotTransitions/off_Engage_on (0.00s)
+    --- PASS: TestAutopilotTransitions/on_Engage_unchanged (0.00s)
+    --- PASS: TestAutopilotTransitions/waiting_Engage_unchanged (0.00s)
+    --- PASS: TestAutopilotTransitions/on_Disengage_off (0.00s)
+    --- PASS: TestAutopilotTransitions/waiting_Disengage_off (0.00s)
+    --- PASS: TestAutopilotTransitions/off_Disengage_unchanged (0.00s)
+    --- PASS: TestAutopilotTransitions/on_EnterWaiting_waiting (0.00s)
+    --- PASS: TestAutopilotTransitions/off_EnterWaiting_unchanged (0.00s)
+    --- PASS: TestAutopilotTransitions/waiting_EnterWaiting_unchanged (0.00s)
+    --- PASS: TestAutopilotTransitions/waiting_Resume_on (0.00s)
+    --- PASS: TestAutopilotTransitions/off_Resume_unchanged (0.00s)
+    --- PASS: TestAutopilotTransitions/on_Resume_unchanged (0.00s)
+=== RUN   TestAutopilotHandler
+=== RUN   TestAutopilotHandler/unauthenticated_is_401
+=== RUN   TestAutopilotHandler/wrong_method_is_405
+=== RUN   TestAutopilotHandler/refused_when_gate_refuses
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=11063bc8-ac72-4ad4-8c25-246f1e63c674 connection_id=576cb6c3-78e4-44d8-aec6-731d79ef6796 old=off new=off cause=refused-gate
+=== RUN   TestAutopilotHandler/refused_when_gate_passes_but_no_connected_session
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=7ce4fc5f-1e5c-4b6c-b316-fab97bf74d3c connection_id= old=off new=off cause=refused-no-session
+=== RUN   TestAutopilotHandler/engages_when_gate_passes_and_session_connected
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=0cef26e7-6e71-491f-9d59-ff11ef3ed8e2 connection_id=3e3ba13f-57b7-45fe-b290-cdbeede1a4a6 old=off new=on cause=engage
+=== RUN   TestAutopilotHandler/repeat_on_is_already_on
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=58f8f66d-abf2-4ea6-a8c4-ee77ced63bf4 connection_id=5dd902ad-8627-45ce-a5a1-b0d8d3b0a042 old=off new=on cause=engage
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=58f8f66d-abf2-4ea6-a8c4-ee77ced63bf4 connection_id=5dd902ad-8627-45ce-a5a1-b0d8d3b0a042 old=on new=on cause=already-on
+=== RUN   TestAutopilotHandler/off_then_off_again
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=df22a06a-896f-44ff-820d-ea14c64d6178 connection_id=9ef4b8d2-67da-4eab-ae07-b1eeaec5d985 old=off new=on cause=engage
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=df22a06a-896f-44ff-820d-ea14c64d6178 connection_id=9ef4b8d2-67da-4eab-ae07-b1eeaec5d985 old=on new=off cause=disengage
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=df22a06a-896f-44ff-820d-ea14c64d6178 connection_id=9ef4b8d2-67da-4eab-ae07-b1eeaec5d985 old=off new=off cause=already-off
+=== RUN   TestAutopilotHandler/off_is_allowed_even_when_gate_refuses
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=2d25557b-ae67-4570-8ae6-6fb5db5ada3b connection_id=46e9b0b2-2123-44fc-bec0-6a1695a2e6cb old=off new=on cause=engage
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=2d25557b-ae67-4570-8ae6-6fb5db5ada3b connection_id=46e9b0b2-2123-44fc-bec0-6a1695a2e6cb old=on new=off cause=disengage
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=2d25557b-ae67-4570-8ae6-6fb5db5ada3b connection_id=46e9b0b2-2123-44fc-bec0-6a1695a2e6cb old=off new=off cause=already-off
+=== RUN   TestAutopilotHandler/status_carries_gate_result
+=== RUN   TestAutopilotHandler/invalid_action_is_400
+=== RUN   TestAutopilotHandler/nil_gate_callback_refuses
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=34ab047c-7a86-4f49-b018-0fe8a818291e connection_id=0bbfbf7d-3c90-4ac1-b6d5-d689ff04c20f old=off new=off cause=refused-gate
+=== RUN   TestAutopilotHandler/body_cannot_name_another_user
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=c3002afc-f341-46fb-b386-5c662d3b92cd connection_id=36a14f44-9361-4554-ab96-8cdc4d37e937 old=off new=on cause=engage
+--- PASS: TestAutopilotHandler (0.00s)
+    --- PASS: TestAutopilotHandler/unauthenticated_is_401 (0.00s)
+    --- PASS: TestAutopilotHandler/wrong_method_is_405 (0.00s)
+    --- PASS: TestAutopilotHandler/refused_when_gate_refuses (0.00s)
+    --- PASS: TestAutopilotHandler/refused_when_gate_passes_but_no_connected_session (0.00s)
+    --- PASS: TestAutopilotHandler/engages_when_gate_passes_and_session_connected (0.00s)
+    --- PASS: TestAutopilotHandler/repeat_on_is_already_on (0.00s)
+    --- PASS: TestAutopilotHandler/off_then_off_again (0.00s)
+    --- PASS: TestAutopilotHandler/off_is_allowed_even_when_gate_refuses (0.00s)
+    --- PASS: TestAutopilotHandler/status_carries_gate_result (0.00s)
+    --- PASS: TestAutopilotHandler/invalid_action_is_400 (0.00s)
+    --- PASS: TestAutopilotHandler/nil_gate_callback_refuses (0.00s)
+    --- PASS: TestAutopilotHandler/body_cannot_name_another_user (0.00s)
+=== RUN   TestStatusCarriesAutopilotState
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=62058591-4d08-4d43-893b-646e95b06d2e connection_id=0ce3d633-2c48-44a7-853b-1eb9b9d6d0fe old=off new=on cause=engage
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=62058591-4d08-4d43-893b-646e95b06d2e connection_id=0ce3d633-2c48-44a7-853b-1eb9b9d6d0fe old=on new=off cause=disengage
+--- PASS: TestStatusCarriesAutopilotState (0.00s)
+=== RUN   TestEngageAutopilot
+=== RUN   TestEngageAutopilot/refused_without_connected_session
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=user-1 connection_id= old=off new=off cause=refused-no-session
+=== RUN   TestEngageAutopilot/engages_with_connected_session
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=user-2 connection_id=conn-1 old=off new=on cause=engage
+=== RUN   TestEngageAutopilot/repeat_engage_is_a_no_op
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=user-3 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=user-3 connection_id=conn-1 old=on new=on cause=already-on
+=== RUN   TestEngageAutopilot/disengage_then_disengage_again
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=user-4 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=user-4 connection_id=conn-1 old=on new=off cause=disengage
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=user-4 connection_id=conn-1 old=off new=off cause=already-off
+--- PASS: TestEngageAutopilot (0.00s)
+    --- PASS: TestEngageAutopilot/refused_without_connected_session (0.00s)
+    --- PASS: TestEngageAutopilot/engages_with_connected_session (0.00s)
+    --- PASS: TestEngageAutopilot/repeat_engage_is_a_no_op (0.00s)
+    --- PASS: TestEngageAutopilot/disengage_then_disengage_again (0.00s)
+=== RUN   TestWaitingSurvivesDisconnectAndResumesOnConnect
+=== RUN   TestWaitingSurvivesDisconnectAndResumesOnConnect/waiting_survives_disconnect_and_resumes_on_connect
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=user-5 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=user-5 connection_id=conn-1 old=on new=waiting cause=disconnect
+2026/09/15 14:02:16 [SP02PH01T07] Connection closed: user=user-5, host=, port=0, duration=2562047h47m16.854775807s, reason=remote_close
+2026/09/15 14:02:16 [SP02PH01T07] Session disconnected: user=user-5, reason=remote_close, duration=2562047h47m16.854775807s
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=user-5 connection_id=conn-1 old=waiting new=on cause=resume
+=== RUN   TestWaitingSurvivesDisconnectAndResumesOnConnect/off_while_waiting_stays_off_after_reconnect
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=user-6 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=user-6 connection_id=conn-1 old=on new=waiting cause=disconnect
+2026/09/15 14:02:16 [SP02PH01T07] Connection closed: user=user-6, host=, port=0, duration=2562047h47m16.854775807s, reason=remote_close
+2026/09/15 14:02:16 [SP02PH01T07] Session disconnected: user=user-6, reason=remote_close, duration=2562047h47m16.854775807s
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=user-6 connection_id=conn-1 old=waiting new=off cause=disengage
+=== RUN   TestWaitingSurvivesDisconnectAndResumesOnConnect/disconnect_while_off_changes_nothing
+2026/09/15 14:02:16 [SP02PH01T07] Connection closed: user=user-7, host=, port=0, duration=2562047h47m16.854775807s, reason=remote_close
+2026/09/15 14:02:16 [SP02PH01T07] Session disconnected: user=user-7, reason=remote_close, duration=2562047h47m16.854775807s
+--- PASS: TestWaitingSurvivesDisconnectAndResumesOnConnect (0.00s)
+    --- PASS: TestWaitingSurvivesDisconnectAndResumesOnConnect/waiting_survives_disconnect_and_resumes_on_connect (0.00s)
+    --- PASS: TestWaitingSurvivesDisconnectAndResumesOnConnect/off_while_waiting_stays_off_after_reconnect (0.00s)
+    --- PASS: TestWaitingSurvivesDisconnectAndResumesOnConnect/disconnect_while_off_changes_nothing (0.00s)
+=== RUN   TestWheelGrabSourceRule
+=== RUN   TestWheelGrabSourceRule/classifier
+=== RUN   TestWheelGrabSourceRule/classifier/#00
+=== RUN   TestWheelGrabSourceRule/classifier/user
+=== RUN   TestWheelGrabSourceRule/classifier/alias
+=== RUN   TestWheelGrabSourceRule/classifier/trigger
+=== RUN   TestWheelGrabSourceRule/classifier/timer
+=== RUN   TestWheelGrabSourceRule/classifier/TRIGGER
+=== RUN   TestWheelGrabSourceRule/classifier/not-a-real-source
+=== RUN   TestWheelGrabSourceRule/decision
+=== RUN   TestWheelGrabSourceRule/decision/human_source_disengages
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=wg-user-1 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=wg-user-1 connection_id=conn-1 old=on new=off cause=wheel-grab
+=== RUN   TestWheelGrabSourceRule/decision/alias_source_disengages
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=wg-user-2 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=wg-user-2 connection_id=conn-1 old=on new=off cause=wheel-grab
+=== RUN   TestWheelGrabSourceRule/decision/blank_source_disengages
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=wg-user-3 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=wg-user-3 connection_id=conn-1 old=on new=off cause=wheel-grab
+=== RUN   TestWheelGrabSourceRule/decision/trigger_source_leaves_it_on
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=wg-user-4 connection_id=conn-1 old=off new=on cause=engage
+=== RUN   TestWheelGrabSourceRule/decision/off_stays_off
+=== RUN   TestWheelGrabSourceRule/decision/waiting_is_not_grabbed
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=wg-user-6 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=wg-user-6 connection_id=conn-1 old=on new=waiting cause=disconnect
+2026/09/15 14:02:16 [SP02PH01T07] Connection closed: user=wg-user-6, host=, port=0, duration=2562047h47m16.854775807s, reason=remote_close
+2026/09/15 14:02:16 [SP02PH01T07] Session disconnected: user=wg-user-6, reason=remote_close, duration=2562047h47m16.854775807s
+=== RUN   TestWheelGrabSourceRule/decision/second_user_untouched
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=wg-user-a connection_id=conn-a old=off new=on cause=engage
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=wg-user-b connection_id=conn-b old=off new=on cause=engage
+2026/09/15 14:02:16 [AI-PLAYER] autopilot user_id=wg-user-a connection_id=conn-a old=on new=off cause=wheel-grab
+--- PASS: TestWheelGrabSourceRule (0.00s)
+    --- PASS: TestWheelGrabSourceRule/classifier (0.00s)
+        --- PASS: TestWheelGrabSourceRule/classifier/#00 (0.00s)
+        --- PASS: TestWheelGrabSourceRule/classifier/user (0.00s)
+        --- PASS: TestWheelGrabSourceRule/classifier/alias (0.00s)
+        --- PASS: TestWheelGrabSourceRule/classifier/trigger (0.00s)
+        --- PASS: TestWheelGrabSourceRule/classifier/timer (0.00s)
+        --- PASS: TestWheelGrabSourceRule/classifier/TRIGGER (0.00s)
+        --- PASS: TestWheelGrabSourceRule/classifier/not-a-real-source (0.00s)
+    --- PASS: TestWheelGrabSourceRule/decision (0.00s)
+        --- PASS: TestWheelGrabSourceRule/decision/human_source_disengages (0.00s)
+        --- PASS: TestWheelGrabSourceRule/decision/alias_source_disengages (0.00s)
+        --- PASS: TestWheelGrabSourceRule/decision/blank_source_disengages (0.00s)
+        --- PASS: TestWheelGrabSourceRule/decision/trigger_source_leaves_it_on (0.00s)
+        --- PASS: TestWheelGrabSourceRule/decision/off_stays_off (0.00s)
+        --- PASS: TestWheelGrabSourceRule/decision/waiting_is_not_grabbed (0.00s)
+        --- PASS: TestWheelGrabSourceRule/decision/second_user_untouched (0.00s)
+PASS
+ok  	github.com/amaranth494/MudPuppy/internal/session	1.622s
+EXIT: 0
+
+### go test ./internal/session/... -run TestAutopilotTransitions -v
+=== RUN   TestAutopilotTransitions
+=== RUN   TestAutopilotTransitions/off_Engage_on
+=== RUN   TestAutopilotTransitions/on_Engage_unchanged
+=== RUN   TestAutopilotTransitions/waiting_Engage_unchanged
+=== RUN   TestAutopilotTransitions/on_Disengage_off
+=== RUN   TestAutopilotTransitions/waiting_Disengage_off
+=== RUN   TestAutopilotTransitions/off_Disengage_unchanged
+=== RUN   TestAutopilotTransitions/on_EnterWaiting_waiting
+=== RUN   TestAutopilotTransitions/off_EnterWaiting_unchanged
+=== RUN   TestAutopilotTransitions/waiting_EnterWaiting_unchanged
+=== RUN   TestAutopilotTransitions/waiting_Resume_on
+=== RUN   TestAutopilotTransitions/off_Resume_unchanged
+=== RUN   TestAutopilotTransitions/on_Resume_unchanged
+--- PASS: TestAutopilotTransitions (0.00s)
+    --- PASS: TestAutopilotTransitions/off_Engage_on (0.00s)
+    --- PASS: TestAutopilotTransitions/on_Engage_unchanged (0.00s)
+    --- PASS: TestAutopilotTransitions/waiting_Engage_unchanged (0.00s)
+    --- PASS: TestAutopilotTransitions/on_Disengage_off (0.00s)
+    --- PASS: TestAutopilotTransitions/waiting_Disengage_off (0.00s)
+    --- PASS: TestAutopilotTransitions/off_Disengage_unchanged (0.00s)
+    --- PASS: TestAutopilotTransitions/on_EnterWaiting_waiting (0.00s)
+    --- PASS: TestAutopilotTransitions/off_EnterWaiting_unchanged (0.00s)
+    --- PASS: TestAutopilotTransitions/waiting_EnterWaiting_unchanged (0.00s)
+    --- PASS: TestAutopilotTransitions/waiting_Resume_on (0.00s)
+    --- PASS: TestAutopilotTransitions/off_Resume_unchanged (0.00s)
+    --- PASS: TestAutopilotTransitions/on_Resume_unchanged (0.00s)
+PASS
+ok  	github.com/amaranth494/MudPuppy/internal/session	0.515s
+EXIT: 0
+
+### go test ./internal/session/... -run TestEngageAutopilot -v
+=== RUN   TestEngageAutopilot
+=== RUN   TestEngageAutopilot/refused_without_connected_session
+2026/09/15 14:02:27 [AI-PLAYER] autopilot user_id=user-1 connection_id= old=off new=off cause=refused-no-session
+=== RUN   TestEngageAutopilot/engages_with_connected_session
+2026/09/15 14:02:27 [AI-PLAYER] autopilot user_id=user-2 connection_id=conn-1 old=off new=on cause=engage
+=== RUN   TestEngageAutopilot/repeat_engage_is_a_no_op
+2026/09/15 14:02:27 [AI-PLAYER] autopilot user_id=user-3 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:27 [AI-PLAYER] autopilot user_id=user-3 connection_id=conn-1 old=on new=on cause=already-on
+=== RUN   TestEngageAutopilot/disengage_then_disengage_again
+2026/09/15 14:02:27 [AI-PLAYER] autopilot user_id=user-4 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:27 [AI-PLAYER] autopilot user_id=user-4 connection_id=conn-1 old=on new=off cause=disengage
+2026/09/15 14:02:27 [AI-PLAYER] autopilot user_id=user-4 connection_id=conn-1 old=off new=off cause=already-off
+--- PASS: TestEngageAutopilot (0.00s)
+    --- PASS: TestEngageAutopilot/refused_without_connected_session (0.00s)
+    --- PASS: TestEngageAutopilot/engages_with_connected_session (0.00s)
+    --- PASS: TestEngageAutopilot/repeat_engage_is_a_no_op (0.00s)
+    --- PASS: TestEngageAutopilot/disengage_then_disengage_again (0.00s)
+PASS
+ok  	github.com/amaranth494/MudPuppy/internal/session	0.497s
+EXIT: 0
+
+### go test ./internal/session/... -run TestWaitingSurvivesDisconnectAndResumesOnConnect -race -v
+=== RUN   TestWaitingSurvivesDisconnectAndResumesOnConnect
+=== RUN   TestWaitingSurvivesDisconnectAndResumesOnConnect/waiting_survives_disconnect_and_resumes_on_connect
+2026/09/15 14:02:35 [AI-PLAYER] autopilot user_id=user-5 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:35 [AI-PLAYER] autopilot user_id=user-5 connection_id=conn-1 old=on new=waiting cause=disconnect
+2026/09/15 14:02:35 [SP02PH01T07] Connection closed: user=user-5, host=, port=0, duration=2562047h47m16.854775807s, reason=remote_close
+2026/09/15 14:02:35 [SP02PH01T07] Session disconnected: user=user-5, reason=remote_close, duration=2562047h47m16.854775807s
+2026/09/15 14:02:35 [AI-PLAYER] autopilot user_id=user-5 connection_id=conn-1 old=waiting new=on cause=resume
+=== RUN   TestWaitingSurvivesDisconnectAndResumesOnConnect/off_while_waiting_stays_off_after_reconnect
+2026/09/15 14:02:35 [AI-PLAYER] autopilot user_id=user-6 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:35 [AI-PLAYER] autopilot user_id=user-6 connection_id=conn-1 old=on new=waiting cause=disconnect
+2026/09/15 14:02:35 [SP02PH01T07] Connection closed: user=user-6, host=, port=0, duration=2562047h47m16.854775807s, reason=remote_close
+2026/09/15 14:02:35 [SP02PH01T07] Session disconnected: user=user-6, reason=remote_close, duration=2562047h47m16.854775807s
+2026/09/15 14:02:35 [AI-PLAYER] autopilot user_id=user-6 connection_id=conn-1 old=waiting new=off cause=disengage
+=== RUN   TestWaitingSurvivesDisconnectAndResumesOnConnect/disconnect_while_off_changes_nothing
+2026/09/15 14:02:35 [SP02PH01T07] Connection closed: user=user-7, host=, port=0, duration=2562047h47m16.854775807s, reason=remote_close
+2026/09/15 14:02:35 [SP02PH01T07] Session disconnected: user=user-7, reason=remote_close, duration=2562047h47m16.854775807s
+--- PASS: TestWaitingSurvivesDisconnectAndResumesOnConnect (0.00s)
+    --- PASS: TestWaitingSurvivesDisconnectAndResumesOnConnect/waiting_survives_disconnect_and_resumes_on_connect (0.00s)
+    --- PASS: TestWaitingSurvivesDisconnectAndResumesOnConnect/off_while_waiting_stays_off_after_reconnect (0.00s)
+    --- PASS: TestWaitingSurvivesDisconnectAndResumesOnConnect/disconnect_while_off_changes_nothing (0.00s)
+PASS
+ok  	github.com/amaranth494/MudPuppy/internal/session	1.627s
+EXIT: 0
+
+### go test ./internal/session/... -run TestWheelGrabSourceRule -v
+=== RUN   TestWheelGrabSourceRule
+=== RUN   TestWheelGrabSourceRule/classifier
+=== RUN   TestWheelGrabSourceRule/classifier/#00
+=== RUN   TestWheelGrabSourceRule/classifier/user
+=== RUN   TestWheelGrabSourceRule/classifier/alias
+=== RUN   TestWheelGrabSourceRule/classifier/trigger
+=== RUN   TestWheelGrabSourceRule/classifier/timer
+=== RUN   TestWheelGrabSourceRule/classifier/TRIGGER
+=== RUN   TestWheelGrabSourceRule/classifier/not-a-real-source
+=== RUN   TestWheelGrabSourceRule/decision
+=== RUN   TestWheelGrabSourceRule/decision/human_source_disengages
+2026/09/15 14:02:38 [AI-PLAYER] autopilot user_id=wg-user-1 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:38 [AI-PLAYER] autopilot user_id=wg-user-1 connection_id=conn-1 old=on new=off cause=wheel-grab
+=== RUN   TestWheelGrabSourceRule/decision/alias_source_disengages
+2026/09/15 14:02:38 [AI-PLAYER] autopilot user_id=wg-user-2 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:38 [AI-PLAYER] autopilot user_id=wg-user-2 connection_id=conn-1 old=on new=off cause=wheel-grab
+=== RUN   TestWheelGrabSourceRule/decision/blank_source_disengages
+2026/09/15 14:02:38 [AI-PLAYER] autopilot user_id=wg-user-3 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:38 [AI-PLAYER] autopilot user_id=wg-user-3 connection_id=conn-1 old=on new=off cause=wheel-grab
+=== RUN   TestWheelGrabSourceRule/decision/trigger_source_leaves_it_on
+2026/09/15 14:02:38 [AI-PLAYER] autopilot user_id=wg-user-4 connection_id=conn-1 old=off new=on cause=engage
+=== RUN   TestWheelGrabSourceRule/decision/off_stays_off
+=== RUN   TestWheelGrabSourceRule/decision/waiting_is_not_grabbed
+2026/09/15 14:02:38 [AI-PLAYER] autopilot user_id=wg-user-6 connection_id=conn-1 old=off new=on cause=engage
+2026/09/15 14:02:38 [AI-PLAYER] autopilot user_id=wg-user-6 connection_id=conn-1 old=on new=waiting cause=disconnect
+2026/09/15 14:02:38 [SP02PH01T07] Connection closed: user=wg-user-6, host=, port=0, duration=2562047h47m16.854775807s, reason=remote_close
+2026/09/15 14:02:38 [SP02PH01T07] Session disconnected: user=wg-user-6, reason=remote_close, duration=2562047h47m16.854775807s
+=== RUN   TestWheelGrabSourceRule/decision/second_user_untouched
+2026/09/15 14:02:38 [AI-PLAYER] autopilot user_id=wg-user-a connection_id=conn-a old=off new=on cause=engage
+2026/09/15 14:02:38 [AI-PLAYER] autopilot user_id=wg-user-b connection_id=conn-b old=off new=on cause=engage
+2026/09/15 14:02:38 [AI-PLAYER] autopilot user_id=wg-user-a connection_id=conn-a old=on new=off cause=wheel-grab
+--- PASS: TestWheelGrabSourceRule (0.00s)
+    --- PASS: TestWheelGrabSourceRule/classifier (0.00s)
+        --- PASS: TestWheelGrabSourceRule/classifier/#00 (0.00s)
+        --- PASS: TestWheelGrabSourceRule/classifier/user (0.00s)
+        --- PASS: TestWheelGrabSourceRule/classifier/alias (0.00s)
+        --- PASS: TestWheelGrabSourceRule/classifier/trigger (0.00s)
+        --- PASS: TestWheelGrabSourceRule/classifier/timer (0.00s)
+        --- PASS: TestWheelGrabSourceRule/classifier/TRIGGER (0.00s)
+        --- PASS: TestWheelGrabSourceRule/classifier/not-a-real-source (0.00s)
+    --- PASS: TestWheelGrabSourceRule/decision (0.00s)
+        --- PASS: TestWheelGrabSourceRule/decision/human_source_disengages (0.00s)
+        --- PASS: TestWheelGrabSourceRule/decision/alias_source_disengages (0.00s)
+        --- PASS: TestWheelGrabSourceRule/decision/blank_source_disengages (0.00s)
+        --- PASS: TestWheelGrabSourceRule/decision/trigger_source_leaves_it_on (0.00s)
+        --- PASS: TestWheelGrabSourceRule/decision/off_stays_off (0.00s)
+        --- PASS: TestWheelGrabSourceRule/decision/waiting_is_not_grabbed (0.00s)
+        --- PASS: TestWheelGrabSourceRule/decision/second_user_untouched (0.00s)
+PASS
+ok  	github.com/amaranth494/MudPuppy/internal/session	0.553s
+EXIT: 0
+
+### go test ./internal/session/... -run "TestAutopilotHandler|TestStatusCarriesAutopilotState" -v
+=== RUN   TestAutopilotHandler
+=== RUN   TestAutopilotHandler/unauthenticated_is_401
+=== RUN   TestAutopilotHandler/wrong_method_is_405
+=== RUN   TestAutopilotHandler/refused_when_gate_refuses
+2026/09/15 14:02:43 [AI-PLAYER] autopilot user_id=52d663e5-67e2-478b-aadd-af4a60077425 connection_id=386bafb4-488f-4c72-941f-d32312b93458 old=off new=off cause=refused-gate
+=== RUN   TestAutopilotHandler/refused_when_gate_passes_but_no_connected_session
+2026/09/15 14:02:43 [AI-PLAYER] autopilot user_id=a340be10-1ac2-4fdc-98fe-0496ab62c761 connection_id= old=off new=off cause=refused-no-session
+=== RUN   TestAutopilotHandler/engages_when_gate_passes_and_session_connected
+2026/09/15 14:02:43 [AI-PLAYER] autopilot user_id=09d44fa9-bd83-42f1-9eda-258e3db6bf18 connection_id=b1dadbc5-8eb0-47a5-9afa-b8e82c1d40e3 old=off new=on cause=engage
+=== RUN   TestAutopilotHandler/repeat_on_is_already_on
+2026/09/15 14:02:43 [AI-PLAYER] autopilot user_id=5b6cc39e-2669-4d0d-b527-c9dcccd17fc6 connection_id=097bceaf-3175-4783-9119-e54a53895779 old=off new=on cause=engage
+2026/09/15 14:02:43 [AI-PLAYER] autopilot user_id=5b6cc39e-2669-4d0d-b527-c9dcccd17fc6 connection_id=097bceaf-3175-4783-9119-e54a53895779 old=on new=on cause=already-on
+=== RUN   TestAutopilotHandler/off_then_off_again
+2026/09/15 14:02:43 [AI-PLAYER] autopilot user_id=ef84be75-51a5-4e04-823c-8f8d86471d6c connection_id=4862ba91-fd1b-4d4f-be77-2b9c122cccbb old=off new=on cause=engage
+2026/09/15 14:02:43 [AI-PLAYER] autopilot user_id=ef84be75-51a5-4e04-823c-8f8d86471d6c connection_id=4862ba91-fd1b-4d4f-be77-2b9c122cccbb old=on new=off cause=disengage
+2026/09/15 14:02:43 [AI-PLAYER] autopilot user_id=ef84be75-51a5-4e04-823c-8f8d86471d6c connection_id=4862ba91-fd1b-4d4f-be77-2b9c122cccbb old=off new=off cause=already-off
+=== RUN   TestAutopilotHandler/off_is_allowed_even_when_gate_refuses
+2026/09/15 14:02:43 [AI-PLAYER] autopilot user_id=b8859873-e0d1-40be-8dd4-e1f6ec4e037c connection_id=9e0faee0-114f-488c-8b2f-3d54b97281c0 old=off new=on cause=engage
+2026/09/15 14:02:43 [AI-PLAYER] autopilot user_id=b8859873-e0d1-40be-8dd4-e1f6ec4e037c connection_id=9e0faee0-114f-488c-8b2f-3d54b97281c0 old=on new=off cause=disengage
+2026/09/15 14:02:43 [AI-PLAYER] autopilot user_id=b8859873-e0d1-40be-8dd4-e1f6ec4e037c connection_id=9e0faee0-114f-488c-8b2f-3d54b97281c0 old=off new=off cause=already-off
+=== RUN   TestAutopilotHandler/status_carries_gate_result
+=== RUN   TestAutopilotHandler/invalid_action_is_400
+=== RUN   TestAutopilotHandler/nil_gate_callback_refuses
+2026/09/15 14:02:43 [AI-PLAYER] autopilot user_id=8c7703e2-69ef-47d3-9fe5-af47f52e0906 connection_id=97f2848b-c37d-415c-8f0e-8a5cb0a4ec1c old=off new=off cause=refused-gate
+=== RUN   TestAutopilotHandler/body_cannot_name_another_user
+2026/09/15 14:02:43 [AI-PLAYER] autopilot user_id=9d68a700-c3c1-41ab-b43a-f0cda499cd0c connection_id=f056af33-c359-4b59-9806-d250ff2a48b4 old=off new=on cause=engage
+--- PASS: TestAutopilotHandler (0.00s)
+    --- PASS: TestAutopilotHandler/unauthenticated_is_401 (0.00s)
+    --- PASS: TestAutopilotHandler/wrong_method_is_405 (0.00s)
+    --- PASS: TestAutopilotHandler/refused_when_gate_refuses (0.00s)
+    --- PASS: TestAutopilotHandler/refused_when_gate_passes_but_no_connected_session (0.00s)
+    --- PASS: TestAutopilotHandler/engages_when_gate_passes_and_session_connected (0.00s)
+    --- PASS: TestAutopilotHandler/repeat_on_is_already_on (0.00s)
+    --- PASS: TestAutopilotHandler/off_then_off_again (0.00s)
+    --- PASS: TestAutopilotHandler/off_is_allowed_even_when_gate_refuses (0.00s)
+    --- PASS: TestAutopilotHandler/status_carries_gate_result (0.00s)
+    --- PASS: TestAutopilotHandler/invalid_action_is_400 (0.00s)
+    --- PASS: TestAutopilotHandler/nil_gate_callback_refuses (0.00s)
+    --- PASS: TestAutopilotHandler/body_cannot_name_another_user (0.00s)
+=== RUN   TestStatusCarriesAutopilotState
+2026/09/15 14:02:43 [AI-PLAYER] autopilot user_id=c514eea7-9c67-40ad-a316-2003070039a4 connection_id=59bc5d81-10da-4919-8089-2b01592e4b18 old=off new=on cause=engage
+2026/09/15 14:02:43 [AI-PLAYER] autopilot user_id=c514eea7-9c67-40ad-a316-2003070039a4 connection_id=59bc5d81-10da-4919-8089-2b01592e4b18 old=on new=off cause=disengage
+--- PASS: TestStatusCarriesAutopilotState (0.00s)
+PASS
+ok  	github.com/amaranth494/MudPuppy/internal/session	0.530s
+EXIT: 0
+
+### go test ./internal/store/... -run TestEngageGate -v
+=== RUN   TestEngageGateAllowed
+=== RUN   TestEngageGateAllowed/both_nil_is_refused
+=== RUN   TestEngageGateAllowed/version_set,_timestamp_nil_is_refused
+=== RUN   TestEngageGateAllowed/version_nil,_timestamp_set_is_refused
+=== RUN   TestEngageGateAllowed/version_is_empty_string_with_timestamp_set_is_refused
+=== RUN   TestEngageGateAllowed/both_set_is_allowed
+--- PASS: TestEngageGateAllowed (0.00s)
+    --- PASS: TestEngageGateAllowed/both_nil_is_refused (0.00s)
+    --- PASS: TestEngageGateAllowed/version_set,_timestamp_nil_is_refused (0.00s)
+    --- PASS: TestEngageGateAllowed/version_nil,_timestamp_set_is_refused (0.00s)
+    --- PASS: TestEngageGateAllowed/version_is_empty_string_with_timestamp_set_is_refused (0.00s)
+    --- PASS: TestEngageGateAllowed/both_set_is_allowed (0.00s)
+=== RUN   TestEngageGateRefusalMessageIsPhase2Contract
+--- PASS: TestEngageGateRefusalMessageIsPhase2Contract (0.00s)
+PASS
+ok  	github.com/amaranth494/MudPuppy/internal/store	0.347s
+EXIT: 0
+
+### cd frontend && npm run build
+
+> mudpuppy-frontend@0.1.0 build
+> tsc && vite build
+
+[36mvite v5.4.21 [32mbuilding for production...[36m[39m
+transforming...
+[32m✓[39m 67 modules transformed.
+[1m[33m[plugin:vite:reporter][39m[22m [33m[plugin vite:reporter] 
+(!) D:/Projects/MUDPuppy/frontend/src/services/api.ts is dynamically imported by D:/Projects/MUDPuppy/frontend/src/context/SessionContext.tsx, D:/Projects/MUDPuppy/frontend/src/context/SessionContext.tsx but also statically imported by D:/Projects/MUDPuppy/frontend/src/components/AIPlayerPanel.tsx, D:/Projects/MUDPuppy/frontend/src/components/ConnectionsHubModal.tsx, D:/Projects/MUDPuppy/frontend/src/components/QuickConnectModal.tsx, D:/Projects/MUDPuppy/frontend/src/components/Sidebar.tsx, D:/Projects/MUDPuppy/frontend/src/context/SessionContext.tsx, D:/Projects/MUDPuppy/frontend/src/pages/ConnectionsPage.tsx, D:/Projects/MUDPuppy/frontend/src/pages/HelpPage.tsx, D:/Projects/MUDPuppy/frontend/src/pages/SettingsPage.tsx, dynamic import will not move module into another chunk.
+[39m
+rendering chunks...
+computing gzip size...
+[2m../public/[22m[32mindex.html                 [39m[1m[2m  0.48 kB[22m[1m[22m[2m │ gzip:   0.31 kB[22m
+[2m../public/[22m[35massets/index-DZFCatzZ.css  [39m[1m[2m 38.96 kB[22m[1m[22m[2m │ gzip:   6.89 kB[22m
+[2m../public/[22m[36massets/index-CKt8wwg3.js   [39m[1m[33m612.16 kB[39m[22m[2m │ gzip: 164.61 kB[22m[2m │ map: 1,939.09 kB[22m
+[33m
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+[32m✓ built in 2.83s[39m
+EXIT: 0
+
+### DEPENDENCY DRIFT
+### git diff --stat 628a038 -- go.mod frontend/package.json
+EXIT: 0
+(empty output above confirms zero dependency drift since the phase base commit 628a038 -- T-2-SC)
+
+GO TEST EXIT: 1
