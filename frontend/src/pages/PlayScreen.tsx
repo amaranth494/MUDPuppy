@@ -8,6 +8,7 @@ import { ProfileSettings } from '../types';
 // PR02PH03: Import ICM adapter for command classification and validation
 import { recognizeCommand, validateCommand } from '../services/icm-adapter';
 import { logToConsole } from '../services/log';
+import { CommandSource } from '../services/automation';
 
 // Enable text selection in terminal
 const terminalSelectionStyle = {
@@ -16,8 +17,9 @@ const terminalSelectionStyle = {
 };
 
 export default function PlayScreen() {
-  const { 
-    connectionState, 
+  const {
+    connectionState,
+    autopilotState,
     wsManager,
     isInputLocked,
     profile,
@@ -27,6 +29,7 @@ export default function PlayScreen() {
     resumeAutomation,
     disableAutomation,
     enableAutomation,
+    refreshStatus,
   } = useSession();
   
   // SP06PH08: Command history state
@@ -264,6 +267,7 @@ export default function PlayScreen() {
   const handleDataRef = useRef<((data: string) => void) | null>(null);
   const handleErrorRef = useRef<((err: string) => void) | null>(null);
   const handleDisconnectRef = useRef<(() => void) | null>(null);
+  const handleAutopilotRef = useRef<((state: string, cause?: string) => void) | null>(null);
   const automationEngineRef = useRef(automationEngine);
   const connectionStateRef = useRef(connectionState);
   
@@ -314,12 +318,25 @@ export default function PlayScreen() {
       } else {
         terminal.writeln('\r\n\x1b[37m[Disconnected]\x1b[0m\r\n');
       }
+      // 02-06-03: flip the context's autopilotState as soon as the drop is known, so
+      // [Autopilot waiting for reconnect] (written by the transition effect below) appears
+      // right after this line instead of up to fifteen seconds later.
+      refreshStatus();
+    };
+
+    // 02-06-03: wheel-grab notice -- the server's case MsgTypeAutopilot push, cause
+    // 'wheel-grab', fires when this tab typed a game command while autopilot was on.
+    handleAutopilotRef.current = (_state: string, cause?: string) => {
+      if (cause === 'wheel-grab' && automationEngine) {
+        automationEngine.echoLocal('[Autopilot disengaged: you took the wheel]', { color: 'white' });
+      }
     };
 
     // Register handlers
     wsManager.onMessage(handleDataRef.current);
     wsManager.onError(handleErrorRef.current);
     wsManager.onDisconnect(handleDisconnectRef.current);
+    wsManager.onAutopilot(handleAutopilotRef.current);
 
     // Clean up handlers on unmount or when dependencies change
     return () => {
@@ -332,15 +349,42 @@ export default function PlayScreen() {
       if (handleDisconnectRef.current) {
         wsManager.offDisconnect(handleDisconnectRef.current);
       }
+      if (handleAutopilotRef.current) {
+        wsManager.offAutopilot(handleAutopilotRef.current);
+      }
     };
-  }, [wsManager, automationEngine, connectionState]);
+  }, [wsManager, automationEngine, connectionState, refreshStatus]);
+
+  // 02-06-03: the two lifecycle sequences (D-11) -- on-to-waiting and waiting-to-on -- fire
+  // only for those two transitions. On-to-off and waiting-to-off are already announced by
+  // the directive response or the wheel-grab push; printing here too would double the line.
+  const previousAutopilotStateRef = useRef<'on' | 'waiting' | 'off' | undefined>(undefined);
+  useEffect(() => {
+    const previous = previousAutopilotStateRef.current;
+    previousAutopilotStateRef.current = autopilotState;
+
+    // First render: previous is undefined, so nothing is printed on mount.
+    if (previous === undefined || !automationEngine) {
+      return;
+    }
+
+    if (previous === 'on' && autopilotState === 'waiting') {
+      automationEngine.echoLocal('[Autopilot waiting for reconnect]', { color: 'brightyellow' });
+    } else if (previous === 'waiting' && autopilotState === 'on') {
+      (async () => {
+        await automationEngine.echoLocal('[Reconnected]', { color: 'white' });
+        await automationEngine.echoLocal('[Autopilot resuming]', { color: 'brightgreen' });
+      })();
+    }
+  }, [autopilotState, automationEngine]);
 
   // SP05: Set up automation engine callback for command submission
   useEffect(() => {
     if (automationEngine && wsManager) {
       // Set up the callback for automation to submit commands
-      automationEngine.setSubmitCommandCallback((command: string) => {
-        wsManager.sendCommand(command + '\n');
+      // 02-06-03: widened to (command, source) so the server's wheel-grab can read who sent it
+      automationEngine.setSubmitCommandCallback((command: string, source: CommandSource) => {
+        wsManager.sendCommand(command + '\n', source);
         
         // Echo the command (automation commands)
         const settings = profile?.settings;
@@ -420,7 +464,11 @@ export default function PlayScreen() {
       } else {
         // No automation engine OR empty command - send directly to WebSocket
         // Empty commands bypass automation (some MUDs need blank lines)
-        wsManager.sendCommand(command + '\n');
+        // 02-06-03 (D-07): this branch is unconditionally human-typed by construction --
+        // submitCommand is only reached from typed input and keybindings -- so a blank
+        // Enter must still label itself 'user' to take the wheel back (RESEARCH Pitfall 2).
+        // Do not remove this explicit tag as "redundant".
+        wsManager.sendCommand(command + '\n', 'user');
         
         // SP04PH05: Local echo - controlled by profile settings.echo_input
         // PR02PH09: Use automation engine's echoLocal for consistent #ECHO styling
