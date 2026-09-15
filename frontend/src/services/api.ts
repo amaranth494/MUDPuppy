@@ -1,5 +1,7 @@
 import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, AutomationCredentials, Profile, UpdateProfileRequest, Alias, Trigger, Variable, Timer, AliasesResponse, TriggersResponse, VariablesResponse, TimersResponse, HelpSection, HelpSummary, AISettingsResponse, PolicyResponse, EngageGateResponse } from '../types';
 import { logErrorToConsole } from './log';
+import { CommandSource } from './automation';
+import { AutopilotAnswer } from './automation/evaluator';
 
 const API_BASE = '/api/v1';
 
@@ -95,6 +97,8 @@ export class WebSocketManager {
   private errorHandlers: ((error: string) => void)[] = [];
   private statusHandlers: ((status: string) => void)[] = [];
   private disconnectHandlers: (() => void)[] = [];
+  // 02-04-02: best-effort live push of autopilot state changes (D-10)
+  private autopilotHandlers: ((state: string, cause?: string) => void)[] = [];
 
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -145,17 +149,23 @@ export class WebSocketManager {
           this.statusHandlers.forEach(handler => handler(message.status!));
         }
         break;
+      case 'autopilot':
+        if (message.status) {
+          this.autopilotHandlers.forEach(handler => handler(message.status!, message.data));
+        }
+        break;
       case 'disconnect':
         this.disconnectHandlers.forEach(handler => handler());
         break;
     }
   }
 
-  sendCommand(command: string): void {
+  sendCommand(command: string, source?: CommandSource): void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({
         type: 'data',
         data: command,
+        source,
       }));
     }
   }
@@ -214,11 +224,22 @@ export class WebSocketManager {
   onDisconnect(handler: () => void): void {
     this.disconnectHandlers.push(handler);
   }
-  
+
   offDisconnect(handler: () => void): void {
     const index = this.disconnectHandlers.indexOf(handler);
     if (index > -1) {
       this.disconnectHandlers.splice(index, 1);
+    }
+  }
+
+  onAutopilot(handler: (state: string, cause?: string) => void): void {
+    this.autopilotHandlers.push(handler);
+  }
+
+  offAutopilot(handler: (state: string, cause?: string) => void): void {
+    const index = this.autopilotHandlers.indexOf(handler);
+    if (index > -1) {
+      this.autopilotHandlers.splice(index, 1);
     }
   }
 
@@ -658,6 +679,24 @@ export async function getEngageGate(connectionId: string): Promise<EngageGateRes
     throw new Error(data.error || 'Failed to check engage gate');
   }
   return await response.json();
+}
+
+// 02-04-02: Engage/disengage/query autopilot for a connection (#AUTO ON/OFF/STATUS)
+export async function setAutopilot(connectionId: string, action: 'on' | 'off' | 'status'): Promise<AutopilotAnswer> {
+  const response = await fetch(`${API_BASE}/session/autopilot`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify({ action, connection_id: connectionId }),
+  });
+  handleAuthError(response);
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to set autopilot');
+  }
+  return data;
 }
 
 // ============================================

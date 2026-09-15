@@ -148,7 +148,8 @@ export class AutomationEngine {
   private triggerCountResetTime: number = 0;
   
   // Callback for submitting commands to MUD
-  private onSubmitCommand: ((command: string) => void) | null = null;
+  // 02-04-02: widened to carry source so the websocket data message can say who sent it
+  private onSubmitCommand: ((command: string, source: CommandSource) => void) | null = null;
   
   // PR01PH08: Callback for outputting local messages to terminal
   private terminalCallback: ((message: string) => void) | null = null;
@@ -284,7 +285,7 @@ export class AutomationEngine {
   /**
    * Set the command submission callback
    */
-  setSubmitCommandCallback(callback: (command: string) => void): void {
+  setSubmitCommandCallback(callback: (command: string, source: CommandSource) => void): void {
     this.onSubmitCommand = callback;
   }
 
@@ -1038,7 +1039,7 @@ export class AutomationEngine {
       
       // Submit the command
       if (this.onSubmitCommand) {
-        this.onSubmitCommand(cmd.command);
+        this.onSubmitCommand(cmd.command, cmd.source);
       }
       
       // Track dispatch time for backpressure

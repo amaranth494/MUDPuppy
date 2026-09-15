@@ -17,6 +17,9 @@ export interface SessionStatus {
   last_activity_at?: string;
   last_error?: string;
   disconnect_reason?: string;
+  // 02-04-02: carried on every response (no omitempty server-side); the badge's
+  // refresh-correctness mechanism after a page reload (D-10)
+  autopilot_state?: 'on' | 'waiting' | 'off';
 }
 
 // Connect request
@@ -41,7 +44,8 @@ export interface DisconnectResponse {
 }
 
 // WebSocket message types
-export type WSMessageType = 'connect' | 'disconnect' | 'data' | 'error' | 'status';
+// 02-04-02: 'autopilot' added — best-effort live push of state changes (D-10)
+export type WSMessageType = 'connect' | 'disconnect' | 'data' | 'error' | 'status' | 'autopilot';
 
 export interface WSMessage {
   type: WSMessageType;
@@ -50,6 +54,9 @@ export interface WSMessage {
   data?: string;
   error?: string;
   status?: string;
+  // 02-04-02: outbound-only — who sent this data message ('user' | 'alias' | 'trigger');
+  // the server's wheel-grab reads this and treats absent as human, the safe direction
+  source?: string;
 }
 
 // Error mapping
