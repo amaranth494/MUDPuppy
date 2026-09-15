@@ -1,4 +1,4 @@
-import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, AutomationCredentials, Profile, UpdateProfileRequest, Alias, Trigger, Variable, Timer, AliasesResponse, TriggersResponse, VariablesResponse, TimersResponse, HelpSection, HelpSummary } from '../types';
+import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, AutomationCredentials, Profile, UpdateProfileRequest, Alias, Trigger, Variable, Timer, AliasesResponse, TriggersResponse, VariablesResponse, TimersResponse, HelpSection, HelpSummary, AISettingsResponse, PolicyResponse, EngageGateResponse } from '../types';
 import { logErrorToConsole } from './log';
 
 const API_BASE = '/api/v1';
@@ -581,6 +581,81 @@ export async function putTimers(connectionId: string, items: Timer[]): Promise<T
   if (!response.ok) {
     const data = await response.json();
     throw new Error(data.error || 'Failed to update timers');
+  }
+  return await response.json();
+}
+
+// ============================================
+// AI Player API endpoints (Phase 1 — profile foundation and policy gate)
+// ============================================
+
+// Get AI settings for a connection
+export async function getAISettings(connectionId: string): Promise<AISettingsResponse> {
+  const response = await fetch(`${API_BASE}/profiles/${connectionId}/ai-settings`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to load AI settings');
+  }
+  return await response.json();
+}
+
+// Update AI settings for a connection
+export async function putAISettings(connectionId: string, body: AISettingsResponse): Promise<AISettingsResponse> {
+  const response = await fetch(`${API_BASE}/profiles/${connectionId}/ai-settings`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to save AI settings');
+  }
+  return await response.json();
+}
+
+// Get the Safety and Abuse policy and its acceptance status for a connection
+export async function getPolicy(connectionId: string): Promise<PolicyResponse> {
+  const response = await fetch(`${API_BASE}/profiles/${connectionId}/policy`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to load policy');
+  }
+  return await response.json();
+}
+
+// Record acceptance of the Safety and Abuse policy for a connection
+export async function acceptPolicy(connectionId: string): Promise<PolicyResponse> {
+  const response = await fetch(`${API_BASE}/profiles/${connectionId}/policy/accept`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to record acceptance');
+  }
+  return await response.json();
+}
+
+// Check whether the AI may be engaged for a connection
+export async function getEngageGate(connectionId: string): Promise<EngageGateResponse> {
+  const response = await fetch(`${API_BASE}/profiles/${connectionId}/engage-gate`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to check engage gate');
   }
   return await response.json();
 }

@@ -2056,6 +2056,23 @@ body {
   margin-top: var(--spacing-xs);
 }
 
+/* Phase 1: Policy text panel (AI Player section, pre-acceptance state) */
+.policy-panel {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  max-height: calc(100vh - 380px);
+  overflow-y: auto;
+  margin-bottom: var(--spacing-lg);
+}
+
+/* Phase 1: AI Player acceptance status line — only the leading checkmark
+   character is accent-colored, the rest stays dim (.profile-hint). */
+.ai-player-accepted-line::first-letter {
+  color: var(--color-text);
+}
+
 /* Tooltip Icon */
 .tooltip-icon {
   display: inline-block;
