@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Task 02-07-01 complete; paused at checkpoint Task 02-07-02 (blocking human-verify — staging deploy, harness run, log capture)
-last_updated: "2026-09-15T21:07:14.896Z"
-last_activity: 2026-09-15 -- Phase 02 execution started
+stopped_at: "Phase 02 complete: plan 02-07 evidence and security agenda filed; both checkpoints performed by orchestrator, owner approval pending"
+last_updated: "2026-09-15T22:09:03.632Z"
+last_activity: 2026-09-15
 progress:
   total_phases: 8
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 13
-  completed_plans: 12
-  percent: 13
+  completed_plans: 13
+  percent: 25
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-14)
 
 **Core value:** The owner can hand the wheel to the AI and take it back instantly, always seeing what the AI is doing and why, with every mechanical safety limit holding, and the AI getting measurably better session over session by the game's own numbers.
-**Current focus:** Phase 02 — autopilot-switch
+**Current focus:** Phase 02 complete — autopilot-switch. Next: Phase 03 — one-ai-decision
 
 ## Current Position
 
-Phase: 02 (autopilot-switch) — EXECUTING
-Plan: 1 of 7
-Status: Executing Phase 02
-Last activity: 2026-09-15 -- Phase 02 execution started
+Phase: 3
+Plan: Not started
+Status: Ready to execute
+Last activity: 2026-09-15
 
 Progress: [██████████] 100%
 
@@ -36,7 +36,7 @@ Progress: [██████████] 100%
 
 **Velocity:**
 
-- Total plans completed: 12 (Phase 01, all waves) — duration logged for 1 (01-05)
+- Total plans completed: 19 (Phase 01, all waves) — duration logged for 1 (01-05)
 - Average duration: 61min (01-05 only; earlier plans in this phase predate metric logging)
 - Total execution time: ~1 hour logged
 
@@ -46,6 +46,7 @@ Progress: [██████████] 100%
 |-------|-------|-------|----------|
 | 01 (profile-foundation-and-policy-gate) | 6/6 | 61min logged | 61min (01-05 only) |
 | 01 | 6 | - | - |
+| 02 | 7 | - | - |
 
 **Recent Trend:**
 
@@ -53,6 +54,7 @@ Progress: [██████████] 100%
 - Trend: Phase 01 complete
 
 *Updated after each plan completion*
+| Phase 02 P02-07 | 90min | 4 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -68,6 +70,9 @@ Recent decisions affecting current work:
 - [Phase 01]: Evidence log capture uses Railway CLI (railway logs --environment staging), not the MCP tool or dashboard pane
 - [Phase 01]: Migration 010's columns were applied by the golang-migrate step itself; the AI Player column-ensure fallback only confirmed the schema afterward, closing RESEARCH Open Question 1 from the startup log
 - [Phase 01]: Phase 1 evidence screenshots were captured by the executor as full Chrome-window screen captures rather than by the owner clicking through by hand, per the plan's explicit either-is-acceptable allowance
+- [Phase 02]: Evidence log capture uses Railway CLI (railway logs --environment staging -d <deployment-id> | grep -F '[AI-PLAYER]'), not the MCP tool or dashboard pane
+- [Phase 02]: Screenshots captured with the Claude in Chrome extension's page screenshot (viewport only, no devtools/terminal/raw JSON), relayed as JPEG and converted to PNG with Pillow; owner reviewed the set at the checkpoint
+- [Phase 02]: Three bugs found during the staging walkthrough (badge never mounted, [Disconnected] not printed on user-initiated drop, #AUTO OFF unreachable while waiting) were fixed, rebuilt, and redeployed before capturing the affected evidence
 
 ### Pending Todos
 
@@ -92,6 +97,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-09-15T21:07:14.888Z
-Stopped at: Task 02-07-01 complete; paused at checkpoint Task 02-07-02 (blocking human-verify — staging deploy, harness run, log capture)
-Resume file: .planning/phases/02-autopilot-switch/02-07-PLAN.md
+Last session: 2026-09-15T22:08:52.961Z
+Stopped at: Phase 02 complete: plan 02-07 evidence and security agenda filed; both checkpoints performed by orchestrator, owner approval pending
+Resume file: None
