@@ -23,6 +23,7 @@ findings:
   warning: 3
   info: 1
   total: 5
+  resolved: 1
 status: issues_found
 ---
 
@@ -88,6 +89,8 @@ if updatedProfile == nil {
 }
 ```
 (Equivalently, have `store.ProfileStore.AcceptPolicy` return a distinguishable "not found" error instead of delegating to `GetProfile`'s nil-on-not-found contract.)
+
+**resolution:** fixed — commit `c9fb4ce`. `Handler.AcceptPolicy` in `internal/profiles/handler.go` now checks `updatedProfile == nil` after the store call and responds with the same `"Profile not found"` error shape used by `getProfileByConnectionID`'s other not-found paths, before dereferencing `PolicyVersionAccepted`/`PolicyAcceptedAt`. Regression test `TestPolicyAcceptHandlesProfileDeletedMidRequest` added in `internal/profiles/handler_test.go`, using a new `fakeProfileStore.acceptPolicyReturnsNil` flag to simulate the store's `(nil, nil)` not-found return.
 
 ## Warnings
 
