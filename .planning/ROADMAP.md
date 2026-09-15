@@ -17,7 +17,7 @@ Branch: `ai-player` (exists from `staging`, carries the ICM). Environment: Railw
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Profile Foundation and Policy Gate** - Profiles gain conduct rules, approach guidance, AI settings with conservative defaults, and a one-time Safety and Abuse policy acceptance that gates AI configuration and engagement
+- [x] **Phase 1: Profile Foundation and Policy Gate** - Profiles gain conduct rules, approach guidance, AI settings with conservative defaults, and a one-time Safety and Abuse policy acceptance that gates AI configuration and engagement (completed 2026-09-15)
 - [ ] **Phase 2: Autopilot Switch** - `#AUTO ON` / `#AUTO OFF`, a server-owned engaged state with a truthful indicator, the wheel-grab rule, and disconnect-lands-disengaged, all with no AI behind it
 - [ ] **Phase 3: One AI Decision** - ICM engine wired server-side, Gemini connected from env config, one decision made and issued through the automation context, reasoning shown live and persisted
 - [ ] **Phase 4: Continuous Play** - Session goal, paced read/decide/act loop, call cap and error disengage with visible notices, clean reassessment on re-engage, all safety limits under test
@@ -58,7 +58,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 01-05-PLAN.md — Phase 1 demonstrated on staging and filed as evidence: test report, staging log excerpts, canned report, screenshots
+- [x] 01-05-PLAN.md — Phase 1 demonstrated on staging and filed as evidence: test report, staging log excerpts, canned report, screenshots
 
 **UI hint**: yes
 
@@ -203,7 +203,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Profile Foundation and Policy Gate | 5/6 | In Progress|  |
+| 1. Profile Foundation and Policy Gate | 6/6 | Complete   | 2026-09-15 |
 | 2. Autopilot Switch | 0/TBD | Not started | - |
 | 3. One AI Decision | 0/TBD | Not started | - |
 | 4. Continuous Play | 0/TBD | Not started | - |

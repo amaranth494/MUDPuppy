@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 1 UI-SPEC approved
-last_updated: "2026-09-15T15:39:36.513Z"
-last_activity: 2026-09-15 -- Phase 01 execution started
+stopped_at: Completed 01-05-PLAN.md — Phase 1 evidence filed and demonstrated
+last_updated: "2026-09-15T17:23:43.662Z"
+last_activity: 2026-09-15
 progress:
   total_phases: 8
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 6
-  completed_plans: 0
-  percent: 0
+  completed_plans: 6
+  percent: 13
 ---
 
 # Project State
@@ -25,31 +25,31 @@ See: .planning/PROJECT.md (updated 2026-09-14)
 
 ## Current Position
 
-Phase: 01 (profile-foundation-and-policy-gate) — EXECUTING
-Plan: 1 of 6
-Status: Executing Phase 01
-Last activity: 2026-09-15 -- Phase 01 execution started
+Phase: 01 (profile-foundation-and-policy-gate) — COMPLETE
+Plan: 6 of 6
+Status: Phase 1 complete, ready for Phase 2
+Last activity: 2026-09-15
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: 0 hours
+- Total plans completed: 6 (Phase 01, all waves) — duration logged for 1 (01-05)
+- Average duration: 61min (01-05 only; earlier plans in this phase predate metric logging)
+- Total execution time: ~1 hour logged
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 01 (profile-foundation-and-policy-gate) | 6/6 | 61min logged | 61min (01-05 only) |
 
 **Recent Trend:**
 
-- Last 5 plans: none yet
-- Trend: -
+- Last 5 plans: 01-01, 01-02, 01-03, 01-04, 01-06 (durations not logged), 01-05 (61min, 3 tasks, 13 files)
+- Trend: Phase 01 complete
 
 *Updated after each plan completion*
 
@@ -64,6 +64,9 @@ Recent decisions affecting current work:
 - [Roadmap]: Wiring the dormant ICM engine server-side is Phase 3 work.
 - [Roadmap]: Phase 6 debrief records coaching amount so the Phase 8 three-session trend is measurable.
 - [Locked]: Driver is server-side Go through the ICM automation context; browser is supervision only; server-side is not unattended; reconnect is a connection toggle, never an AI action.
+- [Phase 01]: Evidence log capture uses Railway CLI (railway logs --environment staging), not the MCP tool or dashboard pane
+- [Phase 01]: Migration 010's columns were applied by the golang-migrate step itself; the AI Player column-ensure fallback only confirmed the schema afterward, closing RESEARCH Open Question 1 from the startup log
+- [Phase 01]: Phase 1 evidence screenshots were captured by the executor as full Chrome-window screen captures rather than by the owner clicking through by hand, per the plan's explicit either-is-acceptable allowance
 
 ### Pending Todos
 
@@ -88,6 +91,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-09-15T13:54:59.477Z
-Stopped at: Phase 1 UI-SPEC approved
-Resume file: .planning/phases/01-profile-foundation-and-policy-gate/01-UI-SPEC.md
+Last session: 2026-09-15T17:23:31.358Z
+Stopped at: Completed 01-05-PLAN.md — Phase 1 evidence filed and demonstrated
+Resume file: None
