@@ -15,9 +15,9 @@ func newTestManager() *Manager {
 // loopback and private addresses, so a unit test cannot drive a genuine
 // connect — this is legitimate white-box setup since the test is in the
 // same package.
-func seedConnectedSession(m *Manager, userID string) {
+func seedConnectedSession(m *Manager, userID, connID string) {
 	m.mu.Lock()
-	m.sessions[userID] = &Session{UserID: userID, State: StateConnected}
+	m.sessions[userID] = &Session{UserID: userID, ConnectionID: connID, State: StateConnected}
 	m.mu.Unlock()
 }
 
@@ -48,7 +48,7 @@ func TestEngageAutopilot(t *testing.T) {
 	t.Run("engages_with_connected_session", func(t *testing.T) {
 		m := newTestManager()
 		const userID = "user-2"
-		seedConnectedSession(m, userID)
+		seedConnectedSession(m, userID, "conn-1")
 
 		state, changed, err := m.EngageAutopilot(userID, "conn-1")
 		if err != nil {
@@ -62,16 +62,45 @@ func TestEngageAutopilot(t *testing.T) {
 		}
 	})
 
+	t.Run("engage_for_a_profile_other_than_the_connected_one_is_refused", func(t *testing.T) {
+		// Code review C2: the gate is resolved for the connection_id in the
+		// request, so the live session must be for that same profile.
+		m := newTestManager()
+		const userID = "user-3b"
+		seedConnectedSession(m, userID, "conn-1")
+
+		state, changed, err := m.EngageAutopilot(userID, "conn-2")
+		if err != ErrWrongConnection {
+			t.Fatalf("err = %v, want ErrWrongConnection", err)
+		}
+		if changed || state != AutopilotOff {
+			t.Fatalf("(state, changed) = (%q, %v), want (%q, false)", state, changed, AutopilotOff)
+		}
+		if got := m.AutopilotStateFor(userID); got != AutopilotOff {
+			t.Fatalf("AutopilotStateFor = %q, want %q", got, AutopilotOff)
+		}
+	})
+
+	t.Run("engage_on_a_quick_connect_with_no_profile_is_refused", func(t *testing.T) {
+		m := newTestManager()
+		const userID = "user-3c"
+		seedConnectedSession(m, userID, "")
+
+		if _, _, err := m.EngageAutopilot(userID, "conn-1"); err != ErrWrongConnection {
+			t.Fatalf("err = %v, want ErrWrongConnection", err)
+		}
+	})
+
 	t.Run("repeat_engage_is_a_no_op", func(t *testing.T) {
 		m := newTestManager()
 		const userID = "user-3"
-		seedConnectedSession(m, userID)
+		seedConnectedSession(m, userID, "conn-1")
 
 		if _, _, err := m.EngageAutopilot(userID, "conn-1"); err != nil {
 			t.Fatalf("first engage err = %v, want nil", err)
 		}
 
-		state, changed, err := m.EngageAutopilot(userID, "conn-2")
+		state, changed, err := m.EngageAutopilot(userID, "conn-1")
 		if err != nil {
 			t.Fatalf("second engage err = %v, want nil", err)
 		}
@@ -99,7 +128,7 @@ func TestEngageAutopilot(t *testing.T) {
 	t.Run("disengage_then_disengage_again", func(t *testing.T) {
 		m := newTestManager()
 		const userID = "user-4"
-		seedConnectedSession(m, userID)
+		seedConnectedSession(m, userID, "conn-1")
 		if _, _, err := m.EngageAutopilot(userID, "conn-1"); err != nil {
 			t.Fatalf("engage err = %v, want nil", err)
 		}
@@ -130,7 +159,7 @@ func TestWaitingSurvivesDisconnectAndResumesOnConnect(t *testing.T) {
 	t.Run("waiting_survives_disconnect_and_resumes_on_connect", func(t *testing.T) {
 		m := newTestManager()
 		const userID = "user-5"
-		seedConnectedSession(m, userID)
+		seedConnectedSession(m, userID, "conn-1")
 		if _, _, err := m.EngageAutopilot(userID, "conn-1"); err != nil {
 			t.Fatalf("engage err = %v, want nil", err)
 		}
@@ -163,8 +192,8 @@ func TestWaitingSurvivesDisconnectAndResumesOnConnect(t *testing.T) {
 
 		// Simulate the connection returning exactly the way Connect does.
 		m.mu.Lock()
-		m.sessions[userID] = &Session{UserID: userID, State: StateConnected}
-		m.resumeAutopilotLocked(userID)
+		m.sessions[userID] = &Session{UserID: userID, ConnectionID: "conn-1", State: StateConnected}
+		m.resumeAutopilotLocked(userID, "conn-1")
 		m.mu.Unlock()
 
 		if got := m.AutopilotStateFor(userID); got != AutopilotOn {
@@ -181,7 +210,7 @@ func TestWaitingSurvivesDisconnectAndResumesOnConnect(t *testing.T) {
 	t.Run("off_while_waiting_stays_off_after_reconnect", func(t *testing.T) {
 		m := newTestManager()
 		const userID = "user-6"
-		seedConnectedSession(m, userID)
+		seedConnectedSession(m, userID, "conn-1")
 		if _, _, err := m.EngageAutopilot(userID, "conn-1"); err != nil {
 			t.Fatalf("engage err = %v, want nil", err)
 		}
@@ -197,8 +226,8 @@ func TestWaitingSurvivesDisconnectAndResumesOnConnect(t *testing.T) {
 		}
 
 		m.mu.Lock()
-		m.sessions[userID] = &Session{UserID: userID, State: StateConnected}
-		m.resumeAutopilotLocked(userID)
+		m.sessions[userID] = &Session{UserID: userID, ConnectionID: "conn-1", State: StateConnected}
+		m.resumeAutopilotLocked(userID, "conn-1")
 		m.mu.Unlock()
 
 		if got := m.AutopilotStateFor(userID); got != AutopilotOff {
@@ -206,10 +235,64 @@ func TestWaitingSurvivesDisconnectAndResumesOnConnect(t *testing.T) {
 		}
 	})
 
+	t.Run("reconnect_to_a_different_profile_lands_off_not_on", func(t *testing.T) {
+		// Code review C1: a parked switch resumes only onto the profile it
+		// was parked on. Another profile, which may never have accepted the
+		// policy, must not inherit the engagement.
+		m := newTestManager()
+		const userID = "user-6b"
+		seedConnectedSession(m, userID, "conn-1")
+		if _, _, err := m.EngageAutopilot(userID, "conn-1"); err != nil {
+			t.Fatalf("engage err = %v, want nil", err)
+		}
+		if err := m.Disconnect(userID, ReasonRemote); err != nil {
+			t.Fatalf("Disconnect err = %v, want nil", err)
+		}
+		if got := m.AutopilotStateFor(userID); got != AutopilotWaiting {
+			t.Fatalf("AutopilotStateFor = %q, want %q", got, AutopilotWaiting)
+		}
+
+		m.mu.Lock()
+		m.sessions[userID] = &Session{UserID: userID, ConnectionID: "conn-2", State: StateConnected}
+		m.resumeAutopilotLocked(userID, "conn-2")
+		m.mu.Unlock()
+
+		if got := m.AutopilotStateFor(userID); got != AutopilotOff {
+			t.Fatalf("AutopilotStateFor after connecting another profile = %q, want %q", got, AutopilotOff)
+		}
+		if got := m.AutopilotConnectionIDFor(userID); got != "" {
+			t.Fatalf("AutopilotConnectionIDFor after landing off = %q, want empty", got)
+		}
+	})
+
+	t.Run("reconnect_by_quick_connect_lands_off_not_on", func(t *testing.T) {
+		m := newTestManager()
+		const userID = "user-6c"
+		seedConnectedSession(m, userID, "conn-1")
+		if _, _, err := m.EngageAutopilot(userID, "conn-1"); err != nil {
+			t.Fatalf("engage err = %v, want nil", err)
+		}
+		if err := m.Disconnect(userID, ReasonRemote); err != nil {
+			t.Fatalf("Disconnect err = %v, want nil", err)
+		}
+		if got := m.AutopilotConnectionIDFor(userID); got != "conn-1" {
+			t.Fatalf("AutopilotConnectionIDFor while waiting = %q, want %q", got, "conn-1")
+		}
+
+		m.mu.Lock()
+		m.sessions[userID] = &Session{UserID: userID, ConnectionID: "", State: StateConnected}
+		m.resumeAutopilotLocked(userID, "")
+		m.mu.Unlock()
+
+		if got := m.AutopilotStateFor(userID); got != AutopilotOff {
+			t.Fatalf("AutopilotStateFor after a quick connect = %q, want %q", got, AutopilotOff)
+		}
+	})
+
 	t.Run("disconnect_while_off_changes_nothing", func(t *testing.T) {
 		m := newTestManager()
 		const userID = "user-7"
-		seedConnectedSession(m, userID)
+		seedConnectedSession(m, userID, "conn-1")
 
 		if err := m.Disconnect(userID, ReasonRemote); err != nil {
 			t.Fatalf("Disconnect err = %v, want nil", err)

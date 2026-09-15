@@ -32,7 +32,7 @@ func TestWheelGrabSourceRule(t *testing.T) {
 		t.Run("human_source_disengages", func(t *testing.T) {
 			m := newTestManager()
 			const userID = "wg-user-1"
-			seedConnectedSession(m, userID)
+			seedConnectedSession(m, userID, "conn-1")
 			if _, _, err := m.EngageAutopilot(userID, "conn-1"); err != nil {
 				t.Fatalf("engage err = %v, want nil", err)
 			}
@@ -52,7 +52,7 @@ func TestWheelGrabSourceRule(t *testing.T) {
 		t.Run("alias_source_disengages", func(t *testing.T) {
 			m := newTestManager()
 			const userID = "wg-user-2"
-			seedConnectedSession(m, userID)
+			seedConnectedSession(m, userID, "conn-1")
 			if _, _, err := m.EngageAutopilot(userID, "conn-1"); err != nil {
 				t.Fatalf("engage err = %v, want nil", err)
 			}
@@ -72,7 +72,7 @@ func TestWheelGrabSourceRule(t *testing.T) {
 		t.Run("blank_source_disengages", func(t *testing.T) {
 			m := newTestManager()
 			const userID = "wg-user-3"
-			seedConnectedSession(m, userID)
+			seedConnectedSession(m, userID, "conn-1")
 			if _, _, err := m.EngageAutopilot(userID, "conn-1"); err != nil {
 				t.Fatalf("engage err = %v, want nil", err)
 			}
@@ -92,7 +92,7 @@ func TestWheelGrabSourceRule(t *testing.T) {
 		t.Run("trigger_source_leaves_it_on", func(t *testing.T) {
 			m := newTestManager()
 			const userID = "wg-user-4"
-			seedConnectedSession(m, userID)
+			seedConnectedSession(m, userID, "conn-1")
 			if _, _, err := m.EngageAutopilot(userID, "conn-1"); err != nil {
 				t.Fatalf("engage err = %v, want nil", err)
 			}
@@ -112,7 +112,7 @@ func TestWheelGrabSourceRule(t *testing.T) {
 		t.Run("off_stays_off", func(t *testing.T) {
 			m := newTestManager()
 			const userID = "wg-user-5"
-			seedConnectedSession(m, userID)
+			seedConnectedSession(m, userID, "conn-1")
 			// Never engaged.
 
 			grabbed, _ := applyWheelGrab(m, userID, "user")
@@ -127,7 +127,7 @@ func TestWheelGrabSourceRule(t *testing.T) {
 		t.Run("waiting_is_not_grabbed", func(t *testing.T) {
 			m := newTestManager()
 			const userID = "wg-user-6"
-			seedConnectedSession(m, userID)
+			seedConnectedSession(m, userID, "conn-1")
 			if _, _, err := m.EngageAutopilot(userID, "conn-1"); err != nil {
 				t.Fatalf("engage err = %v, want nil", err)
 			}
@@ -151,8 +151,8 @@ func TestWheelGrabSourceRule(t *testing.T) {
 			m := newTestManager()
 			const userA = "wg-user-a"
 			const userB = "wg-user-b"
-			seedConnectedSession(m, userA)
-			seedConnectedSession(m, userB)
+			seedConnectedSession(m, userA, "conn-a")
+			seedConnectedSession(m, userB, "conn-b")
 			if _, _, err := m.EngageAutopilot(userA, "conn-a"); err != nil {
 				t.Fatalf("engage userA err = %v, want nil", err)
 			}

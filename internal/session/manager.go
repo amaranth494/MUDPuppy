@@ -38,6 +38,11 @@ type Session struct {
 	UserID         string    `json:"user_id"`
 	Host           string    `json:"host"`
 	Port           int       `json:"port"`
+	// ConnectionID names the saved connection profile this session was opened
+	// for, or is empty for a quick connect. Phase 2 code review C1/C2: the
+	// autopilot switch engages only for the profile that is actually connected
+	// and resumes only onto that same profile.
+	ConnectionID   string    `json:"connection_id,omitempty"`
 	State          string    `json:"state"`
 	ConnectedAt    time.Time `json:"connected_at,omitempty"`
 	LastActivityAt time.Time `json:"last_activity_at,omitempty"`
@@ -161,8 +166,8 @@ func (m *Manager) getAllowlistOverridePorts() []int {
 }
 
 // Connect establishes a MUD connection for a user
-func (m *Manager) Connect(ctx context.Context, userID, host string, port int) (*Session, error) {
-	log.Printf("[SP02PH01] Connect called: user=%s, host=%s, port=%d", userID, host, port)
+func (m *Manager) Connect(ctx context.Context, userID, host string, port int, connectionID string) (*Session, error) {
+	log.Printf("[SP02PH01] Connect called: user=%s, host=%s, port=%d, connection_id=%q", userID, host, port, connectionID)
 
 	// Validate port first
 	if err := m.ValidatePort(port); err != nil {
@@ -186,10 +191,11 @@ func (m *Manager) Connect(ctx context.Context, userID, host string, port int) (*
 
 	// Create session
 	session := &Session{
-		UserID: userID,
-		Host:   host,
-		Port:   port,
-		State:  StateConnecting,
+		UserID:       userID,
+		Host:         host,
+		Port:         port,
+		ConnectionID: connectionID,
+		State:        StateConnecting,
 	}
 
 	// Dial the MUD server
@@ -217,8 +223,9 @@ func (m *Manager) Connect(ctx context.Context, userID, host string, port int) (*
 	m.sessions[userID] = session
 	m.conns[userID] = conn
 
-	// Resume a waiting autopilot now that the dial has actually succeeded.
-	m.resumeAutopilotLocked(userID)
+	// Resume a waiting autopilot now that the dial has actually succeeded,
+	// but only onto the profile it was parked on.
+	m.resumeAutopilotLocked(userID, connectionID)
 
 	// Record metrics
 	metrics.Get().IncConnect()
@@ -376,6 +383,19 @@ func (m *Manager) logAutopilotTransition(userID, connectionID string, old, newSt
 		userID, connectionID, old, newState, cause)
 }
 
+// AutopilotConnectionIDFor returns the saved-connection id the user's
+// autopilot record was engaged on, or "" when the switch is off. The
+// status poll carries it so the browser can still aim #AUTO OFF at the
+// parked profile after a page refresh (code review C3).
+func (m *Manager) AutopilotConnectionIDFor(userID string) string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if rec, ok := m.autopilot[userID]; ok && rec.State != AutopilotOff {
+		return rec.ConnectionID
+	}
+	return ""
+}
+
 // AutopilotStateFor returns the current autopilot state for a user. A user
 // who has never engaged reads as off, which is also the state a server
 // restart lands on (D-06).
@@ -411,9 +431,18 @@ func (m *Manager) EngageAutopilot(userID, connectionID string) (AutopilotState, 
 
 	session, ok := m.sessions[userID]
 	if !ok || session.State != StateConnected {
-		m.logAutopilotTransition(userID, curConnID, cur, cur, "refused-no-session")
+		m.logAutopilotTransition(userID, connectionID, cur, cur, "refused-no-session")
 		return cur, false, ErrNoConnectedSession
 	}
+
+	// Code review C2: the gate was resolved for connectionID, so the live
+	// session must be the one opened for that same profile. Otherwise a
+	// profile that accepted the policy could lend its acceptance to another.
+	if connectionID == "" || session.ConnectionID != connectionID {
+		m.logAutopilotTransition(userID, connectionID, cur, cur, "refused-wrong-connection")
+		return cur, false, ErrWrongConnection
+	}
+	_ = curConnID
 
 	newState, changed := Engage(cur)
 	if !changed {
@@ -484,10 +513,22 @@ func (m *Manager) parkAutopilotLocked(userID string) {
 
 // resumeAutopilotLocked applies the waiting->on transition for a connect.
 // The caller must already hold m.mu. Same no-op rule as
-// parkAutopilotLocked.
-func (m *Manager) resumeAutopilotLocked(userID string) {
+// parkAutopilotLocked. A parked switch resumes only when the new session
+// is for the same saved connection it was parked on; a different profile,
+// or a quick connect with no profile, lands the switch on off instead, so
+// the Phase 1 gate of the profile that accepted the policy is never
+// borrowed by another (code review C1).
+func (m *Manager) resumeAutopilotLocked(userID, connectionID string) {
 	rec, ok := m.autopilot[userID]
-	if !ok {
+	if !ok || rec.State != AutopilotWaiting {
+		return
+	}
+
+	old := rec.State
+	if connectionID == "" || connectionID != rec.ConnectionID {
+		rec.State = AutopilotOff
+		rec.WaitingSince = nil
+		m.logAutopilotTransition(userID, rec.ConnectionID, old, AutopilotOff, "connection-changed")
 		return
 	}
 
@@ -495,8 +536,6 @@ func (m *Manager) resumeAutopilotLocked(userID string) {
 	if !changed {
 		return
 	}
-
-	old := rec.State
 	rec.State = newState
 	rec.WaitingSince = nil
 	m.logAutopilotTransition(userID, rec.ConnectionID, old, newState, "resume")

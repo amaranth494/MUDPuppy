@@ -231,6 +231,11 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       setConnectionState(status.state);
       setHost(status.host || '');
       setPort(status.port || 23);
+      // Code review C3: remember the profile the switch is bound to before the state
+      // flips, so a #AUTO OFF typed after a page refresh while waiting still has a target.
+      if (status.autopilot_connection_id) {
+        parkedConnectionIdRef.current = status.autopilot_connection_id;
+      }
       // 02-06-01: the badge's whole refresh-correctness mechanism (D-10) — SessionBadge.tsx
       // already calls refreshStatus on mount, on visibility change and on a 15s interval
       setAutopilotState(status.autopilot_state || 'off');
@@ -557,7 +562,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       setWsManager(manager);
       
       // Send connect message via WebSocket
-      manager.sendConnect(mudHost, mudPort);
+      manager.sendConnect(mudHost, mudPort, connectionId);
       
       // SP05: Mark automation engine as connected
       if (engine) {

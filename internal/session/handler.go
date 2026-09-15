@@ -85,6 +85,9 @@ type StatusResponse struct {
 	// browser badge can trust the field's presence after a page refresh
 	// (D-10).
 	AutopilotState string `json:"autopilot_state"`
+	// AutopilotConnectionID names the profile the switch is engaged or parked
+	// on, so #AUTO OFF can still reach it after a page refresh while waiting.
+	AutopilotConnectionID string `json:"autopilot_connection_id,omitempty"`
 }
 
 // AutopilotRequest is the request body for POST /api/v1/session/autopilot.
@@ -151,7 +154,11 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[SP02PH01] Connect request: user=%s, host=%s, port=%d", userIDStr, req.Host, req.Port)
 
 	// Attempt connection
-	session, err := h.manager.Connect(r.Context(), userIDStr, req.Host, req.Port)
+	connIDStr := ""
+	if req.ConnectionID != uuid.Nil {
+		connIDStr = req.ConnectionID.String()
+	}
+	session, err := h.manager.Connect(r.Context(), userIDStr, req.Host, req.Port, connIDStr)
 	if err != nil {
 		log.Printf("[SP02PH01] Connect failed: user=%s, error=%v", userIDStr, err)
 		h.sendError(w, err.Error())
@@ -280,6 +287,7 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp.AutopilotState = string(h.manager.AutopilotStateFor(userIDStr))
+	resp.AutopilotConnectionID = h.manager.AutopilotConnectionIDFor(userIDStr)
 
 	h.sendJSON(w, resp)
 }
@@ -357,6 +365,8 @@ func (h *Handler) Autopilot(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case engageErr == ErrNoConnectedSession:
 			resp.Outcome = "refused-no-session"
+		case engageErr == ErrWrongConnection:
+			resp.Outcome = "refused-wrong-connection"
 		case changed:
 			resp.Outcome = "engaged"
 		default:

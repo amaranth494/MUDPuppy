@@ -768,7 +768,7 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 
 	// Connect to the MUD server using session manager
 	ctx := context.Background()
-	_, err = h.sessionMgr.Connect(ctx, userUUID.String(), conn.Host, conn.Port)
+	_, err = h.sessionMgr.Connect(ctx, userUUID.String(), conn.Host, conn.Port, connID.String())
 	if err != nil {
 		log.Printf("[SP03PH06T05] Connect failed: %v", err)
 		h.sendError(w, err.Error())

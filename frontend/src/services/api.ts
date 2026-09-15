@@ -178,12 +178,15 @@ export class WebSocketManager {
     }
   }
 
-  sendConnect(host: string, port: number): void {
+  sendConnect(host: string, port: number, connectionId?: string): void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({
         type: 'connect',
         host,
         port,
+        // Code review C1/C2: the server binds the session to this profile so the
+        // autopilot switch engages and resumes only for the connected profile.
+        connection_id: connectionId,
       }));
     }
   }

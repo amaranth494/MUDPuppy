@@ -32,8 +32,9 @@ const (
 type AutopilotRecord struct {
 	State AutopilotState
 	// ConnectionID is captured at engage time so the disconnect and resume
-	// log lines can carry it. The Session struct has no connection id and
-	// must not gain one (autopilot state must not share Session's lifetime).
+	// log lines can carry it, and so a resume can be refused when the next
+	// session is for a different profile. It lives here, not on Session,
+	// because autopilot state must outlive the session that engaged it.
 	ConnectionID string
 	// WaitingSince is set when the record enters waiting and cleared when
 	// it leaves. Nothing in Phase 2 reads WaitingSince; it exists so that a
@@ -45,6 +46,10 @@ type AutopilotRecord struct {
 // ErrNoConnectedSession is returned when #AUTO ON is attempted with no
 // connected game session (D-03). The switch stays off.
 var ErrNoConnectedSession = errors.New("autopilot requires a connected game session")
+
+// ErrWrongConnection is returned when #AUTO ON names a connection profile
+// other than the one the live session was opened for (code review C2).
+var ErrWrongConnection = errors.New("autopilot can only be engaged for the profile that is connected")
 
 // Engage is the pure transition for #AUTO ON. off becomes on (changed
 // true); on stays on (changed false, D-04 — a repeated #AUTO ON must reset

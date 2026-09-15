@@ -20,6 +20,9 @@ export interface SessionStatus {
   // 02-04-02: carried on every response (no omitempty server-side); the badge's
   // refresh-correctness mechanism after a page reload (D-10)
   autopilot_state?: 'on' | 'waiting' | 'off';
+  // Code review C3: the profile the switch is engaged or parked on, present while
+  // on or waiting, so #AUTO OFF can be aimed at it after a page refresh.
+  autopilot_connection_id?: string;
 }
 
 // Connect request

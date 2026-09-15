@@ -40,6 +40,9 @@ type WSMessage struct {
 	// CommandSource tag ("user", "alias", "trigger") for the command being
 	// sent. See IsHumanSource for the classification rule.
 	Source string `json:"source,omitempty"`
+	// ConnectionID is meaningful only on inbound "connect" messages: the
+	// saved connection profile the browser is opening, if any.
+	ConnectionID string `json:"connection_id,omitempty"`
 }
 
 // IsHumanSource is the wheel-grab's classification rule. Absent or
@@ -337,7 +340,7 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 				log.Printf("[SP02PH02T01] Connect request: user=%s, host=%s, port=%d", userIDStr, wsMsg.Host, wsMsg.Port)
 
 				// Attempt connection via Manager
-				session, err = h.manager.Connect(ctx, userIDStr, wsMsg.Host, wsMsg.Port)
+				session, err = h.manager.Connect(ctx, userIDStr, wsMsg.Host, wsMsg.Port, wsMsg.ConnectionID)
 				if err != nil {
 					log.Printf("[SP02PH02] Connection failed: %v", err)
 					h.sendError(conn, err.Error())

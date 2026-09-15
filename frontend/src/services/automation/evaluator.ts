@@ -1211,6 +1211,10 @@ async function executeTokenList(
                 case 'refused-no-session':
                   context.outputMessage?.(`\r\n${red}[Autopilot needs a connected game; connect first]${reset}\r\n`);
                   break;
+                case 'refused-wrong-connection':
+                  // Code review C2: the request named a profile other than the connected one.
+                  context.outputMessage?.(`\r\n${red}[Autopilot can only be engaged for the profile that is connected]${reset}\r\n`);
+                  break;
                 case 'status': {
                   const stateUpper = answer.state.toUpperCase();
                   const gateResult = answer.gate_allowed

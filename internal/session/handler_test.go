@@ -155,12 +155,13 @@ func TestAutopilotHandler(t *testing.T) {
 	t.Run("engages_when_gate_passes_and_session_connected", func(t *testing.T) {
 		m := newTestManager()
 		userID := uuid.New()
-		seedConnectedSession(m, userID.String())
+		connID := uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
 		h := newAutopilotHandler(m, alwaysAllow(""))
 
 		req := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{
 			Action:       "on",
-			ConnectionID: uuid.New(),
+			ConnectionID: connID,
 		}))
 		rec := httptest.NewRecorder()
 		h.Autopilot(rec, req)
@@ -177,9 +178,9 @@ func TestAutopilotHandler(t *testing.T) {
 	t.Run("repeat_on_is_already_on", func(t *testing.T) {
 		m := newTestManager()
 		userID := uuid.New()
-		seedConnectedSession(m, userID.String())
-		h := newAutopilotHandler(m, alwaysAllow(""))
 		connID := uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
+		h := newAutopilotHandler(m, alwaysAllow(""))
 
 		req1 := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: connID}))
 		rec1 := httptest.NewRecorder()
@@ -204,10 +205,11 @@ func TestAutopilotHandler(t *testing.T) {
 	t.Run("off_then_off_again", func(t *testing.T) {
 		m := newTestManager()
 		userID := uuid.New()
-		seedConnectedSession(m, userID.String())
+		connID := uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
 		h := newAutopilotHandler(m, alwaysAllow(""))
 
-		onReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: uuid.New()}))
+		onReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: connID}))
 		h.Autopilot(httptest.NewRecorder(), onReq)
 
 		req1 := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "off"}))
@@ -230,12 +232,13 @@ func TestAutopilotHandler(t *testing.T) {
 	t.Run("off_is_allowed_even_when_gate_refuses", func(t *testing.T) {
 		m := newTestManager()
 		userID := uuid.New()
-		seedConnectedSession(m, userID.String())
+		connID := uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
 		// Engage while allowed, then flip the stub to refuse and confirm
 		// #AUTO OFF still works — the owner can always take the wheel back
 		// (D-01).
 		h := newAutopilotHandler(m, alwaysAllow(""))
-		onReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: uuid.New()}))
+		onReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: connID}))
 		h.Autopilot(httptest.NewRecorder(), onReq)
 
 		hRefuse := newAutopilotHandler(m, alwaysRefuse(store.EngageGateRefusalMessage))
@@ -301,10 +304,11 @@ func TestAutopilotHandler(t *testing.T) {
 	t.Run("nil_gate_callback_refuses", func(t *testing.T) {
 		m := newTestManager()
 		userID := uuid.New()
-		seedConnectedSession(m, userID.String())
+		connID := uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
 		h := NewHandlerWithCallbacks(m, &config.Config{}, &HandlerCallbacks{EngageGate: nil})
 
-		req := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: uuid.New()}))
+		req := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: connID}))
 		rec := httptest.NewRecorder()
 		h.Autopilot(rec, req)
 
@@ -321,14 +325,15 @@ func TestAutopilotHandler(t *testing.T) {
 		m := newTestManager()
 		userA := uuid.New()
 		userB := uuid.New()
-		seedConnectedSession(m, userA.String())
-		seedConnectedSession(m, userB.String())
+		connA := uuid.New()
+		seedConnectedSession(m, userA.String(), connA.String())
+		seedConnectedSession(m, userB.String(), uuid.New().String())
 		h := newAutopilotHandler(m, alwaysAllow(""))
 
 		// Raw JSON carrying extra fields AutopilotRequest doesn't declare —
 		// a user id and a state — to prove the handler cannot be steered
 		// toward another user's switch even if a client sends them.
-		raw := []byte(`{"action":"on","connection_id":"` + uuid.New().String() +
+		raw := []byte(`{"action":"on","connection_id":"` + connA.String() +
 			`","user_id":"` + userB.String() + `","state":"on"}`)
 		req := newAutopilotRequest(http.MethodPost, &userA, raw)
 		rec := httptest.NewRecorder()
@@ -353,10 +358,11 @@ func TestAutopilotHandler(t *testing.T) {
 func TestStatusCarriesAutopilotState(t *testing.T) {
 	m := newTestManager()
 	userID := uuid.New()
-	seedConnectedSession(m, userID.String())
+	connID := uuid.New()
+	seedConnectedSession(m, userID.String(), connID.String())
 	h := newAutopilotHandler(m, alwaysAllow(""))
 
-	if _, _, err := m.EngageAutopilot(userID.String(), uuid.New().String()); err != nil {
+	if _, _, err := m.EngageAutopilot(userID.String(), connID.String()); err != nil {
 		t.Fatalf("EngageAutopilot: %v", err)
 	}
 
@@ -383,5 +389,66 @@ func TestStatusCarriesAutopilotState(t *testing.T) {
 	body := rec2.Body.String()
 	if !bytes.Contains([]byte(body), []byte(`"autopilot_state":"off"`)) {
 		t.Errorf("raw status body missing literal `\"autopilot_state\":\"off\"` (no omitempty required); body=%s", body)
+	}
+}
+
+// TestEngageRefusedForAnotherProfile proves code review C2: a request that
+// names a profile other than the one the live session was opened for is
+// refused as refused-wrong-connection and the switch stays off.
+func TestEngageRefusedForAnotherProfile(t *testing.T) {
+	m := newTestManager()
+	userID := uuid.New()
+	seedConnectedSession(m, userID.String(), uuid.New().String())
+	h := newAutopilotHandler(m, alwaysAllow(""))
+
+	req := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: uuid.New()}))
+	rec := httptest.NewRecorder()
+	h.Autopilot(rec, req)
+
+	resp := decodeAutopilotResponse(t, rec)
+	if resp.Outcome != "refused-wrong-connection" {
+		t.Fatalf("outcome = %q, want %q", resp.Outcome, "refused-wrong-connection")
+	}
+	if resp.State != string(AutopilotOff) {
+		t.Fatalf("state = %q, want %q", resp.State, AutopilotOff)
+	}
+}
+
+// TestStatusCarriesAutopilotConnectionID proves code review C3: while the
+// switch is on or waiting, the status poll names the profile it is bound
+// to, and it is omitted once the switch is off.
+func TestStatusCarriesAutopilotConnectionID(t *testing.T) {
+	m := newTestManager()
+	userID := uuid.New()
+	connID := uuid.New()
+	seedConnectedSession(m, userID.String(), connID.String())
+	h := newAutopilotHandler(m, alwaysAllow(""))
+
+	status := func() StatusResponse {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/session/status", nil)
+		req = req.WithContext(context.WithValue(req.Context(), "user_id", userID.String()))
+		rec := httptest.NewRecorder()
+		h.Status(rec, req)
+		var resp StatusResponse
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode status: %v", err)
+		}
+		return resp
+	}
+
+	if got := status().AutopilotConnectionID; got != "" {
+		t.Fatalf("autopilot_connection_id while off = %q, want empty", got)
+	}
+	if _, _, err := m.EngageAutopilot(userID.String(), connID.String()); err != nil {
+		t.Fatalf("EngageAutopilot: %v", err)
+	}
+	if got := status().AutopilotConnectionID; got != connID.String() {
+		t.Fatalf("autopilot_connection_id while on = %q, want %q", got, connID)
+	}
+	if err := m.Disconnect(userID.String(), ReasonRemote); err != nil {
+		t.Fatalf("Disconnect: %v", err)
+	}
+	if got := status().AutopilotConnectionID; got != connID.String() {
+		t.Fatalf("autopilot_connection_id while waiting = %q, want %q", got, connID)
 	}
 }
