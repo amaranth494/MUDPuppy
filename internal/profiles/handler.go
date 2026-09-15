@@ -11,9 +11,19 @@ import (
 	"github.com/google/uuid"
 )
 
+// profileStorage is the subset of *store.ProfileStore this package calls.
+// Declaring it as an interface lets the handler be exercised in tests with
+// a hand-written fake, without a live Postgres connection.
+type profileStorage interface {
+	GetProfile(userID, profileID uuid.UUID) (*store.Profile, error)
+	GetProfileByConnection(userID, connectionID uuid.UUID) (*store.Profile, error)
+	UpdateProfile(userID, profileID uuid.UUID, updates *store.ProfileUpdate) (*store.Profile, error)
+	AcceptPolicy(userID, profileID uuid.UUID, version string) (*store.Profile, error)
+}
+
 // Handler handles profiles HTTP requests
 type Handler struct {
-	profileStore *store.ProfileStore
+	profileStore profileStorage
 }
 
 // NewHandler creates a new profiles handler
@@ -59,6 +69,16 @@ type VariablesResponse struct {
 
 type TimersResponse struct {
 	Items []store.Timer `json:"items"`
+}
+
+// AISettingsResponse is the GET response and PUT request body for the
+// ai-settings sub-resource. It carries exactly conduct rules, approach
+// guidance and AI settings — no acceptance field and no reconnect field
+// (D-13, T-1-01); acceptance is writable only through AcceptPolicy.
+type AISettingsResponse struct {
+	ConductRules     string           `json:"conduct_rules"`
+	ApproachGuidance string           `json:"approach_guidance"`
+	AISettings       store.AISettings `json:"ai_settings"`
 }
 
 // Variable name validation regex
@@ -484,6 +504,70 @@ func (h *Handler) PutTimers(w http.ResponseWriter, r *http.Request) {
 	h.sendJSON(w, TimersResponse{Items: updatedProfile.Timers.Items})
 }
 
+// GetAISettings handles GET /api/v1/profiles/:connection_id/ai-settings
+func (h *Handler) GetAISettings(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	_, profile, err := h.getProfileByConnectionID(r)
+	if err != nil {
+		h.sendError(w, err.Error())
+		return
+	}
+
+	h.sendJSON(w, AISettingsResponse{
+		ConductRules:     profile.ConductRules,
+		ApproachGuidance: profile.ApproachGuidance,
+		AISettings:       profile.AISettings,
+	})
+}
+
+// PutAISettings handles PUT /api/v1/profiles/:connection_id/ai-settings
+func (h *Handler) PutAISettings(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userUUID, profile, err := h.getProfileByConnectionID(r)
+	if err != nil {
+		h.sendError(w, err.Error())
+		return
+	}
+
+	var req AISettingsResponse
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.sendError(w, "Invalid request body")
+		return
+	}
+
+	if verr := validateAISettings(req); verr != nil {
+		h.sendError(w, verr.Error())
+		return
+	}
+
+	updates := &store.ProfileUpdate{
+		ConductRules:     &req.ConductRules,
+		ApproachGuidance: &req.ApproachGuidance,
+		AISettings:       &req.AISettings,
+	}
+
+	updatedProfile, err := h.profileStore.UpdateProfile(userUUID, profile.ID, updates)
+	if err != nil {
+		log.Printf("[PH0103] Update AI settings failed: %v", err)
+		h.sendError(w, "Failed to update AI settings")
+		return
+	}
+
+	h.sendJSON(w, AISettingsResponse{
+		ConductRules:     updatedProfile.ConductRules,
+		ApproachGuidance: updatedProfile.ApproachGuidance,
+		AISettings:       updatedProfile.AISettings,
+	})
+}
+
 // getProfileByConnectionID is a helper that validates the user and fetches the profile by connection ID
 func (h *Handler) getProfileByConnectionID(r *http.Request) (uuid.UUID, *store.Profile, error) {
 	userID := r.Context().Value("user_id")
@@ -562,6 +646,29 @@ func (h *Handler) validateUpdate(req *UpdateProfileRequest) error {
 		}
 	}
 
+	return nil
+}
+
+// validateAISettings validates a PutAISettings request body. Nil pointers
+// (CallCap, DisengageThreshold) are valid and mean blank — a blank field is
+// never rejected (D-09, D-10, D-11); only over-length text and out-of-range
+// numeric values (when set) are rejected (T-1-04).
+func validateAISettings(req AISettingsResponse) *ValidationError {
+	if len(req.ConductRules) > 20000 {
+		return &ValidationError{Message: "Conduct rules must be 20000 characters or less"}
+	}
+	if len(req.ApproachGuidance) > 20000 {
+		return &ValidationError{Message: "Approach guidance must be 20000 characters or less"}
+	}
+	if len(req.AISettings.ModelName) > 200 {
+		return &ValidationError{Message: "Model name must be 200 characters or less"}
+	}
+	if req.AISettings.CallCap != nil && *req.AISettings.CallCap < 1 {
+		return &ValidationError{Message: "Call cap must be at least 1 when set"}
+	}
+	if req.AISettings.DisengageThreshold != nil && *req.AISettings.DisengageThreshold < 1 {
+		return &ValidationError{Message: "Disengage threshold must be at least 1 when set"}
+	}
 	return nil
 }
 
