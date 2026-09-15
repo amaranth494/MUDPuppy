@@ -18,7 +18,7 @@ Branch: `ai-player` (exists from `staging`, carries the ICM). Environment: Railw
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Profile Foundation and Policy Gate** - Profiles gain conduct rules, approach guidance, AI settings with conservative defaults, and a one-time Safety and Abuse policy acceptance that gates AI configuration and engagement (completed 2026-09-15)
-- [ ] **Phase 2: Autopilot Switch** - `#AUTO ON` / `#AUTO OFF`, a server-owned engaged state with a truthful indicator, the wheel-grab rule, and a waiting state across disconnects that resumes on return, all with no AI behind it
+- [x] **Phase 2: Autopilot Switch** - `#AUTO ON` / `#AUTO OFF`, a server-owned engaged state with a truthful indicator, the wheel-grab rule, and a waiting state across disconnects that resumes on return, all with no AI behind it (completed 2026-09-15)
 - [ ] **Phase 3: One AI Decision** - ICM engine wired server-side, Gemini connected from env config, one decision made and issued through the automation context, reasoning shown live and persisted
 - [ ] **Phase 4: Continuous Play** - Session goal, paced read/decide/act loop, call cap and error disengage with visible notices, clean reassessment on re-engage, all safety limits under test
 - [ ] **Phase 5: Coaching Channel** - Chat pane beside the terminal: guidance lands in the next decision, pause/resume, promote guidance into the profile
@@ -100,7 +100,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 02-07-PLAN.md — Phase 2 demonstrated on staging and filed as evidence: test report, canned report, staging log excerpt, screenshots, security-review agenda
+- [x] 02-07-PLAN.md — Phase 2 demonstrated on staging and filed as evidence: test report, canned report, staging log excerpt, screenshots, security-review agenda
 
 **UI hint**: yes
 
@@ -227,7 +227,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Profile Foundation and Policy Gate | 6/6 | Complete    | 2026-09-15 |
-| 2. Autopilot Switch | 6/7 | In Progress|  |
+| 2. Autopilot Switch | 7/7 | Complete   | 2026-09-15 |
 | 3. One AI Decision | 0/TBD | Not started | - |
 | 4. Continuous Play | 0/TBD | Not started | - |
 | 5. Coaching Channel | 0/TBD | Not started | - |
