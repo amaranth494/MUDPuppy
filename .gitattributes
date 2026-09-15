@@ -4,3 +4,9 @@
 # shebang interpretation and any embedded string comparisons that expect
 # a bare trailing newline.
 scripts/*.sh text eol=lf
+
+# scripts/verify-phase1.sh reads these fixture files with `head -n 1`/
+# `tail -n +2` and compares the first line verbatim against an HTTP status
+# string (e.g. "400"). A CRLF-converted fixture would leave a trailing \r
+# on that comparison and break every self-test check.
+scripts/fixtures/**/*.json text eol=lf

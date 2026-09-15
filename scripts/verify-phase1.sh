@@ -11,12 +11,25 @@
 # owner's evidence rule requires; no database query is used anywhere in this
 # script.
 #
-# Usage (run with no arguments to print this again):
+# Four invocations (run with no arguments to print full usage):
 #
-#   BASE_URL=https://mudpuppy-staging.up.railway.app \
-#   SESSION_COOKIE="session=abc123..." \
-#   CONNECTION_ID=11111111-2222-3333-4444-555555555555 \
-#   scripts/verify-phase1.sh evidence/03-canned-report.txt
+#   1. Live run, against any running server:
+#        BASE_URL=https://mudpuppy-staging.up.railway.app \
+#        SESSION_COOKIE="session=abc123..." \
+#        CONNECTION_ID=11111111-2222-3333-4444-555555555555 \
+#        scripts/verify-phase1.sh evidence/03-canned-report.txt
+#
+#   2. Self-test, no server, proves the assertion logic against
+#      scripts/fixtures/phase1/ (a correct-server fixture set):
+#        scripts/verify-phase1.sh --self-test /tmp/phase1-selftest.txt
+#
+#   3. Negative self-test, proves the harness can FAIL against
+#      scripts/fixtures/phase1-negative/ (one deliberately wrong response):
+#        scripts/verify-phase1.sh --self-test-negative /tmp/phase1-negative.txt
+#
+#   4. Skip the appended `go test ./... -v` run (live mode only):
+#        BASE_URL=... SESSION_COOKIE=... CONNECTION_ID=... \
+#        scripts/verify-phase1.sh --no-tests report.txt
 #
 # CONNECTION_ID must name a profile that has NEVER accepted the Safety and
 # Abuse policy -- steps 1-5 assert the unaccepted state before step 6
@@ -29,15 +42,20 @@ set -uo pipefail   # errexit is intentionally omitted: a failed check must not
 # ---------------------------------------------------------------------------
 # Argument parsing
 # ---------------------------------------------------------------------------
-REPORT="${1:-}"
+SELF_TEST=0
+SELF_TEST_NEGATIVE=0
+NO_TESTS=0
+REPORT=""
 
 usage() {
   cat >&2 <<'USAGE'
-Usage: scripts/verify-phase1.sh <report-file>
+Usage: scripts/verify-phase1.sh [--self-test|--self-test-negative] [--no-tests] <report-file>
 
 Drives the Phase 1 AI Player HTTP sequence and writes <report-file> with a
 PASS/FAIL line per ROADMAP criterion (C1..C4) and every request/response
-body underneath. Reads its inputs from the environment:
+body underneath.
+
+Live run reads its inputs from the environment:
 
   BASE_URL        server root, e.g. https://mudpuppy-staging.up.railway.app
   SESSION_COOKIE  full Cookie header value of an authenticated session
@@ -46,22 +64,64 @@ body underneath. Reads its inputs from the environment:
                   state before step 6 accepts it, so a profile that has
                   already accepted will show step 1/2/5 as FAIL.
 
-Example:
   BASE_URL=https://mudpuppy-staging.up.railway.app \
   SESSION_COOKIE="session=abc123..." \
   CONNECTION_ID=11111111-2222-3333-4444-555555555555 \
   scripts/verify-phase1.sh evidence/03-canned-report.txt
+
+--self-test          run against scripts/fixtures/phase1/ instead of a live
+                      server; no environment variables required.
+--self-test-negative  run against scripts/fixtures/phase1-negative/ (one
+                      deliberately wrong response) to prove the harness
+                      FAILs and exits non-zero on a wrong server response.
+--no-tests            skip the appended `go test ./... -v` run (live mode
+                      only; self-test modes always skip it).
 USAGE
 }
+
+for arg in "$@"; do
+  case "$arg" in
+    --self-test) SELF_TEST=1 ;;
+    --self-test-negative) SELF_TEST_NEGATIVE=1 ;;
+    --no-tests) NO_TESTS=1 ;;
+    --*)
+      echo "Unknown flag: $arg" >&2
+      usage
+      exit 2
+      ;;
+    *) REPORT="$arg" ;;
+  esac
+done
 
 if [ -z "$REPORT" ]; then
   usage
   exit 2
 fi
 
-if [ -z "${BASE_URL:-}" ] || [ -z "${SESSION_COOKIE:-}" ] || [ -z "${CONNECTION_ID:-}" ]; then
-  usage
+if [ "$SELF_TEST" -eq 1 ] && [ "$SELF_TEST_NEGATIVE" -eq 1 ]; then
+  echo "--self-test and --self-test-negative are mutually exclusive" >&2
   exit 2
+fi
+
+FIXTURE_DIR=""
+if [ "$SELF_TEST" -eq 1 ]; then
+  FIXTURE_DIR="scripts/fixtures/phase1"
+elif [ "$SELF_TEST_NEGATIVE" -eq 1 ]; then
+  FIXTURE_DIR="scripts/fixtures/phase1-negative"
+fi
+
+if [ -z "$FIXTURE_DIR" ]; then
+  if [ -z "${BASE_URL:-}" ] || [ -z "${SESSION_COOKIE:-}" ] || [ -z "${CONNECTION_ID:-}" ]; then
+    usage
+    exit 2
+  fi
+else
+  # Self-test modes need no live inputs; harmless placeholders keep the
+  # header block and _http's live-path arguments well-defined even though
+  # that path is never reached in these modes.
+  BASE_URL="${BASE_URL:-http://fixture.invalid}"
+  SESSION_COOKIE="${SESSION_COOKIE:-}"
+  CONNECTION_ID="${CONNECTION_ID:-00000000-0000-0000-0000-000000000000}"
 fi
 
 # ---------------------------------------------------------------------------
@@ -76,7 +136,13 @@ GIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 echo "================================================================"
 echo "Phase 1 canned-report harness -- scripts/verify-phase1.sh"
 echo "Run started (UTC): $RUN_TS"
-echo "Mode: live"
+if [ "$SELF_TEST" -eq 1 ]; then
+  echo "Mode: --self-test (fixtures: scripts/fixtures/phase1/, no server)"
+elif [ "$SELF_TEST_NEGATIVE" -eq 1 ]; then
+  echo "Mode: --self-test-negative (fixtures: scripts/fixtures/phase1-negative/, no server)"
+else
+  echo "Mode: live"
+fi
 echo "BASE_URL: $BASE_URL"
 echo "CONNECTION_ID: $CONNECTION_ID"
 echo "git rev-parse --short HEAD: $GIT_SHA"
@@ -114,11 +180,52 @@ _get_field() {
   fi
 }
 
+# Ordered list of fixture files, one per _http call in the sequence below
+# (15 calls across the 10 numbered steps -- several steps make more than
+# one call, e.g. step 3's PUT then GET). Used only when FIXTURE_DIR is set.
+FIXTURE_FILES=(
+  "01-policy-unaccepted.json"
+  "02-engage-gate-refused.json"
+  "03-ai-settings-put-blank.json"
+  "04-ai-settings-get-blank.json"
+  "05-ai-settings-put-overlength.json"
+  "06-ai-settings-put-forgery.json"
+  "07-policy-post-forgery.json"
+  "08-policy-accept-first.json"
+  "09-policy-accept-repeat.json"
+  "10-engage-gate-allowed.json"
+  "11-ai-settings-put-populated.json"
+  "12-ai-settings-get-populated.json"
+  "13-timers-get.json"
+  "14-timers-put.json"
+  "15-ai-settings-get-post-timers.json"
+)
+_HTTP_CALL_NO=0
+
 # _http <method> <path> [body]
 # Performs a live HTTP call against ${BASE_URL}/api/v1/<path> using the
-# supplied session cookie. Sets HTTP_STATUS and HTTP_BODY as globals.
+# supplied session cookie, OR -- when FIXTURE_DIR is set (--self-test /
+# --self-test-negative) -- reads the next fixture file in FIXTURE_FILES
+# instead of calling curl at all. Either way, sets HTTP_STATUS and HTTP_BODY
+# as globals; every line below this function (the assertions, the printing,
+# the counters, the summary and the exit code) is identical in both modes,
+# so the self-test exercises the real assertion logic, not a copy of it.
 _http() {
   local method="$1" path="$2" body="${3:-}"
+  _HTTP_CALL_NO=$((_HTTP_CALL_NO + 1))
+  if [ -n "$FIXTURE_DIR" ]; then
+    local fname="${FIXTURE_FILES[$((_HTTP_CALL_NO - 1))]:-}"
+    local fixture="$FIXTURE_DIR/$fname"
+    if [ -z "$fname" ] || [ ! -f "$fixture" ]; then
+      echo "FIXTURE MISSING for call #$_HTTP_CALL_NO ($method $path): ${fixture:-<none>}" >&2
+      HTTP_STATUS="000"
+      HTTP_BODY='{"error":"fixture missing"}'
+      return 0
+    fi
+    HTTP_STATUS=$(head -n 1 "$fixture")
+    HTTP_BODY=$(tail -n +2 "$fixture")
+    return 0
+  fi
   local resp
   if [ -n "$body" ]; then
     resp=$(curl -sS -X "$method" -b "$SESSION_COOKIE" -H 'Content-Type: application/json' \
@@ -237,7 +344,7 @@ THRESH_3=$(_get_field "$HTTP_BODY" ai_settings.disengage_threshold)
 _check_eq C1 "GET after blank PUT returns empty model_name" "$MODEL_3" ""
 _check_eq C1 "GET after blank PUT returns call_cap=null (not 0)" "$CALLCAP_3" "null"
 _check_eq C1 "GET after blank PUT returns disengage_threshold=null (not 0)" "$THRESH_3" "null"
-AI_SETTINGS_OBJ_3=$(printf '%s' "$HTTP_BODY" | grep -oE '"ai_settings"[[:space:]]*:[[:space:]]*\{[^}]*\}')
+AI_SETTINGS_OBJ_3=$(printf '%s' "$HTTP_BODY" | grep -oE '"ai_settings"[[:space:]]*:[[:space:]]*\{[^}]*\}' | sed -E 's/^"ai_settings"[[:space:]]*:[[:space:]]*//')
 KEY_COUNT_3=$(printf '%s' "$AI_SETTINGS_OBJ_3" | grep -oE '"[a-z_]+"[[:space:]]*:' | sort -u | wc -l | tr -d ' ')
 _check_eq C1 "ai_settings object has exactly the three keys model_name/call_cap/disengage_threshold" "$KEY_COUNT_3" "3"
 
@@ -368,7 +475,33 @@ for label in C1 C2 C3 C4; do
 done
 echo "TOTAL CHECKS: $TOTAL_COUNT  FAILURES: $FAIL_COUNT"
 
-if [ "$FAIL_COUNT" -eq 0 ]; then
+# ---------------------------------------------------------------------------
+# Go suite: folded into the same report so one file answers both halves of
+# the ROADMAP Phase Validation diagnostic line. Skipped in self-test modes
+# (the fixtures are the subject of that run, not the Go suite) and when
+# --no-tests is passed. Output already flows into $REPORT via the `exec >
+# >(tee "$REPORT")` redirection set up above, so no separate `tee -a` is
+# needed here -- that would duplicate every line into the report.
+# ---------------------------------------------------------------------------
+GO_TEST_EXIT=0
+echo
+echo "================================================================"
+if [ "$SELF_TEST" -eq 1 ]; then
+  echo "GO TEST: skipped (--self-test mode -- the fixtures are the subject of this run, not the Go suite)"
+elif [ "$SELF_TEST_NEGATIVE" -eq 1 ]; then
+  echo "GO TEST: skipped (--self-test-negative mode -- the fixtures are the subject of this run, not the Go suite)"
+elif [ "$NO_TESTS" -eq 1 ]; then
+  echo "GO TEST: skipped (--no-tests)"
+else
+  echo "GO TEST: go test ./... -v"
+  echo "================================================================"
+  ( cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)" && go test ./... -v )
+  GO_TEST_EXIT=$?
+  echo "GO TEST EXIT: $GO_TEST_EXIT"
+fi
+echo "================================================================"
+
+if [ "$FAIL_COUNT" -eq 0 ] && [ "$GO_TEST_EXIT" -eq 0 ]; then
   exit 0
 else
   exit 1

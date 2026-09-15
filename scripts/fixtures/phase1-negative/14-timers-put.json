@@ -1,0 +1,2 @@
+200
+{"items":[{"id":"t1","name":"Regen Check","duration":60000,"repeat":true,"commands":"score","enabled":true}]}
