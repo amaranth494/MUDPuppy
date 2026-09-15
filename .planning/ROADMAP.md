@@ -18,7 +18,7 @@ Branch: `ai-player` (exists from `staging`, carries the ICM). Environment: Railw
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Profile Foundation and Policy Gate** - Profiles gain conduct rules, approach guidance, AI settings with conservative defaults, and a one-time Safety and Abuse policy acceptance that gates AI configuration and engagement (completed 2026-09-15)
-- [ ] **Phase 2: Autopilot Switch** - `#AUTO ON` / `#AUTO OFF`, a server-owned engaged state with a truthful indicator, the wheel-grab rule, and disconnect-lands-disengaged, all with no AI behind it
+- [ ] **Phase 2: Autopilot Switch** - `#AUTO ON` / `#AUTO OFF`, a server-owned engaged state with a truthful indicator, the wheel-grab rule, and a waiting state across disconnects that resumes on return, all with no AI behind it
 - [ ] **Phase 3: One AI Decision** - ICM engine wired server-side, Gemini connected from env config, one decision made and issued through the automation context, reasoning shown live and persisted
 - [ ] **Phase 4: Continuous Play** - Session goal, paced read/decide/act loop, call cap and error disengage with visible notices, clean reassessment on re-engage, all safety limits under test
 - [ ] **Phase 5: Coaching Channel** - Chat pane beside the terminal: guidance lands in the next decision, pause/resume, promote guidance into the profile
@@ -68,22 +68,22 @@ Implementation notes for planning: new golang-migrate migration starting at `010
 
 ### Phase 2: Autopilot Switch
 
-**Goal**: The owner can engage and disengage autopilot from the terminal and always see the true state; taking the wheel is instant and lossless; a disconnect always lands on disengaged. No AI intelligence exists yet.
+**Goal**: The owner can engage and disengage autopilot from the terminal and always see the true state; taking the wheel is instant and lossless; a disconnect never turns autopilot off and never issues commands, only `#AUTO OFF` turns it off. No AI intelligence exists yet.
 **Depends on**: Phase 1
 **Requirements**: REQ-autopilot-directives, REQ-wheel-grab, REQ-no-auto-reconnect, REQ-doc-hand-play-and-gate
 **Success Criteria** (what must be TRUE):
 
   1. `#AUTO ON` engages only when the profile passes the Phase 1 gate (otherwise refused with the gate's message); `#AUTO OFF` disengages; the play-screen indicator always matches the true server-held state, including after a page refresh.
   2. Any game command typed by the human while engaged disengages autopilot before the command is sent, with no lost keystrokes; commands fired by browser aliases, triggers, or timers do not trip the wheel-grab.
-  3. A disconnect while engaged lands the AI on disengaged; the AI never initiates a reconnect; if the connection comes back by any means the AI stays disengaged until the owner re-engages it.
+  3. A disconnect while engaged moves autopilot to a waiting state that issues nothing; the AI never initiates a reconnect; when the connection comes back by any means autopilot resumes to ON by itself; `#AUTO OFF` while waiting lands on OFF and it stays OFF after the connection returns. (Owner amendment 2026-09-15.)
   4. The owner can create a game profile, accept the policy on it, and hand-play the character normally with the AI disengaged; nothing about ordinary play changes.
 
 **Plans**: TBD
 **UI hint**: yes
 
-**Phase Validation** (how the success criteria are demonstrated): Player-observable on staging against a live MUD: `#AUTO ON` is refused before acceptance and engages after it; the indicator matches the server state after a page refresh; typing a command while engaged shows the disengage notice and the command's game response; a trigger-fired command leaves autopilot engaged; dropping the connection lands the indicator on disengaged and it stays there after the connection returns. Diagnostic: `go test` covers the engaged-state machine and the human-versus-automation source flag.
+**Phase Validation** (how the success criteria are demonstrated): Player-observable on staging against a live MUD: `#AUTO ON` is refused before acceptance and engages after it; the indicator matches the server state after a page refresh; typing a command while engaged shows the disengage notice and the command's game response; a trigger-fired command leaves autopilot engaged; dropping the connection shows the indicator as waiting and no command is sent while disconnected; reconnecting by hand shows it resuming to ON without typing `#AUTO ON`; `#AUTO OFF` while waiting lands on OFF and it stays OFF after reconnecting. Diagnostic: `go test` covers the engaged-state machine and the human-versus-automation source flag.
 
-Implementation notes for planning: `#AUTO` is parsed in the browser directive grammar (`frontend/src/services/automation.ts`) and calls new server endpoints; engaged/disengaged state is owned server-side (per user session) and broadcast to the browser over the existing websocket (`status` or `sync` message, or a new AI message type) so refresh re-syncs; websocket input messages gain a source flag (human vs automation) so the server can apply the wheel-grab only to human-typed input; the session manager's disconnect path forces disengage.
+Implementation notes for planning: `#AUTO` is parsed in the browser directive grammar (`frontend/src/services/automation.ts`) and calls new server endpoints; engaged/disengaged state is owned server-side (per user session) and broadcast to the browser over the existing websocket (`status` or `sync` message, or a new AI message type) so refresh re-syncs; websocket input messages gain a source flag (human vs automation) so the server can apply the wheel-grab only to human-typed input; the session manager's disconnect path moves an engaged autopilot to waiting and the connect path resumes it; a server restart loses in-memory state and lands on OFF.
 
 ### Phase 3: One AI Decision
 
@@ -114,12 +114,12 @@ Implementation notes for planning: a server-side tap on the MUD output stream (`
   1. The owner sets a session goal, and the loop runs read, decide, act continuously against a live game toward that goal, pacing itself to the game's turn rhythm rather than flooding it, with every decision visible with its reasoning as it happens.
   2. The session call cap halts the loop with a visible notice when reached; repeated errors or malformed model output disengage with a visible notice.
   3. Typing any game command instantly disengages autopilot and the command goes through; re-engagement after manual driving demonstrably reassesses the situation rather than resuming a stale plan.
-  4. All mechanical safety limits hold under automated test: call cap when one is set, no AI-initiated reconnect, disengage on repeated errors or disconnect, and safe behaviour with blank settings (no cap, informative failure, no crash, regular play unaffected).
+  4. All mechanical safety limits hold under automated test: call cap when one is set, no AI-initiated reconnect, disengage on repeated errors, no commands issued while disconnected (autopilot waits and resumes only once the connection returns), and safe behaviour with blank settings (no cap, informative failure, no crash, regular play unaffected).
 
 **Plans**: TBD
 **UI hint**: yes
 
-**Phase Validation** (how the success criteria are demonstrated): Diagnostic: `go test ./internal/...` passes a suite that exercises all four mechanical limits (call cap halt when a cap is set, error disengage with an informative notice, disconnect disengage, and blank-settings behaviour: no cap, no crash). Player-observable on staging: set a goal and watch the loop issue decisions paced to game output; set a small call cap and see the loop halt with the notice; take the wheel, re-engage, and confirm from the logged reasoning that the first new decision describes the current situation, not the previous plan.
+**Phase Validation** (how the success criteria are demonstrated): Diagnostic: `go test ./internal/...` passes a suite that exercises all four mechanical limits (call cap halt when a cap is set, error disengage with an informative notice, no commands while disconnected with resume on return, and blank-settings behaviour: no cap, no crash). Player-observable on staging: set a goal and watch the loop issue decisions paced to game output; set a small call cap and see the loop halt with the notice; take the wheel, re-engage, and confirm from the logged reasoning that the first new decision describes the current situation, not the previous plan.
 
 Implementation notes for planning: the loop is a server-side goroutine per engaged session, cancellable by disengage; pacing waits for new game output or a floor interval rather than issuing on a fixed clock; the call counter and error counter are per AI session and compared against the resolved (default or profile) settings; re-engage constructs a fresh prompt from current game text and does not carry the previous loop's plan; Go tests cover the four limits (this repo has near-zero test coverage, so the test scaffolding is created here).
 

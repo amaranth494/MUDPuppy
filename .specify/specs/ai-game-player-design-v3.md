@@ -18,7 +18,7 @@ The project is complete when all of the following are true, demonstrated on Alte
 3. Typing any game command instantly disengages autopilot and the command goes through. Re-engaging picks up cleanly from the current game situation.
 4. The owner can coach the AI from a chat pane while it plays, see the guidance take effect on the next decision, and promote a piece of guidance into the profile permanently.
 5. Every session ends with a recorded debrief and updated progression tally, and across at least three consecutive goal sessions the tally shows improvement while required coaching declines.
-6. All mechanical safety limits hold under test: call cap when one is set, no AI-initiated reconnect, disengage on repeated errors or disconnect, and safe behaviour when profile settings are blank (no cap, informative failure, no crash, regular play unaffected).
+6. All mechanical safety limits hold under test: call cap when one is set, no AI-initiated reconnect, disengage on repeated errors, no commands issued while disconnected (autopilot waits and resumes only once the connection returns), and safe behaviour when profile settings are blank (no cap, informative failure, no crash, regular play unaffected).
 
 ## Deliverables
 
@@ -38,7 +38,7 @@ The engage and disengage mechanics, independent of any AI intelligence. `#AUTO O
 Accepted when:
 - `#AUTO ON` engages only when the profile passes the D1 gate; the indicator always matches the true state.
 - Any game command typed while engaged disengages before the command is sent, with no lost keystrokes.
-- Disconnect while engaged lands the AI on disengaged. The AI never initiates a reconnect; whether the connection itself reconnects is decided solely by the connection profile's reconnect toggle, and if the connection does come back the AI stays disengaged until the owner re-engages it.
+- A disconnect while engaged does not turn autopilot off: it enters a waiting state, issues nothing while disconnected, and resumes on its own when the connection returns. The AI never initiates a reconnect; whether and how the connection itself reconnects is decided solely by the connection profile (today, the owner reconnecting by hand). Only `#AUTO OFF` moves autopilot to off, including while waiting. (Owner decision 2026-09-15; previously a disconnect landed on disengaged and the owner had to re-engage.)
 
 ### D3: One AI decision
 

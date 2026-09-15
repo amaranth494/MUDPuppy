@@ -18,7 +18,7 @@ Delivery ordering (from the source): D1 -> D2 -> D3 -> D4 strictly sequential; D
 
 - [ ] **REQ-autopilot-directives**: `#AUTO ON` and `#AUTO OFF` in the existing `#` directive grammar, plus a visible status indicator in the play screen; engage/disengage mechanics independent of any AI intelligence. Acceptance: "`#AUTO ON` engages only when the profile passes the D1 gate; the indicator always matches the true state."
 - [ ] **REQ-wheel-grab**: Acceptance: "Any game command typed while engaged disengages before the command is sent, with no lost keystrokes."
-- [ ] **REQ-no-auto-reconnect**: Acceptance: "Disconnect while engaged lands the AI on disengaged. The AI never initiates a reconnect; whether the connection itself reconnects is decided solely by the connection profile's reconnect toggle, and if the connection does come back the AI stays disengaged until the owner re-engages it."
+- [ ] **REQ-no-auto-reconnect**: Acceptance (design D2 amended by the owner 2026-09-15): "A disconnect while engaged does not turn autopilot off: it enters a waiting state, issues nothing while disconnected, and resumes on its own when the connection returns. The AI never initiates a reconnect; whether and how the connection itself reconnects is decided solely by the connection profile (today, the owner reconnecting by hand). Only `#AUTO OFF` moves autopilot to off, including while waiting."
 
 ### D3: One AI decision
 
@@ -62,7 +62,7 @@ Delivery ordering (from the source): D1 -> D2 -> D3 -> D4 strictly sequential; D
 - [ ] **REQ-doc-wheel-grab-and-reengage** (item 3): "Typing any game command instantly disengages autopilot and the command goes through. Re-engaging picks up cleanly from the current game situation." Maps to REQ-wheel-grab, REQ-reengage-reassess.
 - [ ] **REQ-doc-coaching** (item 4): "The owner can coach the AI from a chat pane while it plays, see the guidance take effect on the next decision, and promote a piece of guidance into the profile permanently." Maps to REQ-coaching-chat, REQ-promote-guidance.
 - [ ] **REQ-improvement-trend** (item 5): "Every session ends with a recorded debrief and updated progression tally, and across at least three consecutive goal sessions the tally shows improvement while required coaching declines." Maps to REQ-session-debrief, REQ-progression-tally; adds the three-session trend as its own measurable criterion.
-- [ ] **REQ-safety-limits-hold** (item 6): "All mechanical safety limits hold under test: call cap when one is set, no AI-initiated reconnect, disengage on repeated errors or disconnect, and safe behaviour when profile settings are blank (no cap, informative failure, no crash, regular play unaffected)." Maps to REQ-call-cap-and-error-disengage, REQ-no-auto-reconnect, REQ-profile-ai-fields.
+- [ ] **REQ-safety-limits-hold** (item 6, amended 2026-09-15): "All mechanical safety limits hold under test: call cap when one is set, no AI-initiated reconnect, disengage on repeated errors, no commands issued while disconnected (autopilot waits and resumes only once the connection returns), and safe behaviour when profile settings are blank (no cap, informative failure, no crash, regular play unaffected)." Maps to REQ-call-cap-and-error-disengage, REQ-no-auto-reconnect, REQ-profile-ai-fields.
 
 ## v2 Requirements
 
@@ -130,8 +130,8 @@ Mapping notes:
 
 - Definition of complete items map to the earliest phase that can fully satisfy them; Phase 8 re-verifies all six on Alter Aeon through REQ-acceptance-definition-holds.
 - REQ-improvement-trend sits in Phase 8 because its three consecutive goal sessions are the D8 goal sessions. Phase 6 must record the amount of coaching per session in the debrief so the trend is measurable.
-- REQ-safety-limits-hold sits in Phase 4 because that is the first phase where all four limits (call cap, no AI reconnect, disengage on errors or disconnect, conservative defaults) exist and can be put under automated test.
+- REQ-safety-limits-hold sits in Phase 4 because that is the first phase where all four limits (call cap, no AI reconnect, disengage on errors and no commands while disconnected, conservative defaults) exist and can be put under automated test.
 
 ---
 *Requirements defined: 2026-09-14*
-*Last updated: 2026-09-14 after initial roadmap creation*
+*Last updated: 2026-09-15 after the owner amended D2 disconnect behaviour (autopilot waits across a disconnect and resumes on return)*
