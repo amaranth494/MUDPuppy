@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/amaranth494/MudPuppy/internal/policy"
 	"github.com/amaranth494/MudPuppy/internal/store"
 	"github.com/google/uuid"
 )
@@ -79,6 +80,21 @@ type AISettingsResponse struct {
 	ConductRules     string           `json:"conduct_rules"`
 	ApproachGuidance string           `json:"approach_guidance"`
 	AISettings       store.AISettings `json:"ai_settings"`
+}
+
+// PolicyResponse is the response shape for both GetPolicy and AcceptPolicy.
+type PolicyResponse struct {
+	Text            string  `json:"text"`
+	Version         string  `json:"version"`
+	Accepted        bool    `json:"accepted"`
+	AcceptedAt      *string `json:"accepted_at"`
+	AcceptedVersion *string `json:"accepted_version"`
+}
+
+// EngageGateResponse is the response shape for GetEngageGate.
+type EngageGateResponse struct {
+	Allowed bool   `json:"allowed"`
+	Message string `json:"message,omitempty"`
 }
 
 // Variable name validation regex
@@ -561,11 +577,118 @@ func (h *Handler) PutAISettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	connectionID, _ := h.getConnectionIDFromPath(r)
+	saved := updatedProfile
+	log.Printf("[AI-PLAYER] ai settings saved connection_id=%s model_name_blank=%t call_cap_blank=%t threshold_blank=%t",
+		connectionID, saved.AISettings.ModelName == "", saved.AISettings.CallCap == nil, saved.AISettings.DisengageThreshold == nil)
+
 	h.sendJSON(w, AISettingsResponse{
 		ConductRules:     updatedProfile.ConductRules,
 		ApproachGuidance: updatedProfile.ApproachGuidance,
 		AISettings:       updatedProfile.AISettings,
 	})
+}
+
+// GetPolicy handles GET /api/v1/profiles/:connection_id/policy
+func (h *Handler) GetPolicy(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	_, profile, err := h.getProfileByConnectionID(r)
+	if err != nil {
+		h.sendError(w, err.Error())
+		return
+	}
+
+	h.sendJSON(w, PolicyResponse{
+		Text:            policy.Text(),
+		Version:         policy.Version(),
+		Accepted:        profile.PolicyAcceptedAt != nil,
+		AcceptedAt:      profile.PolicyAcceptedAt,
+		AcceptedVersion: profile.PolicyVersionAccepted,
+	})
+}
+
+// AcceptPolicy handles POST /api/v1/profiles/:connection_id/policy/accept.
+// The version is taken only from policy.Version() (never the request body,
+// which is not decoded at all), so there is nothing for a client to forge
+// (D-04, T-1-02). A repeat POST is a harmless no-op that echoes the original
+// timestamp and version (D-06).
+func (h *Handler) AcceptPolicy(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userUUID, profile, err := h.getProfileByConnectionID(r)
+	if err != nil {
+		h.sendError(w, err.Error())
+		return
+	}
+
+	wasAccepted := profile.PolicyAcceptedAt != nil
+
+	updatedProfile, err := h.profileStore.AcceptPolicy(userUUID, profile.ID, policy.Version())
+	if err != nil {
+		log.Printf("[PH0103] Accept policy failed: %v", err)
+		h.sendError(w, "Failed to record acceptance")
+		return
+	}
+
+	connectionID, _ := h.getConnectionIDFromPath(r)
+	userIDVal := r.Context().Value("user_id")
+	userIDStr, _ := userIDVal.(string)
+
+	var version, acceptedAt string
+	if updatedProfile.PolicyVersionAccepted != nil {
+		version = *updatedProfile.PolicyVersionAccepted
+	}
+	if updatedProfile.PolicyAcceptedAt != nil {
+		acceptedAt = *updatedProfile.PolicyAcceptedAt
+	}
+
+	if wasAccepted {
+		log.Printf("[AI-PLAYER] policy already accepted connection_id=%s version=%s accepted_at=%s", connectionID, version, acceptedAt)
+	} else {
+		log.Printf("[AI-PLAYER] policy accepted connection_id=%s user_id=%s version=%s accepted_at=%s", connectionID, userIDStr, version, acceptedAt)
+	}
+
+	h.sendJSON(w, PolicyResponse{
+		Text:            policy.Text(),
+		Version:         policy.Version(),
+		Accepted:        updatedProfile.PolicyAcceptedAt != nil,
+		AcceptedAt:      updatedProfile.PolicyAcceptedAt,
+		AcceptedVersion: updatedProfile.PolicyVersionAccepted,
+	})
+}
+
+// GetEngageGate handles GET /api/v1/profiles/:connection_id/engage-gate.
+// It reads acceptance only from the server-fetched row and accepts no
+// client input beyond the path (T-1-05).
+func (h *Handler) GetEngageGate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	_, profile, err := h.getProfileByConnectionID(r)
+	if err != nil {
+		h.sendError(w, err.Error())
+		return
+	}
+
+	allowed := store.EngageGateAllowed(profile.PolicyVersionAccepted, profile.PolicyAcceptedAt)
+
+	connectionID, _ := h.getConnectionIDFromPath(r)
+	log.Printf("[AI-PLAYER] engage gate connection_id=%s allowed=%t", connectionID, allowed)
+
+	resp := EngageGateResponse{Allowed: allowed}
+	if !allowed {
+		resp.Message = store.EngageGateRefusalMessage
+	}
+	h.sendJSON(w, resp)
 }
 
 // getProfileByConnectionID is a helper that validates the user and fetches the profile by connection ID
