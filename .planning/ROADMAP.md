@@ -33,11 +33,13 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Requirements**: REQ-profile-ai-fields, REQ-policy-gate
 **Success Criteria** (what must be TRUE):
   1. A profile stores and returns conduct rules, approach guidance, and AI settings (model names, call cap per session, disengage thresholds); blank mechanical settings resolve to conservative engine defaults (capped calls, default disengage thresholds). There is no reconnect field in AI settings.
-  2. The owner can read and edit conduct rules, approach guidance, and AI settings for a profile from the browser, following the existing profile sub-resource pattern.
+  2. The owner can read and edit conduct rules, approach guidance, and AI settings for a profile from the browser, and the values survive a page reload and a new session.
   3. Attempting to engage the AI on a profile without a recorded acceptance of the current policy version is refused with a clear message, and the policy text is presented for acceptance.
   4. Acceptance is recorded per profile with timestamp and policy version; changing the policy version (currently 1.0) requires re-acceptance on every profile.
 **Plans**: TBD
 **UI hint**: yes
+
+**Phase Validation** (how the success criteria are demonstrated): Diagnostic: `go test` covers default resolution for blank AI settings and the engage-gate decision (no acceptance, stale version, current version); a database inspection of a migrated profile shows the new fields and an acceptance record carrying policy version 1.0 and a timestamp. Player-observable: edit the three fields in the profile editor, reload, values persist; call the engage gate on an un-accepted profile and receive the refusal message plus the policy text; accept, call again, it passes; bump the policy version and it refuses again.
 
 Implementation notes for planning: new golang-migrate migration starting at `010` (profiles gain conduct_rules, approach_guidance, ai_settings JSONB, policy acceptance columns or a per-profile acceptance table); new GET/PUT sub-resource(s) under `/api/v1/profiles/{connection_id}/...` in `internal/profiles`; a server-side engage-gate check that Phase 2's `#AUTO ON` will call; conservative defaults live in Go, not in the frontend. Policy text is served from the server so the version the owner accepts is the version the gate checks.
 
@@ -53,6 +55,8 @@ Implementation notes for planning: new golang-migrate migration starting at `010
 **Plans**: TBD
 **UI hint**: yes
 
+**Phase Validation** (how the success criteria are demonstrated): Player-observable on staging against a live MUD: `#AUTO ON` is refused before acceptance and engages after it; the indicator matches the server state after a page refresh; typing a command while engaged shows the disengage notice and the command's game response; a trigger-fired command leaves autopilot engaged; dropping the connection lands the indicator on disengaged and it stays there after the connection returns. Diagnostic: `go test` covers the engaged-state machine and the human-versus-automation source flag.
+
 Implementation notes for planning: `#AUTO` is parsed in the browser directive grammar (`frontend/src/services/automation.ts`) and calls new server endpoints; engaged/disengaged state is owned server-side (per user session) and broadcast to the browser over the existing websocket (`status` or `sync` message, or a new AI message type) so refresh re-syncs; websocket input messages gain a source flag (human vs automation) so the server can apply the wheel-grab only to human-typed input; the session manager's disconnect path forces disengage.
 
 ### Phase 3: One AI Decision
@@ -63,9 +67,11 @@ Implementation notes for planning: `#AUTO` is parsed in the browser directive gr
   1. With autopilot engaged, the driver reads the current game text, sends one request to Gemini with the profile's conduct rules and approach guidance included, and issues the returned command through the ICM automation context so it passes the ICM dispatcher and its safety limits.
   2. The decision and the model's reasoning appear in the play screen as they happen and are stored in the session log, where they survive a page refresh.
   3. Model names and API key come from environment configuration on staging (`internal/config/config.go`); nothing is hard-coded, and the server fails clearly if they are absent when engagement is attempted.
-  4. The ICM engine is wired into the server: `/api/v1/icm` routes are registered and the automation execution context runs server-side rather than the frontend adapter's silent browser fallback.
+  4. A command submitted on the server in the automation execution context is dispatched through the ICM engine's dispatcher and safety checker, demonstrable by a diagnostic test, and the frontend adapter's ICM calls no longer fall back silently to browser-side logic.
 **Plans**: TBD
 **UI hint**: yes
+
+**Phase Validation** (how the success criteria are demonstrated): Player-observable on staging: with autopilot engaged, one decision and its reasoning appear in the play screen and the game responds to the issued command. Diagnostic: a decisions table row exists for that decision and is returned after a page refresh; a `go test` proves the command passed through the ICM dispatcher in the automation context; with the Gemini environment variables unset, engagement fails with a clear error and no command is sent.
 
 Implementation notes for planning: a server-side tap on the MUD output stream (`internal/session`) giving the driver a bounded buffer of recent game text; new tables for AI sessions and decisions (migration `011`+); a Gemini client package; a new websocket message type carrying decisions and reasoning to the play screen; the driver package is Go under `internal/` and calls the ICM dispatcher with `ContextAutomation`.
 
@@ -81,6 +87,8 @@ Implementation notes for planning: a server-side tap on the MUD output stream (`
 **Plans**: TBD
 **UI hint**: yes
 
+**Phase Validation** (how the success criteria are demonstrated): Diagnostic: `go test ./internal/...` passes a suite that exercises all four mechanical limits (call cap halt, error-count disengage, disconnect disengage, conservative defaults). Player-observable on staging: set a goal and watch the loop issue decisions paced to game output; set a small call cap and see the loop halt with the notice; take the wheel, re-engage, and confirm from the logged reasoning that the first new decision describes the current situation, not the previous plan.
+
 Implementation notes for planning: the loop is a server-side goroutine per engaged session, cancellable by disengage; pacing waits for new game output or a floor interval rather than issuing on a fixed clock; the call counter and error counter are per AI session and compared against the resolved (default or profile) settings; re-engage constructs a fresh prompt from current game text and does not carry the previous loop's plan; Go tests cover the four limits (this repo has near-zero test coverage, so the test scaffolding is created here).
 
 ### Phase 5: Coaching Channel
@@ -94,6 +102,8 @@ Implementation notes for planning: the loop is a server-side goroutine per engag
   4. The chat pane sits beside the terminal in the play screen and shows the AI's decisions, reasoning, notices, and the owner's messages in one stream.
 **Plans**: TBD
 **UI hint**: yes
+
+**Phase Validation** (how the success criteria are demonstrated): Player-observable on staging: send a coaching message and read it reflected in the next decision's logged reasoning; pause from chat and confirm decisions keep logging reads with no commands sent; promote a message and see it appear under the profile's conduct rules or approach guidance, still present in a fresh session. Diagnostic: chat messages are stored against the AI session and can be queried alongside the decisions they influenced.
 
 Implementation notes for planning: chat messages travel over the existing websocket (new message type) and are persisted with the AI session so they are auditable against decisions; the prompt assembler includes recent coaching messages; pause is a loop state distinct from disengaged (still reading, not acting); promotion calls the Phase 1 profile sub-resource.
 
@@ -109,6 +119,8 @@ Implementation notes for planning: chat messages travel over the existing websoc
 **Plans**: TBD
 **UI hint**: yes
 
+**Phase Validation** (how the success criteria are demonstrated): Diagnostic: progression sample rows with timestamps accumulate during play; a debrief row exists after session end with goal, outcome, tally movement, lessons, problems, and coaching count; the next session's first prompt, as logged, contains the learned notes; a manual-driving stretch is stored with the human source flag. Player-observable: the debrief is shown in the chat pane at session end.
+
 Implementation notes for planning: new tables for progression samples (profile, character, timestamp, parsed numbers) and debriefs; learned notes as a profile field; status-command list and sampling interval are AI settings on the profile; parsing of status output is model-driven or profile-configured, never engine game knowledge; manual-driving capture reuses the session log with a source flag from Phase 2.
 
 ### Phase 7: Study Loader
@@ -120,6 +132,8 @@ Implementation notes for planning: new tables for progression samples (profile, 
   2. Lessons the owner confirms are written into the learned notes; nothing is written without confirmation.
 **Plans**: TBD
 **UI hint**: yes
+
+**Phase Validation** (how the success criteria are demonstrated): Player-observable on staging: upload a help file against a profile and read the AI's summary in the chat pane; learned notes are unchanged until the owner confirms; after confirmation only the confirmed lessons appear in the notes. Diagnostic: proposed lessons are held server-side and are absent from the profile until confirmed.
 
 Implementation notes for planning: upload endpoint under the profile; the summarization call counts toward the owner's cost but is not a play session, so it does not touch the play-session call cap; proposed lessons are held server-side pending an explicit confirm action from the chat pane.
 
@@ -133,6 +147,8 @@ Implementation notes for planning: upload endpoint under the profile; the summar
   3. Every session ends with a recorded debrief and updated progression tally, and across at least three consecutive goal sessions the tally shows improvement while required coaching declines.
   4. The Definition of complete, items 1 through 6, all hold during these sessions, and the evidence (session logs, debriefs, tally samples, test results for item 6) is on record.
 **Plans**: TBD
+
+**Phase Validation** (how the success criteria are demonstrated): Evidence on record from staging: reconnaissance session notes and configuration for Alter Aeon's status commands; session logs, debriefs, and tally samples for at least three consecutive goal sessions showing the tally improving while coaching declines; the Phase 4 safety-limit test output for item 6; the owner's sign-off that Definition of complete items 1 through 6 held during the sessions.
 
 Implementation notes for planning: this phase is mostly operation and evidence gathering, not new code; defects found feed decimal insertion phases; Alter Aeon's automation rules must be confirmed by the owner before engagement (policy section 1) and any conditions recorded in the profile's conduct rules.
 
