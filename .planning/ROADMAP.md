@@ -82,7 +82,7 @@ Implementation notes for planning: new golang-migrate migration starting at `010
 Plans:
 **Wave 1**
 
-- [ ] 02-01-PLAN.md — Autopilot holds a position on the server and a dropped connection parks it instead of flipping it off
+- [x] 02-01-PLAN.md — Autopilot holds a position on the server and a dropped connection parks it instead of flipping it off
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -227,7 +227,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Profile Foundation and Policy Gate | 6/6 | Complete    | 2026-09-15 |
-| 2. Autopilot Switch | 0/7 | Planned     | - |
+| 2. Autopilot Switch | 1/7 | In Progress|  |
 | 3. One AI Decision | 0/TBD | Not started | - |
 | 4. Continuous Play | 0/TBD | Not started | - |
 | 5. Coaching Channel | 0/TBD | Not started | - |
