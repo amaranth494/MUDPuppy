@@ -1,9 +1,9 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { ConnectionState, User, Profile, Timer, TimersResponse, Variable } from '../types';
-import { 
-  checkAuth, 
-  getSessionStatus, 
-  connectToMud, 
+import {
+  checkAuth,
+  getSessionStatus,
+  connectToMud,
   disconnectFromMud,
   WebSocketManager,
   getProfileByConnection,
@@ -14,7 +14,8 @@ import {
   putTimers,
   putEnvironment,
   getAutomationCredentials,
-  getConnection
+  getConnection,
+  setAutopilot
 } from '../services/api';
 import { mapBackendError } from '../types';
 import { normalizeKeybindings } from '../services/keybindings';
@@ -26,6 +27,9 @@ import { logToConsole } from '../services/log';
 interface SessionContextType {
   user: User | null;
   connectionState: ConnectionState;
+  // 02-06-01: server-held autopilot switch position, populated by refreshStatus's poll
+  // and by the live websocket push; never derived locally
+  autopilotState: 'on' | 'waiting' | 'off';
   error: string | null;
   isLoading: boolean;
   host?: string;
@@ -75,6 +79,9 @@ interface SessionProviderProps {
 export function SessionProvider({ children }: SessionProviderProps): JSX.Element {
   const [user, setUser] = useState<User | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
+  // 02-06-01: defaults to off, the correct position for a fresh page load or a server
+  // that has restarted (D-06)
+  const [autopilotState, setAutopilotState] = useState<'on' | 'waiting' | 'off'>('off');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [host, setHost] = useState<string>('');
@@ -224,6 +231,9 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       setConnectionState(status.state);
       setHost(status.host || '');
       setPort(status.port || 23);
+      // 02-06-01: the badge's whole refresh-correctness mechanism (D-10) — SessionBadge.tsx
+      // already calls refreshStatus on mount, on visibility change and on a 15s interval
+      setAutopilotState(status.autopilot_state || 'off');
       if (status.last_error) {
         setError(mapBackendError(status.last_error));
       } else {
@@ -233,6 +243,39 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       console.error('Failed to get session status:', err);
     }
   }, []);
+
+  // 02-06-01: sub-15-second responsiveness layer for the badge — not the correctness
+  // mechanism (that's refreshStatus above). If a push is missed, the poll still corrects it.
+  useEffect(() => {
+    if (!wsManager) return;
+    const handleAutopilotPush = (state: string) => {
+      setAutopilotState(state === 'on' || state === 'waiting' || state === 'off' ? state : 'off');
+    };
+    wsManager.onAutopilot(handleAutopilotPush);
+    return () => {
+      wsManager.offAutopilot(handleAutopilotPush);
+    };
+  }, [wsManager]);
+
+  // 02-06-01: wire the #AUTO directive's server call. This is the only place holding both
+  // automationEngine and currentConnectionId. When currentConnectionId is null (e.g. quick
+  // connect with no saved profile), clear the control so #AUTO prints its no-connected-game
+  // line without a server round trip (evaluator.ts's case 'AUTO' already handles that).
+  useEffect(() => {
+    if (!automationEngine) return;
+    if (!currentConnectionId) {
+      automationEngine.setAutopilotControl(undefined);
+      return;
+    }
+    const connectionIdForControl = currentConnectionId;
+    automationEngine.setAutopilotControl({
+      setState: async (action: 'on' | 'off' | 'status') => {
+        const response = await setAutopilot(connectionIdForControl, action);
+        setAutopilotState(response.state === 'on' || response.state === 'waiting' || response.state === 'off' ? response.state : 'off');
+        return response;
+      },
+    });
+  }, [automationEngine, currentConnectionId]);
 
   const connect = useCallback(async (mudHost: string, mudPort: number, connectionId?: string) => {
     logToConsole('[SessionContext.tsx:connect] Automation: connect() called - mudHost: ' + mudHost + ' mudPort: ' + mudPort + ' connectionId: ' + connectionId);
@@ -597,6 +640,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       value={{
         user,
         connectionState,
+        autopilotState,
         error,
         isLoading,
         host,

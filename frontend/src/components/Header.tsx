@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
 import { logout } from '../services/api';
 import SessionBadge from './SessionBadge';
+import AutopilotBadge from './AutopilotBadge';
 
 export default function Header() {
   const { user } = useSession();
@@ -56,6 +57,7 @@ export default function Header() {
       <div className="header-right">
         {/* Session Badge - Persistent status indicator derived from API */}
         <SessionBadge />
+        <AutopilotBadge />
 
         <div className="account-menu">
           <button 

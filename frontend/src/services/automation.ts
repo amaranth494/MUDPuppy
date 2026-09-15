@@ -307,9 +307,12 @@ export class AutomationEngine {
   /**
    * 02-04-01: Set the autopilot control callback for #AUTO ON/OFF/STATUS
    * This lets the evaluator call the server without the evaluator knowing about connections.
+   * 02-06-01: Accepts undefined so SessionContext can clear the control when there is no
+   * usable connection id (e.g. quick connect with no saved profile) — #AUTO then prints
+   * its no-connected-game line without a server round trip.
    */
-  setAutopilotControl(control: { setState: (action: 'on' | 'off' | 'status') => Promise<AutopilotAnswer> }): void {
-    this.autopilotControl = control;
+  setAutopilotControl(control: { setState: (action: 'on' | 'off' | 'status') => Promise<AutopilotAnswer> } | undefined): void {
+    this.autopilotControl = control ?? null;
   }
 
   /**
