@@ -11,8 +11,8 @@ Delivery ordering (from the source): D1 -> D2 -> D3 -> D4 strictly sequential; D
 
 ### D1: Profile foundation and policy gate
 
-- [ ] **REQ-profile-ai-fields**: The connection profile stores conduct rules (text, handed to the model), approach guidance (text), and AI settings (model name, call cap per session, disengage threshold). Reconnect is not an AI setting. Acceptance: "A profile stores and returns all new fields. A blank model name means the server's configured default; a blank call cap means no cap; a blank disengage threshold means the engine's built-in error handling applies: any AI failure produces an informative error in the play screen, the AI disengages, and regular play continues. The AI must never crash the server or the session."
-- [ ] **REQ-policy-gate**: The Safety and Abuse policy acceptance flow. Acceptance: "The first time the owner opens the AI configuration for a profile, the policy is presented and must be accepted before AI settings can be edited or the AI engaged; attempting to engage the AI on a profile without a recorded acceptance is refused with a clear message." and "Acceptance is recorded once per profile with a timestamp and the policy version accepted. It does not expire and a later policy change does not require re-acceptance. Deleting the profile discards the acceptance."
+- [x] **REQ-profile-ai-fields**: The connection profile stores conduct rules (text, handed to the model), approach guidance (text), and AI settings (model name, call cap per session, disengage threshold). Reconnect is not an AI setting. Acceptance: "A profile stores and returns all new fields. A blank model name means the server's configured default; a blank call cap means no cap; a blank disengage threshold means the engine's built-in error handling applies: any AI failure produces an informative error in the play screen, the AI disengages, and regular play continues. The AI must never crash the server or the session."
+- [x] **REQ-policy-gate**: The Safety and Abuse policy acceptance flow. Acceptance: "The first time the owner opens the AI configuration for a profile, the policy is presented and must be accepted before AI settings can be edited or the AI engaged; attempting to engage the AI on a profile without a recorded acceptance is refused with a clear message." and "Acceptance is recorded once per profile with a timestamp and the policy version accepted. It does not expire and a later policy change does not require re-acceptance. Deleting the profile discards the acceptance."
 
 ### D2: Autopilot switch
 
@@ -91,8 +91,8 @@ Deferred; tracked but not in the current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| REQ-profile-ai-fields | Phase 1 | Pending |
-| REQ-policy-gate | Phase 1 | Pending |
+| REQ-profile-ai-fields | Phase 1 | Complete |
+| REQ-policy-gate | Phase 1 | Complete |
 | REQ-autopilot-directives | Phase 2 | Pending |
 | REQ-wheel-grab | Phase 2 | Pending |
 | REQ-no-auto-reconnect | Phase 2 | Pending |
@@ -121,11 +121,13 @@ Deferred; tracked but not in the current roadmap.
 | REQ-improvement-trend | Phase 8 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 28 total
 - Mapped to phases: 28
 - Unmapped: 0
 
 Mapping notes:
+
 - Definition of complete items map to the earliest phase that can fully satisfy them; Phase 8 re-verifies all six on Alter Aeon through REQ-acceptance-definition-holds.
 - REQ-improvement-trend sits in Phase 8 because its three consecutive goal sessions are the D8 goal sessions. Phase 6 must record the amount of coaching per session in the debrief so the trend is measurable.
 - REQ-safety-limits-hold sits in Phase 4 because that is the first phase where all four limits (call cap, no AI reconnect, disengage on errors or disconnect, conservative defaults) exist and can be put under automated test.
