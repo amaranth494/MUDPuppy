@@ -95,7 +95,12 @@ func main() {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
-	log.Println("Migrations completed successfully")
+	version, dirty, verr := m.Version()
+	if verr == nil {
+		log.Printf("Migrations completed successfully (version=%d, dirty=%v)", version, dirty)
+	} else {
+		log.Printf("Migrations completed successfully (version unavailable: %v)", verr)
+	}
 
 	// Ensure timers column exists (fallback for when migration 009 isn't in migrate.zip)
 	log.Println("Ensuring timers column exists...")
@@ -104,6 +109,20 @@ func main() {
 		log.Printf("Warning: Failed to ensure timers column: %v", err)
 	} else {
 		log.Println("Timers column ensured")
+	}
+
+	// Ensure AI Player columns exist (fallback for when migration 010 isn't in migrate.zip)
+	log.Println("Ensuring AI Player columns exist...")
+	_, err = db.Exec(`ALTER TABLE profiles
+		ADD COLUMN IF NOT EXISTS conduct_rules TEXT NOT NULL DEFAULT '',
+		ADD COLUMN IF NOT EXISTS approach_guidance TEXT NOT NULL DEFAULT '',
+		ADD COLUMN IF NOT EXISTS ai_settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+		ADD COLUMN IF NOT EXISTS policy_version_accepted TEXT,
+		ADD COLUMN IF NOT EXISTS policy_accepted_at TIMESTAMPTZ`)
+	if err != nil {
+		log.Printf("Warning: Failed to ensure AI Player columns: %v", err)
+	} else {
+		log.Println("AI Player columns ensured")
 	}
 
 	// Fail-fast if REDIS_URL is missing (SP01PH02T04)
