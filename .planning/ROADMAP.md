@@ -40,7 +40,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. The first time the owner opens the AI Player configuration for a profile, the policy is presented and must be accepted before AI settings can be edited; the server-side engage gate refuses any profile without a recorded acceptance, with a clear message.
   4. Acceptance is recorded once per profile with timestamp and the policy version accepted (currently 1.0); it never expires, a later policy change does not require re-acceptance, and deleting the profile discards it.
 
-**Plans**: 5 plans
+**Plans**: 6 plans
 Plans:
 **Wave 1**
 
@@ -54,14 +54,15 @@ Plans:
 **Wave 3** *(blocked on Wave 2 completion)*
 
 - [ ] 01-04-PLAN.md — The owner accepts the policy and edits AI settings from the browser
+- [ ] 01-06-PLAN.md — One command turns the Phase 1 HTTP sequence into a canned PASS/FAIL report per success criterion
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 01-05-PLAN.md — Phase 1 demonstrated on staging: the gate holds, settings persist, acceptance dies with the profile
+- [ ] 01-05-PLAN.md — Phase 1 demonstrated on staging and filed as evidence: test report, staging log excerpts, canned report, screenshots
 
 **UI hint**: yes
 
-**Phase Validation** (how the success criteria are demonstrated): Diagnostic: `go test` covers default resolution for blank AI settings and the engage-gate decision (not accepted, accepted); a database inspection of a migrated profile shows the new fields and the acceptance columns carrying policy version 1.0 and a timestamp. Player-observable: open the AI Player section on a fresh profile and the policy appears first; accept once, then the settings editor is usable; edit the three fields, reload, values persist; call the engage gate on an un-accepted profile and receive the refusal message; on the accepted profile it passes; delete the profile, recreate it, and the policy is asked again.
+**Phase Validation** (how the success criteria are demonstrated): Diagnostic: `go test` covers default resolution for blank AI settings and the engage-gate decision (not accepted, accepted); server logs on staging show migration 010 applied at startup, one structured line per policy acceptance carrying the connection id, policy version 1.0 and the timestamp, and one line per engage-gate decision carrying the connection id and the outcome. Proof for every criterion is a UAT finding from the browser walkthrough or a server log excerpt; database queries are not accepted as evidence. Player-observable: open the AI Player section on a fresh profile and the policy appears first; accept once, then the settings editor is usable; edit the three fields, reload, values persist; call the engage gate on an un-accepted profile and receive the refusal message; on the accepted profile it passes; delete the profile, recreate it, and the policy is asked again.
 
 Implementation notes for planning: new golang-migrate migration starting at `010` (profiles gain conduct_rules, approach_guidance, ai_settings JSONB, and policy acceptance columns: version accepted plus timestamp); new GET/PUT sub-resource(s) under `/api/v1/profiles/{connection_id}/...` in `internal/profiles`; a server-side engage-gate check that Phase 2's `#AUTO ON` will call; conservative defaults live in Go, not in the frontend. Policy text is served from the server from a markdown file embedded in the Go binary; the version string in its header is what gets recorded on acceptance.
 
