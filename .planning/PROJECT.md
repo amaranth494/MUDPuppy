@@ -12,13 +12,14 @@ The owner can hand the wheel to the AI and take it back instantly, always seeing
 
 ### Validated
 
-(None yet. The existing MUDPuppy product is taken as-is per owner decision; its prior specs are excluded and nothing from them is tracked here.)
+The existing MUDPuppy product is taken as-is per owner decision; its prior specs are excluded and nothing from them is tracked here.
+
+- [x] D1 Profile foundation and policy gate: REQ-profile-ai-fields, REQ-policy-gate — Validated in Phase 1: Profile Foundation and Policy Gate (2026-09-15). Proof filed under `.planning/phases/01-profile-foundation-and-policy-gate/evidence/`: staging startup log showing migration 010 applied, canned report passing C1-C4, `[AI-PLAYER]` log excerpt, and seven end-user screenshots. Verification 4/4.
 
 ### Active
 
 Requirement IDs come from `.planning/intel/requirements.md` and are quoted from the design's D1-D8 "Accepted when" bullets and Definition of complete. Full list with acceptance text in `.planning/REQUIREMENTS.md`.
 
-- [ ] D1 Profile foundation and policy gate: REQ-profile-ai-fields, REQ-policy-gate
 - [ ] D2 Autopilot switch: REQ-autopilot-directives, REQ-wheel-grab, REQ-no-auto-reconnect
 - [ ] D3 One AI decision: REQ-single-decision, REQ-reasoning-visibility, REQ-env-config
 - [ ] D4 Continuous play: REQ-continuous-loop, REQ-call-cap-and-error-disengage, REQ-reengage-reassess
@@ -110,4 +111,4 @@ Requirement IDs come from `.planning/intel/requirements.md` and are quoted from 
 | The Phase 6 debrief records the amount of coaching required in the session. | Definition of complete item 5 requires "required coaching declines" to be measurable across sessions; without a recorded count the Phase 8 trend cannot be shown. Derived from REQ-improvement-trend, not invented. | Pending |
 
 ---
-*Last updated: 2026-09-14 after initial roadmap creation from ingested design v3 and policy v1.0*
+*Last updated: 2026-09-15 after Phase 1 (Profile Foundation and Policy Gate) completed and verified on staging; Phase 2 (Autopilot Switch) is next*
