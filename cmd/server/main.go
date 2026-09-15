@@ -189,6 +189,22 @@ func main() {
 		SendCredentials: func(userID, username, password string) error {
 			return sessionManager.SendCredentials(userID, username, password)
 		},
+		EngageGate: func(connectionID, userID uuid.UUID) (bool, string, string) {
+			profile, err := profileStore.GetProfileByConnection(userID, connectionID)
+			if err != nil || profile == nil {
+				// An unknown or unowned connection is indistinguishable
+				// from an unaccepted one on the wire (T-2-02).
+				return false, store.EngageGateRefusalMessage, ""
+			}
+			if !store.EngageGateAllowed(profile.PolicyVersionAccepted, profile.PolicyAcceptedAt) {
+				return false, store.EngageGateRefusalMessage, ""
+			}
+			policyVersion := ""
+			if profile.PolicyVersionAccepted != nil {
+				policyVersion = *profile.PolicyVersionAccepted
+			}
+			return true, "", policyVersion
+		},
 	})
 
 	// Initialize WebSocket handler (SP02PH02)
@@ -288,6 +304,7 @@ func main() {
 	mux.HandleFunc("/api/v1/session/connect", sessionHandler.Connect)
 	mux.HandleFunc("/api/v1/session/disconnect", sessionHandler.Disconnect)
 	mux.HandleFunc("/api/v1/session/status", sessionHandler.Status)
+	mux.HandleFunc("/api/v1/session/autopilot", sessionHandler.Autopilot)
 
 	// Add profiles endpoints to mux (SP04PH02)
 	mux.HandleFunc("/api/v1/profiles/{id}", func(w http.ResponseWriter, r *http.Request) {
