@@ -229,6 +229,32 @@ export interface TimersResponse {
   items: Timer[];
 }
 
+// AI Player types (Phase 1 — profile foundation and policy gate)
+export interface AISettings {
+  model_name: string;
+  call_cap: number | null;
+  disengage_threshold: number | null;
+}
+
+export interface AISettingsResponse {
+  conduct_rules: string;
+  approach_guidance: string;
+  ai_settings: AISettings;
+}
+
+export interface PolicyResponse {
+  text: string;
+  version: string;
+  accepted: boolean;
+  accepted_at: string | null;
+  accepted_version: string | null;
+}
+
+export interface EngageGateResponse {
+  allowed: boolean;
+  message?: string;
+}
+
 // Automation wrapper types (SP05)
 export interface AutomationAliases {
   items: Alias[];
