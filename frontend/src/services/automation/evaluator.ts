@@ -142,6 +142,16 @@ export interface VariableResolver {
 // Legacy alias for backward compatibility
 export type VariableStore = VariableResolver;
 
+// 02-04-01: Server response shape for #AUTO ON/OFF/STATUS, mirrors AutopilotResponse
+// (internal/session/handler.go, plan 02-02) on the wire.
+export interface AutopilotAnswer {
+  state: string;
+  outcome: string;
+  gate_allowed: boolean;
+  gate_message?: string;
+  policy_version?: string;
+}
+
 // Execution result
 export interface ExecutionResult {
   success: boolean;
@@ -169,6 +179,11 @@ export interface ExecutionContext {
   helpResolver?: (topic?: string) => Promise<{ title: string; description: string; sections: { title: string; content: string }[] } | null>;
   // PR02PH09: Source context to distinguish CLI from Triggers/Aliases/Timers
   source?: 'cli' | 'trigger' | 'alias' | 'timer';
+  // 02-04-01: For #AUTO ON/OFF/STATUS — calls the server, threaded like helpResolver.
+  // No connection id here: the id is captured by whoever supplies the callback.
+  autopilotControl?: {
+    setState: (action: 'on' | 'off' | 'status') => Promise<AutopilotAnswer>;
+  };
 }
 
 // AST Node types for conditions
@@ -787,11 +802,13 @@ export async function executeTokens(
   // PR02PH09: For fetching help content in #HELP command
   helpResolver?: (topic?: string) => Promise<{ title: string; description: string; sections: { title: string; content: string }[] } | null>,
   // PR02PH09: Source context to distinguish CLI from Triggers/Aliases/Timers
-  source?: 'cli' | 'trigger' | 'alias' | 'timer'
+  source?: 'cli' | 'trigger' | 'alias' | 'timer',
+  // 02-04-01: For #AUTO ON/OFF/STATUS
+  autopilotControl?: ExecutionContext['autopilotControl']
 ): Promise<ExecutionResult> {
   const errors: ExecutionError[] = [];
   const commands: string[] = [];
-  
+
   try {
     const context: ExecutionContext = {
       variables,
@@ -802,7 +819,8 @@ export async function executeTokens(
       aliasResolver,
       outputMessage,
       helpResolver,
-      source
+      source,
+      autopilotControl
     };
 
     const result = await executeTokenList(tokens, context, errors);
@@ -1140,7 +1158,75 @@ async function executeTokenList(
           }
           i++;
           continue;
-          
+
+        case 'AUTO':
+          // 02-04-01: Handle #AUTO / #AUTO ON / #AUTO OFF / #AUTO STATUS (D-04, D-05, D-08, D-11).
+          // Side-effect only, like #HELP: no command is ever emitted here, so a typed
+          // #AUTO line can never itself reach the MUD or disengage autopilot (D-08).
+          {
+            const red = getAnsiColorCode('red');
+            const white = getAnsiColorCode('white');
+            const brightGreen = getAnsiColorCode('brightgreen');
+            const brightYellow = getAnsiColorCode('brightyellow');
+            const reset = '\x1b[0m';
+
+            const rawArg = (token.args || '').trim().toUpperCase();
+            let action: 'on' | 'off' | 'status' | null;
+            if (rawArg === '' || rawArg === 'STATUS') {
+              action = 'status';
+            } else if (rawArg === 'ON') {
+              action = 'on';
+            } else if (rawArg === 'OFF') {
+              action = 'off';
+            } else {
+              action = null;
+            }
+
+            if (action === null) {
+              // Discretionary addition: the grammar accepts any argument, but only
+              // ON/OFF/STATUS (and bare #AUTO) are meaningful. Not part of the UI contract.
+              context.outputMessage?.(`\r\n${red}[Autopilot: use #AUTO ON, #AUTO OFF, or #AUTO STATUS]${reset}\r\n`);
+            } else if (!context.autopilotControl) {
+              // No connection to autopilot control yet (e.g. before any session context
+              // wires it in) — same answer as a connected-game refusal (D-03/D-11).
+              context.outputMessage?.(`\r\n${red}[Autopilot needs a connected game; connect first]${reset}\r\n`);
+            } else {
+              const answer = await context.autopilotControl.setState(action);
+              switch (answer.outcome) {
+                case 'engaged':
+                  context.outputMessage?.(`\r\n${brightGreen}[Autopilot engaged]${reset}\r\n`);
+                  break;
+                case 'disengaged':
+                  context.outputMessage?.(`\r\n${white}[Autopilot disengaged]${reset}\r\n`);
+                  break;
+                case 'already-on':
+                  context.outputMessage?.(`\r\n${white}[Autopilot is already on]${reset}\r\n`);
+                  break;
+                case 'already-off':
+                  context.outputMessage?.(`\r\n${white}[Autopilot is already off]${reset}\r\n`);
+                  break;
+                case 'refused-gate':
+                  context.outputMessage?.(`\r\n${red}[${answer.gate_message ?? ''}]${reset}\r\n`);
+                  break;
+                case 'refused-no-session':
+                  context.outputMessage?.(`\r\n${red}[Autopilot needs a connected game; connect first]${reset}\r\n`);
+                  break;
+                case 'status': {
+                  const stateUpper = answer.state.toUpperCase();
+                  const gateResult = answer.gate_allowed
+                    ? `passed (policy v${answer.policy_version ?? ''} accepted)`
+                    : (answer.gate_message ?? '');
+                  context.outputMessage?.(`\r\n${brightYellow}Autopilot: ${stateUpper}. Engage gate: ${gateResult}.${reset}\r\n`);
+                  break;
+                }
+                default:
+                  break;
+              }
+            }
+          }
+          i++;
+          continue;
+
         case 'ELSE':
           // PR02PH09: #ELSE is only available in Triggers/Aliases/Timers, not CLI
           // Only block if explicitly from CLI source
@@ -1708,7 +1794,9 @@ export async function executeAutomationAction(
   // PR02PH09: For fetching help content in #HELP command
   helpResolver?: (topic?: string) => Promise<{ title: string; description: string; sections: { title: string; content: string }[] } | null>,
   // PR02PH09: Source context to distinguish CLI from Triggers/Aliases/Timers
-  source?: 'cli' | 'trigger' | 'alias' | 'timer'
+  source?: 'cli' | 'trigger' | 'alias' | 'timer',
+  // 02-04-01: For #AUTO ON/OFF/STATUS
+  autopilotControl?: ExecutionContext['autopilotControl']
 ): Promise<ExecutionResult> {
   // Parse the action text
   const parseResult = parser.parse(actionText);
@@ -1746,14 +1834,15 @@ export async function executeAutomationAction(
   
   // Execute with timeout protection (PR01PH05T03)
   return await executeWithTimeout(
-    parseResult.tokens, 
-    variables, 
-    DEFAULT_MAX_DEPTH, 
+    parseResult.tokens,
+    variables,
+    DEFAULT_MAX_DEPTH,
     timerManager,
     aliasResolver,
     outputMessage,
     helpResolver,
-    source
+    source,
+    autopilotControl
   );
 }
 
@@ -1771,11 +1860,13 @@ async function executeWithTimeout(
   // PR02PH09: For fetching help content in #HELP command
   helpResolver?: (topic?: string) => Promise<{ title: string; description: string; sections: { title: string; content: string }[] } | null>,
   // PR02PH09: Source context to distinguish CLI from Triggers/Aliases/Timers
-  source?: 'cli' | 'trigger' | 'alias' | 'timer'
+  source?: 'cli' | 'trigger' | 'alias' | 'timer',
+  // 02-04-01: For #AUTO ON/OFF/STATUS
+  autopilotControl?: ExecutionContext['autopilotControl']
 ): Promise<ExecutionResult> {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   let isTimedOut = false;
-  
+
   // Create a promise that rejects after timeout
   const timeoutPromise = new Promise<ExecutionResult>((_, reject) => {
     timeoutId = setTimeout(() => {
@@ -1784,10 +1875,10 @@ async function executeWithTimeout(
       reject(new Error('Evaluation timeout exceeded (500ms)'));
     }, EVALUATION_TIMEOUT_MS);
   });
-  
+
   try {
     // Execute the tokens
-    const executionPromise = executeTokens(tokens, variables, maxDepth, timerManager, aliasResolver, outputMessage, helpResolver, source);
+    const executionPromise = executeTokens(tokens, variables, maxDepth, timerManager, aliasResolver, outputMessage, helpResolver, source, autopilotControl);
     
     // Race between execution and timeout
     const result = await Promise.race([executionPromise, timeoutPromise]);

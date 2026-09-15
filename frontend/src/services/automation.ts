@@ -6,7 +6,7 @@
  */
 
 import { Trigger, AutomationAliases, AutomationTriggers, AutomationVariables } from '../types';
-import { SimpleVariableStore, VariableValue, VariableWithType, executeAutomationAction } from './automation/evaluator';
+import { SimpleVariableStore, VariableValue, VariableWithType, executeAutomationAction, AutopilotAnswer } from './automation/evaluator';
 import { TimerManager, SavedTimer } from './automation/timer';
 // PR02PH06: Import ICM adapter for command classification
 import { recognizeCommand } from './icm-adapter';
@@ -162,6 +162,9 @@ export class AutomationEngine {
   // PR02PH09: Callback for fetching help content from backend
   private helpResolver: ((topic?: string) => Promise<{ title: string; description: string; sections: { title: string; content: string }[] } | null>) | null = null;
 
+  // 02-04-01: Callback for #AUTO ON/OFF/STATUS, threaded into the evaluator as autopilotControl
+  private autopilotControl: { setState: (action: 'on' | 'off' | 'status') => Promise<AutopilotAnswer> } | null = null;
+
   constructor() {
     this.variableStore = new SimpleVariableStore();
     this.timerManager = new TimerManager({
@@ -298,6 +301,14 @@ export class AutomationEngine {
    */
   setHelpResolver(callback: (topic?: string) => Promise<{ title: string; description: string; sections: { title: string; content: string }[] } | null>): void {
     this.helpResolver = callback;
+  }
+
+  /**
+   * 02-04-01: Set the autopilot control callback for #AUTO ON/OFF/STATUS
+   * This lets the evaluator call the server without the evaluator knowing about connections.
+   */
+  setAutopilotControl(control: { setState: (action: 'on' | 'off' | 'status') => Promise<AutopilotAnswer> }): void {
+    this.autopilotControl = control;
   }
 
   /**
@@ -489,7 +500,7 @@ export class AutomationEngine {
 
     // Step 1: Command separation (SP05PH03T09)
     const commands = this.parseCommandString(input);
-    
+
     if (commands.length === 0) {
       return [];
     }
@@ -500,16 +511,24 @@ export class AutomationEngine {
       return [];
     }
 
+    // D-08: a typed `#` directive (e.g. #AUTO, #ALIAS) is client-internal input, not a
+    // game command the owner is issuing. Any command such a directive itself emits is
+    // labelled automation ('trigger') instead of human ('user'), so a directive can
+    // never take the wheel from itself. ProcessedCommand.source is not consumed
+    // anywhere downstream except the wheel-grab rule this relabelling feeds.
+    const isDirectiveInput = input.trimStart().startsWith('#');
+
     // Step 2-4: Process each command through the pipeline
     const processedCommands: ProcessedCommand[] = [];
-    
+
     for (const cmd of commands) {
       // PR02PH06: Use ICM classification instead of redundant prefix check
       if (isInternalCommand(cmd)) {
         // Process internal commands through evaluator
         try {
           // PR02PH09: Pass helpResolver and source='cli' to enable #HELP and block #IF in CLI
-          const result = await executeAutomationAction(cmd, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined, this.helpResolver ?? undefined, 'cli');
+          // 02-04-01: Pass autopilotControl so #AUTO can call the server
+          const result = await executeAutomationAction(cmd, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined, this.helpResolver ?? undefined, 'cli', this.autopilotControl ?? undefined);
 
           if (!result.success) {
             console.warn('[Automation] # command errors:', result.errors);
@@ -524,7 +543,8 @@ export class AutomationEngine {
           for (const execCmd of result.commands) {
             processedCommands.push({
               command: execCmd,
-              source: 'user',
+              // D-08: source is 'trigger' when this line itself was a typed `#` directive
+              source: isDirectiveInput ? 'trigger' : 'user',
             });
           }
         } catch (error) {
@@ -555,7 +575,8 @@ export class AutomationEngine {
         if (isInternalCommand(trimmedCmd)) {
           // Process internal commands using the evaluator
           try {
-            const result = await executeAutomationAction(trimmedCmd, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined, undefined, 'cli');
+            // 02-04-01: Pass autopilotControl so an alias-expanded #AUTO can call the server
+            const result = await executeAutomationAction(trimmedCmd, this.variableStore, this.timerManager, undefined, this.terminalCallback ?? undefined, undefined, 'cli', this.autopilotControl ?? undefined);
             if (!result.success) {
               console.warn('[Automation] Alias # command errors:', result.errors);
             }

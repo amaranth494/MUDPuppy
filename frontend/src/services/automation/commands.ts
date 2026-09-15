@@ -126,6 +126,12 @@ export const CommandRegistry: Record<string, CommandDefinition> = {
     requiresArgs: false,
     description: 'Show help',
   },
+  'AUTO': {
+    name: 'AUTO',
+    category: CommandCategories.OUTPUT,
+    requiresArgs: false,
+    description: 'Engage or disengage autopilot',
+  },
   'GAG': {
     name: 'GAG',
     category: CommandCategories.OUTPUT,
