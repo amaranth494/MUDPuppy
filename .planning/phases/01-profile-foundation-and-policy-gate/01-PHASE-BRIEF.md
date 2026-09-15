@@ -28,6 +28,63 @@ The connection profile is the single per-game home for the AI, and no profile ca
 
 ---
 
+## Breakdown by Success Criterion (review view)
+
+Each phase criterion, then every plan acceptance criterion that contributes to it, then the artifact that proves it.
+
+### Criterion 1 — Profile stores and returns the AI fields; blank semantics; no reconnect field
+
+| Plan | Plan acceptance criterion | Proof |
+|------|---------------------------|-------|
+| 01-01 | Migration 010 applies and the five columns exist | `02-staging-startup.log`: `Migrations completed successfully (version=10, dirty=false)` and `AI Player columns ensured` |
+| 01-01 | Blank model name resolves to server default, blank cap to no cap, blank threshold to 3 consecutive transient failures | `01-test-report.txt`: PASS `TestResolveAISettings` |
+| 01-01 | AI settings carry exactly model name, call cap, disengage threshold; no reconnect field | `03-canned-report.txt`: response bodies show only those three keys; no reconnect control in any screenshot |
+| 01-01 | Saving timers, aliases, triggers, or environment leaves AI fields intact | `03-canned-report.txt`: `PASS C1` after the timers PUT; screenshot `10-after-timers-save.png` |
+| 01-03 | PUT then GET returns values unchanged; blanks round-trip as blank | `03-canned-report.txt`: `C1` lines with both bodies |
+| 01-03 | Over-length input rejected with a specific message, nothing written (20000 / 20000 / 200 chars; cap and threshold at least 1 when set) | `03-canned-report.txt`: HTTP 400 `Conduct rules must be 20000 characters or less`; `01-test-report.txt`: PASS `TestAISettingsRejectsOverLengthText` |
+| 01-04 | Cleared model, cap, threshold save as blank and come back blank, with hint text stating what blank means | Screenshot `09-blank-fields.png` |
+| 01-06 | The report script emits `C1` PASS/FAIL lines and fails on a wrong body | `01-test-report.txt`: self-test PASS, negative self-test `FAIL` with exit 1 |
+
+### Criterion 2 — Owner edits the fields in the browser; values survive reload and a new session
+
+| Plan | Plan acceptance criterion | Proof |
+|------|---------------------------|-------|
+| 01-04 | Settings shows an AI Player section per connection beside Key Bindings, Aliases, Triggers, Timers, Environment | Nav entry visible in screenshots `05` to `11` |
+| 01-04 | Editor edits all five fields; save then hard reload shows the saved values | Screenshot `07-values-after-reload.png` |
+| 01-04 | Same values after logout and login | Screenshot `08-values-new-session.png` |
+| 01-04 | Load and save failures show the UI-SPEC error banner | Optional screenshot with the server stopped; build proven in `01-test-report.txt` |
+| 01-03 | The HTTP sub-resource behind the editor round-trips | `03-canned-report.txt`: `C1` lines |
+
+### Criterion 3 — Policy shown first and accepted before editing; server gate refuses un-accepted profiles with a clear message
+
+| Plan | Plan acceptance criterion | Proof |
+|------|---------------------------|-------|
+| 01-02 | Policy version parses as `1.0` from the document header, not hard-coded | `01-test-report.txt`: PASS `TestParseVersion` |
+| 01-02 | Embedded text is byte-identical to the approved policy file | `01-test-report.txt`: empty `diff` section, PASS `TestTextOfEmbeddedPolicy` |
+| 01-04 | Unaccepted profile shows policy text, version, one Accept Policy button, and no settings field at all | Screenshot `05-policy-first.png` |
+| 01-04 | One press of Accept shows "✓ Accepted v1.0 on <date>" and the editor, no reload | Screenshot `06-accepted-line.png` |
+| 01-01 | Gate function returns false with no acceptance and true with both columns set | `01-test-report.txt`: PASS `TestEngageGate` |
+| 01-03 | Gate endpoint returns `allowed:false` with the exact refusal message before acceptance, and `allowed:true` after | `03-canned-report.txt`: `C3` lines; `04-staging-ai-player.log`: `engage gate ... allowed=false` then `allowed=true` |
+| 01-03 | Another user's connection id yields "Profile not found" | `01-test-report.txt`: PASS ownership test |
+
+The refusal has no end-user surface until Phase 2 wires `#AUTO ON`, so it is proven by report and log, not a screenshot.
+
+### Criterion 4 — Acceptance recorded once with timestamp and version 1.0; never expires; no re-ask on change; discarded with the profile
+
+| Plan | Plan acceptance criterion | Proof |
+|------|---------------------------|-------|
+| 01-03 | Accept records version 1.0 and the server clock | `04-staging-ai-player.log`: `policy accepted connection_id=... version=1.0 accepted_at=...` |
+| 01-01 | A second accept leaves the first timestamp and version untouched | `03-canned-report.txt`: `C4` line, second POST returns the same `accepted_at`; `04-staging-ai-player.log`: `policy already accepted` with equal timestamp |
+| 01-01 | Acceptance cannot be written through the general settings update | `01-test-report.txt`: PASS `TestAISettingsCannotSetAcceptance`; `03-canned-report.txt`: `C4` line, PUT with acceptance fields leaves `accepted=false` |
+| 01-02 | No version comparison and no expiry path exist | `03-canned-report.txt`: `C4` repeat accept returns original version and timestamp |
+| 01-04 | The owner sees "Accepted v1.0 on <date>" | Screenshot `06-accepted-line.png` |
+| 01-05 | Deleting the profile and recreating it for the same game asks for the policy again | Screenshot `11-recreated-profile-policy-again.png` |
+| 01-01, 01-03 | Log lines never carry conduct rules, guidance, or policy text | `01-test-report.txt`: PASS `TestAIPlayerLogLinesAreEmitted` |
+
+Plan 01-05 adds no capability; it files the evidence above and writes `01-05-SUMMARY.md` with one PASS/FAIL row per criterion citing these files by name and line.
+
+---
+
 ## Evidence set produced by this phase
 
 All files live under `.planning/phases/01-profile-foundation-and-policy-gate/evidence/`.
