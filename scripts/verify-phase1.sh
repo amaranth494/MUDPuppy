@@ -244,6 +244,8 @@ declare -A CRIT_FAILED
 declare -A CRIT_SEEN
 
 # _check <label> <description> <0-for-pass|nonzero-for-fail>
+# Prints a line of the form "PASS C1: <description> (got: ...)" or
+# "FAIL C1: <description> (expected: ..., got: ...)" for every assertion.
 _check() {
   local label="$1" desc="$2" result="$3"
   TOTAL_COUNT=$((TOTAL_COUNT + 1))
