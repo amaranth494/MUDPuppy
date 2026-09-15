@@ -1,0 +1,6 @@
+# Force LF line endings for POSIX shell scripts so they parse correctly
+# under bash regardless of the checking-out platform's core.autocrlf
+# setting (Windows/Git Bash included). A CRLF-converted script breaks
+# shebang interpretation and any embedded string comparisons that expect
+# a bare trailing newline.
+scripts/*.sh text eol=lf
