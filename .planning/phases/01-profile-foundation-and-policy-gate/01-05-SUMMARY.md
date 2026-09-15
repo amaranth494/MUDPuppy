@@ -80,7 +80,7 @@ completed: 2026-09-15
 
 ## Accomplishments
 
-- Captured the full diagnostic gate (`go build`, `go test ./... -v`, the policy embed diff, six targeted test runs, the harness self-test, `npm run build`, dependency-drift check) verbatim into `evidence/01-test-report.txt` with zero new FAIL lines and an empty dependency-drift section
+- Captured the full diagnostic gate (`go build`, `go test ./... -v`, the policy embed diff, six targeted test runs, the harness self-test, `npm run build`, dependency-drift check) verbatim into `.planning/phases/01-profile-foundation-and-policy-gate/evidence/01-test-report.txt` with zero new FAIL lines and an empty dependency-drift section
 - Deployed to Railway staging and pulled three evidence files with no database access: the startup log proving migration 010 and the AI Player column fallback, the canned `scripts/verify-phase1.sh` report showing PASS for C1-C4 with 29/29 checks and every response body printed, and the filtered `[AI-PLAYER]` log excerpt showing the accept/already-accepted pair and both gate decisions for one connection
 - Walked the AI Player section on staging end to end (policy-first, accept, populate, hard reload, new session, blank fields, unrelated timers save, delete-and-recreate) and captured one screenshot per observable state
 - Filed the four-row ROADMAP criterion table below, closing Phase 1's Phase Validation line
@@ -180,6 +180,24 @@ None - no external service configuration required beyond the existing Railway st
 Phase 1's ROADMAP Phase Validation line has been demonstrated end to end on staging with no database queries anywhere in the evidence trail. All four success criteria carry a PASS verdict with a citable file. Phase 2 (autopilot engage/disengage) can proceed: it depends on the engage gate proven here (`evidence/04-staging-ai-player.log` lines 1 and 6) and the stored acceptance record (`evidence/04-staging-ai-player.log` lines 4-5).
 
 No blockers. The recreated "Evidence Walkthrough (Alter Aeon)" connection on staging has not accepted the policy and can be reused or discarded freely by a later phase's evidence work.
+
+## Self-Check: PASSED
+
+- FOUND: `.planning/phases/01-profile-foundation-and-policy-gate/evidence/01-test-report.txt`
+- FOUND: `.planning/phases/01-profile-foundation-and-policy-gate/evidence/02-staging-startup.log`
+- FOUND: `.planning/phases/01-profile-foundation-and-policy-gate/evidence/03-canned-report.txt`
+- FOUND: `.planning/phases/01-profile-foundation-and-policy-gate/evidence/04-staging-ai-player.log`
+- FOUND: `.planning/phases/01-profile-foundation-and-policy-gate/evidence/05-policy-first.png`
+- FOUND: `.planning/phases/01-profile-foundation-and-policy-gate/evidence/06-accepted-line.png`
+- FOUND: `.planning/phases/01-profile-foundation-and-policy-gate/evidence/07-values-after-reload.png`
+- FOUND: `.planning/phases/01-profile-foundation-and-policy-gate/evidence/08-values-new-session.png`
+- FOUND: `.planning/phases/01-profile-foundation-and-policy-gate/evidence/09-blank-fields.png`
+- FOUND: `.planning/phases/01-profile-foundation-and-policy-gate/evidence/10-after-timers-save.png`
+- FOUND: `.planning/phases/01-profile-foundation-and-policy-gate/evidence/11-recreated-profile-policy-again.png`
+- FOUND commit: `4e2e3b0`
+- FOUND commit: `950c539`
+- FOUND commit: `b05b389`
+- `gsd-sdk verify-summary` result: passed=true, files_created found=2/2, commits_exist=true
 
 ---
 *Phase: 01-profile-foundation-and-policy-gate*
