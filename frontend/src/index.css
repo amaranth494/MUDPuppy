@@ -205,6 +205,39 @@ body {
   color: var(--color-error);
 }
 
+.autopilot-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: 999px;
+  font-size: var(--font-size-sm);
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.autopilot-badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.autopilot-badge.state-on {
+  background: rgba(0, 255, 0, 0.2);
+  color: var(--color-success);
+}
+
+.autopilot-badge.state-waiting {
+  background: rgba(255, 255, 0, 0.2);
+  color: var(--color-warning);
+}
+
+.autopilot-badge.state-off {
+  background: rgba(128, 128, 128, 0.2);
+  color: #888;
+}
+
 /* Enable text selection in xterm.js terminal */
 .xterm {
   user-select: text !important;
