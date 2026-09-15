@@ -1,0 +1,62 @@
+# Phase 2 staging log excerpt: every [AI-PLAYER] line from the Phase 2 deployments
+# Captured 2026-09-15T22:00:51Z with the Railway CLI: railway logs --environment staging -d <deployment-id> | grep -F '[AI-PLAYER]'
+# Railway project mudpuppy, environment staging, service MudPuppy. Four deployments carried Phase 2 code today:
+#   d8552a5b (wave 1-4 build), 6ca35a4c (badge in sidebar), 1d21cc21 ([Disconnected] on user drop), e40d2c11 (#AUTO OFF while waiting)
+# Harness profile ids: 67a3c3ad-93c5-4a38-923f-38b8f4f0cc7c (first run, with Go suite), eda71e2f-2574-4bfe-98e7-3af2c8852a56 (filed run, --no-tests)
+# Walkthrough profile id: 00daed67-7d1c-434d-8c61-0063feb6e672; refusal screenshot profile id: 3239395c-0f51-4511-8f05-a355cf27c58e; hand-play profile id: 89ea91f3-d4ec-47bc-b6b9-c8204868d332
+# --- deployment d8552a5b-b000-4c06-812e-970a7d3f8d9f ---
+2026/09/15 21:13:21 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=off cause=refused-gate
+# --- deployment 6ca35a4c-6970-45b9-bfe6-5306b0a340e7 ---
+2026/09/15 21:17:21 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=off cause=refused-gate
+2026/09/15 21:19:08 [AI-PLAYER] policy accepted connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd version=1.0 accepted_at=2026-09-15T21:19:08.397857Z
+2026/09/15 21:19:35 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=on cause=engage
+2026/09/15 21:19:46 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=waiting cause=disconnect
+2026/09/15 21:30:14 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=waiting new=on cause=resume
+2026/09/15 21:30:32 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=off cause=wheel-grab
+2026/09/15 21:31:10 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=on cause=engage
+2026/09/15 21:31:12 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=off cause=wheel-grab
+2026/09/15 21:31:47 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=on cause=engage
+2026/09/15 21:31:55 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=waiting cause=disconnect
+# --- deployment 1d21cc21-28f9-47ca-81bb-150169dba610 ---
+2026/09/15 21:35:57 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=on cause=engage
+2026/09/15 21:35:59 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=waiting cause=disconnect
+2026/09/15 21:36:17 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=waiting new=on cause=resume
+2026/09/15 21:38:02 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=waiting cause=disconnect
+2026/09/15 21:38:07 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=waiting new=on cause=resume
+2026/09/15 21:39:12 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=waiting cause=disconnect
+2026/09/15 21:39:18 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=waiting new=on cause=resume
+2026/09/15 21:40:20 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=waiting cause=disconnect
+2026/09/15 21:40:25 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=waiting new=on cause=resume
+2026/09/15 21:41:24 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=waiting cause=disconnect
+2026/09/15 21:41:29 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=waiting new=on cause=resume
+2026/09/15 21:41:42 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=off cause=wheel-grab
+2026/09/15 21:42:39 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=on cause=engage
+2026/09/15 21:43:28 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=waiting cause=disconnect
+2026/09/15 21:43:33 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=waiting new=on cause=resume
+2026/09/15 21:43:44 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=off cause=wheel-grab
+2026/09/15 21:43:47 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=on cause=engage
+2026/09/15 21:44:23 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=waiting cause=disconnect
+2026/09/15 21:44:29 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=waiting new=on cause=resume
+2026/09/15 21:44:48 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=on cause=already-on
+2026/09/15 21:45:17 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=waiting cause=disconnect
+# --- deployment e40d2c11-9583-4ce6-b55d-a932685c1344 ---
+2026/09/15 21:49:27 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=on cause=engage
+2026/09/15 21:49:33 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=off cause=disengage
+2026/09/15 21:49:54 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=on cause=engage
+2026/09/15 21:49:56 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=waiting cause=disconnect
+2026/09/15 21:50:02 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=waiting new=off cause=disengage
+2026/09/15 21:50:39 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=on cause=engage
+2026/09/15 21:50:41 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=waiting cause=disconnect
+2026/09/15 21:50:45 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=waiting new=off cause=disengage
+2026/09/15 21:51:26 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=3239395c-0f51-4511-8f05-a355cf27c58e old=off new=off cause=refused-gate
+2026/09/15 21:52:23 [AI-PLAYER] policy accepted connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd version=1.0 accepted_at=2026-09-15T21:52:23.34074Z
+2026/09/15 21:59:31 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=67a3c3ad-93c5-4a38-923f-38b8f4f0cc7c old=off new=off cause=refused-gate
+2026/09/15 21:59:32 [AI-PLAYER] policy accepted connection_id=67a3c3ad-93c5-4a38-923f-38b8f4f0cc7c user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd version=1.0 accepted_at=2026-09-15T21:59:32.72227Z
+2026/09/15 21:59:33 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=off cause=refused-no-session
+2026/09/15 21:59:34 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=off cause=already-off
+2026/09/15 21:59:35 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=ffffffff-ffff-ffff-ffff-ffffffffffff old=off new=off cause=refused-gate
+2026/09/15 22:00:21 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=eda71e2f-2574-4bfe-98e7-3af2c8852a56 old=off new=off cause=refused-gate
+2026/09/15 22:00:22 [AI-PLAYER] policy accepted connection_id=eda71e2f-2574-4bfe-98e7-3af2c8852a56 user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd version=1.0 accepted_at=2026-09-15T22:00:22.77414Z
+2026/09/15 22:00:23 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=off cause=refused-no-session
+2026/09/15 22:00:24 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=off cause=already-off
+2026/09/15 22:00:25 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=ffffffff-ffff-ffff-ffff-ffffffffffff old=off new=off cause=refused-gate

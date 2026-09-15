@@ -1,0 +1,102 @@
+================================================================
+Phase 2 canned-report harness -- scripts/verify-phase2.sh
+Run started (UTC): 2026-09-15T22:00:19Z
+Mode: live
+BASE_URL: https://mudpuppy-staging.up.railway.app
+CONNECTION_ID: eda71e2f-2574-4bfe-98e7-3af2c8852a56
+NOT_OWNED_CONNECTION_ID: ffffffff-ffff-ffff-ffff-ffffffffffff
+git rev-parse --short HEAD: 7a70ab8
+================================================================
+
+Ground rules: (1) proof here is this report or an end-user screenshot,
+never a database query. (2) C2 and C3 are websocket/live-MUD behaviours
+this script cannot reach without fabricating a connected game (D-03);
+they appear below as SKIP lines naming their screenshot/log evidence,
+never as PASS. (3) invocations: live, --self-test, --self-test-negative,
+--no-tests.
+
+
+---- Step 1: GET session/status on a fresh session ----
+GET /api/v1/session/status -> HTTP 200
+{"state":"disconnected","autopilot_state":"off"}
+PASS C1: autopilot_state is off on a fresh session (got: off)
+
+---- Step 2: POST session/autopilot action=status before acceptance ----
+POST /api/v1/session/autopilot -> HTTP 200
+{"state":"off","outcome":"status","gate_allowed":false,"gate_message":"AI Player has not been configured for this connection. Accept the Safety and Abuse policy in AI Player settings before engaging autopilot."}
+PASS C1: state is off before acceptance (got: off)
+PASS C4: gate_allowed is false before acceptance (got: false)
+PASS C4: gate_message matches the exact refusal sentence (got: AI Player has not been configured for this connection. Accept the Safety and Abuse policy in AI Player settings before engaging autopilot.)
+
+---- Step 3: POST session/autopilot action=on before acceptance -- #AUTO ON refused ----
+POST /api/v1/session/autopilot -> HTTP 200
+{"state":"off","outcome":"refused-gate","gate_allowed":false,"gate_message":"AI Player has not been configured for this connection. Accept the Safety and Abuse policy in AI Player settings before engaging autopilot."}
+PASS C1: outcome is refused-gate (got: refused-gate)
+PASS C1: state stays off on refusal (got: off)
+PASS C1: gate_message matches the exact refusal sentence (got: AI Player has not been configured for this connection. Accept the Safety and Abuse policy in AI Player settings before engaging autopilot.)
+
+---- Step 4: GET session/status again -- the refusal changed nothing ----
+GET /api/v1/session/status -> HTTP 200
+{"state":"disconnected","autopilot_state":"off"}
+PASS C1: autopilot_state is still off after the refusal (got: off)
+
+---- Step 5: POST profiles/$CONNECTION_ID/policy/accept -- move the fixture profile to accepted ----
+POST /api/v1/profiles/$CONNECTION_ID/policy/accept -> HTTP 200
+{"text":"# MUDPuppy AI Player: Safety and Abuse Policy\n\nPolicy version: 1.0\nDate: 2026...[truncated, full text not printed to report - T-2-16]","version":"1.0","accepted":true,"accepted_at":"2026-09-15T22:00:22.77414Z","accepted_version":"1.0"}
+PASS C4: policy/accept records accepted=true (got: true)
+PASS C4: policy/accept records accepted_version=1.0 (got: 1.0)
+
+---- Step 6: POST session/autopilot action=on after acceptance, no connected game -- refused-no-session ----
+POST /api/v1/session/autopilot -> HTTP 200
+{"state":"off","outcome":"refused-no-session","gate_allowed":true,"policy_version":"1.0"}
+PASS C1: outcome is refused-no-session once the gate passes but nothing is connected (got: refused-no-session)
+PASS C1: state stays off (the reason for refusal changed, the position did not) (got: off)
+
+---- Step 7: POST session/autopilot action=status after acceptance -- the #AUTO STATUS line ----
+POST /api/v1/session/autopilot -> HTTP 200
+{"state":"off","outcome":"status","gate_allowed":true,"policy_version":"1.0"}
+PASS C1: gate_allowed is true after acceptance (got: true)
+PASS C1: policy_version is 1.0 (got: 1.0)
+PASS C1: state is off (got: off)
+
+---- Step 8: POST session/autopilot action=off -- already-off no-op (D-04) ----
+POST /api/v1/session/autopilot -> HTTP 200
+{"state":"off","outcome":"already-off","gate_allowed":true,"policy_version":"1.0"}
+PASS C1: outcome is already-off (got: already-off)
+PASS C1: state stays off (got: off)
+
+---- Step 9: POST session/autopilot action=on against a not-owned connection_id -- refused, never engaged (T-2-02) ----
+POST /api/v1/session/autopilot -> HTTP 200
+{"state":"off","outcome":"refused-gate","gate_allowed":false,"gate_message":"AI Player has not been configured for this connection. Accept the Safety and Abuse policy in AI Player settings before engaging autopilot."}
+PASS C4: a not-owned connection_id is refused (outcome=refused-gate), not engaged (got: refused-gate)
+PASS C4: gate_allowed is false for a not-owned connection_id (got: false)
+
+---- Step 10: POST session/autopilot action=sideways -- invalid action rejected with HTTP 400 ----
+POST /api/v1/session/autopilot -> HTTP 400
+Invalid action
+PASS C1: an invalid action is rejected with HTTP 400 (status 400)
+
+---- Step 11: GET session/status -- agrees with step 8's answer (D-10 refresh correctness) ----
+GET /api/v1/session/status -> HTTP 200
+{"state":"disconnected","autopilot_state":"off"}
+PASS C1: autopilot_state is present (got: off)
+PASS C1: autopilot_state is off, matching step 8's answer (got: off)
+
+---- Step 12: C2 (wheel-grab) -- out of this script's reach ----
+SKIP C2: wheel-grab requires a connected game session (D-03); proven instead by evidence/07-wheel-grab.png, evidence/08-trigger-keeps-on.png, and the [AI-PLAYER] autopilot ... cause=wheel-grab lines in evidence/04-staging-ai-player.log
+
+---- Step 13: C3 (disconnect/waiting/resume) -- out of this script's reach ----
+SKIP C3: disconnect-while-engaged and reconnect-resume require a connected game session (D-03); proven instead by evidence/09-waiting-after-drop.png, evidence/10-resume-after-reconnect.png, evidence/11-off-while-waiting-stays-off.png, and the cause=disconnect and cause=resume lines in evidence/04-staging-ai-player.log
+
+================================================================
+SUMMARY
+================================================================
+C1: PASS
+C2: SKIP
+C3: SKIP
+C4: PASS
+TOTAL CHECKS: 22  FAILURES: 0  SKIPPED: 2
+
+================================================================
+GO TEST: skipped (--no-tests)
+================================================================
