@@ -52,10 +52,11 @@ type Manager struct {
 	idleTimeoutMinutes    int
 	hardCapHours          int
 
-	mu       sync.RWMutex
-	sessions map[string]*Session // userID -> session
-	conns    map[string]net.Conn
-	cleanups map[string]context.CancelFunc
+	mu        sync.RWMutex
+	sessions  map[string]*Session // userID -> session
+	conns     map[string]net.Conn
+	cleanups  map[string]context.CancelFunc
+	autopilot map[string]*AutopilotRecord // userID -> autopilot state
 }
 
 // NewManager creates a new session manager
@@ -119,6 +120,7 @@ func NewManager(portWhitelist string, portDenylist string, portAllowlistOverride
 		sessions:              make(map[string]*Session),
 		conns:                 make(map[string]net.Conn),
 		cleanups:              make(map[string]context.CancelFunc),
+		autopilot:             make(map[string]*AutopilotRecord),
 	}
 }
 
@@ -214,6 +216,9 @@ func (m *Manager) Connect(ctx context.Context, userID, host string, port int) (*
 	// Store connection
 	m.sessions[userID] = session
 	m.conns[userID] = conn
+
+	// Resume a waiting autopilot now that the dial has actually succeeded.
+	m.resumeAutopilotLocked(userID)
 
 	// Record metrics
 	metrics.Get().IncConnect()
@@ -325,6 +330,11 @@ func (m *Manager) Disconnect(userID, reason string) error {
 	session.State = StateDisconnected
 	session.DisconnectErr = reason
 
+	// Park an engaged autopilot at waiting before the session is deleted
+	// below — the autopilot map is separate from m.sessions and survives
+	// this deletion (RESEARCH Pitfall 1).
+	m.parkAutopilotLocked(userID)
+
 	// Remove session from map - this ensures clean state for reconnection
 	// and prevents orphaned sessions
 	delete(m.sessions, userID)
@@ -355,6 +365,141 @@ func (m *Manager) GetSession(userID string) (*Session, error) {
 	}
 
 	return session, nil
+}
+
+// logAutopilotTransition emits the one [AI-PLAYER] autopilot log line every
+// autopilot state call produces. This format is a cross-plan contract:
+// plans 02-02 and 02-03 append causes to this same line shape, never a
+// different one.
+func (m *Manager) logAutopilotTransition(userID, connectionID string, old, newState AutopilotState, cause string) {
+	log.Printf("[AI-PLAYER] autopilot user_id=%s connection_id=%s old=%s new=%s cause=%s",
+		userID, connectionID, old, newState, cause)
+}
+
+// AutopilotStateFor returns the current autopilot state for a user. A user
+// who has never engaged reads as off, which is also the state a server
+// restart lands on (D-06).
+func (m *Manager) AutopilotStateFor(userID string) AutopilotState {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	rec, ok := m.autopilot[userID]
+	if !ok {
+		return AutopilotOff
+	}
+	return rec.State
+}
+
+// EngageAutopilot handles #AUTO ON. It reads m.sessions directly under the
+// held lock rather than calling GetSession, which takes RLock itself and
+// would deadlock against the Lock held here (sync.RWMutex is not
+// reentrant). Engaging without a connected session is refused with
+// ErrNoConnectedSession and the switch stays off (D-03). A repeated engage
+// while already on leaves the stored record completely untouched — no
+// rewritten ConnectionID, no cleared WaitingSince, no new allocation
+// (D-04, threat T-2-05).
+func (m *Manager) EngageAutopilot(userID, connectionID string) (AutopilotState, bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	cur := AutopilotOff
+	curConnID := ""
+	if rec, ok := m.autopilot[userID]; ok {
+		cur = rec.State
+		curConnID = rec.ConnectionID
+	}
+
+	session, ok := m.sessions[userID]
+	if !ok || session.State != StateConnected {
+		m.logAutopilotTransition(userID, curConnID, cur, cur, "refused-no-session")
+		return cur, false, ErrNoConnectedSession
+	}
+
+	newState, changed := Engage(cur)
+	if !changed {
+		m.logAutopilotTransition(userID, curConnID, cur, newState, "already-on")
+		return newState, false, nil
+	}
+
+	m.autopilot[userID] = &AutopilotRecord{
+		State:        newState,
+		ConnectionID: connectionID,
+	}
+	m.logAutopilotTransition(userID, connectionID, cur, newState, "engage")
+	return newState, true, nil
+}
+
+// DisengageAutopilot handles #AUTO OFF and the wheel-grab. Permitted cause
+// values are "disengage", "wheel-grab" and "already-off"; when the
+// transition does not change the state, the log line always uses
+// "already-off" regardless of what the caller passed.
+func (m *Manager) DisengageAutopilot(userID, cause string) (AutopilotState, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	cur := AutopilotOff
+	curConnID := ""
+	if rec, ok := m.autopilot[userID]; ok {
+		cur = rec.State
+		curConnID = rec.ConnectionID
+	}
+
+	newState, changed := Disengage(cur)
+	if !changed {
+		m.logAutopilotTransition(userID, curConnID, cur, newState, "already-off")
+		return newState, false
+	}
+
+	if rec, ok := m.autopilot[userID]; ok {
+		rec.State = newState
+		rec.WaitingSince = nil
+	} else {
+		m.autopilot[userID] = &AutopilotRecord{State: newState}
+	}
+	m.logAutopilotTransition(userID, curConnID, cur, newState, cause)
+	return newState, true
+}
+
+// parkAutopilotLocked applies the on->waiting transition for a disconnect.
+// The caller must already hold m.mu. It is a no-op with no log line when
+// there is no record or the transition does not change the state, so
+// ordinary play with autopilot off adds nothing to the log (D-12).
+func (m *Manager) parkAutopilotLocked(userID string) {
+	rec, ok := m.autopilot[userID]
+	if !ok {
+		return
+	}
+
+	newState, changed := EnterWaiting(rec.State)
+	if !changed {
+		return
+	}
+
+	old := rec.State
+	rec.State = newState
+	now := time.Now()
+	rec.WaitingSince = &now
+	m.logAutopilotTransition(userID, rec.ConnectionID, old, newState, "disconnect")
+}
+
+// resumeAutopilotLocked applies the waiting->on transition for a connect.
+// The caller must already hold m.mu. Same no-op rule as
+// parkAutopilotLocked.
+func (m *Manager) resumeAutopilotLocked(userID string) {
+	rec, ok := m.autopilot[userID]
+	if !ok {
+		return
+	}
+
+	newState, changed := Resume(rec.State)
+	if !changed {
+		return
+	}
+
+	old := rec.State
+	rec.State = newState
+	rec.WaitingSince = nil
+	m.logAutopilotTransition(userID, rec.ConnectionID, old, newState, "resume")
 }
 
 // SendCommand sends a command to the MUD server
