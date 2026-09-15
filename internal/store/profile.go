@@ -517,3 +517,66 @@ func (s *ProfileStore) DeleteProfile(userID, profileID uuid.UUID) error {
 	_, err := s.db.Exec(query, profileID, userID)
 	return err
 }
+
+// DefaultDisengageThreshold is the number of consecutive transient AI
+// failures tolerated before disengage, used when a profile's disengage
+// threshold is left blank. Claude's Discretion (CONTEXT.md): 3 is the
+// chosen value. Non-transient failures (a missing key, an auth error)
+// disengage on the first occurrence regardless of this threshold. Phase 1
+// only resolves this value; the loop that consumes it is Phase 4.
+const DefaultDisengageThreshold = 3
+
+// EngageGateRefusalMessage is shown when AI engagement is refused because
+// the profile has not recorded Safety and Abuse policy acceptance. This
+// exact string is the Phase 2 contract (D-05, 01-UI-SPEC.md Copywriting
+// Contract) — Phase 2's #AUTO ON handling surfaces it verbatim.
+const EngageGateRefusalMessage = "AI Player has not been configured for this connection. Accept the Safety and Abuse policy in AI Player settings before engaging autopilot."
+
+// ResolvedAISettings is the concrete, engine-usable resolution of a
+// profile's AISettings: blank values replaced with their documented
+// defaults. It must never be computed inside GetProfile/GetProfileByConnection
+// — blank AI settings must round-trip to the browser unchanged (D-09,
+// D-10, D-11); resolution happens only where the engine needs a concrete
+// number (Phase 3/Phase 4).
+type ResolvedAISettings struct {
+	ModelName          string
+	CallCapSet         bool
+	CallCap            int
+	DisengageThreshold int
+}
+
+// ResolveAISettings resolves a profile's (possibly blank) AISettings to
+// concrete values: a blank ModelName resolves to serverDefaultModel, a nil
+// CallCap means no cap at all (CallCapSet is false), and a nil
+// DisengageThreshold resolves to DefaultDisengageThreshold. Non-nil/non-blank
+// values pass through unchanged.
+func ResolveAISettings(s AISettings, serverDefaultModel string) ResolvedAISettings {
+	resolved := ResolvedAISettings{
+		ModelName:          s.ModelName,
+		DisengageThreshold: DefaultDisengageThreshold,
+	}
+
+	if resolved.ModelName == "" {
+		resolved.ModelName = serverDefaultModel
+	}
+
+	if s.CallCap != nil {
+		resolved.CallCapSet = true
+		resolved.CallCap = *s.CallCap
+	}
+
+	if s.DisengageThreshold != nil {
+		resolved.DisengageThreshold = *s.DisengageThreshold
+	}
+
+	return resolved
+}
+
+// EngageGateAllowed reports whether AI engagement may proceed for a profile,
+// based solely on its recorded policy acceptance. It takes plain values read
+// from the server-fetched row, never a client-supplied flag (T-1-05), and it
+// compares nothing to the current policy version — a later policy change
+// never re-gates (D-06).
+func EngageGateAllowed(policyVersionAccepted *string, policyAcceptedAt *string) bool {
+	return policyAcceptedAt != nil && policyVersionAccepted != nil && *policyVersionAccepted != ""
+}
