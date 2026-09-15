@@ -9,17 +9,22 @@ import (
 
 // Profile represents a per-connection user profile with keybindings, settings, and automation
 type Profile struct {
-	ID           uuid.UUID         `json:"id"`
-	UserID       uuid.UUID         `json:"user_id"`
-	ConnectionID uuid.UUID         `json:"connection_id"`
-	Keybindings  map[string]string `json:"keybindings"`
-	Settings     ProfileSettings   `json:"settings"`
-	Aliases      Aliases           `json:"aliases"`
-	Triggers     Triggers          `json:"triggers"`
-	Variables    Variables         `json:"variables"`
-	Timers       Timers            `json:"timers"`
-	CreatedAt    string            `json:"created_at"`
-	UpdatedAt    string            `json:"updated_at"`
+	ID                    uuid.UUID         `json:"id"`
+	UserID                uuid.UUID         `json:"user_id"`
+	ConnectionID          uuid.UUID         `json:"connection_id"`
+	Keybindings           map[string]string `json:"keybindings"`
+	Settings              ProfileSettings   `json:"settings"`
+	Aliases               Aliases           `json:"aliases"`
+	Triggers              Triggers          `json:"triggers"`
+	Variables             Variables         `json:"variables"`
+	Timers                Timers            `json:"timers"`
+	ConductRules          string            `json:"conduct_rules"`
+	ApproachGuidance      string            `json:"approach_guidance"`
+	AISettings            AISettings        `json:"ai_settings"`
+	PolicyVersionAccepted *string           `json:"policy_version_accepted"`
+	PolicyAcceptedAt      *string           `json:"policy_accepted_at"`
+	CreatedAt             string            `json:"created_at"`
+	UpdatedAt             string            `json:"updated_at"`
 }
 
 // Alias represents a command alias for input transformation
@@ -78,6 +83,17 @@ type Timers struct {
 	Items []Timer `json:"items"`
 }
 
+// AISettings holds the AI Player's per-profile configuration. A nil CallCap
+// or DisengageThreshold and a blank ModelName are meaningful, user-visible
+// "blank" states (D-09, D-10, D-11) and must round-trip unchanged; they are
+// resolved to concrete values only by ResolveAISettings, never on read.
+// There is no reconnect field, and none may be added (D-13).
+type AISettings struct {
+	ModelName          string `json:"model_name"`
+	CallCap            *int   `json:"call_cap"`
+	DisengageThreshold *int   `json:"disengage_threshold"`
+}
+
 // ProfileSettings contains UI and behavior settings for a profile
 type ProfileSettings struct {
 	ScrollbackLimit   int  `json:"scrollback_limit"`
@@ -112,14 +128,20 @@ func normalizeSettings(s ProfileSettings) ProfileSettings {
 	return s
 }
 
-// ProfileUpdate represents fields that can be updated on a profile
+// ProfileUpdate represents fields that can be updated on a profile.
+// Deliberately excludes PolicyVersionAccepted and PolicyAcceptedAt (T-1-01):
+// acceptance is writable only through AcceptPolicy, never through a general
+// profile update.
 type ProfileUpdate struct {
-	Keybindings *map[string]string `json:"keybindings,omitempty"`
-	Settings    *ProfileSettings   `json:"settings,omitempty"`
-	Aliases     *Aliases           `json:"aliases,omitempty"`
-	Triggers    *Triggers          `json:"triggers,omitempty"`
-	Variables   *Variables         `json:"variables,omitempty"`
-	Timers      *Timers            `json:"timers,omitempty"`
+	Keybindings      *map[string]string `json:"keybindings,omitempty"`
+	Settings         *ProfileSettings   `json:"settings,omitempty"`
+	Aliases          *Aliases           `json:"aliases,omitempty"`
+	Triggers         *Triggers          `json:"triggers,omitempty"`
+	Variables        *Variables         `json:"variables,omitempty"`
+	Timers           *Timers            `json:"timers,omitempty"`
+	ConductRules     *string            `json:"conduct_rules,omitempty"`
+	ApproachGuidance *string            `json:"approach_guidance,omitempty"`
+	AISettings       *AISettings        `json:"ai_settings,omitempty"`
 }
 
 // DefaultAliases returns the default aliases structure
@@ -191,13 +213,16 @@ func (s *ProfileStore) CreateProfile(userID, connectionID uuid.UUID) (*Profile, 
 // GetProfile retrieves a profile by ID for a specific user
 func (s *ProfileStore) GetProfile(userID, profileID uuid.UUID) (*Profile, error) {
 	query := `
-		SELECT id, user_id, connection_id, keybindings, settings, aliases, triggers, variables, timers, created_at, updated_at
+		SELECT id, user_id, connection_id, keybindings, settings, aliases, triggers, variables, timers,
+			conduct_rules, approach_guidance, ai_settings, policy_version_accepted, policy_accepted_at,
+			created_at, updated_at
 		FROM profiles
 		WHERE id = $1 AND user_id = $2
 	`
 
 	var profile Profile
-	var keybindingsJSON, settingsJSON, aliasesJSON, triggersJSON, variablesJSON, timersJSON []byte
+	var keybindingsJSON, settingsJSON, aliasesJSON, triggersJSON, variablesJSON, timersJSON, aiSettingsJSON []byte
+	var policyVersionAcceptedNS, policyAcceptedAtNS sql.NullString
 
 	err := s.db.QueryRow(query, profileID, userID).Scan(
 		&profile.ID,
@@ -209,6 +234,11 @@ func (s *ProfileStore) GetProfile(userID, profileID uuid.UUID) (*Profile, error)
 		&triggersJSON,
 		&variablesJSON,
 		&timersJSON,
+		&profile.ConductRules,
+		&profile.ApproachGuidance,
+		&aiSettingsJSON,
+		&policyVersionAcceptedNS,
+		&policyAcceptedAtNS,
 		&profile.CreatedAt,
 		&profile.UpdatedAt,
 	)
@@ -237,6 +267,20 @@ func (s *ProfileStore) GetProfile(userID, profileID uuid.UUID) (*Profile, error)
 	}
 	if err := json.Unmarshal(timersJSON, &profile.Timers); err != nil {
 		return nil, err
+	}
+	if err := json.Unmarshal(aiSettingsJSON, &profile.AISettings); err != nil {
+		return nil, err
+	}
+
+	if policyVersionAcceptedNS.Valid {
+		profile.PolicyVersionAccepted = &policyVersionAcceptedNS.String
+	} else {
+		profile.PolicyVersionAccepted = nil
+	}
+	if policyAcceptedAtNS.Valid {
+		profile.PolicyAcceptedAt = &policyAcceptedAtNS.String
+	} else {
+		profile.PolicyAcceptedAt = nil
 	}
 
 	// Normalize settings to defaults if empty/partial
@@ -248,13 +292,16 @@ func (s *ProfileStore) GetProfile(userID, profileID uuid.UUID) (*Profile, error)
 // GetProfileByConnection retrieves a profile by connection ID for a specific user
 func (s *ProfileStore) GetProfileByConnection(userID, connectionID uuid.UUID) (*Profile, error) {
 	query := `
-		SELECT id, user_id, connection_id, keybindings, settings, aliases, triggers, variables, timers, created_at, updated_at
+		SELECT id, user_id, connection_id, keybindings, settings, aliases, triggers, variables, timers,
+			conduct_rules, approach_guidance, ai_settings, policy_version_accepted, policy_accepted_at,
+			created_at, updated_at
 		FROM profiles
 		WHERE connection_id = $1 AND user_id = $2
 	`
 
 	var profile Profile
-	var keybindingsJSON, settingsJSON, aliasesJSON, triggersJSON, variablesJSON, timersJSON []byte
+	var keybindingsJSON, settingsJSON, aliasesJSON, triggersJSON, variablesJSON, timersJSON, aiSettingsJSON []byte
+	var policyVersionAcceptedNS, policyAcceptedAtNS sql.NullString
 
 	err := s.db.QueryRow(query, connectionID, userID).Scan(
 		&profile.ID,
@@ -266,6 +313,11 @@ func (s *ProfileStore) GetProfileByConnection(userID, connectionID uuid.UUID) (*
 		&triggersJSON,
 		&variablesJSON,
 		&timersJSON,
+		&profile.ConductRules,
+		&profile.ApproachGuidance,
+		&aiSettingsJSON,
+		&policyVersionAcceptedNS,
+		&policyAcceptedAtNS,
 		&profile.CreatedAt,
 		&profile.UpdatedAt,
 	)
@@ -294,6 +346,20 @@ func (s *ProfileStore) GetProfileByConnection(userID, connectionID uuid.UUID) (*
 	}
 	if err := json.Unmarshal(timersJSON, &profile.Timers); err != nil {
 		return nil, err
+	}
+	if err := json.Unmarshal(aiSettingsJSON, &profile.AISettings); err != nil {
+		return nil, err
+	}
+
+	if policyVersionAcceptedNS.Valid {
+		profile.PolicyVersionAccepted = &policyVersionAcceptedNS.String
+	} else {
+		profile.PolicyVersionAccepted = nil
+	}
+	if policyAcceptedAtNS.Valid {
+		profile.PolicyAcceptedAt = &policyAcceptedAtNS.String
+	} else {
+		profile.PolicyAcceptedAt = nil
 	}
 
 	// Normalize settings to defaults if empty/partial
@@ -320,6 +386,9 @@ func (s *ProfileStore) UpdateProfile(userID, profileID uuid.UUID, updates *Profi
 	var triggersJSON []byte
 	var variablesJSON []byte
 	var timersJSON []byte
+	var aiSettingsJSON []byte
+	var conductRules string
+	var approachGuidance string
 
 	if updates.Keybindings != nil {
 		keybindingsJSON, _ = json.Marshal(*updates.Keybindings)
@@ -357,15 +426,35 @@ func (s *ProfileStore) UpdateProfile(userID, profileID uuid.UUID, updates *Profi
 		timersJSON, _ = json.Marshal(existing.Timers)
 	}
 
+	if updates.ConductRules != nil {
+		conductRules = *updates.ConductRules
+	} else {
+		conductRules = existing.ConductRules
+	}
+
+	if updates.ApproachGuidance != nil {
+		approachGuidance = *updates.ApproachGuidance
+	} else {
+		approachGuidance = existing.ApproachGuidance
+	}
+
+	if updates.AISettings != nil {
+		aiSettingsJSON, _ = json.Marshal(*updates.AISettings)
+	} else {
+		aiSettingsJSON, _ = json.Marshal(existing.AISettings)
+	}
+
 	query := `
 		UPDATE profiles
-		SET keybindings = $1, settings = $2, aliases = $3, triggers = $4, variables = $5, timers = $6, updated_at = NOW()
-		WHERE id = $7 AND user_id = $8
+		SET keybindings = $1, settings = $2, aliases = $3, triggers = $4, variables = $5, timers = $6,
+			conduct_rules = $7, approach_guidance = $8, ai_settings = $9, updated_at = NOW()
+		WHERE id = $10 AND user_id = $11
 		RETURNING updated_at
 	`
 
 	var updatedAt string
-	err = s.db.QueryRow(query, keybindingsJSON, settingsJSON, aliasesJSON, triggersJSON, variablesJSON, timersJSON, profileID, userID).Scan(&updatedAt)
+	err = s.db.QueryRow(query, keybindingsJSON, settingsJSON, aliasesJSON, triggersJSON, variablesJSON, timersJSON,
+		conductRules, approachGuidance, aiSettingsJSON, profileID, userID).Scan(&updatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -390,8 +479,36 @@ func (s *ProfileStore) UpdateProfile(userID, profileID uuid.UUID, updates *Profi
 	if updates.Timers != nil {
 		existing.Timers = *updates.Timers
 	}
+	if updates.ConductRules != nil {
+		existing.ConductRules = *updates.ConductRules
+	}
+	if updates.ApproachGuidance != nil {
+		existing.ApproachGuidance = *updates.ApproachGuidance
+	}
+	if updates.AISettings != nil {
+		existing.AISettings = *updates.AISettings
+	}
 
 	return existing, nil
+}
+
+// AcceptPolicy records one-time Safety and Abuse policy acceptance on a
+// profile. The version is supplied by the caller from the server's embedded
+// policy and is never read from a request body (T-1-02). Acceptance is
+// one-time and never re-written (D-06): the guarded UPDATE only fires when
+// policy_accepted_at IS NULL, and a "0 rows affected" second call is treated
+// as a successful no-op rather than an error.
+func (s *ProfileStore) AcceptPolicy(userID, profileID uuid.UUID, version string) (*Profile, error) {
+	query := `
+		UPDATE profiles
+		SET policy_version_accepted = $1, policy_accepted_at = NOW(), updated_at = NOW()
+		WHERE id = $2 AND user_id = $3 AND policy_accepted_at IS NULL
+	`
+	if _, err := s.db.Exec(query, version, profileID, userID); err != nil {
+		return nil, err
+	}
+
+	return s.GetProfile(userID, profileID)
 }
 
 // DeleteProfile deletes a profile by ID
