@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Phase 2 complete and owner-approved via the evidence dossier; security review in progress (risk register pending owner decisions)
-last_updated: "2026-09-15T23:24:54.978Z"
+status: completed
+stopped_at: "Phase 2 closed and secured: 11 risks accepted, 2 deferred to the Phase 3 review (DR-2-01 sign-in code in staging log is MUST FIX in Phase 3; DR-2-02 throwaway staging profiles to clean up in Phase 3). Next: discuss Phase 3"
+last_updated: "2026-09-15T23:46:51.224Z"
 last_activity: 2026-09-15
 progress:
   total_phases: 8
@@ -93,6 +93,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-09-15T22:10:08.507Z
-Stopped at: Plan 02-07 evidence, summary and security agenda filed; both human-verify checkpoints awaiting owner approval; phase verification not yet run
-Resume file: .planning/phases/02-autopilot-switch/02-07-SUMMARY.md
+Last session: 2026-09-15T23:46:51.217Z
+Stopped at: Phase 2 closed and secured: 11 risks accepted, 2 deferred to the Phase 3 review (DR-2-01 sign-in code in staging log is MUST FIX in Phase 3; DR-2-02 throwaway staging profiles to clean up in Phase 3). Next: discuss Phase 3
+Resume file: .planning/RISK-REGISTER.md

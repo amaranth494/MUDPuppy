@@ -1,8 +1,8 @@
 ---
 phase: 02
 slug: autopilot-switch
-status: pending-owner-decisions
-threats_open: 10
+status: verified
+threats_open: 0
 asvs_level: 1
 created: 2026-09-15
 ---
@@ -80,11 +80,41 @@ All three are also exercised by tests per `internal/session/manager_test.go` and
 
 ## Accepted Risks Log
 
-*No risks have been formally accepted yet.* This phase's `accept`- and `defer`-dispositioned threats (T-2-SC, T-2-03 residual, T-2-08) and the items in "Open items for the owner's decision" below await the owner's Accept / Defer / Remediate Now choice at the Phase 2 security review (`02-SECURITY-AGENDA.md`). This auditor does not pre-decide them. Once decided, populate this log the way `01-SECURITY.md`'s Accepted Risks Log was populated after the Phase 1 review.
+Decisions recorded by the owner on the Phase 2 Risk Register artifact (https://claude.ai/artifact/TiX2brwsPbgWVABBwAUFEj) on 2026-09-15 and read back from it. Accepted risks are closed unless the owner reopens them; they are not re-presented at later reviews. The same decisions are entered in the project-wide `.planning/RISK-REGISTER.md`.
+
+| Risk ID | Register item | Criticality | Risk | Proposed remediation (not taken) | Accepted By | Date |
+|---------|---------------|-------------|------|----------------------------------|-------------|------|
+| AR-2-01 | R-01 / T-2-08 | medium | Waiting-to-on auto-resume has no time bound; resume now happens only onto the same profile (b5c8bf5). | A bounded waiting lifetime after which the switch lands on Off; WaitingSince is already stored. | Owner, Accept Risk on the Phase 2 Risk Register | 2026-09-15 |
+| AR-2-02 | R-02 / DR-1-01 / WR-02 (Phase 1) | medium | Invalid numeric input in the AI Player panel silently saves as blank. Deferred from Phase 1, now accepted. | Parse each numeric field before the request; block the save with an inline error when non-empty and not a finite number. | Owner, Accept Risk on the Phase 2 Risk Register | 2026-09-15 |
+| AR-2-03 | R-04 / WR-01 | low | The wheel-grab reads the switch and disengages it under two separate locks; outcome correct, log cause can be misleading. | One Manager method that reads and disengages under a single lock. | Owner, Accept Risk on the Phase 2 Risk Register | 2026-09-15 |
+| AR-2-04 | R-05 / WR-02 | low | The browser types the websocket source field as any string; the server treats unknown labels as human. | Type the field as the CommandSource union. | Owner, Accept Risk on the Phase 2 Risk Register | 2026-09-15 |
+| AR-2-05 | R-06 / WR-03 | low | Typed directives relabel their output as automation per line; safe today because no CLI directive emits a game command. | A regression test, or scope the relabelling to directives known to emit nothing. | Owner, Accept Risk on the Phase 2 Risk Register | 2026-09-15 |
+| AR-2-06 | R-07 / IN-01 | low | An unrecognised answer to #AUTO prints nothing. | Print a generic line and log the outcome in the default branch. | Owner, Accept Risk on the Phase 2 Risk Register | 2026-09-15 |
+| AR-2-07 | R-08 / IN-02 | low | A user-initiated disconnect refreshes the status twice. | A comment marking the double call deliberate, or collapse it with ordering preserved. | Owner, Accept Risk on the Phase 2 Risk Register | 2026-09-15 |
+| AR-2-08 | R-09 / T-2-SC | low | No package was added in Phase 2; the dependency-drift section of the test report is empty. | None; keep the drift check in every phase. | Owner, Accept Risk on the Phase 2 Risk Register | 2026-09-15 |
+| AR-2-09 | R-10 / T-2-03 residual (plan 02-04) | low | The autopilot websocket push carries a state and a cause to the owner's own connection only. | None; re-confirm if the message gains fields. | Owner, Accept Risk on the Phase 2 Risk Register | 2026-09-15 |
+| AR-2-10 | R-11 / observed | low | For refused-no-session and already-off the log line names the last engaged profile, not the requesting one. | Log the requested connection id for refusals and no-ops. | Owner, Accept Risk on the Phase 2 Risk Register | 2026-09-15 |
+| AR-2-11 | R-13 / observed | low | An executor installed MinGW-w64 GCC on the build machine (user scope, winget) without asking so go test -race could run; no project dependency changed. | Keep and document as required tooling, or uninstall and drop -race. | Owner, Accept Risk on the Phase 2 Risk Register | 2026-09-15 |
+
+*Accepted risks do not resurface in future audit runs.*
 
 ---
 
-## Open Items for the Owner's Decision
+## Deferred Risks
+
+Temporarily accepted so Phase 2 can close. Each is raised again at the Phase 3 security review with the same three choices. The project cannot be considered closed while either remains deferred.
+
+| Risk ID | Register item | Criticality | Risk | Proposed remediation | Owner note | Deferred By | Date | Raised again at |
+|---------|---------------|-------------|------|----------------------|------------|-------------|------|-----------------|
+| DR-2-01 | R-03 / DR-1-02 / OBS-01 (Phase 1) | medium | Staging prints the one-time sign-in code in the deploy log; anyone with staging log access can sign in as any staging user. Deferred at Phase 1, deferred again here. | Gate the log line behind an env flag off by default, or log a hash; confirm production has no equivalent; review Railway log access. | Owner note: "Mark this as MUST FIX in next Phase." | Owner | 2026-09-15 | Phase 3 security review (must fix) |
+| DR-2-02 | R-12 / observed | low | Six throwaway connection profiles remain on staging (Phase 2 Harness, Harness B, Walkthrough, Refusal, Hand Play; Phase 1 Evidence Walkthrough). | Delete them from the Connections list, or keep as Phase 3 fixtures. | Owner note: "Clean this up in Phase 3." | Owner | 2026-09-15 | Phase 3 security review |
+
+---
+
+## Items presented for decision (as audited, before the owner decided)
+
+<details>
+<summary>The auditor's pre-decision list, kept for the record</summary>
 
 These are not closed by this audit. Each carries the disposition options **Accept / Defer / Remediate Now** (register items) or is a code-review finding awaiting a remediate-or-accept decision. None is recommended here.
 
@@ -119,24 +149,30 @@ Phase 2 did not touch `AIPlayerPanel.tsx` and built no fix for R-02. Phase 2's o
 
 ---
 
+</details>
+
+---
+
 ## Security Audit Trail
 
 | Audit Date | Threats Total (register rows) | Closed | Open-for-decision | Open (mitigation absent) | Run By |
 |------------|-------------------------------|--------|--------------------|-----------------------------|--------|
 | 2026-09-15 | 22 (21 unique T-2 IDs, T-2-03 split across two dispositions) | 19 | 3 (T-2-08, T-2-SC, T-2-03 residual) | 0 | gsd-security-auditor |
 
-Items still awaiting an owner decision, counted in `threats_open` (10 total): 3 register items above + R-02 + R-04 + WR-01 + WR-02 + WR-03 + IN-01 + IN-02.
+| 2026-09-15 | 13 register items (R-01 to R-13) | 11 accepted (AR-2-01 to AR-2-11) | 2 deferred (DR-2-01, DR-2-02) | 0 | Owner, on the Phase 2 Risk Register artifact |
+
+After the owner's decisions every item has a disposition: 19 mitigations verified in code, 11 risks accepted, 2 deferred to the Phase 3 review. `threats_open: 0`.
 
 ---
 
 ## Sign-Off
 
 - [x] All 22 register rows have a disposition (mitigate / accept / defer to security review)
-- [x] Every `mitigate` threat's declared mitigation was located in the implemented code, not inferred from documentation or code structure (19/19 closed with cited evidence)
-- [x] The three post-review critical fixes (CR-01, CR-02, CR-03, commit `b5c8bf5`) were independently re-verified in current code, not accepted from the commit message
-- [ ] Accepted risks documented in Accepted Risks Log — **pending**, awaiting owner decisions at the Phase 2 security review
-- [ ] `threats_open: 0` — **not confirmed**; 10 items await an owner decision (see Open Items above and `02-SECURITY-AGENDA.md`)
-- [ ] `status: verified` — **not set**; frontmatter reads `pending-owner-decisions`
-- [ ] Deferred/accepted items re-raised and decided at the Phase 2 security review
+- [x] Every `mitigate` threat's declared mitigation was located in the implemented code (19/19 closed with cited evidence)
+- [x] The three post-review critical fixes (CR-01, CR-02, CR-03, commit `b5c8bf5`) were independently re-verified in current code
+- [x] Accepted risks documented in Accepted Risks Log (AR-2-01 to AR-2-11)
+- [x] Deferred risks documented and carried to the Phase 3 review (DR-2-01 must fix, DR-2-02)
+- [x] `threats_open: 0` confirmed
+- [x] `status: verified` set in frontmatter
 
-**Approval:** pending — this document records verification of implemented mitigations only. It does not close the phase. The Phase 2 security review (owner) must record Accept / Defer / Remediate Now against every row in "Open Items for the Owner's Decision" and against T-2-08, T-2-SC and the T-2-03 residual before `status` can move to `verified` and `threats_open` can move to `0`.
+**Approval:** verified 2026-09-15 — owner decisions recorded on the Phase 2 Risk Register (https://claude.ai/artifact/TiX2brwsPbgWVABBwAUFEj); no Remediate Now was chosen, so Phase 2 stays closed.
