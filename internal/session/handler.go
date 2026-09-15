@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/amaranth494/MudPuppy/internal/config"
@@ -23,6 +24,11 @@ type HandlerCallbacks struct {
 	OnConnected     func(connectionID, userID uuid.UUID) error
 	GetAutoLogin    func(connectionID uuid.UUID) (username, password string, err error)
 	SendCredentials func(userID, username, password string) error
+	// EngageGate resolves the Phase 1 policy-acceptance gate for the
+	// profile owning connectionID, scoped to userID. A nil EngageGate (or a
+	// nil HandlerCallbacks) must be treated as "gate refuses" by every
+	// caller — a missing dependency fails closed, never open (T-2-10).
+	EngageGate func(connectionID, userID uuid.UUID) (allowed bool, message string, policyVersion string)
 }
 
 // NewHandler creates a new session handler
@@ -74,6 +80,33 @@ type StatusResponse struct {
 	LastActivityAt   *string `json:"last_activity_at,omitempty"`
 	LastError        string  `json:"last_error,omitempty"`
 	DisconnectReason string  `json:"disconnect_reason,omitempty"`
+	// AutopilotState carries the server-held switch position on every
+	// response, no omitempty, so "off" is always transmitted and the
+	// browser badge can trust the field's presence after a page refresh
+	// (D-10).
+	AutopilotState string `json:"autopilot_state"`
+}
+
+// AutopilotRequest is the request body for POST /api/v1/session/autopilot.
+// It carries only the action and the connection the caller wants to
+// engage/disengage/query — the acting user identity is never read from
+// this body, only from the authenticated request context (threat T-2-02).
+type AutopilotRequest struct {
+	Action       string    `json:"action"`
+	ConnectionID uuid.UUID `json:"connection_id"`
+}
+
+// AutopilotResponse is the response body for POST /api/v1/session/autopilot.
+// Outcome is exactly one of engaged, disengaged, already-on, already-off,
+// refused-gate, refused-no-session, status. GateMessage, when set, is
+// Phase 1's store.EngageGateRefusalMessage passed through verbatim — this
+// package never composes its own refusal wording.
+type AutopilotResponse struct {
+	State         string `json:"state"`
+	Outcome       string `json:"outcome"`
+	GateAllowed   bool   `json:"gate_allowed"`
+	GateMessage   string `json:"gate_message,omitempty"`
+	PolicyVersion string `json:"policy_version,omitempty"`
 }
 
 // Connect handles POST /api/v1/session/connect
@@ -246,7 +279,111 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 		resp.DisconnectReason = session.DisconnectErr
 	}
 
+	resp.AutopilotState = string(h.manager.AutopilotStateFor(userIDStr))
+
 	h.sendJSON(w, resp)
+}
+
+// Autopilot handles POST /api/v1/session/autopilot: #AUTO ON, #AUTO OFF and
+// #AUTO STATUS all funnel through this one endpoint. The gate is always
+// resolved first, so gate_allowed/gate_message/policy_version are on every
+// response including status (D-05); only the "on" action's outcome depends
+// on the gate result.
+func (h *Handler) Autopilot(w http.ResponseWriter, r *http.Request) {
+	// Only allow POST method
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get user ID from context (set by session middleware). The user
+	// identity comes from the request context only — never from the body.
+	userID := r.Context().Value("user_id")
+	if userID == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userIDStr := userID.(string)
+	userUUID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		h.sendError(w, "Invalid user ID")
+		return
+	}
+
+	// Parse request body
+	var req AutopilotRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.sendError(w, "Invalid request body")
+		return
+	}
+
+	action := strings.ToLower(req.Action)
+	if action != "on" && action != "off" && action != "status" {
+		http.Error(w, "Invalid action", http.StatusBadRequest)
+		return
+	}
+
+	// Resolve the gate first, for every action, so #AUTO STATUS can print
+	// the gate result too (D-05). A nil callbacks struct or a nil
+	// EngageGate callback fails closed: gateAllowed stays false and
+	// EngageAutopilot is never reached below (T-2-10).
+	var gateAllowed bool
+	var gateMessage string
+	var policyVersion string
+	if h.callbacks != nil && h.callbacks.EngageGate != nil {
+		gateAllowed, gateMessage, policyVersion = h.callbacks.EngageGate(req.ConnectionID, userUUID)
+	}
+
+	resp := AutopilotResponse{
+		GateAllowed:   gateAllowed,
+		GateMessage:   gateMessage,
+		PolicyVersion: policyVersion,
+	}
+
+	switch action {
+	case "on":
+		if !gateAllowed {
+			cur := h.manager.AutopilotStateFor(userIDStr)
+			resp.State = string(cur)
+			resp.Outcome = "refused-gate"
+			log.Printf("[AI-PLAYER] autopilot user_id=%s connection_id=%s old=%s new=%s cause=%s",
+				userIDStr, req.ConnectionID.String(), cur, cur, "refused-gate")
+			h.sendJSON(w, resp)
+			return
+		}
+
+		newState, changed, engageErr := h.manager.EngageAutopilot(userIDStr, req.ConnectionID.String())
+		resp.State = string(newState)
+		switch {
+		case engageErr == ErrNoConnectedSession:
+			resp.Outcome = "refused-no-session"
+		case changed:
+			resp.Outcome = "engaged"
+		default:
+			resp.Outcome = "already-on"
+		}
+		h.sendJSON(w, resp)
+		return
+
+	case "off":
+		// Turning the switch off is always allowed, including while the
+		// gate refuses — the owner can always take the wheel back (D-01).
+		newState, changed := h.manager.DisengageAutopilot(userIDStr, "disengage")
+		resp.State = string(newState)
+		if changed {
+			resp.Outcome = "disengaged"
+		} else {
+			resp.Outcome = "already-off"
+		}
+		h.sendJSON(w, resp)
+		return
+
+	case "status":
+		resp.State = string(h.manager.AutopilotStateFor(userIDStr))
+		resp.Outcome = "status"
+		h.sendJSON(w, resp)
+		return
+	}
 }
 
 // sendJSON sends a JSON response
