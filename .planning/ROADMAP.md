@@ -44,8 +44,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 **Wave 1**
 
-- [ ] 01-01-PLAN.md — Profile row carries AI fields and a one-time policy acceptance record, with blanks resolved in Go
-- [ ] 01-02-PLAN.md — Policy text and version 1.0 ship inside the server binary
+- [x] 01-01-PLAN.md — Profile row carries AI fields and a one-time policy acceptance record, with blanks resolved in Go
+- [x] 01-02-PLAN.md — Policy text and version 1.0 ship inside the server binary
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -203,7 +203,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Profile Foundation and Policy Gate | 0/5 | Planned | - |
+| 1. Profile Foundation and Policy Gate | 2/6 | In Progress|  |
 | 2. Autopilot Switch | 0/TBD | Not started | - |
 | 3. One AI Decision | 0/TBD | Not started | - |
 | 4. Continuous Play | 0/TBD | Not started | - |
