@@ -1,0 +1,7 @@
+2026/09/15 16:31:34 [AI-PLAYER] engage gate connection_id=563b3448-066d-40b0-9e61-3408a5085a46 allowed=false
+2026/09/15 16:31:35 [AI-PLAYER] ai settings saved connection_id=563b3448-066d-40b0-9e61-3408a5085a46 model_name_blank=true call_cap_blank=true threshold_blank=true
+2026/09/15 16:31:37 [AI-PLAYER] ai settings saved connection_id=563b3448-066d-40b0-9e61-3408a5085a46 model_name_blank=true call_cap_blank=true threshold_blank=true
+2026/09/15 16:31:38 [AI-PLAYER] policy accepted connection_id=563b3448-066d-40b0-9e61-3408a5085a46 user_id=462d20ec-b0dd-4682-8790-ad15e3eafbdf version=1.0 accepted_at=2026-09-15T16:31:38.095576Z
+2026/09/15 16:31:38 [AI-PLAYER] policy already accepted connection_id=563b3448-066d-40b0-9e61-3408a5085a46 version=1.0 accepted_at=2026-09-15T16:31:38.095576Z
+2026/09/15 16:31:39 [AI-PLAYER] engage gate connection_id=563b3448-066d-40b0-9e61-3408a5085a46 allowed=true
+2026/09/15 16:31:40 [AI-PLAYER] ai settings saved connection_id=563b3448-066d-40b0-9e61-3408a5085a46 model_name_blank=false call_cap_blank=false threshold_blank=false
