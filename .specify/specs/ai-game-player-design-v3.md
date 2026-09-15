@@ -18,16 +18,16 @@ The project is complete when all of the following are true, demonstrated on Alte
 3. Typing any game command instantly disengages autopilot and the command goes through. Re-engaging picks up cleanly from the current game situation.
 4. The owner can coach the AI from a chat pane while it plays, see the guidance take effect on the next decision, and promote a piece of guidance into the profile permanently.
 5. Every session ends with a recorded debrief and updated progression tally, and across at least three consecutive goal sessions the tally shows improvement while required coaching declines.
-6. All mechanical safety limits hold under test: call cap, no auto-reconnect, disengage on repeated errors or disconnect, conservative defaults when profile settings are blank.
+6. All mechanical safety limits hold under test: call cap, no AI-initiated reconnect, disengage on repeated errors or disconnect, conservative defaults when profile settings are blank.
 
 ## Deliverables
 
 ### D1: Profile foundation and policy gate
 
-The connection profile becomes the single per-game home for the AI. Add to profiles: conduct rules (text, handed to the model), approach guidance (text), and AI settings (model names, call cap per session, auto-reconnect flag, disengage thresholds). Add the Safety and Abuse policy acceptance flow.
+The connection profile becomes the single per-game home for the AI. Add to profiles: conduct rules (text, handed to the model), approach guidance (text), and AI settings (model names, call cap per session, disengage thresholds). Add the Safety and Abuse policy acceptance flow. Reconnect is not an AI setting: it remains governed by the connection profile's existing reconnect toggle, which is independent of the AI and unchanged by this work.
 
 Accepted when:
-- A profile stores and returns all new fields; blank mechanical settings resolve to conservative engine defaults (capped calls, no auto-reconnect).
+- A profile stores and returns all new fields; blank mechanical settings resolve to conservative engine defaults (capped calls, default disengage thresholds).
 - Attempting to engage the AI on a profile without a recorded acceptance of the current policy version is refused with a clear message, and the policy is presented for acceptance.
 - Acceptance is recorded per profile with timestamp and policy version; changing the policy version requires re-acceptance.
 
@@ -38,7 +38,7 @@ The engage and disengage mechanics, independent of any AI intelligence. `#AUTO O
 Accepted when:
 - `#AUTO ON` engages only when the profile passes the D1 gate; the indicator always matches the true state.
 - Any game command typed while engaged disengages before the command is sent, with no lost keystrokes.
-- Disconnect while engaged never reconnects automatically, and the state lands on disengaged.
+- Disconnect while engaged lands the AI on disengaged. The AI never initiates a reconnect; whether the connection itself reconnects is decided solely by the connection profile's reconnect toggle, and if the connection does come back the AI stays disengaged until the owner re-engages it.
 
 ### D3: One AI decision
 
