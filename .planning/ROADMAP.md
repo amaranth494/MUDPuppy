@@ -78,7 +78,30 @@ Implementation notes for planning: new golang-migrate migration starting at `010
   3. A disconnect while engaged moves autopilot to a waiting state that issues nothing; the AI never initiates a reconnect; when the connection comes back by any means autopilot resumes to ON by itself; `#AUTO OFF` while waiting lands on OFF and it stays OFF after the connection returns. (Owner amendment 2026-09-15.)
   4. The owner can create a game profile, accept the policy on it, and hand-play the character normally with the AI disengaged; nothing about ordinary play changes.
 
-**Plans**: TBD
+**Plans**: 7 plans
+Plans:
+**Wave 1**
+
+- [ ] 02-01-PLAN.md — Autopilot holds a position on the server and a dropped connection parks it instead of flipping it off
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 02-02-PLAN.md — The switch answers over HTTP and refuses without the policy gate or a connected game
+- [ ] 02-03-PLAN.md — Typing takes the wheel; triggers and timers do not
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 02-04-PLAN.md — `#AUTO` is a directive the owner can type, and the browser labels every command human or automation
+- [ ] 02-05-PLAN.md — One command turns the Phase 2 HTTP sequence into a canned PASS/FAIL report per success criterion
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 02-06-PLAN.md — The badge and the notices tell the truth, including after a refresh
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 02-07-PLAN.md — Phase 2 demonstrated on staging and filed as evidence: test report, canned report, staging log excerpt, screenshots, security-review agenda
+
 **UI hint**: yes
 
 **Phase Validation** (how the success criteria are demonstrated): Player-observable on staging against a live MUD: `#AUTO ON` is refused before acceptance and engages after it; the indicator matches the server state after a page refresh; typing a command while engaged shows the disengage notice and the command's game response; a trigger-fired command leaves autopilot engaged; dropping the connection shows the indicator as waiting and no command is sent while disconnected; reconnecting by hand shows it resuming to ON without typing `#AUTO ON`; `#AUTO OFF` while waiting lands on OFF and it stays OFF after reconnecting. Diagnostic: `go test` covers the engaged-state machine and the human-versus-automation source flag.
@@ -204,7 +227,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Profile Foundation and Policy Gate | 6/6 | Complete    | 2026-09-15 |
-| 2. Autopilot Switch | 0/TBD | Not started | - |
+| 2. Autopilot Switch | 0/7 | Planned     | - |
 | 3. One AI Decision | 0/TBD | Not started | - |
 | 4. Continuous Play | 0/TBD | Not started | - |
 | 5. Coaching Channel | 0/TBD | Not started | - |
