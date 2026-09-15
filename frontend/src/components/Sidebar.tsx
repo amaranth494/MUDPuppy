@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useSession } from '../context/SessionContext';
 import { logout } from '../services/api';
 import SessionBadge from './SessionBadge';
+import AutopilotBadge from './AutopilotBadge';
 
 // SP06PH08: Sidebar component - cleaned up duplicate nav items
 
@@ -159,6 +160,11 @@ export default function Sidebar({ isCollapsed = false, onToggle, onPlayClick, on
             ⚠️
           </span>
         )}
+      </div>
+
+      {/* 02-06: Autopilot badge beside the connection badge, server-driven only */}
+      <div className="sidebar-status sidebar-autopilot">
+        <AutopilotBadge />
       </div>
 
       {/* User Menu */}
