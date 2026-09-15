@@ -53,8 +53,8 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 01-04-PLAN.md — The owner accepts the policy and edits AI settings from the browser
-- [ ] 01-06-PLAN.md — One command turns the Phase 1 HTTP sequence into a canned PASS/FAIL report per success criterion
+- [x] 01-04-PLAN.md — The owner accepts the policy and edits AI settings from the browser
+- [x] 01-06-PLAN.md — One command turns the Phase 1 HTTP sequence into a canned PASS/FAIL report per success criterion
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -203,7 +203,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Profile Foundation and Policy Gate | 3/6 | In Progress|  |
+| 1. Profile Foundation and Policy Gate | 5/6 | In Progress|  |
 | 2. Autopilot Switch | 0/TBD | Not started | - |
 | 3. One AI Decision | 0/TBD | Not started | - |
 | 4. Continuous Play | 0/TBD | Not started | - |
