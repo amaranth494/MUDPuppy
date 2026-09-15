@@ -16,9 +16,9 @@ Delivery ordering (from the source): D1 -> D2 -> D3 -> D4 strictly sequential; D
 
 ### D2: Autopilot switch
 
-- [ ] **REQ-autopilot-directives**: `#AUTO ON` and `#AUTO OFF` in the existing `#` directive grammar, plus a visible status indicator in the play screen; engage/disengage mechanics independent of any AI intelligence. Acceptance: "`#AUTO ON` engages only when the profile passes the D1 gate; the indicator always matches the true state."
+- [x] **REQ-autopilot-directives**: `#AUTO ON` and `#AUTO OFF` in the existing `#` directive grammar, plus a visible status indicator in the play screen; engage/disengage mechanics independent of any AI intelligence. Acceptance: "`#AUTO ON` engages only when the profile passes the D1 gate; the indicator always matches the true state."
 - [x] **REQ-wheel-grab**: Acceptance: "Any game command typed while engaged disengages before the command is sent, with no lost keystrokes."
-- [ ] **REQ-no-auto-reconnect**: Acceptance (design D2 amended by the owner 2026-09-15): "A disconnect while engaged does not turn autopilot off: it enters a waiting state, issues nothing while disconnected, and resumes on its own when the connection returns. The AI never initiates a reconnect; whether and how the connection itself reconnects is decided solely by the connection profile (today, the owner reconnecting by hand). Only `#AUTO OFF` moves autopilot to off, including while waiting."
+- [x] **REQ-no-auto-reconnect**: Acceptance (design D2 amended by the owner 2026-09-15): "A disconnect while engaged does not turn autopilot off: it enters a waiting state, issues nothing while disconnected, and resumes on its own when the connection returns. The AI never initiates a reconnect; whether and how the connection itself reconnects is decided solely by the connection profile (today, the owner reconnecting by hand). Only `#AUTO OFF` moves autopilot to off, including while waiting."
 
 ### D3: One AI decision
 
@@ -57,7 +57,7 @@ Delivery ordering (from the source): D1 -> D2 -> D3 -> D4 strictly sequential; D
 
 ### Definition of complete (cross-cutting)
 
-- [ ] **REQ-doc-hand-play-and-gate** (item 1): "The owner can create a game profile, accept the Safety and Abuse policy on it, and hand-play the character normally. The AI cannot be configured or engaged on any profile that has not accepted the policy." Maps to REQ-policy-gate, REQ-autopilot-directives.
+- [x] **REQ-doc-hand-play-and-gate** (item 1): "The owner can create a game profile, accept the Safety and Abuse policy on it, and hand-play the character normally. The AI cannot be configured or engaged on any profile that has not accepted the policy." Maps to REQ-policy-gate, REQ-autopilot-directives.
 - [ ] **REQ-doc-continuous-visible-play** (item 2): "With autopilot engaged, the AI plays continuously toward the session goal the owner set, and every decision it makes is visible with its reasoning as it happens." Maps to REQ-continuous-loop, REQ-reasoning-visibility.
 - [ ] **REQ-doc-wheel-grab-and-reengage** (item 3): "Typing any game command instantly disengages autopilot and the command goes through. Re-engaging picks up cleanly from the current game situation." Maps to REQ-wheel-grab, REQ-reengage-reassess.
 - [ ] **REQ-doc-coaching** (item 4): "The owner can coach the AI from a chat pane while it plays, see the guidance take effect on the next decision, and promote a piece of guidance into the profile permanently." Maps to REQ-coaching-chat, REQ-promote-guidance.
@@ -93,10 +93,10 @@ Deferred; tracked but not in the current roadmap.
 |-------------|-------|--------|
 | REQ-profile-ai-fields | Phase 1 | Complete |
 | REQ-policy-gate | Phase 1 | Complete |
-| REQ-autopilot-directives | Phase 2 | Pending |
+| REQ-autopilot-directives | Phase 2 | Complete |
 | REQ-wheel-grab | Phase 2 | Complete |
-| REQ-no-auto-reconnect | Phase 2 | Pending |
-| REQ-doc-hand-play-and-gate | Phase 2 | Pending |
+| REQ-no-auto-reconnect | Phase 2 | Complete |
+| REQ-doc-hand-play-and-gate | Phase 2 | Complete |
 | REQ-single-decision | Phase 3 | Pending |
 | REQ-reasoning-visibility | Phase 3 | Pending |
 | REQ-env-config | Phase 3 | Pending |

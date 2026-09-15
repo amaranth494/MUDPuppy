@@ -225,3 +225,7 @@ Phase 2's ROADMAP Phase Validation line has been demonstrated end to end on stag
 ---
 *Phase: 02-autopilot-switch*
 *Completed: 2026-09-15*
+
+## Owner approval
+
+Phase 2 was approved by the owner on 2026-09-15 through the Autopilot Switch Evidence Dossier (https://claude.ai/artifact/HoKNf4VDKDGX49r97K9Y6B), after the verifier passed 4 of 4, the code review's three critical findings were fixed in b5c8bf5 and redeployed, and the regression gate passed. Both 02-07 checkpoints are approved by that same act.
