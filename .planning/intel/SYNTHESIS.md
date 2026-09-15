@@ -56,3 +56,11 @@ Full report: D:/Projects/MUDPuppy/.planning/INGEST-CONFLICTS.md
 ## Status
 
 CONFLICT GATE CLEARED 2026-09-14: 0 blockers, 0 warnings. The single warning (auto-reconnect flag) was resolved by the owner and the design doc amended. Routed to gsd-roadmapper; PROJECT.md, REQUIREMENTS.md, ROADMAP.md, STATE.md written.
+
+## Files
+
+- D:/Projects/MUDPuppy/.planning/intel/decisions.md
+- D:/Projects/MUDPuppy/.planning/intel/requirements.md
+- D:/Projects/MUDPuppy/.planning/intel/constraints.md
+- D:/Projects/MUDPuppy/.planning/intel/context.md
+- D:/Projects/MUDPuppy/.planning/INGEST-CONFLICTS.md
