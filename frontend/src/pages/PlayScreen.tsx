@@ -448,6 +448,17 @@ export default function PlayScreen() {
       }
     }
     
+    // 02-07 fix: while autopilot is parked (waiting) the input stays open for # directives
+    // only, so #AUTO OFF can land on OFF before the connection returns (ROADMAP criterion 3).
+    if (connectionState !== 'connected') {
+      if (classification.isInternal && command.trim() && automationEngine) {
+        await automationEngine.processUserInput(command);
+      } else if (automationEngine && command.trim()) {
+        await automationEngine.echoLocal('[Not connected]', { color: 'white' });
+      }
+      return;
+    }
+
     if (wsManager && connectionState === 'connected') {
       // SP05: Process through automation engine (aliases, variables)
       // SP06PH07: Skip if automation is disabled
@@ -481,7 +492,7 @@ export default function PlayScreen() {
         }
       }
     }
-  }, [wsManager, connectionState, isInputLocked, profile, automationEngine, automationDisabled]);
+  }, [wsManager, connectionState, isInputLocked, profile, automationEngine, automationDisabled, autopilotState]);
 
   // SP04: Set up keybinding interceptor
   useInputInterceptor({
@@ -529,8 +540,8 @@ export default function PlayScreen() {
           ref={inputRef}
           type="text"
           className="form-input"
-          placeholder={connectionState === 'connected' ? 'Type command and press Enter...' : 'Click Play in sidebar to connect'}
-          disabled={connectionState !== 'connected'}
+          placeholder={connectionState === 'connected' ? 'Type command and press Enter...' : (autopilotState === 'waiting' ? 'Autopilot waiting for reconnect. Type #AUTO OFF to disengage.' : 'Click Play in sidebar to connect')}
+          disabled={connectionState !== 'connected' && autopilotState !== 'waiting'}
           onKeyDown={(e) => {
             const input = e.currentTarget;
             

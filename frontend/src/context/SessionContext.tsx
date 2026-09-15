@@ -261,13 +261,22 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   // automationEngine and currentConnectionId. When currentConnectionId is null (e.g. quick
   // connect with no saved profile), clear the control so #AUTO prints its no-connected-game
   // line without a server round trip (evaluator.ts's case 'AUTO' already handles that).
+  // 02-07 fix: remember the last connection so #AUTO OFF can still reach the server
+  // while autopilot is parked (waiting) after a drop. The server always allows off
+  // and refuses on without a live game, so binding to the parked id is safe.
+  const parkedConnectionIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (currentConnectionId) parkedConnectionIdRef.current = currentConnectionId;
+  }, [currentConnectionId]);
+
   useEffect(() => {
     if (!automationEngine) return;
-    if (!currentConnectionId) {
+    const boundId = currentConnectionId ?? (autopilotState === 'waiting' ? parkedConnectionIdRef.current : null);
+    if (!boundId) {
       automationEngine.setAutopilotControl(undefined);
       return;
     }
-    const connectionIdForControl = currentConnectionId;
+    const connectionIdForControl = boundId;
     automationEngine.setAutopilotControl({
       setState: async (action: 'on' | 'off' | 'status') => {
         const response = await setAutopilot(connectionIdForControl, action);
@@ -275,7 +284,7 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
         return response;
       },
     });
-  }, [automationEngine, currentConnectionId]);
+  }, [automationEngine, currentConnectionId, autopilotState]);
 
   const connect = useCallback(async (mudHost: string, mudPort: number, connectionId?: string) => {
     logToConsole('[SessionContext.tsx:connect] Automation: connect() called - mudHost: ' + mudHost + ' mudPort: ' + mudPort + ' connectionId: ' + connectionId);
