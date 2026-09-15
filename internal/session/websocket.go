@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,6 +21,11 @@ const (
 	MsgTypeData       = "data"
 	MsgTypeError      = "error"
 	MsgTypeStatus     = "status"
+	// MsgTypeAutopilot is the outbound, best-effort autopilot-state push.
+	// It reuses the Status and Data string fields (Status carries the
+	// on/waiting/off state, Data carries the cause) rather than adding new
+	// struct fields — see plan 02-03's wire contract.
+	MsgTypeAutopilot = "autopilot"
 )
 
 // WebSocket message structure
@@ -30,6 +36,48 @@ type WSMessage struct {
 	Data   string `json:"data,omitempty"`
 	Error  string `json:"error,omitempty"`
 	Status string `json:"status,omitempty"`
+	// Source is meaningful only on inbound "data" messages: the browser's
+	// CommandSource tag ("user", "alias", "trigger") for the command being
+	// sent. See IsHumanSource for the classification rule.
+	Source string `json:"source,omitempty"`
+}
+
+// IsHumanSource is the wheel-grab's classification rule. Absent or
+// unrecognised means human, because the failure in that direction is an
+// unwanted disengage the owner will notice immediately, while the opposite
+// direction — treating an unrecognised source as automation — would be a
+// silent bypass of the one protection this phase exists to provide
+// (RESEARCH Pitfall 3). Only "trigger" and "timer" are automation; "timer"
+// is included even though the browser currently labels timer-fired
+// commands "trigger", so a later frontend rename cannot quietly turn
+// timers into wheel-grabs.
+func IsHumanSource(source string) bool {
+	switch strings.ToLower(strings.TrimSpace(source)) {
+	case "trigger", "timer":
+		return false
+	default:
+		return true
+	}
+}
+
+// applyWheelGrab decides whether a browser-sent command takes the wheel
+// back from autopilot. It takes a *Manager argument rather than being a
+// method on WebSocketHandler so the rule is testable without opening a
+// socket. It can only move a user's own autopilot from on to off — never
+// engage or resume anything — so a client that forges a source label can
+// at most keep its own already-on autopilot on (threat T-2-01).
+func applyWheelGrab(m *Manager, userID, source string) (grabbed bool, state AutopilotState) {
+	if !IsHumanSource(source) {
+		return false, m.AutopilotStateFor(userID)
+	}
+	if m.AutopilotStateFor(userID) != AutopilotOn {
+		return false, m.AutopilotStateFor(userID)
+	}
+	newState, changed := m.DisengageAutopilot(userID, "wheel-grab")
+	if !changed {
+		return false, newState
+	}
+	return true, newState
 }
 
 // RateLimiter implements a simple token bucket rate limiter
@@ -360,6 +408,15 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 			if !connected {
 				h.sendError(conn, "Not connected")
 				continue
+			}
+
+			// Wheel-grab: a human-sourced command disengages autopilot
+			// before it is sent (D-07/D-09, threat T-2-01). Best-effort
+			// push of the new state to this tab; the command is queued on
+			// every path below regardless of whether the grab happened or
+			// the push succeeded (no lost keystrokes, T-2-12).
+			if grabbed, state := applyWheelGrab(h.manager, userIDStr, wsMsg.Source); grabbed {
+				_ = h.writeJSON(conn, WSMessage{Type: MsgTypeAutopilot, Status: string(state), Data: "wheel-grab"})
 			}
 
 			// Send command to MUD via channel
