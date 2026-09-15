@@ -1,0 +1,29 @@
+{
+  "source_path": "D:\\Projects\\MUDPuppy\\.specify\\specs\\ai-game-player-design-v3.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "AI Game Player for MUDPuppy — Design Document, Version 3",
+  "summary": "Design spec for an AI autopilot that drives a MUDPuppy game character via Gemini, with profile-scoped config, safety gate, coaching, memory, and an Alter Aeon acceptance run.",
+  "scope": [
+    "MUDPuppy",
+    "AI autopilot driver",
+    "Connection profiles (conduct rules, approach guidance, AI settings)",
+    "Safety and Abuse policy acceptance gate",
+    "#AUTO ON / #AUTO OFF directives",
+    "Gemini decision loop (read, decide, act)",
+    "Internal Command Module automation context and safety limits",
+    "Coaching chat pane (pause, resume, promote guidance)",
+    "Progression tally, session debriefs, learned notes",
+    "Study loader (transcripts, help files, walkthroughs)",
+    "Alter Aeon acceptance run",
+    "Railway staging environment",
+    "Postgres and Redis"
+  ],
+  "cross_refs": [
+    ".specify/specs/safety-and-abuse-policy-v1.md"
+  ],
+  "locked": false,
+  "precedence": 0,
+  "notes": "Type set by MANIFEST_TYPE=SPEC. Content is a mix of goal statement, numbered deliverables with acceptance criteria, sequencing, and out-of-scope list; heuristic path signal (**/specs/**) also supports SPEC, though the acceptance-criteria style has PRD flavor. Filename suffix uses a fallback identifier because no shell was available to compute SHA-256 of the path."
+}

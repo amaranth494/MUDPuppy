@@ -1,0 +1,27 @@
+{
+  "source_path": "D:\\Projects\\MUDPuppy\\.specify\\specs\\safety-and-abuse-policy-v1.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "MUDPuppy AI Player: Safety and Abuse Policy",
+  "summary": "Per-profile acceptable-use policy (v1.0) governing AI player engagement: game-rule compliance, supervision, player respect, rate limits, cost ownership, credential/data handling, and enforcement.",
+  "scope": [
+    "AI player",
+    "game profiles",
+    "policy acceptance (per-profile, versioned, timestamped)",
+    "automation permission confirmation",
+    "conduct rules",
+    "supervision and unattended play",
+    "auto-reconnect prohibition after disconnect",
+    "rate and safety limits",
+    "one AI character per game per profile",
+    "per-session API call cap",
+    "stored game credentials",
+    "session logs and learned notes",
+    "enforcement (disabling AI features)"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": 1,
+  "notes": "Type taken from manifest (SPEC, precedence 1). Observed content reads as a user-facing acceptable-use policy rather than an API/schema spec, but it does impose enforceable system behaviors (per-profile acceptance record with timestamp and version, re-acceptance on policy change, no auto-reconnect when kicked, rate/safety limits, single AI character per game, per-session call cap, credential use restricted to profile connection). No markdown links or file references found; hash suffix omitted from output filename because no hashing tool was available."
+}
