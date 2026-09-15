@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Plan 02-07 evidence, summary and security agenda filed; both human-verify checkpoints awaiting owner approval; phase verification not yet run
+stopped_at: Phase 2 complete and owner-approved via the evidence dossier; security review in progress (risk register pending owner decisions)
 last_updated: "2026-09-15T23:24:54.978Z"
 last_activity: 2026-09-15
 progress:
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-14)
 
 **Core value:** The owner can hand the wheel to the AI and take it back instantly, always seeing what the AI is doing and why, with every mechanical safety limit holding, and the AI getting measurably better session over session by the game's own numbers.
-**Current focus:** Phase 02 — autopilot-switch
+**Current focus:** Phase 02 security review, then Phase 03 — one-ai-decision
 
 ## Current Position
 
 Phase: 3
 Plan: Not started
-Status: Executing Phase 02
+Status: Phase 02 complete; security review open
 Last activity: 2026-09-15
 
-Progress: [██████████] 100%
+Progress: [██▌       ] 25%
 
 ## Performance Metrics
 
