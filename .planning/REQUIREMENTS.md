@@ -17,7 +17,7 @@ Delivery ordering (from the source): D1 -> D2 -> D3 -> D4 strictly sequential; D
 ### D2: Autopilot switch
 
 - [ ] **REQ-autopilot-directives**: `#AUTO ON` and `#AUTO OFF` in the existing `#` directive grammar, plus a visible status indicator in the play screen; engage/disengage mechanics independent of any AI intelligence. Acceptance: "`#AUTO ON` engages only when the profile passes the D1 gate; the indicator always matches the true state."
-- [ ] **REQ-wheel-grab**: Acceptance: "Any game command typed while engaged disengages before the command is sent, with no lost keystrokes."
+- [x] **REQ-wheel-grab**: Acceptance: "Any game command typed while engaged disengages before the command is sent, with no lost keystrokes."
 - [ ] **REQ-no-auto-reconnect**: Acceptance (design D2 amended by the owner 2026-09-15): "A disconnect while engaged does not turn autopilot off: it enters a waiting state, issues nothing while disconnected, and resumes on its own when the connection returns. The AI never initiates a reconnect; whether and how the connection itself reconnects is decided solely by the connection profile (today, the owner reconnecting by hand). Only `#AUTO OFF` moves autopilot to off, including while waiting."
 
 ### D3: One AI decision
@@ -94,7 +94,7 @@ Deferred; tracked but not in the current roadmap.
 | REQ-profile-ai-fields | Phase 1 | Complete |
 | REQ-policy-gate | Phase 1 | Complete |
 | REQ-autopilot-directives | Phase 2 | Pending |
-| REQ-wheel-grab | Phase 2 | Pending |
+| REQ-wheel-grab | Phase 2 | Complete |
 | REQ-no-auto-reconnect | Phase 2 | Pending |
 | REQ-doc-hand-play-and-gate | Phase 2 | Pending |
 | REQ-single-decision | Phase 3 | Pending |
