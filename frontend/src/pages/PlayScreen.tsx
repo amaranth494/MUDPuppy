@@ -416,6 +416,8 @@ export default function PlayScreen() {
       if (!automationEngine) return;
       if (payload.kind === 'decision' && payload.outcome === 'sent') {
         automationEngine.echoLocal(`[AI-ASSIST > ${payload.command}]`, { color: 'brightmagenta' });
+      } else if (payload.kind === 'decision' && payload.outcome === 'blocked') {
+        automationEngine.echoLocal(`[AI-ASSIST blocked > ${payload.command}]`, { color: 'brightyellow' });
       } else if (payload.kind === 'system') {
         automationEngine.echoLocal(`[${payload.message}]`, { color: 'red' });
       }
