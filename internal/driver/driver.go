@@ -237,6 +237,14 @@ func (d *Driver) HandleEngage(userID, connectionID string) {
 
 	answer, genErr := d.models.GenerateContent(context.Background(), entry.Endpoint, entry.ModelName, entry.APIKey, systemInstruction, window)
 	if genErr != nil {
+		// Diagnostic surface (CLAUDE.md rule 7): the vendor's error kind and
+		// HTTP status, never its message (which may carry a URL), so a
+		// staging failure can be told apart as auth, bad request, or transport.
+		mstatus := 0
+		if gerr, ok := genErr.(*gemini.Error); ok {
+			mstatus = gerr.Status
+		}
+		log.Printf("[AI-PLAYER] model-error user_id=%s connection_id=%s model=%s kind=%s http=%d", userID, connectionID, entry.ModelName, gemini.ErrorKind(genErr), mstatus)
 		kind := failureAPIError
 		switch gemini.ErrorKind(genErr) {
 		case gemini.KindRateLimited:
