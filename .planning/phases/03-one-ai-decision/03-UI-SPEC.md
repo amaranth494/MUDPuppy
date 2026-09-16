@@ -145,7 +145,7 @@ Plain, non-marketing, terminal-friendly — matches the existing voice and Phase
 | Logs page — empty state (no sessions yet) | `No sessions recorded yet for this profile.` |
 | Logs page — empty state (no session selected) | `Select a session on the left to view its transcript.` |
 | Logs page — sign-in required | No new copy — the app's existing global `AuthGuard`/`LoginScreen` already gates every route, including the new tab; the log page never renders its own auth screen |
-| Logs page — load failure | `Failed to load sessions` / `Failed to load transcript` (matches the existing "Failed to load X" pattern from `AIPlayerPanel.tsx`/`EnvironmentPanel.tsx`) |
+| Logs page — load failure | `Failed to load sessions — refresh the page to try again` / `Failed to load transcript — refresh the page to try again` (matches the existing "Failed to load X" pattern from `AIPlayerPanel.tsx`/`EnvironmentPanel.tsx`) |
 | Logs transcript — human-issued line prefix | `> {command}` (`--color-human-command`) |
 | Logs transcript — AI-issued line prefix | `[AI-ASSIST > {command}]` (`--color-ai-accent`) — the exact same string stored and shown in the terminal, so the transcript and the live play screen never use two different labels for the same fact |
 | Logs transcript — game-output line | no prefix, `var(--color-text-dim)` |
@@ -301,7 +301,7 @@ The tab's dot colour tracks the same `autopilotState` the header badge already r
   <div className="ai-assist-panel">
     <div className="ai-assist-panel-header">
       <span className="ai-assist-panel-title">AI Assist</span>
-      <button className="ai-assist-panel-minimize" onClick={() => setCollapsed(true)} title="Minimize">–</button>
+      <button className="ai-assist-panel-minimize" onClick={() => setCollapsed(true)} title="Minimize" aria-label="Minimize">–</button>
     </div>
     <div className="ai-assist-panel-body">
       {isLoading && <div className="ai-assist-loading">Loading decision history…</div>}
