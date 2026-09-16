@@ -101,9 +101,11 @@ type AutopilotRequest struct {
 
 // AutopilotResponse is the response body for POST /api/v1/session/autopilot.
 // Outcome is exactly one of engaged, disengaged, already-on, already-off,
-// refused-gate, refused-no-session, status. GateMessage, when set, is
-// Phase 1's store.EngageGateRefusalMessage passed through verbatim — this
-// package never composes its own refusal wording.
+// refused-gate, refused-no-session, refused-not-configured, status.
+// GateMessage, when set, is Phase 1's store.EngageGateRefusalMessage passed
+// through verbatim for refused-gate, or the fixed D-20 sentence for
+// refused-not-configured — this package never composes its own refusal
+// wording.
 type AutopilotResponse struct {
 	State         string `json:"state"`
 	Outcome       string `json:"outcome"`
@@ -356,6 +358,26 @@ func (h *Handler) Autopilot(w http.ResponseWriter, r *http.Request) {
 			resp.Outcome = "refused-gate"
 			log.Printf("[AI-PLAYER] autopilot user_id=%s connection_id=%s old=%s new=%s cause=%s",
 				userIDStr, req.ConnectionID.String(), cur, cur, "refused-gate")
+			h.sendJSON(w, resp)
+			return
+		}
+
+		// A nil config or an unconfigured AI model registry refuses here,
+		// checked only after the policy gate allows and before
+		// EngageAutopilot is ever called — the switch cannot move and no
+		// driver can be invoked on this path (D-20, T-3-29). A nil h.config
+		// refuses too: a missing dependency fails closed, never open, the
+		// same discipline EngageGate's doc comment states above (T-2-10).
+		// Never log the model name, endpoint, key or any registry detail on
+		// this path (T-3-02) — the log line below carries ids, states and
+		// the cause only.
+		if h.config == nil || !h.config.AIConfigured() {
+			cur := h.manager.AutopilotStateFor(userIDStr)
+			resp.State = string(cur)
+			resp.Outcome = "refused-not-configured"
+			resp.GateMessage = "Autopilot refused: AI is not configured on this server"
+			log.Printf("[AI-PLAYER] autopilot user_id=%s connection_id=%s old=%s new=%s cause=refused-not-configured",
+				userIDStr, req.ConnectionID.String(), cur, cur)
 			h.sendJSON(w, resp)
 			return
 		}

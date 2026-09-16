@@ -19,9 +19,13 @@ type engageGateStub = func(connectionID, userID uuid.UUID) (allowed bool, messag
 
 // newAutopilotHandler builds a Handler with no database, no live MUD and no
 // real dial — the manager is the same seedable in-memory Manager
-// manager_test.go uses, and gate is a subtest-controlled stub.
+// manager_test.go uses, and gate is a subtest-controlled stub. The AI model
+// registry is configured (AIConfigured() true) by default so the Phase 1/2
+// gate and engage mechanics these existing tests exercise are unaffected by
+// the D-20 configuration gate added in plan 03-06; TestAutopilotHandler_AIConfigRefusal
+// builds its own handlers directly to vary AI configuration.
 func newAutopilotHandler(m *Manager, gate engageGateStub) *Handler {
-	return NewHandlerWithCallbacks(m, &config.Config{}, &HandlerCallbacks{EngageGate: gate})
+	return NewHandlerWithCallbacks(m, configuredConfig(), &HandlerCallbacks{EngageGate: gate})
 }
 
 // newAutopilotRequest builds an httptest request for the Autopilot handler.
@@ -412,6 +416,160 @@ func TestEngageRefusedForAnotherProfile(t *testing.T) {
 	if resp.State != string(AutopilotOff) {
 		t.Fatalf("state = %q, want %q", resp.State, AutopilotOff)
 	}
+}
+
+// configuredConfig returns a *config.Config whose AIConfigured() reports
+// true: a default slug naming a registry entry with a non-empty model
+// name, endpoint and key.
+func configuredConfig() *config.Config {
+	return &config.Config{
+		AIDefaultModelSlug: "GEMINI",
+		AIModels: map[string]config.AIModelEntry{
+			"GEMINI": {
+				Slug:      "GEMINI",
+				ModelName: "gemini-test-model",
+				Endpoint:  "https://example.invalid",
+				APIKey:    "test-key-not-a-real-credential",
+				Provider:  "gemini",
+			},
+		},
+	}
+}
+
+// unconfiguredConfig returns a *config.Config whose AIConfigured() reports
+// false: an empty registry and no default slug.
+func unconfiguredConfig() *config.Config {
+	return &config.Config{}
+}
+
+// TestAutopilotHandler_AIConfigRefusal proves the D-20 configuration gate:
+// #AUTO ON is refused with the locked sentence when the AI is not
+// configured, the Phase 1 policy gate still refuses first with its own
+// unchanged message, and #AUTO OFF is completely unaffected (T-3-29,
+// T-3-30, T-3-31).
+func TestAutopilotHandler_AIConfigRefusal(t *testing.T) {
+	const lockedRefusal = "Autopilot refused: AI is not configured on this server"
+
+	t.Run("refuses_on_when_unconfigured", func(t *testing.T) {
+		m := newTestManager()
+		userID := uuid.New()
+		connID := uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
+		h := NewHandlerWithCallbacks(m, unconfiguredConfig(), &HandlerCallbacks{EngageGate: alwaysAllow("")})
+
+		req := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{
+			Action:       "on",
+			ConnectionID: connID,
+		}))
+		rec := httptest.NewRecorder()
+		h.Autopilot(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+		}
+		resp := decodeAutopilotResponse(t, rec)
+		if resp.Outcome != "refused-not-configured" {
+			t.Errorf("outcome = %q, want %q", resp.Outcome, "refused-not-configured")
+		}
+		if resp.GateMessage != lockedRefusal {
+			t.Errorf("gate_message = %q, want %q", resp.GateMessage, lockedRefusal)
+		}
+		if resp.State != string(AutopilotOff) {
+			t.Errorf("state = %q, want %q", resp.State, AutopilotOff)
+		}
+		if got := m.AutopilotStateFor(userID.String()); got != AutopilotOff {
+			t.Errorf("AutopilotStateFor = %q, want %q (the switch must stay off)", got, AutopilotOff)
+		}
+	})
+
+	t.Run("nil_config_refuses", func(t *testing.T) {
+		m := newTestManager()
+		userID := uuid.New()
+		connID := uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
+		h := NewHandlerWithCallbacks(m, nil, &HandlerCallbacks{EngageGate: alwaysAllow("")})
+
+		req := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{
+			Action:       "on",
+			ConnectionID: connID,
+		}))
+		rec := httptest.NewRecorder()
+		h.Autopilot(rec, req)
+
+		resp := decodeAutopilotResponse(t, rec)
+		if resp.Outcome != "refused-not-configured" {
+			t.Errorf("outcome = %q, want %q (a nil config must not panic)", resp.Outcome, "refused-not-configured")
+		}
+		if got := m.AutopilotStateFor(userID.String()); got != AutopilotOff {
+			t.Errorf("AutopilotStateFor = %q, want %q", got, AutopilotOff)
+		}
+	})
+
+	t.Run("gate_refusal_takes_precedence", func(t *testing.T) {
+		m := newTestManager()
+		userID := uuid.New()
+		connID := uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
+		h := NewHandlerWithCallbacks(m, unconfiguredConfig(), &HandlerCallbacks{EngageGate: alwaysRefuse(store.EngageGateRefusalMessage)})
+
+		req := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{
+			Action:       "on",
+			ConnectionID: connID,
+		}))
+		rec := httptest.NewRecorder()
+		h.Autopilot(rec, req)
+
+		resp := decodeAutopilotResponse(t, rec)
+		if resp.Outcome != "refused-gate" {
+			t.Errorf("outcome = %q, want %q (the policy gate refuses first)", resp.Outcome, "refused-gate")
+		}
+		if resp.GateMessage != store.EngageGateRefusalMessage {
+			t.Errorf("gate_message = %q, want the store.EngageGateRefusalMessage constant verbatim (the two refusals must never blur)", resp.GateMessage)
+		}
+	})
+
+	t.Run("engages_when_configured", func(t *testing.T) {
+		m := newTestManager()
+		userID := uuid.New()
+		connID := uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
+		h := NewHandlerWithCallbacks(m, configuredConfig(), &HandlerCallbacks{EngageGate: alwaysAllow("")})
+
+		req := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{
+			Action:       "on",
+			ConnectionID: connID,
+		}))
+		rec := httptest.NewRecorder()
+		h.Autopilot(rec, req)
+
+		resp := decodeAutopilotResponse(t, rec)
+		if resp.Outcome != "engaged" {
+			t.Errorf("outcome = %q, want %q", resp.Outcome, "engaged")
+		}
+		if resp.State != string(AutopilotOn) {
+			t.Errorf("state = %q, want %q", resp.State, AutopilotOn)
+		}
+	})
+
+	t.Run("off_is_unaffected_when_unconfigured", func(t *testing.T) {
+		m := newTestManager()
+		userID := uuid.New()
+		connID := uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
+		h := NewHandlerWithCallbacks(m, unconfiguredConfig(), &HandlerCallbacks{EngageGate: alwaysAllow("")})
+
+		req := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "off"}))
+		rec := httptest.NewRecorder()
+		h.Autopilot(rec, req)
+
+		resp := decodeAutopilotResponse(t, rec)
+		if resp.Outcome != "disengaged" && resp.Outcome != "already-off" {
+			t.Errorf("outcome = %q, want %q or %q (the AI's absence must not touch #AUTO OFF)", resp.Outcome, "disengaged", "already-off")
+		}
+		if resp.Outcome == "refused-not-configured" {
+			t.Errorf("outcome = %q, #AUTO OFF must never be refused for a missing AI config", resp.Outcome)
+		}
+	})
 }
 
 // TestStatusCarriesAutopilotConnectionID proves code review C3: while the
