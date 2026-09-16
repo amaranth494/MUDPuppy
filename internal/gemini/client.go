@@ -113,6 +113,14 @@ type responseSchema struct {
 	Type       string                    `json:"type"`
 	Properties map[string]schemaProperty `json:"properties"`
 	Required   []string                  `json:"required"`
+	// PropertyOrdering tells Gemini's structured-output decoder the order
+	// in which to generate the named properties (the Gemini API's own
+	// generation order follows this list, not Go's unordered map
+	// iteration over Properties). ReviewCommand sets this so the model
+	// writes its reason before its blocked boolean — reasoning-then-decide
+	// rather than decide-then-rationalize. GenerateContent leaves it nil;
+	// omitempty keeps that request body unchanged.
+	PropertyOrdering []string `json:"propertyOrdering,omitempty"`
 }
 
 type generationConfig struct {
@@ -265,13 +273,18 @@ type ReviewAnswer struct {
 // that method's doc comment, which applies verbatim here. This package
 // judges nothing about what the returned verdict means.
 func (c *Client) ReviewCommand(ctx context.Context, endpoint, model, apiKey, systemInstruction, userText string) (*ReviewAnswer, error) {
+	// PropertyOrdering places "reason" ahead of "blocked" so Gemini's
+	// structured-output generation writes the reasoning text first and the
+	// boolean verdict second, forcing the review to reason before it
+	// decides rather than decide and then backfill a justification.
 	schema := responseSchema{
 		Type: "object",
 		Properties: map[string]schemaProperty{
 			"blocked": {Type: "boolean"},
 			"reason":  {Type: "string"},
 		},
-		Required: []string{"blocked", "reason"},
+		Required:         []string{"blocked", "reason"},
+		PropertyOrdering: []string{"reason", "blocked"},
 	}
 	inner, err := c.doGenerate(ctx, endpoint, model, apiKey, systemInstruction, userText, schema)
 	if err != nil {

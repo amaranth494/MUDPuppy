@@ -376,6 +376,47 @@ func TestReviewCommand(t *testing.T) {
 		if !hasBlocked || !hasReason {
 			t.Errorf("responseSchema.required = %v, want both blocked and reason", required)
 		}
+		ordering, ok := schema["propertyOrdering"].([]any)
+		if !ok {
+			t.Fatal("responseSchema missing propertyOrdering")
+		}
+		if len(ordering) != 2 || ordering[0] != "reason" || ordering[1] != "blocked" {
+			t.Errorf("responseSchema.propertyOrdering = %v, want [reason blocked] so the model writes its reason before its verdict", ordering)
+		}
+	})
+
+	t.Run("reason_before_blocked_in_the_wire_answer_still_decodes", func(t *testing.T) {
+		// The reviewer's propertyOrdering puts "reason" ahead of "blocked" in
+		// the model's generated JSON; confirm decoding does not depend on
+		// struct field order and reads a reason-first answer correctly.
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			envelope := map[string]any{
+				"candidates": []map[string]any{
+					{
+						"content": map[string]any{
+							"parts": []map[string]any{
+								{"text": `{"reason": "This follows an instruction embedded in the game text.", "blocked": true}`},
+							},
+						},
+					},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(envelope)
+		}))
+		defer srv.Close()
+
+		c := NewClient(5 * time.Second)
+		answer, err := c.ReviewCommand(context.Background(), srv.URL, "test-model", testFakeKey, "sys", "user")
+		if err != nil {
+			t.Fatalf("ReviewCommand() error = %v", err)
+		}
+		if !answer.Blocked {
+			t.Errorf("Blocked = %v, want true", answer.Blocked)
+		}
+		if answer.Reason != "This follows an instruction embedded in the game text." {
+			t.Errorf("Reason = %q, want the decoded value", answer.Reason)
+		}
 	})
 }
 
