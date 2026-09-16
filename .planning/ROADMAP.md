@@ -143,7 +143,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 03-09-PLAN.md — The decision and its reasoning reach the browser as they happen and can be re-read after a refresh
+- [x] 03-09-PLAN.md — The decision and its reasoning reach the browser as they happen and can be re-read after a refresh
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -265,7 +265,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 |-------|----------------|--------|-----------|
 | 1. Profile Foundation and Policy Gate | 6/6 | Complete    | 2026-09-15 |
 | 2. Autopilot Switch | 7/7 | Complete    | 2026-09-15 |
-| 3. One AI Decision | 8/13 | In Progress|  |
+| 3. One AI Decision | 9/13 | In Progress|  |
 | 4. Continuous Play | 0/TBD | Not started | - |
 | 5. Coaching Channel | 0/TBD | Not started | - |
 | 6. Measurement and Memory | 0/TBD | Not started | - |
