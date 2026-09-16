@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/amaranth494/MudPuppy/internal/metrics"
+	"github.com/google/uuid"
 )
 
 // Session state constants
@@ -70,6 +71,20 @@ type Manager struct {
 	// must read a window that spans the drop (D-02, RESEARCH Pitfall 4). It
 	// is cleared only by a process restart. Do not "tidy" this away.
 	outputWindow map[string]*ringBuffer // userID -> recent game text for the AI
+
+	// transcripts holds each user's open session transcript tap (D-14),
+	// keyed by userID exactly like autopilot and outputWindow above — never
+	// a field on Session, for the same "must not be destroyed by
+	// Disconnect's delete(m.sessions, userID) before it can be closed"
+	// reason already documented on AutopilotRecord.ConnectionID (RESEARCH
+	// Pitfall 4). Opened in Connect, closed in Disconnect.
+	transcripts map[string]*transcriptSession
+	// transcriptSink is the store-backed side of the tap (implemented by
+	// *store.TranscriptStore via a thin adapter in cmd/server/main.go). A
+	// nil sink disables transcription entirely; every transcript hook
+	// becomes a no-op so the server runs with no database sink wired
+	// without panicking.
+	transcriptSink TranscriptSink
 }
 
 // NewManager creates a new session manager
@@ -135,6 +150,7 @@ func NewManager(portWhitelist string, portDenylist string, portAllowlistOverride
 		cleanups:              make(map[string]context.CancelFunc),
 		autopilot:             make(map[string]*AutopilotRecord),
 		outputWindow:          make(map[string]*ringBuffer),
+		transcripts:           make(map[string]*transcriptSession),
 	}
 }
 
@@ -235,6 +251,11 @@ func (m *Manager) Connect(ctx context.Context, userID, host string, port int, co
 	// Resume a waiting autopilot now that the dial has actually succeeded,
 	// but only onto the profile it was parked on.
 	m.resumeAutopilotLocked(userID, connectionID)
+
+	// Open a session transcript for this connection, if it is a
+	// saved-profile connection (D-14). A quick connect (connectionID=="")
+	// is never transcribed.
+	m.openTranscriptLocked(userID, connectionID)
 
 	// Record metrics
 	metrics.Get().IncConnect()
@@ -351,6 +372,10 @@ func (m *Manager) Disconnect(userID, reason string) error {
 	// this deletion (RESEARCH Pitfall 1).
 	m.parkAutopilotLocked(userID)
 
+	// Close the session transcript, if one is open, before the session
+	// itself is removed below (D-14).
+	m.closeTranscriptLocked(userID)
+
 	// Remove session from map - this ensures clean state for reconnection
 	// and prevents orphaned sessions
 	delete(m.sessions, userID)
@@ -454,6 +479,107 @@ func (m *Manager) RecentOutputSnapshot(userID string) string {
 	return ring.snapshot()
 }
 
+// SetTranscriptSink wires the store-backed side of the session transcript
+// tap (D-14). Called once at startup by cmd/server/main.go. A nil sink
+// disables transcription entirely: every hook below becomes a no-op, so
+// the server runs with no database sink wired without panicking.
+func (m *Manager) SetTranscriptSink(sink TranscriptSink) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.transcriptSink = sink
+}
+
+// openTranscriptLocked opens a session transcript for userID's new
+// connection. The caller must already hold m.mu. It is a no-op when
+// transcription is disabled (no sink configured), when connectionID is
+// empty — a quick connect with no profile is never transcribed (D-14) —
+// or when either id fails to parse as a UUID.
+func (m *Manager) openTranscriptLocked(userID, connectionID string) {
+	if m.transcriptSink == nil || connectionID == "" {
+		return
+	}
+
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return
+	}
+	connUUID, err := uuid.Parse(connectionID)
+	if err != nil {
+		return
+	}
+
+	gameSessionID, err := m.transcriptSink.OpenGameSession(userUUID, connUUID)
+	if err != nil {
+		log.Printf("[AI-PLAYER] transcript user_id=%s connection_id=%s event=open-error error=%v",
+			userID, connectionID, err)
+		return
+	}
+
+	t := &transcriptSession{
+		gameSessionID: gameSessionID,
+		userID:        userID,
+		connectionID:  connectionID,
+		lines:         make(chan TranscriptLine, transcriptChannelCapacity),
+		done:          make(chan struct{}),
+	}
+	go t.writeLoop(m.transcriptSink)
+	m.transcripts[userID] = t
+
+	log.Printf("[AI-PLAYER] transcript user_id=%s connection_id=%s game_session_id=%s event=open",
+		userID, connectionID, gameSessionID)
+}
+
+// closeTranscriptLocked closes and removes userID's open transcript, if
+// any. The caller must already hold m.mu. A no-op when transcription is
+// disabled or none was ever opened (a quick connect never had one). This
+// blocks until the write loop has drained and the store's close call
+// returns, mirroring the deliberate open/close lifecycle (D-14) rather
+// than the never-block guarantee that applies to enqueue on the hot MUD
+// read/write path (T-3-26).
+func (m *Manager) closeTranscriptLocked(userID string) {
+	t, ok := m.transcripts[userID]
+	if !ok {
+		return
+	}
+	delete(m.transcripts, userID)
+	t.close(m.transcriptSink)
+}
+
+// enqueueTranscriptLine enqueues one transcript line for userID's open
+// transcript, if any, taking m.mu itself. Used by callers (SendCommandAs,
+// feedTranscriptOutput) that do not already hold m.mu.
+func (m *Manager) enqueueTranscriptLine(userID, source, text string) {
+	m.mu.RLock()
+	t, ok := m.transcripts[userID]
+	m.mu.RUnlock()
+	if ok {
+		t.enqueue(source, text)
+	}
+}
+
+// enqueueTranscriptLineLocked is the same as enqueueTranscriptLine except
+// the caller must already hold m.mu (any mode) — used from inside
+// EngageAutopilot, DisengageAutopilot, parkAutopilotLocked and
+// resumeAutopilotLocked, which all hold the lock already and would
+// deadlock calling RLock again (sync.RWMutex is not reentrant).
+func (m *Manager) enqueueTranscriptLineLocked(userID, source, text string) {
+	if t, ok := m.transcripts[userID]; ok {
+		t.enqueue(source, text)
+	}
+}
+
+// feedTranscriptOutput hands telnet-stripped game output to userID's open
+// transcript, if any, for line-splitting and ANSI stripping (D-14). A
+// no-op when no transcript is open.
+func (m *Manager) feedTranscriptOutput(userID string, p []byte) {
+	m.mu.RLock()
+	t, ok := m.transcripts[userID]
+	m.mu.RUnlock()
+	if ok {
+		t.feedGameOutput(p)
+	}
+}
+
 // EngageAutopilot handles #AUTO ON. It reads m.sessions directly under the
 // held lock rather than calling GetSession, which takes RLock itself and
 // would deadlock against the Lock held here (sync.RWMutex is not
@@ -499,6 +625,7 @@ func (m *Manager) EngageAutopilot(userID, connectionID string) (AutopilotState, 
 		ConnectionID: connectionID,
 	}
 	m.logAutopilotTransition(userID, connectionID, cur, newState, "engage")
+	m.enqueueTranscriptLineLocked(userID, "marker", "[AI-ASSIST engaged]")
 	return newState, true, nil
 }
 
@@ -530,6 +657,7 @@ func (m *Manager) DisengageAutopilot(userID, cause string) (AutopilotState, bool
 		m.autopilot[userID] = &AutopilotRecord{State: newState}
 	}
 	m.logAutopilotTransition(userID, curConnID, cur, newState, cause)
+	m.enqueueTranscriptLineLocked(userID, "marker", fmt.Sprintf("[AI-ASSIST disengaged: %s]", cause))
 	return newState, true
 }
 
@@ -553,6 +681,7 @@ func (m *Manager) parkAutopilotLocked(userID string) {
 	now := time.Now()
 	rec.WaitingSince = &now
 	m.logAutopilotTransition(userID, rec.ConnectionID, old, newState, "disconnect")
+	m.enqueueTranscriptLineLocked(userID, "marker", "[AI-ASSIST waiting]")
 }
 
 // resumeAutopilotLocked applies the waiting->on transition for a connect.
@@ -573,6 +702,7 @@ func (m *Manager) resumeAutopilotLocked(userID, connectionID string) {
 		rec.State = AutopilotOff
 		rec.WaitingSince = nil
 		m.logAutopilotTransition(userID, rec.ConnectionID, old, AutopilotOff, "connection-changed")
+		m.enqueueTranscriptLineLocked(userID, "marker", "[AI-ASSIST disengaged: connection-changed]")
 		return
 	}
 
@@ -583,10 +713,24 @@ func (m *Manager) resumeAutopilotLocked(userID, connectionID string) {
 	rec.State = newState
 	rec.WaitingSince = nil
 	m.logAutopilotTransition(userID, rec.ConnectionID, old, newState, "resume")
+	m.enqueueTranscriptLineLocked(userID, "marker", "[AI-ASSIST resumed]")
 }
 
-// SendCommand sends a command to the MUD server
+// SendCommand sends a command to the MUD server, tagged in the session
+// transcript as human-typed. This is the browser's only send path
+// (websocket.go:653, covering typed input, aliases, triggers and timers
+// alike) and its signature is unchanged so that call site needs no edit;
+// it delegates to SendCommandAs with source "human".
 func (m *Manager) SendCommand(userID, command string) error {
+	return m.SendCommandAs(userID, command, "human")
+}
+
+// SendCommandAs sends a command to the MUD server and tags the transcript
+// line with source, which must be "human" or "ai" (plan 03-08's driver is
+// the only caller that passes "ai"). The transcript line is enqueued only
+// after the write to the socket succeeds, so a failed send is never
+// recorded as sent.
+func (m *Manager) SendCommandAs(userID, command, source string) error {
 	m.mu.RLock()
 	conn, ok := m.conns[userID]
 	m.mu.RUnlock()
@@ -608,6 +752,8 @@ func (m *Manager) SendCommand(userID, command string) error {
 		m.Disconnect(userID, ReasonError)
 		return fmt.Errorf("failed to send command: %v", err)
 	}
+
+	m.enqueueTranscriptLine(userID, source, command)
 
 	return nil
 }
@@ -673,13 +819,17 @@ func (m *Manager) ReadOutput(userID string, buffer []byte) (int, error) {
 	// Reset idle timer on any incoming data
 	if n > 0 {
 		m.ResetIdleTimer(userID)
-		// Feed the AI's recent-output window from the bytes actually read.
-		// ReadOutput does not hold m.mu here (the RLock above was already
-		// released), so appendOutputWindow's own locking is safe to call.
-		// A new slice is built for the window; buffer itself is not
-		// mutated, since the same slice is what relayMUDToClient forwards
-		// to the browser and the browser must keep receiving full ANSI.
-		m.appendOutputWindow(userID, stripANSI(stripTelnetIAC(buffer[:n])))
+		// Feed the AI's recent-output window and the session transcript
+		// (D-14) from the bytes actually read. ReadOutput does not hold
+		// m.mu here (the RLock above was already released), so
+		// appendOutputWindow's and feedTranscriptOutput's own locking are
+		// safe to call. A new slice is built for the window/transcript;
+		// buffer itself is not mutated, since the same slice is what
+		// relayMUDToClient forwards to the browser and the browser must
+		// keep receiving full ANSI.
+		telnetStripped := stripTelnetIAC(buffer[:n])
+		m.appendOutputWindow(userID, stripANSI(telnetStripped))
+		m.feedTranscriptOutput(userID, telnetStripped)
 	}
 
 	return n, nil

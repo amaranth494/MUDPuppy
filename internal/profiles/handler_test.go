@@ -387,8 +387,9 @@ func TestEngageGateHandlerAllowsAfterAcceptance(t *testing.T) {
 
 func TestAIPlayerLogLinesAreEmitted(t *testing.T) {
 	var buf bytes.Buffer
+	prevOutput := log.Writer()
 	log.SetOutput(&buf)
-	defer log.SetOutput(nil)
+	defer log.SetOutput(prevOutput)
 
 	userID := uuid.New()
 	profileID := uuid.New()
