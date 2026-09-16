@@ -526,8 +526,17 @@ export async function previewCommandRemote(
 }
 
 /**
- * Combined validation + normalization (frontend fallback)
- * Uses local logic when backend unavailable
+ * Combined validation + normalization.
+ *
+ * When useBackend is true (the default), this is a server call: it returns
+ * the server's normalize response, or rejects with the server's error, and
+ * the rejection is the caller's to handle. It no longer recomputes an
+ * answer locally when the server call fails - a failed call must be
+ * reported, not papered over.
+ *
+ * Passing useBackend=false is a deliberate, explicit caller choice to use
+ * the frontend-only preview logic instead (e.g. before a session exists);
+ * it is not a fallback for a failed server call.
  */
 export async function validateAndNormalize(
   input: string,
@@ -535,14 +544,10 @@ export async function validateAndNormalize(
   useBackend: boolean = true
 ): Promise<ICMResponse> {
   if (useBackend) {
-    try {
-      return await normalizeCommandRemote(input, sessionId);
-    } catch {
-      // Fall back to frontend
-    }
+    return await normalizeCommandRemote(input, sessionId);
   }
 
-  // Frontend fallback
+  // Explicit local path: the caller opted out of the backend call.
   const startTime = Date.now();
   const validationError = validateCommand(input);
   const normalized = normalizeCommand(input);
@@ -618,10 +623,19 @@ export async function processCommand(
       processedValue: normalized.canonical,
     };
   } catch (err) {
-    // On error, allow pass-through for backwards compatibility
+    // A failed ICM call must not become a command sent to the game - the
+    // same "fails closed" discipline the server-side engage gate already
+    // follows. Report the failure to the caller instead of silently
+    // passing the command through to the MUD.
+    const message = err instanceof Error ? err.message : String(err);
     return {
-      shouldPassThrough: true,
-      processedValue: input,
+      shouldPassThrough: false,
+      processedValue: '',
+      error: {
+        code: 'E5000',
+        message,
+        userMessage: message,
+      },
     };
   }
 }
