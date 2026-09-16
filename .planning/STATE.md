@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 3.1 context gathered
-last_updated: "2026-09-16T17:56:10.340Z"
-last_activity: 2026-09-16 -- Phase 3.1 planning complete
+stopped_at: Phase 3.1 brief approved; ready to execute
+last_updated: "2026-09-16T18:12:59.141Z"
+last_activity: 2026-09-16 -- Phase 3.1 execution started
 progress:
   total_phases: 9
   completed_phases: 3
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-14)
 
 **Core value:** The owner can hand the wheel to the AI and take it back instantly, always seeing what the AI is doing and why, with every mechanical safety limit holding, and the AI getting measurably better session over session by the game's own numbers.
-**Current focus:** Phase 3.1 — prompt-injection-review (inserted, urgent), then Phase 4 — continuous-play
+**Current focus:** Phase 3.1 — prompt-injection-review
 
 ## Current Position
 
-Phase: 3.1
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-09-16 -- Phase 3.1 planning complete
+Phase: 3.1 (prompt-injection-review) — EXECUTING
+Plan: 1 of 7
+Status: Executing Phase 3.1
+Last activity: 2026-09-16 -- Phase 3.1 execution started
 
 Progress: [██▌       ] 25%
 
@@ -98,6 +98,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-09-16T17:02:34.440Z
-Stopped at: Phase 3.1 context gathered
-Resume file: .planning/phases/03.1-prompt-injection-review/03.1-CONTEXT.md
+Last session: 2026-09-16T18:10:47.298Z
+Stopped at: Phase 3.1 brief approved; ready to execute
+Resume file: .planning/phases/03.1-prompt-injection-review/03.1-01-PLAN.md
