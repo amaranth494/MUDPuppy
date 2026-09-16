@@ -28,6 +28,14 @@ Reported by 03-05 (session transcript).
 
 Note for 03-07: on this worktree's base (`a9563ce`), the `internal/icm` `TestHandlerRegistration/CANCEL` failure above is already resolved (a wave-1 commit, `dcb671d`, aligned the test with the retired `#CANCEL` handler) — `go test ./...` is fully green as of plan 03-07's execution. Leaving this entry in place for the historical record; no action needed by the verifier on this specific item.
 
+## Plan 03-08
+
+Reported by 03-08 (the driver).
+
+- **`-race` still unavailable.** Same environment limitation as above (`CGO_ENABLED=0`, no `gcc`). `go test ./internal/driver/... -run TestHandleEngage -race -v` and `go test ./internal/session/... -race -v` (both named in this plan's `<verify>`/`<verification>` sections) were run as plain `go test ... -v` instead. All of `TestHandleEngage`'s six subtests, `TestHandleEngageFailures`'s six-case table, and the full `internal/session` suite pass. The driver's own concurrency guard (`Driver.inFlight`, a plain `sync.Mutex`) is exercised by `repeat_engage_fires_nothing`, which blocks a fake model call open with a channel and asserts a concurrent second `HandleEngage` call is a no-op — this proves the guard's *behavior* under a real goroutine race, but the Go race detector itself has not confirmed the absence of a data race on this machine. Whichever environment captures `evidence/01-test-report.txt` for plan 03-13 should run `-race` there if cgo is available.
+- **`internal/icm` `TestHandlerRegistration/CANCEL`** is confirmed still resolved at this plan's base and final commit (`go test ./internal/icm/...` passes cleanly) — no action needed, consistent with 03-05's and 03-07's notes above.
+- **No new out-of-scope findings.** `go test ./...` (whole repo) is fully green at this plan's final commit, with no failures outside this plan's own new/modified files.
+
 ## Plan 03-07
 
 **Out-of-scope finding, documented in full in `03-07-SUMMARY.md` rather than fixed here:** `internal/auth/handler.go`'s `DEV MODE - OTP for %s: %s` lines (`Register` and `SendOTP`, the `else` branch of `if h.emailSender != nil && h.emailSender.IsConfigured()`) still print the one-time sign-in code directly. This branch only executes when SMTP is entirely unconfigured (`SMTPHost`/`SMTPUser`/`SMTPPass` all unset) — never true on staging or production, both of which require SMTP for email delivery to function at all. The plan's `<action>` and `<context>` named only the two `"STAGING: OTP sent to user, code: %s"` call sites (now routed through `logOTPIssued`, gated by `AUTH_LOG_OTP`); the DEV MODE lines were not among them and were left untouched. Flagged here for the Phase 3 security review (plan 03-13's agenda item for DR-2-01 closure) in case the owner wants this local-dev convenience closed off too — a one-line follow-up (route it through `logOTPIssued` or an equivalent gated helper).
