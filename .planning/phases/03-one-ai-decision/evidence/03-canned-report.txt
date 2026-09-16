@@ -371,3 +371,184 @@ EXIT: 0
 {"source": "marker", "text": "[AI-ASSIST disengaged: wheel-grab]"}
 {"source": "human", "text": "no"}
 EXIT: 0
+
+### RUN C (after the code review fixes, deploy dd8d7cab, commit cc6ee0b)
+# A temporary fixture profile (policy accepted) was created through the app's API for this run, connected and disconnected once on the fixed build (transcript event=open/close logged, server up throughout), used for this run, and deleted afterwards; the Connections list is empty again. Browser session disconnected, so step 1 answers refused-no-session; the fixture had no decisions or sessions with lines, so the shape checks are NOTEs.
+# Invocation: BASE_URL=https://mudpuppy-staging.up.railway.app SESSION_COOKIE=<owner's session, not recorded> CONNECTION_ID=<fixture id> scripts/verify-phase3.sh <report>
+
+================================================================
+Phase 3 canned-report harness -- scripts/verify-phase3.sh
+Run started (UTC): 2026-09-16T14:42:37Z
+Mode: live
+BASE_URL: https://mudpuppy-staging.up.railway.app
+CONNECTION_ID: 11a0dd31-242c-470d-84e8-ee06c6c503a0
+NOT_OWNED_CONNECTION_ID: ffffffff-ffff-ffff-ffff-ffffffffffff
+git rev-parse --short HEAD: cc6ee0b
+================================================================
+
+Ground rules: (1) proof here is this report or an end-user screenshot,
+never a database query. (2) C1 and the live half of C2 are
+live-Gemini/live-MUD behaviours this script cannot reach without
+fabricating a connected game and a configured model; they appear below
+as SKIP lines naming their screenshot/log evidence, never as PASS.
+(3) invocations: live, --self-test, --self-test-negative, --no-tests.
+
+
+---- Step 1: POST session/autopilot action=on -- the D-20 configuration gate (C3) ----
+POST /api/v1/session/autopilot -> HTTP 200
+{"state":"off","outcome":"refused-no-session","gate_allowed":true,"policy_version":"1.0"}
+PASS C3: the configuration gate passed (outcome: refused-no-session) -- this server has the Gemini variables set
+NOTE: this server ran with the Gemini variables SET -- the D-20 refusal cannot be demonstrated on this run; see evidence/08-refused-not-configured.png for that world instead.
+
+---- Step 2: GET session/status -- autopilot_state agrees with step 1 (C3) ----
+GET /api/v1/session/status -> HTTP 200
+{"state":"disconnected","autopilot_state":"off"}
+PASS C3: autopilot_state agrees with step 1's state (got: off)
+
+---- Step 3: source grep -- no model identifier is a literal in Go source (C3, REQ-env-config) ----
+$ grep -rniE "gemini-[0-9]|flash-latest|generativelanguage" internal/ cmd/ --include=*.go | grep -v "_test.go"
+<no output>
+PASS C3: no model identifier literal found outside test files
+
+---- Step 4: GET profiles/$CONNECTION_ID/decisions -- survives a refresh, no query needed (C2) ----
+GET /api/v1/profiles/$CONNECTION_ID/decisions -> HTTP 200
+{"decisions":[]}
+PASS C2: decisions endpoint answers HTTP 200 for the owning connection (status 200)
+PASS C2: response carries a decisions array
+NOTE: no sent decision for this connection yet (no walkthrough run, or only failed attempts) -- presence and well-formedness were still checked above; the newest-sent-entry shape check is a no-op here.
+
+---- Step 5: GET profiles/$NOT_OWNED_CONNECTION_ID/decisions -- refused, not someone else's rows (C2, T-3-03) ----
+GET /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/decisions -> HTTP 400
+{"error":"Profile not found"}
+PASS C2: a not-owned/non-existent connection_id is refused, never answered with HTTP 200 rows (status 400)
+
+---- Step 6: GET profiles/$CONNECTION_ID/sessions -- the transcript half of the session log (C2) ----
+GET /api/v1/profiles/$CONNECTION_ID/sessions -> HTTP 200
+{"sessions":[{"id":"3114e552-6274-45be-b564-18527340418d","started_at":"2026-09-16T14:42:29Z","ended_at":"2026-09-16T14:42:35Z","line_count":0}]}
+PASS C2: sessions endpoint answers HTTP 200 for the owning connection (status 200)
+PASS C2: response carries a sessions array
+
+---- Step 6b: GET profiles/$CONNECTION_ID/sessions/$NEWEST_SESSION_ID -- transcript lines are tagged human/ai/game/marker (C2) ----
+GET /api/v1/profiles/$CONNECTION_ID/sessions/$NEWEST_SESSION_ID -> HTTP 200
+{"session_id":"3114e552-6274-45be-b564-18527340418d","lines":[]}
+PASS C2: session transcript read answers HTTP 200 (status 200)
+PASS C2: response carries a lines array
+NOTE: transcript has no lines yet -- the array-presence check above already ran; the per-line source check is a no-op here.
+
+---- Step 7: C2 (live half) -- out of this script's reach ----
+SKIP C2: the live half of reasoning visibility requires a connected game session and a configured model; proven instead by evidence/05-decision-in-panel.png and evidence/07-panel-after-refresh.png
+
+---- Step 8: POST /api/v1/icm/validate -- the ICM routes now answer (C4) ----
+POST /api/v1/icm/validate -> HTTP 200
+{"isInternal":false,"command":"north","normalized":"north","processingTime":0}
+PASS C4: the ICM validate route answers with anything other than 404 -- before this phase it did not exist at all (status 200)
+
+---- Step 9: go test -- ICM dispatch and driver-engage diagnostics (C4) ----
+$ go test ./internal/icm/... -run TestDispatch_AutomationPassThrough -v
+=== RUN   TestDispatch_AutomationPassThrough_GoesThroughSafetyChecker
+=== RUN   TestDispatch_AutomationPassThrough_GoesThroughSafetyChecker/approved_when_limits_are_clear
+=== RUN   TestDispatch_AutomationPassThrough_GoesThroughSafetyChecker/refused_when_rate_limit_tripped
+=== RUN   TestDispatch_AutomationPassThrough_GoesThroughSafetyChecker/process_does_not_reach_dispatch_for_a_plain_command
+--- PASS: TestDispatch_AutomationPassThrough_GoesThroughSafetyChecker (0.00s)
+    --- PASS: TestDispatch_AutomationPassThrough_GoesThroughSafetyChecker/approved_when_limits_are_clear (0.00s)
+    --- PASS: TestDispatch_AutomationPassThrough_GoesThroughSafetyChecker/refused_when_rate_limit_tripped (0.00s)
+    --- PASS: TestDispatch_AutomationPassThrough_GoesThroughSafetyChecker/process_does_not_reach_dispatch_for_a_plain_command (0.00s)
+PASS
+ok  	github.com/amaranth494/MudPuppy/internal/icm	(cached)
+$ go test ./internal/driver/... -run TestHandleEngage -v
+=== RUN   TestHandleEngage
+=== RUN   TestHandleEngage/one_command_per_engage
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=262322b9-ec4f-47ac-a327-03422c3578de connection_id=b848835a-a9b6-4f2a-9f8b-268c6e0d6440 decision_id= stage=request model= outcome= failure= snapshot_bytes=21 cmd_len=0
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=262322b9-ec4f-47ac-a327-03422c3578de connection_id=b848835a-a9b6-4f2a-9f8b-268c6e0d6440 decision_id= stage=answer model=test-model-not-a-real-name outcome= failure= snapshot_bytes=21 cmd_len=5
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=262322b9-ec4f-47ac-a327-03422c3578de connection_id=b848835a-a9b6-4f2a-9f8b-268c6e0d6440 decision_id= stage=dispatch model=test-model-not-a-real-name outcome= failure= snapshot_bytes=21 cmd_len=5
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=262322b9-ec4f-47ac-a327-03422c3578de connection_id=b848835a-a9b6-4f2a-9f8b-268c6e0d6440 decision_id=09985e3f-ca54-4580-8571-c3304fc5825f stage=sent model=test-model-not-a-real-name outcome=sent failure= snapshot_bytes=21 cmd_len=5
+=== RUN   TestHandleEngage/dispatch_precedes_send
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=cfb3dbe2-1568-4c7a-b0d8-f1bfb175a129 connection_id=4fbe9257-9d74-4782-9f06-8f3e2b6122ac decision_id= stage=request model= outcome= failure= snapshot_bytes=21 cmd_len=0
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=cfb3dbe2-1568-4c7a-b0d8-f1bfb175a129 connection_id=4fbe9257-9d74-4782-9f06-8f3e2b6122ac decision_id= stage=answer model=test-model-not-a-real-name outcome= failure= snapshot_bytes=21 cmd_len=5
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=cfb3dbe2-1568-4c7a-b0d8-f1bfb175a129 connection_id=4fbe9257-9d74-4782-9f06-8f3e2b6122ac decision_id= stage=dispatch model=test-model-not-a-real-name outcome= failure= snapshot_bytes=21 cmd_len=5
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=cfb3dbe2-1568-4c7a-b0d8-f1bfb175a129 connection_id=4fbe9257-9d74-4782-9f06-8f3e2b6122ac decision_id=5aaed6f6-e3bd-4af5-981b-f55ddfabdee0 stage=sent model=test-model-not-a-real-name outcome=sent failure= snapshot_bytes=21 cmd_len=5
+=== RUN   TestHandleEngage/repeat_engage_fires_nothing
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=3690ba8a-37cc-4990-9537-d30fb1d1b5d8 connection_id=4186c41a-8b63-49ef-a756-c158f5e8a3a4 decision_id= stage=request model= outcome= failure= snapshot_bytes=21 cmd_len=0
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=3690ba8a-37cc-4990-9537-d30fb1d1b5d8 connection_id=4186c41a-8b63-49ef-a756-c158f5e8a3a4 decision_id= stage=skipped model= outcome= failure= snapshot_bytes=0 cmd_len=0
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=3690ba8a-37cc-4990-9537-d30fb1d1b5d8 connection_id=4186c41a-8b63-49ef-a756-c158f5e8a3a4 decision_id= stage=answer model=test-model-not-a-real-name outcome= failure= snapshot_bytes=21 cmd_len=5
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=3690ba8a-37cc-4990-9537-d30fb1d1b5d8 connection_id=4186c41a-8b63-49ef-a756-c158f5e8a3a4 decision_id= stage=dispatch model=test-model-not-a-real-name outcome= failure= snapshot_bytes=21 cmd_len=5
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=3690ba8a-37cc-4990-9537-d30fb1d1b5d8 connection_id=4186c41a-8b63-49ef-a756-c158f5e8a3a4 decision_id=af14afc5-2402-49a2-9e0e-71c37a38aa4e stage=sent model=test-model-not-a-real-name outcome=sent failure= snapshot_bytes=21 cmd_len=5
+=== RUN   TestHandleEngage/resume_fires_one_fresh_decision
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=c8305564-8294-4565-8392-459a3423e809 connection_id=78581b11-a0eb-48a3-9d40-ac74ec7c0ab2 decision_id= stage=request model= outcome= failure= snapshot_bytes=17 cmd_len=0
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=c8305564-8294-4565-8392-459a3423e809 connection_id=78581b11-a0eb-48a3-9d40-ac74ec7c0ab2 decision_id= stage=answer model=test-model-not-a-real-name outcome= failure= snapshot_bytes=17 cmd_len=5
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=c8305564-8294-4565-8392-459a3423e809 connection_id=78581b11-a0eb-48a3-9d40-ac74ec7c0ab2 decision_id= stage=dispatch model=test-model-not-a-real-name outcome= failure= snapshot_bytes=17 cmd_len=5
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=c8305564-8294-4565-8392-459a3423e809 connection_id=78581b11-a0eb-48a3-9d40-ac74ec7c0ab2 decision_id=b5f70ceb-fbcb-4078-a0dd-439f222f5ec8 stage=sent model=test-model-not-a-real-name outcome=sent failure= snapshot_bytes=17 cmd_len=5
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=c8305564-8294-4565-8392-459a3423e809 connection_id=78581b11-a0eb-48a3-9d40-ac74ec7c0ab2 decision_id= stage=request model= outcome= failure= snapshot_bytes=30 cmd_len=0
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=c8305564-8294-4565-8392-459a3423e809 connection_id=78581b11-a0eb-48a3-9d40-ac74ec7c0ab2 decision_id= stage=answer model=test-model-not-a-real-name outcome= failure= snapshot_bytes=30 cmd_len=5
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=c8305564-8294-4565-8392-459a3423e809 connection_id=78581b11-a0eb-48a3-9d40-ac74ec7c0ab2 decision_id= stage=dispatch model=test-model-not-a-real-name outcome= failure= snapshot_bytes=30 cmd_len=5
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=c8305564-8294-4565-8392-459a3423e809 connection_id=78581b11-a0eb-48a3-9d40-ac74ec7c0ab2 decision_id=4537bc50-6329-49ac-9ae2-298e74cfe5bd stage=sent model=test-model-not-a-real-name outcome=sent failure= snapshot_bytes=30 cmd_len=5
+=== RUN   TestHandleEngage/conduct_rules_and_guidance_are_verbatim
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=d892ebfd-c0dd-470e-9edd-9aded56b781b connection_id=58a327cc-7399-4757-b388-44e8e087192d decision_id= stage=request model= outcome= failure= snapshot_bytes=6 cmd_len=0
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=d892ebfd-c0dd-470e-9edd-9aded56b781b connection_id=58a327cc-7399-4757-b388-44e8e087192d decision_id= stage=answer model=test-model-not-a-real-name outcome= failure= snapshot_bytes=6 cmd_len=5
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=d892ebfd-c0dd-470e-9edd-9aded56b781b connection_id=58a327cc-7399-4757-b388-44e8e087192d decision_id= stage=dispatch model=test-model-not-a-real-name outcome= failure= snapshot_bytes=6 cmd_len=5
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=d892ebfd-c0dd-470e-9edd-9aded56b781b connection_id=58a327cc-7399-4757-b388-44e8e087192d decision_id=200ff861-5702-4eac-ad76-2c91a0162604 stage=sent model=test-model-not-a-real-name outcome=sent failure= snapshot_bytes=6 cmd_len=5
+=== RUN   TestHandleEngage/icm_refusal_sends_nothing
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=30b4e671-a6d9-4f19-aa30-6ffbbf9d7b29 connection_id=501130b4-c9c9-48e2-a504-ad3cfeb84955 decision_id= stage=request model= outcome= failure= snapshot_bytes=6 cmd_len=0
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=30b4e671-a6d9-4f19-aa30-6ffbbf9d7b29 connection_id=501130b4-c9c9-48e2-a504-ad3cfeb84955 decision_id= stage=answer model=test-model-not-a-real-name outcome= failure= snapshot_bytes=6 cmd_len=5
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=30b4e671-a6d9-4f19-aa30-6ffbbf9d7b29 connection_id=501130b4-c9c9-48e2-a504-ad3cfeb84955 decision_id=baf37118-8099-4172-b2e5-b443d9ef7f0b stage=failed model=test-model-not-a-real-name outcome=refused failure=icm-refused snapshot_bytes=6 cmd_len=5
+--- PASS: TestHandleEngage (0.00s)
+    --- PASS: TestHandleEngage/one_command_per_engage (0.00s)
+    --- PASS: TestHandleEngage/dispatch_precedes_send (0.00s)
+    --- PASS: TestHandleEngage/repeat_engage_fires_nothing (0.00s)
+    --- PASS: TestHandleEngage/resume_fires_one_fresh_decision (0.00s)
+    --- PASS: TestHandleEngage/conduct_rules_and_guidance_are_verbatim (0.00s)
+    --- PASS: TestHandleEngage/icm_refusal_sends_nothing (0.00s)
+=== RUN   TestHandleEngageFailures
+=== RUN   TestHandleEngageFailures/hash_prefixed_command
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=a7f1cd03-8abe-4fcd-a177-6ca58c0b7063 connection_id=f361e64b-13f4-4aa7-9e74-93eeb2c5695f decision_id= stage=request model= outcome= failure= snapshot_bytes=6 cmd_len=0
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=a7f1cd03-8abe-4fcd-a177-6ca58c0b7063 connection_id=f361e64b-13f4-4aa7-9e74-93eeb2c5695f decision_id= stage=answer model=test-model-not-a-real-name outcome= failure= snapshot_bytes=6 cmd_len=12
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=a7f1cd03-8abe-4fcd-a177-6ca58c0b7063 connection_id=f361e64b-13f4-4aa7-9e74-93eeb2c5695f decision_id=08fb2659-fd07-419a-8c7e-d53fb15bbfc9 stage=failed model=test-model-not-a-real-name outcome=failed failure=non-game-line snapshot_bytes=6 cmd_len=12
+=== RUN   TestHandleEngageFailures/two_line_command
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=7a13ed0d-f111-44b7-8b51-991406422d1d connection_id=4b5cef0e-6fea-4e17-8872-363719031774 decision_id= stage=request model= outcome= failure= snapshot_bytes=6 cmd_len=0
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=7a13ed0d-f111-44b7-8b51-991406422d1d connection_id=4b5cef0e-6fea-4e17-8872-363719031774 decision_id= stage=answer model=test-model-not-a-real-name outcome= failure= snapshot_bytes=6 cmd_len=11
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=7a13ed0d-f111-44b7-8b51-991406422d1d connection_id=4b5cef0e-6fea-4e17-8872-363719031774 decision_id=efadb6bf-b5c8-4341-8677-128ac0fb9a64 stage=failed model=test-model-not-a-real-name outcome=failed failure=multi-command snapshot_bytes=6 cmd_len=11
+=== RUN   TestHandleEngageFailures/empty_command
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=16e59c88-3c18-45fd-af79-12355c0924cc connection_id=3154afc9-fa88-45bb-822c-079eb4007be0 decision_id= stage=request model= outcome= failure= snapshot_bytes=6 cmd_len=0
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=16e59c88-3c18-45fd-af79-12355c0924cc connection_id=3154afc9-fa88-45bb-822c-079eb4007be0 decision_id= stage=answer model=test-model-not-a-real-name outcome= failure= snapshot_bytes=6 cmd_len=3
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=16e59c88-3c18-45fd-af79-12355c0924cc connection_id=3154afc9-fa88-45bb-822c-079eb4007be0 decision_id=b5696628-8e96-4ca2-b30a-b0941d60aa33 stage=failed model=test-model-not-a-real-name outcome=failed failure=no-command snapshot_bytes=6 cmd_len=3
+=== RUN   TestHandleEngageFailures/unparseable_answer
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=1d90dccf-6c4b-445a-9484-5b6e994d72cb connection_id=36aedf12-3e93-4c53-9a0d-f4567e9d328d decision_id= stage=request model= outcome= failure= snapshot_bytes=6 cmd_len=0
+2026/09/16 07:10:58 [AI-PLAYER] model-error user_id=1d90dccf-6c4b-445a-9484-5b6e994d72cb connection_id=36aedf12-3e93-4c53-9a0d-f4567e9d328d model=test-model-not-a-real-name kind=malformed http=0
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=1d90dccf-6c4b-445a-9484-5b6e994d72cb connection_id=36aedf12-3e93-4c53-9a0d-f4567e9d328d decision_id=a27a0da2-5c4c-4e22-93bd-c06fe1b5797c stage=failed model=test-model-not-a-real-name outcome=failed failure=malformed snapshot_bytes=6 cmd_len=0
+=== RUN   TestHandleEngageFailures/transport_error
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=2b3f8355-d778-43f7-8509-31e7845daa02 connection_id=bea5952c-fa97-4a8e-a606-35f7c843ac16 decision_id= stage=request model= outcome= failure= snapshot_bytes=6 cmd_len=0
+2026/09/16 07:10:58 [AI-PLAYER] model-error user_id=2b3f8355-d778-43f7-8509-31e7845daa02 connection_id=bea5952c-fa97-4a8e-a606-35f7c843ac16 model=test-model-not-a-real-name kind=transport http=0
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=2b3f8355-d778-43f7-8509-31e7845daa02 connection_id=bea5952c-fa97-4a8e-a606-35f7c843ac16 decision_id=48a5833c-aca4-40df-9975-88a792b6819b stage=failed model=test-model-not-a-real-name outcome=failed failure=api-error snapshot_bytes=6 cmd_len=0
+=== RUN   TestHandleEngageFailures/rate_limit_error
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=1813737c-9db6-4b5c-8f66-bf3cfc7f0832 connection_id=56418d42-0573-416b-aa71-6de53cec5fb2 decision_id= stage=request model= outcome= failure= snapshot_bytes=6 cmd_len=0
+2026/09/16 07:10:58 [AI-PLAYER] model-error user_id=1813737c-9db6-4b5c-8f66-bf3cfc7f0832 connection_id=56418d42-0573-416b-aa71-6de53cec5fb2 model=test-model-not-a-real-name kind=rate_limited http=0
+2026/09/16 07:10:58 [AI-PLAYER] decision user_id=1813737c-9db6-4b5c-8f66-bf3cfc7f0832 connection_id=56418d42-0573-416b-aa71-6de53cec5fb2 decision_id=5ea275ca-ebb9-4ea7-8161-53b790f4af43 stage=failed model=test-model-not-a-real-name outcome=failed failure=rate-limited snapshot_bytes=6 cmd_len=0
+--- PASS: TestHandleEngageFailures (0.00s)
+    --- PASS: TestHandleEngageFailures/hash_prefixed_command (0.00s)
+    --- PASS: TestHandleEngageFailures/two_line_command (0.00s)
+    --- PASS: TestHandleEngageFailures/empty_command (0.00s)
+    --- PASS: TestHandleEngageFailures/unparseable_answer (0.00s)
+    --- PASS: TestHandleEngageFailures/transport_error (0.00s)
+    --- PASS: TestHandleEngageFailures/rate_limit_error (0.00s)
+PASS
+ok  	github.com/amaranth494/MudPuppy/internal/driver	(cached)
+PASS C4: TestDispatch_AutomationPassThrough exits 0
+PASS C4: TestHandleEngage exits 0
+
+---- Step 10: C1 -- out of this script's reach ----
+SKIP C1: engaging autopilot with a live decision requires a connected game session and a configured model; this script must not fabricate one. Proven instead by evidence/06-ai-assist-terminal-line.png and the stage=request, stage=dispatch and stage=sent lines of evidence/04-staging-ai-player.log
+
+================================================================
+SUMMARY
+================================================================
+C1: SKIP
+C2: PASS
+C3: PASS
+C4: PASS
+TOTAL CHECKS: 13  FAILURES: 0  SKIPPED: 2
+
+================================================================
+GO TEST EXIT: 0
+================================================================
+
+EXIT: 0
