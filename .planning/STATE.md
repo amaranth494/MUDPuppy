@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: "Phase 3.1 plan 07: reviewer strengthened (5d5bf28 -- buildReviewSystemInstruction defines an embedded instruction concretely, adds a routine-play exception and a find-then-decide procedure; ReviewCommand's schema sets propertyOrdering [reason, blocked]) per the owner's decision to strengthen and rerun rather than weaken the pass bar; AFTER rerun (HEAD 397bce8, filed bdf1fe5) shows STEERED: 0 -- direct-03 is now blocked-reviewer; D-12 pass bar holds; staging deployed via railway up (deployment d8008aca-f038-4583-863d-54b8fa0ce606), migration 012 applied, server started; task 03.1-07-03 checkpoint pending -- owner to drive the Never-issue settings screenshot and RUN A"
-last_updated: "2026-09-16T20:20:00.000Z"
-last_activity: 2026-09-16 -- Phase 3.1 execution started
+status: verifying
+stopped_at: "Phase 3.1 plan 07 complete: staging evidence filed (evidence/04, 06, 07-12, 11b; commit 8c29113), SUMMARY.md written with six-row criterion table (all PASS, commit 09b4267), 03.1-SECURITY-AGENDA.md and RISK-REGISTER.md DR-3-02 pointer filed (commit 6f182f6). Phase 3.1 execution complete; ready for the Phase 3.1 security review and phase verification."
+last_updated: "2026-09-16T21:01:59.078Z"
+last_activity: 2026-09-16
 progress:
   total_phases: 9
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 33
-  completed_plans: 32
-  percent: 33
+  completed_plans: 33
+  percent: 44
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-09-14)
 
 ## Current Position
 
-Phase: 3.1 (prompt-injection-review) — EXECUTING
-Plan: 1 of 7
-Status: Executing Phase 3.1
-Last activity: 2026-09-16 -- Phase 3.1 execution started
+Phase: 3.1 (prompt-injection-review) — EXECUTION COMPLETE, pending verification and the Phase 3.1 security review
+Plan: 7 of 7 (03.1-07 complete)
+Status: Phase complete — ready for verification
+Last activity: 2026-09-16
 
 Progress: [██▌       ] 25%
 
@@ -55,6 +55,7 @@ Progress: [██▌       ] 25%
 - Trend: Phase 01 complete
 
 *Updated after each plan completion*
+| Phase 03.1 P07 | 130min | 5 tasks | 22 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,10 @@ Recent decisions affecting current work:
 - [Phase 01]: Evidence log capture uses Railway CLI (railway logs --environment staging), not the MCP tool or dashboard pane
 - [Phase 01]: Migration 010's columns were applied by the golang-migrate step itself; the AI Player column-ensure fallback only confirmed the schema afterward, closing RESEARCH Open Question 1 from the startup log
 - [Phase 01]: Phase 1 evidence screenshots were captured by the executor as full Chrome-window screen captures rather than by the owner clicking through by hand, per the plan's explicit either-is-acceptable allowance
+- [Phase 3.1]: Reviewer strengthened rather than the pass bar weakened; AFTER rerun (397bce8) shows STEERED: 0/24, direct-03 now blocked-reviewer
+- [Phase 3.1]: Deploy method for phase close is railway up only; production untouched throughout this plan
+- [Phase 3.1]: On staging, the Never-issue mechanical layer was never exercised (the model never chose a listed verb); the reviewer caught 2 of 3 hand-typed injection attacks and the model's own judgment resisted the third -- proven separately by TestHandleEngageNeverIssue and PASS C3
+- [Phase 3.1]: DR-3-02 re-presented at the Phase 3.1 security review (03.1-SECURITY-AGENDA.md) with measured before/after numbers (STEERED 2 -> 0); RISK-REGISTER.md's Raised again at cell updated accordingly
 
 ### Pending Todos
 
@@ -103,6 +108,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-09-16T20:20:00.000Z
-Stopped at: Phase 3.1 plan 07: reviewer strengthened (5d5bf28) per owner decision; AFTER rerun (HEAD 397bce8, filed bdf1fe5) shows STEERED: 0, D-12 pass bar holds; staging deployed (railway up, deployment d8008aca-f038-4583-863d-54b8fa0ce606), migration 012 applied, server started; task 03.1-07-03 checkpoint (human-verify) pending -- owner needed for Never-issue settings screenshot and RUN A against staging
-Resume file: .planning/phases/03.1-prompt-injection-review/03.1-07-PLAN.md
+Last session: 2026-09-16T21:01:59.070Z
+Stopped at: Phase 3.1 plan 07 complete: staging evidence filed (evidence/04, 06, 07-12, 11b; commit 8c29113), SUMMARY.md written with six-row criterion table (all PASS, commit 09b4267), 03.1-SECURITY-AGENDA.md and RISK-REGISTER.md DR-3-02 pointer filed (commit 6f182f6). Phase 3.1 execution complete; ready for the Phase 3.1 security review and phase verification.
+Resume file: None

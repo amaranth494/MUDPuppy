@@ -22,7 +22,7 @@ Decimal phases appear between their surrounding integers in numeric order.
  (completed 2026-09-15)
 
 - [x] **Phase 3: One AI Decision** - ICM engine wired server-side, Gemini connected from env config, one decision made and issued through the automation context, reasoning shown live and persisted (completed 2026-09-16)
-- [ ] **Phase 3.1: Prompt Injection Review** (INSERTED) - Game text cannot steer the AI into a command the owner would not sanction; the investigation and any mitigation are proven by tests with hostile room text and demonstrated on staging (urgent, from the Phase 3 security review, DR-3-02)
+- [x] **Phase 3.1: Prompt Injection Review** (INSERTED) - Game text cannot steer the AI into a command the owner would not sanction; the investigation and any mitigation are proven by tests with hostile room text and demonstrated on staging (urgent, from the Phase 3 security review, DR-3-02) (completed 2026-09-16)
 - [ ] **Phase 4: Continuous Play** - Session goal, paced read/decide/act loop, call cap and error disengage with visible notices, clean reassessment on re-engage, all safety limits under test
 - [ ] **Phase 5: Coaching Channel** - Chat pane beside the terminal: guidance lands in the next decision, pause/resume, promote guidance into the profile
 - [ ] **Phase 6: Measurement and Memory** - Progression tally from the game's status numbers, session debriefs, learned notes carried into the next session, manual driving captured as demonstrations
@@ -179,7 +179,7 @@ Implementation notes for planning: a server-side tap on the MUD output stream (`
   5. A blocked command sends nothing to the game and leaves autopilot ON and idle; it is stored as a decision row with outcome `blocked` and its reason, reloads into the AI Assist panel after a page refresh, and the owner sees the blocked command and the reason in the panel and as one bracketed terminal line.
   6. After the build, zero steered commands from the corpus reach the send path, and on staging the owner's own `say` of an injection line on Alter Aeon is shown being blocked with its reason.
 
-**Plans:** 6/7 plans executed
+**Plans:** 7/7 plans complete
 
 Plans:
 **Wave 1**
@@ -199,7 +199,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 03.1-07-PLAN.md — Phase 3.1 demonstrated on Alter Aeon from staging and filed as evidence: red-team before and after, test report, canned report, staging log excerpt, screenshots, security-review agenda
+- [x] 03.1-07-PLAN.md — Phase 3.1 demonstrated on Alter Aeon from staging and filed as evidence: red-team before and after, test report, canned report, staging log excerpt, screenshots, security-review agenda
 
 **UI hint**: yes
 
