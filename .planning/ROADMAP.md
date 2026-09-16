@@ -152,7 +152,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 03-11-PLAN.md — The owner opens a profile's session logs in a new tab and reads any past session
+- [x] 03-11-PLAN.md — The owner opens a profile's session logs in a new tab and reads any past session
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
@@ -265,7 +265,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 |-------|----------------|--------|-----------|
 | 1. Profile Foundation and Policy Gate | 6/6 | Complete    | 2026-09-15 |
 | 2. Autopilot Switch | 7/7 | Complete    | 2026-09-15 |
-| 3. One AI Decision | 11/13 | In Progress|  |
+| 3. One AI Decision | 12/13 | In Progress|  |
 | 4. Continuous Play | 0/TBD | Not started | - |
 | 5. Coaching Channel | 0/TBD | Not started | - |
 | 6. Measurement and Memory | 0/TBD | Not started | - |
