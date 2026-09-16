@@ -505,8 +505,11 @@ if [ -n "$HAS_BLOCKED" ]; then
     # The notice field's own pattern allows escaped quotes inside the
     # value (the locked notice text quotes the owner's Never-issue entry,
     # e.g. \"give\"), then decodes \" and \\ back to real characters.
-    BLOCKED_FAILURE_KIND=$(printf '%s' "$HTTP_BODY" | grep -oE '"failure_kind"[[:space:]]*:[[:space:]]*"[^"]*"' | tail -n 1 | sed -E 's/^"failure_kind"[[:space:]]*:[[:space:]]*"(.*)"$/\1/')
-    BLOCKED_NOTICE=$(printf '%s' "$HTTP_BODY" | grep -oE '"notice"[[:space:]]*:[[:space:]]*"([^"\\]|\\.)*"' | tail -n 1 | sed -E 's/^"notice"[[:space:]]*:[[:space:]]*"(.*)"$/\1/' | sed -E 's/\\"/"/g; s/\\\\/\\/g')
+    # Isolate the LAST decision object whose outcome is blocked (objects are flat, no nested braces), then read
+    # its fields -- never the last field in the whole body, which may belong to a later sent or failed row.
+    BLOCKED_OBJ=$(printf '%s' "$HTTP_BODY" | grep -oE '\{[^{}]*\}' | grep -E '"outcome"[[:space:]]*:[[:space:]]*"blocked"' | tail -n 1)
+    BLOCKED_FAILURE_KIND=$(printf '%s' "$BLOCKED_OBJ" | grep -oE '"failure_kind"[[:space:]]*:[[:space:]]*"[^"]*"' | tail -n 1 | sed -E 's/^"failure_kind"[[:space:]]*:[[:space:]]*"(.*)"$/\1/')
+    BLOCKED_NOTICE=$(printf '%s' "$BLOCKED_OBJ" | grep -oE '"notice"[[:space:]]*:[[:space:]]*"([^"\\]|\\.)*"' | tail -n 1 | sed -E 's/^"notice"[[:space:]]*:[[:space:]]*"(.*)"$/\1/' | sed -E 's/\\"/"/g; s/\\\\/\\/g')
   fi
   case "$BLOCKED_FAILURE_KIND" in
     never-issue|reviewer)
