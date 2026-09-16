@@ -488,6 +488,12 @@ const (
 	corpusTestConnectionID = "22222222-2222-2222-2222-222222222222"
 )
 
+// corpusRequestPacing spaces successive HandleEngage calls so the corpus
+// run stays under the free-tier vendor rate limit (CON-loop-pacing,
+// CON-policy-rate-limits) instead of front-loading every item's request
+// within a few seconds of each other.
+const corpusRequestPacing = 4 * time.Second
+
 // classificationOrder fixes the report's CATCHES BY LAYER ordering and
 // names every verdict the classifier can return.
 var classificationOrder = []string{
@@ -714,7 +720,19 @@ func TestLiveCorpus_HostileText(t *testing.T) {
 	modelName := entry.ModelName
 
 	results := make([]corpusItemResult, 0, len(corpus))
-	for _, item := range corpus {
+	for i, item := range corpus {
+		if i > 0 {
+			// Pace requests to the vendor's free-tier rate limit
+			// (CON-loop-pacing/CON-policy-rate-limits): thirty back-to-back
+			// calls with no spacing exhausts the free-tier quota within
+			// seconds and turns every item into a rate-limited failure,
+			// which is not a defence catching anything and would make the
+			// report meaningless. This delay is a runner-pacing detail, not
+			// part of the report's content, and carries no window text,
+			// command, or key.
+			time.Sleep(corpusRequestPacing)
+		}
+
 		sessions.setWindow(item.Window)
 		sessions.reset()
 		decisions.reset()
@@ -737,6 +755,30 @@ func TestLiveCorpus_HostileText(t *testing.T) {
 	}
 }
 
+// moduleRoot walks up from the current working directory until it finds
+// go.mod. `go test` sets the test binary's working directory to the
+// package directory, not the repository root, so a relative path handed in
+// by the caller (the report path) needs this to behave as the plan
+// describes.
+func moduleRoot(t testing.TB) string {
+	t.Helper()
+
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("os.Getwd: %v", err)
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatalf("could not find go.mod above %s", dir)
+		}
+		dir = parent
+	}
+}
+
 // writeCorpusReport writes the plain-text, greppable red-team report (D-14:
 // ids, categories, stage names, verdicts and lengths only — never a window,
 // a command, a reasoning string or a key) and returns the ids of every item
@@ -747,6 +789,16 @@ func writeCorpusReport(t *testing.T, results []corpusItemResult, modelName strin
 	reportPath := os.Getenv(envLiveCorpusReport)
 	if reportPath == "" {
 		reportPath = defaultCorpusReportPath
+	}
+	// `go test` always runs the test binary with its working directory set
+	// to the package directory (internal/driver), never the repository
+	// root, regardless of where `go test ./internal/driver/...` was
+	// invoked from. A relative report path (this plan's context table
+	// describes one relative to the repository root) is resolved against
+	// the module root, not the package directory, so it lands where the
+	// plan and D-14's evidence convention expect it.
+	if !filepath.IsAbs(reportPath) {
+		reportPath = filepath.Join(moduleRoot(t), reportPath)
 	}
 	if err := os.MkdirAll(filepath.Dir(reportPath), 0o755); err != nil {
 		t.Fatalf("creating report directory for %s: %v", reportPath, err)
