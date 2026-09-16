@@ -12,7 +12,7 @@ import { logToConsole } from '../services/log';
 import AIPlayerPanel from '../components/AIPlayerPanel';
 
 // Section types
-type SettingsSection = 'general' | 'keybindings' | 'aliases' | 'triggers' | 'timers' | 'environment' | 'ai-player';
+type SettingsSection = 'general' | 'keybindings' | 'aliases' | 'triggers' | 'timers' | 'environment' | 'ai-player' | 'logs';
 
 // Section definition
 interface Section {
@@ -29,6 +29,7 @@ const SECTIONS: Section[] = [
   { id: 'timers', label: 'Timers', icon: '⏱' },
   { id: 'environment', label: 'Environment', icon: '📦' },
   { id: 'ai-player', label: 'AI Player', icon: '🤖' },
+  { id: 'logs', label: 'Logs', icon: '📜' },
 ];
 
 export default function SettingsPage() {
@@ -1690,6 +1691,29 @@ cast heal
           {/* AI Player Section */}
           {activeSection === 'ai-player' && connectionId && (
             <AIPlayerPanel connectionId={connectionId} />
+          )}
+
+          {/* Logs Section (D-16): appears for every connection profile
+              regardless of AI activation — logging is per connection, not
+              per AI (D-14). Not gated on the policy-acceptance signal. */}
+          {activeSection === 'logs' && connectionId && (
+            <div className="settings-section">
+              <h3>Logs</h3>
+              <p className="section-description">
+                Every session on this connection profile — human and AI commands alike — is recorded
+                from connect to disconnect. Open the log page to browse past sessions.
+              </p>
+              <div className="settings-actions">
+                <a
+                  className="btn btn-primary"
+                  href={`/logs/${connectionId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Open Logging
+                </a>
+              </div>
+            </div>
           )}
         </div>
       </div>

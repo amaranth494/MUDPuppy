@@ -93,6 +93,25 @@ export interface StoredDecision {
   notice: string;
 }
 
+// 03-11: one entry of GET /api/v1/profiles/{connection_id}/sessions (D-17) — the
+// Logs page's left pane, matching internal/profiles/logs.go's
+// SessionSummaryResponse field for field.
+export interface GameSessionSummary {
+  id: string;
+  started_at: string;
+  ended_at: string | null;
+  line_count: number;
+}
+
+// 03-11: one line of GET /api/v1/profiles/{connection_id}/sessions/{session_id}
+// (D-17) — the Logs page's right pane, matching internal/profiles/logs.go's
+// SessionLineResponse field for field.
+export interface TranscriptLine {
+  seq: number;
+  source: 'human' | 'ai' | 'game' | 'marker';
+  text: string;
+}
+
 // Error mapping
 export interface ErrorMapping {
   backendError: string;

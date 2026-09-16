@@ -1,4 +1,4 @@
-import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, AutomationCredentials, Profile, UpdateProfileRequest, Alias, Trigger, Variable, Timer, AliasesResponse, TriggersResponse, VariablesResponse, TimersResponse, HelpSection, HelpSummary, AISettingsResponse, PolicyResponse, EngageGateResponse, AIDecisionPayload, StoredDecision } from '../types';
+import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, AutomationCredentials, Profile, UpdateProfileRequest, Alias, Trigger, Variable, Timer, AliasesResponse, TriggersResponse, VariablesResponse, TimersResponse, HelpSection, HelpSummary, AISettingsResponse, PolicyResponse, EngageGateResponse, AIDecisionPayload, StoredDecision, GameSessionSummary, TranscriptLine } from '../types';
 import { logErrorToConsole } from './log';
 import { CommandSource } from './automation';
 import { AutopilotAnswer } from './automation/evaluator';
@@ -729,6 +729,32 @@ export async function getDecisions(connectionId: string, limit?: number): Promis
     throw new Error(data.error || 'Failed to load decisions');
   }
   return data.decisions ?? [];
+}
+
+// 03-11: Load a profile's recorded sessions (D-17) — the Logs page's left pane.
+export async function getGameSessions(connectionId: string): Promise<GameSessionSummary[]> {
+  const response = await fetch(`${API_BASE}/profiles/${connectionId}/sessions`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to load sessions');
+  }
+  return data.sessions ?? [];
+}
+
+// 03-11: Load one session's transcript (D-17) — the Logs page's right pane.
+export async function getGameSessionTranscript(connectionId: string, sessionId: string): Promise<TranscriptLine[]> {
+  const response = await fetch(`${API_BASE}/profiles/${connectionId}/sessions/${sessionId}`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to load transcript');
+  }
+  return data.lines ?? [];
 }
 
 // 02-04-02: Engage/disengage/query autopilot for a connection (#AUTO ON/OFF/STATUS)
