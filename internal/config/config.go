@@ -5,7 +5,21 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 )
+
+// AIModelEntry is one entry in the AI model registry: a slug, the vendor
+// model identifier, its API endpoint and API key, and which provider
+// implementation understands it. Phase 3 ships the "gemini" provider only;
+// the registry shape (endpoint + key per entry) lets another vendor plug
+// in later without touching profiles (D-18).
+type AIModelEntry struct {
+	Slug      string
+	ModelName string
+	Endpoint  string
+	APIKey    string
+	Provider  string
+}
 
 // Config holds all configuration values
 type Config struct {
@@ -41,6 +55,13 @@ type Config struct {
 
 	// Admin
 	AdminMetricsSecret string
+
+	// AI model registry (Phase 3, D-18). Model names, endpoints and API
+	// keys come only from the environment (CON-model-config); absence is
+	// not fatal (D-20) — the server starts normally and #AUTO ON is
+	// refused later, by AIConfigured().
+	AIDefaultModelSlug string
+	AIModels           map[string]AIModelEntry
 }
 
 // Load loads configuration from environment variables
@@ -159,5 +180,120 @@ func Load() (*Config, error) {
 	cfg.EncryptionKeyV2 = os.Getenv("ENCRYPTION_KEY_V2")
 	cfg.EncryptionKeyV3 = os.Getenv("ENCRYPTION_KEY_V3")
 
+	// AI model registry (Phase 3, D-18). Scanned from the environment once:
+	// for every AI_MODEL_<SLUG>_NAME variable, the middle segment is the
+	// slug, and AI_MODEL_<SLUG>_ENDPOINT / _KEY / _PROVIDER fill out the
+	// rest of that entry. A blank PROVIDER defaults to "gemini". An entry
+	// missing an endpoint or a key is skipped and warned about by slug
+	// only — never by key value, key length, or an endpoint that might
+	// carry a key. AI_MODEL_DEFAULT names the default slug; DEFAULT itself
+	// is a reserved slug and may not be declared as an entry. None of this
+	// is fatal (D-20): with the Gemini variables entirely absent, the
+	// server still starts normally, and #AUTO ON is refused later, by
+	// AIConfigured() — never here.
+	cfg.AIModels = make(map[string]AIModelEntry)
+	const aiModelPrefix = "AI_MODEL_"
+	const aiModelNameSuffix = "_NAME"
+	for _, envVar := range os.Environ() {
+		key, value, found := strings.Cut(envVar, "=")
+		if !found {
+			continue
+		}
+		if !strings.HasPrefix(key, aiModelPrefix) || !strings.HasSuffix(key, aiModelNameSuffix) {
+			continue
+		}
+		slug := strings.ToUpper(strings.TrimSuffix(strings.TrimPrefix(key, aiModelPrefix), aiModelNameSuffix))
+		if slug == "" {
+			continue
+		}
+		if slug == "DEFAULT" {
+			log.Printf("Warning: AI_MODEL_DEFAULT_NAME uses the reserved slug DEFAULT and is ignored; DEFAULT names the default entry, not an entry itself")
+			continue
+		}
+
+		modelName := value
+		endpoint := os.Getenv(aiModelPrefix + slug + "_ENDPOINT")
+		apiKey := os.Getenv(aiModelPrefix + slug + "_KEY")
+		provider := os.Getenv(aiModelPrefix + slug + "_PROVIDER")
+		if provider == "" {
+			provider = "gemini"
+		}
+		if endpoint == "" || apiKey == "" {
+			log.Printf("Warning: AI model entry %q is missing an endpoint or a key and will be ignored", slug)
+			continue
+		}
+
+		cfg.AIModels[slug] = AIModelEntry{
+			Slug:      slug,
+			ModelName: modelName,
+			Endpoint:  endpoint,
+			APIKey:    apiKey,
+			Provider:  provider,
+		}
+	}
+	cfg.AIDefaultModelSlug = strings.ToUpper(os.Getenv("AI_MODEL_DEFAULT"))
+
 	return cfg, nil
+}
+
+// AIConfigured reports whether the AI model registry names a usable
+// default entry: the default slug is set, an entry exists for it, and
+// that entry's ModelName, Endpoint and APIKey are all non-empty. A nil
+// receiver returns false — a missing dependency fails closed, the same
+// discipline EngageGate's doc comment states at
+// internal/session/handler.go:27-30.
+func (c *Config) AIConfigured() bool {
+	if c == nil {
+		return false
+	}
+	if c.AIDefaultModelSlug == "" {
+		return false
+	}
+	entry, ok := c.AIModels[c.AIDefaultModelSlug]
+	if !ok {
+		return false
+	}
+	return entry.ModelName != "" && entry.Endpoint != "" && entry.APIKey != ""
+}
+
+// ResolveModelEntry resolves a requested model name to a registry entry.
+//
+//   - requested blank -> the default entry, returned as-is (Phase 1 D-09: a
+//     blank profile model name means the server default).
+//   - requested matching an entry's slug (case-insensitive) or an entry's
+//     ModelName exactly -> that entry.
+//   - requested non-blank and unmatched -> the default entry with
+//     ModelName replaced by requested, so an unknown or retired model name
+//     still reaches the vendor and comes back as a vendor error — a D-13
+//     failure — rather than being silently substituted.
+//   - no usable default entry at all -> the zero value and false.
+func (c *Config) ResolveModelEntry(requested string) (AIModelEntry, bool) {
+	if c == nil {
+		return AIModelEntry{}, false
+	}
+
+	defaultEntry, hasDefault := c.AIModels[c.AIDefaultModelSlug]
+
+	if requested == "" {
+		if !hasDefault {
+			return AIModelEntry{}, false
+		}
+		return defaultEntry, true
+	}
+
+	if entry, ok := c.AIModels[strings.ToUpper(requested)]; ok {
+		return entry, true
+	}
+	for _, entry := range c.AIModels {
+		if entry.ModelName == requested {
+			return entry, true
+		}
+	}
+
+	if !hasDefault {
+		return AIModelEntry{}, false
+	}
+	substituted := defaultEntry
+	substituted.ModelName = requested
+	return substituted, true
 }
