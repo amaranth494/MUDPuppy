@@ -145,18 +145,25 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
             No AI decisions yet. Engage autopilot with #AUTO ON to see the AI's reasoning here.
           </div>
         )}
-        {entries.map((entry) =>
-          entry.kind === 'decision' ? (
-            <div key={entry.id} className={`ai-decision outcome-${entry.outcome}`}>
+        {entries.map((entry, index) => {
+          // Live-pushed system entries can carry an empty id (Driver.recordFailure
+          // sets decisionID = "" when the decision store is nil or the insert
+          // fails), and two such entries in the same render would collide on
+          // key={entry.id}. Fall back to the entry's stable array index — entries
+          // are only ever appended, never reordered or removed, so the index is a
+          // stable per-entry key for the lifetime of this component instance.
+          const key = entry.id || `no-id-${index}`;
+          return entry.kind === 'decision' ? (
+            <div key={key} className={`ai-decision outcome-${entry.outcome}`}>
               <div className="ai-decision-reasoning">{entry.reasoning}</div>
               <div className="ai-decision-command">→ {entry.command}</div>
             </div>
           ) : (
-            <div key={entry.id} className={`ai-system-line state-${entry.outcome}`}>
+            <div key={key} className={`ai-system-line state-${entry.outcome}`}>
               {entry.message}
             </div>
-          )
-        )}
+          );
+        })}
       </div>
     </div>
   );
