@@ -1,4 +1,4 @@
-import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, AutomationCredentials, Profile, UpdateProfileRequest, Alias, Trigger, Variable, Timer, AliasesResponse, TriggersResponse, VariablesResponse, TimersResponse, HelpSection, HelpSummary, AISettingsResponse, PolicyResponse, EngageGateResponse } from '../types';
+import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, AutomationCredentials, Profile, UpdateProfileRequest, Alias, Trigger, Variable, Timer, AliasesResponse, TriggersResponse, VariablesResponse, TimersResponse, HelpSection, HelpSummary, AISettingsResponse, PolicyResponse, EngageGateResponse, AIDecisionPayload, StoredDecision } from '../types';
 import { logErrorToConsole } from './log';
 import { CommandSource } from './automation';
 import { AutopilotAnswer } from './automation/evaluator';
@@ -103,6 +103,8 @@ export class WebSocketManager {
   private disconnectNotified = false;
   // 02-04-02: best-effort live push of autopilot state changes (D-10)
   private autopilotHandlers: ((state: string, cause?: string) => void)[] = [];
+  // 03-10: live push of each AI decision/system notice (plan 03-09, D-08)
+  private aiHandlers: ((decision: AIDecisionPayload) => void)[] = [];
 
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -160,6 +162,11 @@ export class WebSocketManager {
       case 'autopilot':
         if (message.status) {
           this.autopilotHandlers.forEach(handler => handler(message.status!, message.data));
+        }
+        break;
+      case 'ai':
+        if (message.decision) {
+          this.aiHandlers.forEach(handler => handler(message.decision!));
         }
         break;
       case 'disconnect':
@@ -251,6 +258,17 @@ export class WebSocketManager {
     const index = this.autopilotHandlers.indexOf(handler);
     if (index > -1) {
       this.autopilotHandlers.splice(index, 1);
+    }
+  }
+
+  onAI(handler: (decision: AIDecisionPayload) => void): void {
+    this.aiHandlers.push(handler);
+  }
+
+  offAI(handler: (decision: AIDecisionPayload) => void): void {
+    const index = this.aiHandlers.indexOf(handler);
+    if (index > -1) {
+      this.aiHandlers.splice(index, 1);
     }
   }
 
@@ -696,6 +714,21 @@ export async function getEngageGate(connectionId: string): Promise<EngageGateRes
     throw new Error(data.error || 'Failed to check engage gate');
   }
   return await response.json();
+}
+
+// 03-10: Load a connection's stored AI decisions (D-12) — this is how the AI Assist
+// panel rebuilds its history after a page refresh, oldest first.
+export async function getDecisions(connectionId: string, limit?: number): Promise<StoredDecision[]> {
+  const query = limit ? `?limit=${limit}` : '';
+  const response = await fetch(`${API_BASE}/profiles/${connectionId}/decisions${query}`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to load decisions');
+  }
+  return data.decisions ?? [];
 }
 
 // 02-04-02: Engage/disengage/query autopilot for a connection (#AUTO ON/OFF/STATUS)

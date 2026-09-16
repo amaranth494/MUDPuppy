@@ -15,7 +15,16 @@
   --color-error: #ff4444;
   --color-warning: #ffff00;
   --color-success: #00ff00;
-  
+  /* 03-10 (D-09): reserved exclusively for "the AI issued this" — the terminal's
+     [AI-ASSIST > command] line, the AI Assist panel's decision-card command
+     highlight, and the Logs transcript's AI-issued line. Never used for buttons,
+     body text, or anything unrelated to that one fact. */
+  --color-ai-accent: #ff66ff;
+  /* 03-10: reserved for the Logs transcript's human-issued line only; the live
+     terminal already renders human echo in this colour via ANSI and is
+     unaffected by this token. */
+  --color-human-command: #00ffff;
+
   --font-mono: 'Courier New', Courier, monospace;
   --font-size-sm: 0.875rem;
   --font-size-base: 1rem;
@@ -237,6 +246,131 @@ body {
   background: rgba(128, 128, 128, 0.2);
   color: #888;
 }
+
+/* 03-10: AI Assist panel (D-06 to D-08) — verbatim from 03-UI-SPEC.md section 1 */
+.ai-assist-panel {
+  position: fixed;
+  right: var(--spacing-lg);
+  bottom: 96px; /* clears .input-row */
+  width: 380px;
+  height: 480px;
+  max-height: calc(100vh - 160px);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  z-index: 40;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.ai-assist-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.ai-assist-panel-title {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.ai-assist-panel-minimize {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-dim);
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.ai-assist-panel-minimize:hover {
+  border-color: var(--color-text);
+  color: var(--color-text);
+}
+
+.ai-assist-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.ai-assist-empty,
+.ai-assist-loading {
+  padding: var(--spacing-lg);
+  text-align: center;
+  color: var(--color-text-dim);
+}
+.ai-assist-empty { font-style: italic; }
+
+.ai-decision {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+.ai-decision-reasoning {
+  font-size: var(--font-size-base);
+  color: var(--color-text-dim);
+  line-height: 1.5;
+  margin-bottom: var(--spacing-xs);
+}
+.ai-decision-command {
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  color: var(--color-ai-accent);
+}
+.ai-decision.outcome-failed .ai-decision-command,
+.ai-decision.outcome-refused .ai-decision-command {
+  color: var(--color-error);
+}
+
+.ai-system-line {
+  font-size: var(--font-size-sm);
+  padding: var(--spacing-xs) 0;
+}
+.ai-system-line.state-engaged,
+.ai-system-line.state-resuming { color: var(--color-success); }
+.ai-system-line.state-waiting { color: var(--color-warning); }
+.ai-system-line.state-disengaged { color: #888; }
+.ai-system-line.state-refused,
+.ai-system-line.state-failed { color: var(--color-error); }
+
+/* 03-10: minimized AI Assist tab — mirrors .autopilot-badge's dot+pill pattern */
+.ai-assist-tab {
+  position: fixed;
+  right: var(--spacing-lg);
+  bottom: var(--spacing-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: 999px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-text);
+  z-index: 40;
+}
+.ai-assist-tab-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.ai-assist-tab.state-on .ai-assist-tab-dot { color: var(--color-success); }
+.ai-assist-tab.state-waiting .ai-assist-tab-dot { color: var(--color-warning); }
+.ai-assist-tab.state-off .ai-assist-tab-dot { color: #888; }
 
 /* Enable text selection in xterm.js terminal */
 .xterm {

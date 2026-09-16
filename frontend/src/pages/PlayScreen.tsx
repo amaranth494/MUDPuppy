@@ -4,11 +4,13 @@ import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { useSession } from '../context/SessionContext';
 import { useInputInterceptor } from '../hooks/useInputInterceptor';
-import { ProfileSettings } from '../types';
+import { ProfileSettings, AIDecisionPayload } from '../types';
 // PR02PH03: Import ICM adapter for command classification and validation
 import { recognizeCommand, validateCommand } from '../services/icm-adapter';
 import { logToConsole } from '../services/log';
 import { CommandSource } from '../services/automation';
+import { getPolicy } from '../services/api';
+import AIAssistPanel from '../components/AIAssistPanel';
 
 // Enable text selection in terminal
 const terminalSelectionStyle = {
@@ -30,11 +32,34 @@ export default function PlayScreen() {
     disableAutomation,
     enableAutomation,
     refreshStatus,
+    currentConnectionId,
   } = useSession();
-  
+
   // SP06PH08: Command history state
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [historyPosition, setHistoryPosition] = useState<number>(-1);
+
+  // 03-10 (D-07): the AI Assist panel's mount signal — the same policy-acceptance
+  // flag AIPlayerPanel.tsx already reads, loaded once per connection so a profile
+  // that never accepted the policy sees no panel, no tab, no placeholder.
+  const [aiActivated, setAiActivated] = useState(false);
+  useEffect(() => {
+    if (!currentConnectionId) {
+      setAiActivated(false);
+      return;
+    }
+    let cancelled = false;
+    getPolicy(currentConnectionId)
+      .then((policy) => {
+        if (!cancelled) setAiActivated(policy.accepted);
+      })
+      .catch(() => {
+        if (!cancelled) setAiActivated(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentConnectionId]);
   
   const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -378,6 +403,29 @@ export default function PlayScreen() {
     }
   }, [autopilotState, automationEngine]);
 
+  // 03-10 (D-09, D-13): the terminal's half of the 'ai' websocket message. A sent
+  // decision's command never went through the browser's own local echo -- it was
+  // sent server-side by the driver -- so this bracketed magenta line is not
+  // suppressing an echo so much as replacing the one the owner never got, which is
+  // exactly what D-09 asks for. The game's own echo and reply then arrive via the
+  // unchanged MUD relay. A system payload (a D-13 failure/refusal notice) prints
+  // as a bracketed red local line with the exact wording the panel also shows.
+  useEffect(() => {
+    if (!wsManager) return;
+    const handleAI = (payload: AIDecisionPayload) => {
+      if (!automationEngine) return;
+      if (payload.kind === 'decision' && payload.outcome === 'sent') {
+        automationEngine.echoLocal(`[AI-ASSIST > ${payload.command}]`, { color: 'brightmagenta' });
+      } else if (payload.kind === 'system') {
+        automationEngine.echoLocal(`[${payload.message}]`, { color: 'red' });
+      }
+    };
+    wsManager.onAI(handleAI);
+    return () => {
+      wsManager.offAI(handleAI);
+    };
+  }, [wsManager, automationEngine]);
+
   // SP05: Set up automation engine callback for command submission
   useEffect(() => {
     if (automationEngine && wsManager) {
@@ -509,6 +557,14 @@ export default function PlayScreen() {
       <div className="output-panel output-panel-full">
         <div className="terminal-container" ref={terminalRef} />
       </div>
+
+      {/* 03-10 (D-06, D-07): floating, not part of the flex flow -- position: fixed
+          per 03-UI-SPEC.md -- so the terminal above keeps its full width. Gated on
+          both a connected saved-profile connection and that profile's AI
+          activation; a profile that never accepted the policy sees nothing here. */}
+      {currentConnectionId && connectionState === 'connected' && aiActivated && (
+        <AIAssistPanel connectionId={currentConnectionId} />
+      )}
 
       {/* SP05: Automation circuit breaker notification (SP06PH07: enhanced with Disable button) */}
       {(automationError || automationDisabled) && (

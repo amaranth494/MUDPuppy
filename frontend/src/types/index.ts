@@ -48,7 +48,8 @@ export interface DisconnectResponse {
 
 // WebSocket message types
 // 02-04-02: 'autopilot' added — best-effort live push of state changes (D-10)
-export type WSMessageType = 'connect' | 'disconnect' | 'data' | 'error' | 'status' | 'autopilot';
+// 03-10: 'ai' added — the AI decision/system-notice push (plan 03-09, D-08)
+export type WSMessageType = 'connect' | 'disconnect' | 'data' | 'error' | 'status' | 'autopilot' | 'ai';
 
 export interface WSMessage {
   type: WSMessageType;
@@ -60,6 +61,36 @@ export interface WSMessage {
   // 02-04-02: outbound-only — who sent this data message ('user' | 'alias' | 'trigger');
   // the server's wheel-grab reads this and treats absent as human, the safe direction
   source?: string;
+  // 03-10: inbound-only, present on MsgTypeAI messages (plan 03-09's AIDecisionPayload,
+  // matched field for field with internal/session/websocket.go)
+  decision?: AIDecisionPayload;
+}
+
+// 03-10: the websocket payload of an "ai" message (plan 03-09, D-08). Kind is
+// "decision" (reasoning/command are set, outcome is "sent") or "system" (message
+// carries a locked failure/refusal notice, outcome is "refused"/"failed"). No
+// window_text field — the server deliberately never sends the game text snapshot
+// the model saw (T-3-15).
+export interface AIDecisionPayload {
+  id: string;
+  kind: 'decision' | 'system';
+  reasoning?: string;
+  command?: string;
+  outcome?: 'sent' | 'refused' | 'failed';
+  message?: string;
+  timestamp: string;
+}
+
+// 03-10: one row of GET /api/v1/profiles/{connection_id}/decisions (D-12), the
+// shape the AI Assist panel reloads on mount to rebuild its history after a refresh.
+export interface StoredDecision {
+  id: string;
+  created_at: string;
+  reasoning: string;
+  command: string;
+  outcome: string;
+  failure_kind: string;
+  notice: string;
 }
 
 // Error mapping
