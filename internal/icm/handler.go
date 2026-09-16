@@ -12,10 +12,26 @@ type Handler struct {
 	mu     sync.RWMutex
 }
 
-// NewHandler creates a new ICM HTTP handler
+// NewHandler creates a new ICM HTTP handler with its own private engine.
+// Deprecated for server wiring: use NewHandlerWithEngine so the HTTP routes
+// and the AI driver share one engine. Kept for any existing caller and for
+// tests that want an isolated engine.
 func NewHandler() *Handler {
+	return NewHandlerWithEngine(NewEngine())
+}
+
+// NewHandlerWithEngine creates a new ICM HTTP handler backed by an externally
+// owned Engine. The server MUST use this constructor rather than NewHandler():
+// the HTTP routes and the AI driver need to share one Engine, and therefore
+// one Dispatcher and one SafetyChecker state. Two independently constructed
+// engines would give the AI driver's commands a private, disconnected set of
+// safety counters - the mechanical safety limits (circuit breaker, rate
+// limit, queue depth) would appear to hold in tests against one engine while
+// never actually gating the other. Constructing exactly one Engine in
+// cmd/server/main.go and passing it here is what makes those limits real.
+func NewHandlerWithEngine(engine *Engine) *Handler {
 	return &Handler{
-		engine: NewEngine(),
+		engine: engine,
 	}
 }
 
