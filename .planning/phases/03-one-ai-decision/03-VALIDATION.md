@@ -1,7 +1,7 @@
 ---
 phase: 3
 slug: one-ai-decision
-status: draft
+status: planned
 nyquist_compliant: true
 wave_0_complete: false
 created: 2026-09-15
@@ -66,7 +66,37 @@ created: 2026-09-15
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | Evidence File | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|---------------|--------|
-| (planner fills) | | | | | | | | | ⬜ |
+| 03-01-01 | 03-01 | 1 | REQ-single-decision | T-3-08 | The window is a fixed-size ring that cannot grow and holds no mutex of its own | unit | `go test ./internal/session/... -run "TestWindowSnapshot\|TestWindowRingBound" -race -v` | evidence/01-test-report.txt | ⬜ |
+| 03-01-02 | 03-01 | 1 | REQ-single-decision | T-3-07, T-3-08 | The window lives on Manager under m.mu, never on Session, and is never written to the log | unit | `go test ./internal/session/... -run TestWindow -race -v` | evidence/01-test-report.txt | ⬜ |
+| 03-02-01 | 03-02 | 1 | REQ-env-config | T-3-02 | Registry read from env with warn-and-default, never fatal; no key detail ever logged | unit | `go test ./internal/config/... -run "TestLoadAIRegistry\|TestAIConfigured\|TestResolveModelEntry" -v` | evidence/01-test-report.txt | ⬜ |
+| 03-02-02 | 03-02 | 1 | REQ-single-decision, REQ-env-config | T-3-02, T-3-16 | Key in the x-goog-api-key header only, never in a URL; the package logs nothing | unit (httptest) | `go test ./internal/gemini/... -run TestGenerateContent -race -v` | evidence/01-test-report.txt | ⬜ |
+| 03-03-01 | 03-03 | 1 | REQ-single-decision | T-3-23 | An automation-context command reaches checkSafety, and is refused once its limits trip | unit | `go test ./internal/icm/... -run TestDispatch_AutomationPassThrough -race -v` | evidence/01-test-report.txt | ⬜ |
+| 03-03-02 | 03-03 | 1 | REQ-single-decision | T-3-20, T-3-22 | One engine shared by the routes and the driver; routes inside the existing sessionMiddleware | source + canned report | `go build ./... && grep -c "icm.NewEngine()" cmd/server/main.go` | evidence/03-canned-report.txt | ⬜ |
+| 03-03-03 | 03-03 | 1 | REQ-single-decision | T-3-21 | A failed ICM call never becomes a command sent to the game | build + screenshot | `cd frontend && npm run build` | evidence/13-hand-play-unchanged.png | ⬜ |
+| 03-04-01 | 03-04 | 1 | REQ-single-decision | T-3-24 | An unknown #AUTO argument prints one local line and reaches neither the game nor the server | build + screenshot | `cd frontend && npm run build` | evidence/09-auto-unknown-option.png | ⬜ |
+| 03-05-01 | 03-05 | 2 | REQ-reasoning-visibility | T-3-28 | Source and outcome vocabularies enforced by a CHECK constraint and a Go-side rejection | build | `go build ./... && go vet ./internal/store/...` | evidence/01-test-report.txt | ⬜ |
+| 03-05-02 | 03-05 | 2 | REQ-reasoning-visibility | T-3-26, T-3-27, T-3-08 | Non-blocking enqueue off the MUD read path; transcript text never reaches the log | unit | `go test ./internal/session/... -run TestTranscript -race -v` | evidence/01-test-report.txt | ⬜ |
+| 03-05-03 | 03-05 | 2 | REQ-reasoning-visibility | T-3-04, T-3-09 | Every transcript read resolves through GetProfileByConnection and filters on the connection id | unit (httptest) | `go test ./internal/profiles/... -run "TestListSessions\|TestGetSessionTranscript" -v` | evidence/03-canned-report.txt | ⬜ |
+| 03-06-01 | 03-06 | 2 | REQ-env-config | T-3-29, T-3-30, T-3-31 | The refusal returns before EngageAutopilot; a nil config fails closed; the policy gate still refuses first | unit | `go test ./internal/session/... -run TestAutopilotHandler_AIConfigRefusal -race -v` | evidence/08-refused-not-configured.png | ⬜ |
+| 03-07-01 | 03-07 | 2 | REQ-env-config | T-3-05 (DR-2-01), T-3-32, T-3-33 | The one-time sign-in code is suppressed unless AUTH_LOG_OTP is explicitly on; the issuance line carries no identifier | unit | `go test ./internal/auth/... -run TestOTPNotLogged -v` | evidence/04-staging-ai-player.log | ⬜ |
+| 03-08-01 | 03-08 | 3 | REQ-single-decision | T-3-15 | Outcome validated before the insert; a decision row is never updated or deleted | build | `go build ./... && go vet ./internal/store/...` | evidence/01-test-report.txt | ⬜ |
+| 03-08-02 | 03-08 | 3 | REQ-single-decision | T-3-01, T-3-06, T-3-07 | The command is validated in Go before Dispatch; the send happens only after approval; log lines carry lengths only | unit | `go test ./internal/driver/... -run TestHandleEngage -race -v` | evidence/01-test-report.txt | ⬜ |
+| 03-08-03 | 03-08 | 3 | REQ-single-decision | T-3-35, T-3-14 | One trigger per path, fired only on a real state change, always asynchronously | unit | `go test ./internal/session/... -race -v` | evidence/04-staging-ai-player.log | ⬜ |
+| 03-09-01 | 03-09 | 4 | REQ-reasoning-visibility | T-3-11, T-3-36, T-3-08 | The client registry is keyed by the authenticated user id; an absent screen is a silent no-op | unit | `go test ./internal/session/... -run TestPushAI -race -v` | evidence/01-test-report.txt | ⬜ |
+| 03-09-02 | 03-09 | 4 | REQ-reasoning-visibility | T-3-36 | The row is stored before the push and the push error is discarded, so a closed tab loses nothing | unit | `go test ./internal/driver/... -race -v` | evidence/05-decision-in-panel.png | ⬜ |
+| 03-09-03 | 03-09 | 4 | REQ-reasoning-visibility | T-3-03, T-3-15, T-3-07 | Ownership resolved before any row is read; window_text is never serialised to the browser | unit (httptest) | `go test ./internal/profiles/... -run TestDecisionsReload -v` | evidence/03-canned-report.txt | ⬜ |
+| 03-10-01 | 03-10 | 5 | REQ-reasoning-visibility | T-3-11 | The decisions fetch is per connection id with credentials and the shared auth-error path | build | `cd frontend && npm run build` | evidence/01-test-report.txt | ⬜ |
+| 03-10-02 | 03-10 | 5 | REQ-reasoning-visibility | T-3-37, T-3-11 | Model-authored text is rendered as escaped JSX children; no innerHTML anywhere | build + screenshot | `cd frontend && npm run build` | evidence/05-decision-in-panel.png | ⬜ |
+| 03-10-03 | 03-10 | 5 | REQ-reasoning-visibility | T-3-38, T-3-39 | One reserved colour and label for AI-issued commands; the panel mounts only where the AI is activated | build + screenshot | `cd frontend && npm run build` | evidence/06-ai-assist-terminal-line.png | ⬜ |
+| 03-11-01 | 03-11 | 6 | REQ-reasoning-visibility | T-3-41 | The log route sits inside AuthGuard and outside the play-screen shell | build | `cd frontend && npm run build` | evidence/12-log-page-two-pane.png | ⬜ |
+| 03-11-02 | 03-11 | 6 | REQ-reasoning-visibility | T-3-37, T-3-04 | Transcript text is escaped by React; the connection id comes only from the route | build + screenshot | `cd frontend && npm run build` | evidence/12-log-page-two-pane.png | ⬜ |
+| 03-11-03 | 03-11 | 6 | REQ-reasoning-visibility | T-3-40 | The new tab is opened by an anchor carrying rel="noopener noreferrer" | build + screenshot | `cd frontend && npm run build` | evidence/11-logs-section.png | ⬜ |
+| 03-12-01 | 03-12 | 5 | REQ-env-config, REQ-reasoning-visibility | T-3-43, T-3-17, T-3-42 | No SQL client and no key anywhere in the harness; the header records BASE_URL and the git SHA | script | `bash -n scripts/verify-phase3.sh` | evidence/03-canned-report.txt | ⬜ |
+| 03-12-02 | 03-12 | 5 | REQ-env-config | T-3-10, T-3-42 | The negative fixture set makes the harness print FAIL C3 and exit non-zero | script | `bash scripts/verify-phase3.sh --self-test /tmp/phase3-selftest.txt` | evidence/02-harness-selftest.txt | ⬜ |
+| 03-13-01 | 03-13 | 7 | REQ-single-decision, REQ-reasoning-visibility, REQ-env-config | T-3-SC, T-3-10 | The dependency-drift and model-literal sections are both empty; the harness has proven it can fail | canned report | `bash scripts/verify-phase3.sh --self-test /tmp/phase3-selftest.txt && grep -c "GO TEST EXIT" .planning/phases/03-one-ai-decision/evidence/01-test-report.txt` | evidence/01-test-report.txt | ⬜ |
+| 03-13-02 | 03-13 | 7 | REQ-env-config | T-3-02, T-3-17 | The key is set on staging only, by the owner, and its value is never recorded anywhere | checkpoint (canned report) | `BASE_URL=... SESSION_COOKIE=... CONNECTION_ID=... scripts/verify-phase3.sh /tmp/phase3-run-a.txt` | evidence/03-canned-report.txt | ⬜ |
+| 03-13-03 | 03-13 | 7 | REQ-single-decision, REQ-reasoning-visibility | T-3-07, T-3-05, T-3-44 | The log excerpt is grepped for prose, keys and sign-in codes before filing; the six leftover profiles are deleted through the app | checkpoint (screenshots + log) | `grep -ciE "conduct_rules\|approach_guidance\|AIza\|code:" .planning/phases/03-one-ai-decision/evidence/04-staging-ai-player.log` | evidence/04-staging-ai-player.log | ⬜ |
+| 03-13-04 | 03-13 | 7 | REQ-single-decision, REQ-reasoning-visibility, REQ-env-config | T-3-01, T-3-04, T-3-06, T-3-09, T-3-14, T-3-15, T-3-19 | Every deferred item is raised with three dispositions and none pre-chosen | doc | `test -f .planning/phases/03-one-ai-decision/03-SECURITY-AGENDA.md && grep -c "Remediate Now" .planning/phases/03-one-ai-decision/03-SECURITY-AGENDA.md` | 03-SECURITY-AGENDA.md | ⬜ |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 

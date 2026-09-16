@@ -18,7 +18,8 @@ Branch: `ai-player` (exists from `staging`, carries the ICM). Environment: Railw
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Profile Foundation and Policy Gate** - Profiles gain conduct rules, approach guidance, AI settings with conservative defaults, and a one-time Safety and Abuse policy acceptance that gates AI configuration and engagement (completed 2026-09-15)
-- [x] **Phase 2: Autopilot Switch** - `#AUTO ON` / `#AUTO OFF`, a server-owned engaged state with a truthful indicator, the wheel-grab rule, and a waiting state across disconnects that resumes on return, all with no AI behind it (completed 2026-09-15)
+- [x] **Phase 2: Autopilot Switch** - `#AUTO ON` / `#AUTO OFF`, a server-owned engaged state with a truthful indicator, the wheel-grab rule, and a waiting state across disconnects that resumes on return, all with no AI behind it
+ (completed 2026-09-15)
 - [ ] **Phase 3: One AI Decision** - ICM engine wired server-side, Gemini connected from env config, one decision made and issued through the automation context, reasoning shown live and persisted
 - [ ] **Phase 4: Continuous Play** - Session goal, paced read/decide/act loop, call cap and error disengage with visible notices, clean reassessment on re-engage, all safety limits under test
 - [ ] **Phase 5: Coaching Channel** - Chat pane beside the terminal: guidance lands in the next decision, pause/resume, promote guidance into the profile
@@ -120,7 +121,42 @@ Implementation notes for planning: `#AUTO` is parsed in the browser directive gr
   3. Model names and API key come from environment configuration on staging (`internal/config/config.go`); nothing is hard-coded, and the server fails clearly if they are absent when engagement is attempted.
   4. A command submitted on the server in the automation execution context is dispatched through the ICM engine's dispatcher and safety checker, demonstrable by a diagnostic test, and the frontend adapter's ICM calls no longer fall back silently to browser-side logic.
 
-**Plans**: TBD
+**Plans**: 13 plans
+Plans:
+**Wave 1**
+
+- [ ] 03-01-PLAN.md — The server holds a rolling, ANSI-free window of the recent game text
+- [ ] 03-02-PLAN.md — The server can ask Gemini for one decision, with model and key taken only from the environment
+- [ ] 03-03-PLAN.md — The ICM engine is live and an automation-context command provably passes its safety checker
+- [ ] 03-04-PLAN.md — `#AUTO` answers only to ON and OFF
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 03-05-PLAN.md — Every saved-profile connection is transcribed and the transcript can be read back by its owner
+- [ ] 03-06-PLAN.md — `#AUTO ON` is refused with a clear notice when the AI is not configured on this server
+- [ ] 03-07-PLAN.md — The staging sign-in code never reaches the log (DR-2-01)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 03-08-PLAN.md — With autopilot engaged the AI makes one decision and its command reaches the game through the ICM automation context
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 03-09-PLAN.md — The decision and its reasoning reach the browser as they happen and can be re-read after a refresh
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 03-10-PLAN.md — The owner watches the AI's reasoning in the AI Assist panel and sees its command marked in the terminal
+- [ ] 03-12-PLAN.md — One command turns the Phase 3 HTTP sequence into a canned PASS/FAIL report per success criterion
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 03-11-PLAN.md — The owner opens a profile's session logs in a new tab and reads any past session
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 03-13-PLAN.md — Phase 3 demonstrated on staging and filed as evidence: test report, canned report, staging log excerpt, screenshots, security-review agenda
+
 **UI hint**: yes
 
 **Phase Validation** (how the success criteria are demonstrated): Player-observable on staging: with autopilot engaged, one decision and its reasoning appear in the play screen and the game responds to the issued command. Diagnostic: a decisions table row exists for that decision and is returned after a page refresh; a `go test` proves the command passed through the ICM dispatcher in the automation context; with the Gemini environment variables unset, engagement fails with a clear error and no command is sent.
@@ -228,7 +264,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 |-------|----------------|--------|-----------|
 | 1. Profile Foundation and Policy Gate | 6/6 | Complete    | 2026-09-15 |
 | 2. Autopilot Switch | 7/7 | Complete    | 2026-09-15 |
-| 3. One AI Decision | 0/TBD | Not started | - |
+| 3. One AI Decision | 0/13 | Planned | - |
 | 4. Continuous Play | 0/TBD | Not started | - |
 | 5. Coaching Channel | 0/TBD | Not started | - |
 | 6. Measurement and Memory | 0/TBD | Not started | - |
