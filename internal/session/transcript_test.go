@@ -14,7 +14,9 @@ import (
 // tap without a database (mirrors manager_test.go's white-box-fake
 // discipline). appendFunc, when set, overrides AppendGameLines entirely —
 // used by TestTranscriptDoesNotBlockReader to simulate a store call that
-// never returns.
+// never returns. closeFunc, when set, overrides CloseGameSession entirely
+// — used by TestDisconnectDoesNotHoldLockDuringTranscriptClose (code
+// review CR-01 regression) to simulate a slow CloseGameSession round trip.
 type fakeTranscriptSink struct {
 	mu       sync.Mutex
 	opens    []fakeOpen
@@ -22,6 +24,7 @@ type fakeTranscriptSink struct {
 	closes   []uuid.UUID
 
 	appendFunc func(gameSessionID uuid.UUID, lines []TranscriptLine) error
+	closeFunc  func(gameSessionID uuid.UUID) error
 }
 
 type fakeOpen struct {
@@ -47,6 +50,9 @@ func (f *fakeTranscriptSink) AppendGameLines(gameSessionID uuid.UUID, lines []Tr
 }
 
 func (f *fakeTranscriptSink) CloseGameSession(gameSessionID uuid.UUID) error {
+	if f.closeFunc != nil {
+		return f.closeFunc(gameSessionID)
+	}
 	f.mu.Lock()
 	f.closes = append(f.closes, gameSessionID)
 	f.mu.Unlock()
@@ -267,6 +273,7 @@ func TestTranscriptDoesNotBlockReader(t *testing.T) {
 		userID:        "user-1",
 		connectionID:  "conn-1",
 		lines:         make(chan TranscriptLine, transcriptChannelCapacity),
+		stop:          make(chan struct{}),
 		done:          make(chan struct{}),
 	}
 	go ts.writeLoop(sink)
@@ -283,5 +290,145 @@ func TestTranscriptDoesNotBlockReader(t *testing.T) {
 	}
 	if got := atomic.LoadInt64(&ts.dropped); got == 0 {
 		t.Fatalf("dropped = 0, want > 0 (channel should have filled while the sink's AppendGameLines blocked)")
+	}
+}
+
+// TestTranscriptEnqueueRaceWithCloseDoesNotPanic is the CR-02 regression
+// test: it hammers enqueue from a separate goroutine while close() runs
+// concurrently, reproducing the exact overlap the review described (a
+// reader goroutine mid-select in enqueue while Disconnect tears the
+// transcript down). Before the fix, close() closed t.lines directly, so
+// this test would panic (send on closed channel) on very nearly every
+// run — the fix closes t.stop instead and never closes t.lines, so
+// enqueue can never observe a closed data channel. A panic in the
+// goroutine below terminates the test binary; go test reports that as a
+// failure of this test.
+func TestTranscriptEnqueueRaceWithCloseDoesNotPanic(t *testing.T) {
+	sink := &fakeTranscriptSink{}
+
+	ts := &transcriptSession{
+		gameSessionID: uuid.New(),
+		userID:        "user-1",
+		connectionID:  "conn-1",
+		lines:         make(chan TranscriptLine, transcriptChannelCapacity),
+		stop:          make(chan struct{}),
+		done:          make(chan struct{}),
+	}
+	go ts.writeLoop(sink)
+
+	stopEnqueue := make(chan struct{})
+	enqueueDone := make(chan struct{})
+	go func() {
+		defer close(enqueueDone)
+		for {
+			select {
+			case <-stopEnqueue:
+				return
+			default:
+				ts.enqueue("game", "line")
+			}
+		}
+	}()
+
+	// Let the enqueue goroutine get well into its hot loop before closing
+	// concurrently, so close() is very likely to land while a send is
+	// in-flight -- the deterministic reproduction of the race.
+	time.Sleep(10 * time.Millisecond)
+	ts.close(sink)
+	close(stopEnqueue)
+
+	select {
+	case <-enqueueDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("enqueue goroutine did not return after close (blocked)")
+	}
+
+	// A late enqueue issued well after close has fully returned must still
+	// neither panic nor block, and must be counted as dropped.
+	before := atomic.LoadInt64(&ts.dropped)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ts.enqueue("game", "late line")
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("enqueue after close blocked")
+	}
+	if got := atomic.LoadInt64(&ts.dropped); got <= before {
+		t.Fatalf("dropped = %d, want > %d (a post-close enqueue must be counted as dropped)", got, before)
+	}
+}
+
+// TestDisconnectDoesNotHoldLockDuringTranscriptClose is the CR-01
+// regression test: it makes CloseGameSession block on a slow fake sink and
+// asserts that a concurrent, unrelated GetSession call (which only needs
+// m.mu.RLock) returns promptly instead of waiting for Disconnect's
+// transcript close to finish. Before the fix, closeTranscriptLocked ran
+// inside Disconnect's m.mu.Lock for its entire body, so GetSession would
+// have blocked until CloseGameSession returned.
+func TestDisconnectDoesNotHoldLockDuringTranscriptClose(t *testing.T) {
+	m := newTestManager()
+
+	unblock := make(chan struct{})
+	closeStarted := make(chan struct{})
+	var closeStartedOnce sync.Once
+	sink := &fakeTranscriptSink{
+		closeFunc: func(gameSessionID uuid.UUID) error {
+			closeStartedOnce.Do(func() { close(closeStarted) })
+			<-unblock // simulates a slow CloseGameSession database round trip
+			return nil
+		},
+	}
+	t.Cleanup(func() {
+		select {
+		case <-unblock:
+		default:
+			close(unblock)
+		}
+	})
+	m.SetTranscriptSink(sink)
+
+	userID := uuid.New().String()
+	connID := uuid.New().String()
+	seedConnectedSession(m, userID, connID)
+	seedTranscript(m, userID, connID)
+
+	disconnectDone := make(chan struct{})
+	go func() {
+		defer close(disconnectDone)
+		if err := m.Disconnect(userID, ReasonUser); err != nil {
+			t.Errorf("Disconnect: %v", err)
+		}
+	}()
+
+	select {
+	case <-closeStarted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Disconnect never reached the blocking CloseGameSession call")
+	}
+
+	// A concurrent RLock-taking call for a different, unrelated user must
+	// return promptly -- it must never wait for Disconnect's transcript
+	// close to finish, which is exactly CR-01's requirement that transcript
+	// I/O runs outside the manager-wide lock.
+	otherDone := make(chan struct{})
+	go func() {
+		defer close(otherDone)
+		_, _ = m.GetSession(uuid.New().String())
+	}()
+
+	select {
+	case <-otherDone:
+	case <-time.After(1 * time.Second):
+		t.Fatal("GetSession blocked while Disconnect's transcript close was in flight -- m.mu was held during I/O")
+	}
+
+	close(unblock)
+	select {
+	case <-disconnectDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Disconnect did not return after CloseGameSession unblocked")
 	}
 }

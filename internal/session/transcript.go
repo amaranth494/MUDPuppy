@@ -63,16 +63,34 @@ type transcriptSession struct {
 	pending   []byte // partial line buffer for game output
 
 	lines chan TranscriptLine
+	stop  chan struct{} // closed by close() to signal shutdown; lines is never closed (code review CR-02)
 	done  chan struct{} // closed by writeLoop once it has drained and returned
 }
 
 // enqueue is the non-blocking send every line-producing call site uses:
 // when the channel is full it increments the dropped counter and returns
 // immediately, rather than ever blocking the MUD read/write path (T-3-26).
+//
+// It never sends on t.lines after close() has run: close() closes t.stop,
+// never t.lines, specifically so a send here can never race a concurrent
+// channel close and panic (code review CR-02). A late enqueue — one that
+// arrives once shutdown has started — is dropped and counted in the same
+// t.dropped counter a full channel would use, not treated as a distinct
+// error.
 func (t *transcriptSession) enqueue(source, text string) {
 	seq := atomic.AddInt64(&t.seq, 1)
+
+	select {
+	case <-t.stop:
+		atomic.AddInt64(&t.dropped, 1)
+		return
+	default:
+	}
+
 	select {
 	case t.lines <- TranscriptLine{Seq: seq, Source: source, Text: text, CreatedAt: time.Now()}:
+	case <-t.stop:
+		atomic.AddInt64(&t.dropped, 1)
 	default:
 		atomic.AddInt64(&t.dropped, 1)
 	}
@@ -117,8 +135,10 @@ func (t *transcriptSession) feedGameOutput(p []byte) {
 // AppendGameLines for each batch. On a store error it logs one
 // [AI-PLAYER] transcript ... event=write-error line carrying ids and a
 // count only, never line text, and keeps draining — a database problem
-// must never wedge the MUD path. Exits (closing done) once the channel is
-// closed and fully drained.
+// must never wedge the MUD path. Exits (closing done) once t.stop is
+// closed, after a final non-blocking drain of anything already sitting in
+// t.lines. t.lines itself is never closed (code review CR-02), so this
+// loop never observes a closed-channel receive.
 func (t *transcriptSession) writeLoop(sink TranscriptSink) {
 	defer close(t.done)
 
@@ -139,25 +159,37 @@ func (t *transcriptSession) writeLoop(sink TranscriptSink) {
 
 	for {
 		select {
-		case line, ok := <-t.lines:
-			if !ok {
-				flush()
-				return
-			}
+		case line := <-t.lines:
 			batch = append(batch, line)
 			if len(batch) >= transcriptBatchSize {
 				flush()
 			}
 		case <-ticker.C:
 			flush()
+		case <-t.stop:
+			// Drain whatever is already buffered — anything enqueued
+			// before close() started — non-blockingly, then flush and
+			// exit. Anything sent after this drain loop's default case
+			// fires is counted as dropped by enqueue itself.
+			for {
+				select {
+				case line := <-t.lines:
+					batch = append(batch, line)
+				default:
+					flush()
+					return
+				}
+			}
 		}
 	}
 }
 
-// close flushes any partial trailing line, closes the channel, waits for
-// the write loop to drain (which flushes every remaining batched line),
-// calls CloseGameSession, and logs one [AI-PLAYER] transcript ...
-// event=close line carrying ids, a line count and a dropped count.
+// close flushes any partial trailing line, closes t.stop (never t.lines —
+// code review CR-02, so a concurrent enqueue can never send on a closed
+// channel and panic), waits for the write loop to drain (which flushes
+// every remaining batched line), calls CloseGameSession, and logs one
+// [AI-PLAYER] transcript ... event=close line carrying ids, a line count
+// and a dropped count.
 func (t *transcriptSession) close(sink TranscriptSink) {
 	t.muPending.Lock()
 	if len(t.pending) > 0 {
@@ -167,7 +199,7 @@ func (t *transcriptSession) close(sink TranscriptSink) {
 	}
 	t.muPending.Unlock()
 
-	close(t.lines)
+	close(t.stop)
 	<-t.done
 
 	if sink != nil {

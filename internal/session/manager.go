@@ -580,6 +580,7 @@ func (m *Manager) openTranscript(userID, connectionID string) {
 		userID:        userID,
 		connectionID:  connectionID,
 		lines:         make(chan TranscriptLine, transcriptChannelCapacity),
+		stop:          make(chan struct{}),
 		done:          make(chan struct{}),
 	}
 	go t.writeLoop(sink)
