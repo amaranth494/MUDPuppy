@@ -15,6 +15,7 @@ interface DecisionEntry {
   reasoning: string;
   command: string;
   outcome: string;
+  reason?: string;
 }
 
 // A live-only failure/refusal notice pushed as kind === 'system' on the 'ai'
@@ -60,7 +61,10 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
         // 03-UI-SPEC.md's reload paragraph: a failed/refused row's stored notice
         // is the visible text, carried in the command slot so the outcome-failed/
         // outcome-refused CSS override (red) applies to it like any other card.
-        command: item.outcome === 'sent' ? item.command : item.notice,
+        // A blocked row keeps the real command in this slot too (03.1-UI-SPEC.md,
+        // RESEARCH Pitfall 5) — only failed/refused collapse the command into the notice.
+        command: item.outcome === 'failed' || item.outcome === 'refused' ? item.notice : item.command,
+        reason: item.outcome === 'blocked' ? item.notice : undefined,
         outcome: item.outcome,
       }));
       setEntries(mapped);
@@ -87,6 +91,7 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
             reasoning: payload.reasoning ?? '',
             command: payload.command ?? '',
             outcome: payload.outcome ?? 'sent',
+            reason: payload.outcome === 'blocked' ? payload.message : undefined,
           },
         ]);
       } else {
@@ -156,7 +161,12 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
           return entry.kind === 'decision' ? (
             <div key={key} className={`ai-decision outcome-${entry.outcome}`}>
               <div className="ai-decision-reasoning">{entry.reasoning}</div>
-              <div className="ai-decision-command">→ {entry.command}</div>
+              <div className="ai-decision-command">
+                {entry.outcome === 'blocked' ? `Blocked → ${entry.command}` : `→ ${entry.command}`}
+              </div>
+              {entry.outcome === 'blocked' && entry.reason && (
+                <div className="ai-decision-blocked-reason">{entry.reason}</div>
+              )}
             </div>
           ) : (
             <div key={key} className={`ai-system-line state-${entry.outcome}`}>
