@@ -22,16 +22,46 @@ type profileStorage interface {
 	AcceptPolicy(userID, profileID uuid.UUID, version string) (*store.Profile, error)
 }
 
+// transcriptStorage is the subset of *store.TranscriptStore the log
+// endpoints call (task 03-05-01). Declaring it as an interface, same
+// discipline as profileStorage above, lets logs_test.go exercise the
+// handler with a hand-written fake instead of a live Postgres connection.
+type transcriptStorage interface {
+	ListSessionsForConnection(connectionID uuid.UUID, limit int) ([]store.GameSessionSummary, error)
+	GetSessionLines(gameSessionID, connectionID uuid.UUID, limit int) ([]store.GameSessionLine, error)
+}
+
 // Handler handles profiles HTTP requests
 type Handler struct {
 	profileStore profileStorage
+	// transcripts is nil when no transcript store was wired (NewHandler),
+	// making ListSessions/GetSessionTranscript answer 503 rather than
+	// panic — a missing dependency fails closed.
+	transcripts transcriptStorage
 }
 
-// NewHandler creates a new profiles handler
+// NewHandler creates a new profiles handler with no transcript store
+// wired; the two log endpoints answer 503 until NewHandlerWithTranscripts
+// is used instead.
 func NewHandler(profileStore *store.ProfileStore) *Handler {
-	return &Handler{
-		profileStore: profileStore,
+	return NewHandlerWithTranscripts(profileStore, nil)
+}
+
+// NewHandlerWithTranscripts creates a new profiles handler with the
+// session-log endpoints wired to transcripts. A nil transcripts store
+// disables those two endpoints (503) without panicking — a missing
+// dependency fails closed, matching the discipline the package already
+// uses for a nil EngageGate callback (internal/session/handler.go).
+func NewHandlerWithTranscripts(profileStore *store.ProfileStore, transcripts *store.TranscriptStore) *Handler {
+	h := &Handler{profileStore: profileStore}
+	// Assigning a nil *store.TranscriptStore straight into the
+	// transcriptStorage interface field would produce a non-nil interface
+	// with a nil underlying pointer (a well-known Go trap) — checked
+	// explicitly here so h.transcripts == nil stays a true nil interface.
+	if transcripts != nil {
+		h.transcripts = transcripts
 	}
+	return h
 }
 
 // Request/Response types

@@ -35,6 +35,33 @@ type HealthResponse struct {
 	Status string `json:"status"`
 }
 
+// transcriptSinkAdapter satisfies session.TranscriptSink by converting
+// []session.TranscriptLine to []store.GameSessionLine. internal/session
+// declares its own TranscriptLine type (rather than importing
+// internal/store) so the interface lives in the consuming package; the two
+// struct shapes are structurally identical, but Go interfaces require the
+// declared method types to match exactly, so a thin adapter is required
+// here in main, the one place that already imports both packages.
+type transcriptSinkAdapter struct {
+	store *store.TranscriptStore
+}
+
+func (a *transcriptSinkAdapter) OpenGameSession(userID, connectionID uuid.UUID) (uuid.UUID, error) {
+	return a.store.OpenGameSession(userID, connectionID)
+}
+
+func (a *transcriptSinkAdapter) AppendGameLines(gameSessionID uuid.UUID, lines []session.TranscriptLine) error {
+	storeLines := make([]store.GameSessionLine, len(lines))
+	for i, l := range lines {
+		storeLines[i] = store.GameSessionLine{Seq: l.Seq, Source: l.Source, Text: l.Text, CreatedAt: l.CreatedAt}
+	}
+	return a.store.AppendGameLines(gameSessionID, storeLines)
+}
+
+func (a *transcriptSinkAdapter) CloseGameSession(gameSessionID uuid.UUID) error {
+	return a.store.CloseGameSession(gameSessionID)
+}
+
 func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	response := HealthResponse{Status: "ok"}
@@ -155,6 +182,10 @@ func main() {
 	connectionStore := store.NewConnectionStore(db)
 	credentialsStore := store.NewCredentialsStore(db)
 	profileStore := store.NewProfileStore(db)
+	// transcriptStore backs the session transcript (D-14): one store
+	// instance, two consumers — the session manager's write-side tap and
+	// the profiles handler's owner-scoped read endpoints below.
+	transcriptStore := store.NewTranscriptStore(db)
 	// Create encryption key store - uses DefaultKeyStore to generate default key if none configured
 	keyStore, err := crypto.DefaultKeyStore()
 	if err != nil {
@@ -173,8 +204,15 @@ func main() {
 	// Initialize connections handler with session manager (SP03PH06)
 	connectionsHandler := connections.NewHandler(connectionStore, credentialsStore, keyStore, sessionManager)
 
-	// Initialize profiles handler (SP04PH02)
-	profilesHandler := profiles.NewHandler(profileStore)
+	// Wire the session transcript tap (D-14): every saved-profile
+	// connection is transcribed from connect to disconnect. A thin adapter
+	// bridges internal/session's own TranscriptLine type to
+	// internal/store's GameSessionLine (see transcriptSinkAdapter above).
+	sessionManager.SetTranscriptSink(&transcriptSinkAdapter{store: transcriptStore})
+
+	// Initialize profiles handler (SP04PH02), with the session-log
+	// endpoints wired to the same transcriptStore (D-17).
+	profilesHandler := profiles.NewHandlerWithTranscripts(profileStore, transcriptStore)
 
 	// Initialize the ICM engine exactly once (Phase 3, 03-03-02). internal/icm
 	// has existed since before this project started (dispatcher, safety
@@ -414,6 +452,28 @@ func main() {
 		switch r.Method {
 		case http.MethodGet:
 			profilesHandler.GetEngageGate(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// Session log endpoints (D-17): a profile's sessions listed by date and
+	// time, and one session's transcript read back as text. Both resolve
+	// ownership through GetProfileByConnection before any row is read
+	// (T-3-04).
+	mux.HandleFunc("/api/v1/profiles/{connection_id}/sessions", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			profilesHandler.ListSessions(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	mux.HandleFunc("/api/v1/profiles/{connection_id}/sessions/{session_id}", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			profilesHandler.GetSessionTranscript(w, r)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
