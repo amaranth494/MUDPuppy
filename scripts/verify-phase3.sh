@@ -373,11 +373,14 @@ elif [ "$OUTCOME_1" = "refused-not-configured" ]; then
   _check_eq C3 "gate_message matches the exact D-20 refusal sentence" "$GATE_MESSAGE_1" "$D20_MESSAGE"
   _check_eq C3 "state stays off on refusal" "$STATE_1" "off"
   echo "NOTE: this server ran with the Gemini variables UNSET -- the D-20 refusal is the Phase 3 behaviour this run demonstrates."
-elif [ "$OUTCOME_1" = "engaged" ] || [ "$OUTCOME_1" = "refused-no-session" ]; then
+elif [ "$OUTCOME_1" = "engaged" ] || [ "$OUTCOME_1" = "refused-no-session" ] || [ "$OUTCOME_1" = "refused-wrong-connection" ]; then
+  # refused-wrong-connection (Phase 2 code review C2): the owner's browser is
+  # connected to a different profile right now. The configuration gate was
+  # passed before that check, so it is the "variables set" world too.
   _check C3 "the configuration gate passed (outcome: $OUTCOME_1) -- this server has the Gemini variables set" 0
   echo "NOTE: this server ran with the Gemini variables SET -- the D-20 refusal cannot be demonstrated on this run; see evidence/08-refused-not-configured.png for that world instead."
 else
-  _check C3 "outcome is refused-not-configured, engaged or refused-no-session" "$OUTCOME_1" 1
+  _check C3 "outcome is refused-not-configured, engaged, refused-no-session or refused-wrong-connection (got: $OUTCOME_1)" 1
 fi
 
 # ---------------------------------------------------------------------------
@@ -423,13 +426,25 @@ if [ -n "$DECISIONS_RAW" ]; then
 else
   _check C2 "response carries a decisions array" 1
 fi
-NEWEST_REASONING=$(_get_field "$HTTP_BODY" decisions.0.reasoning)
-NEWEST_COMMAND=$(_get_field "$HTTP_BODY" decisions.0.command)
-NEWEST_OUTCOME=$(_get_field "$HTTP_BODY" decisions.0.outcome)
-if [ -n "$NEWEST_REASONING" ] && [ "$NEWEST_REASONING" != "null" ]; then
-  _check C2 "non-empty decisions carry reasoning, command and outcome on the newest entry (reasoning: $NEWEST_REASONING | command: $NEWEST_COMMAND | outcome: $NEWEST_OUTCOME)" 0
+# The endpoint returns a connection's decisions OLDEST first (plan 03-09),
+# and a failed decision carries an empty reasoning and command by design
+# (D-13). The entry that must carry reasoning, command and outcome is the
+# newest decision whose outcome is "sent".
+if command -v jq >/dev/null 2>&1; then
+  NEWEST_REASONING=$(printf '%s' "$HTTP_BODY" | jq -r '[.decisions[]? | select(.outcome == "sent")] | last | .reasoning // ""' 2>/dev/null)
+  NEWEST_COMMAND=$(printf '%s' "$HTTP_BODY" | jq -r '[.decisions[]? | select(.outcome == "sent")] | last | .command // ""' 2>/dev/null)
+  NEWEST_OUTCOME=$(printf '%s' "$HTTP_BODY" | jq -r '[.decisions[]? | select(.outcome == "sent")] | last | .outcome // ""' 2>/dev/null)
 else
-  echo "NOTE: decisions array is empty for this connection (no walkthrough run yet) -- presence and well-formedness were still checked above; the newest-entry shape check is a no-op here."
+  # No jq: take the last non-empty reasoning and command in document order
+  # (oldest first, so the last one is the newest) and the last "sent" outcome.
+  NEWEST_REASONING=$(printf '%s' "$HTTP_BODY" | grep -oE '"reasoning"[[:space:]]*:[[:space:]]*"[^"]+"' | tail -n 1 | sed -E 's/^"reasoning"[[:space:]]*:[[:space:]]*"(.*)"$/\1/')
+  NEWEST_COMMAND=$(printf '%s' "$HTTP_BODY" | grep -oE '"command"[[:space:]]*:[[:space:]]*"[^"]+"' | tail -n 1 | sed -E 's/^"command"[[:space:]]*:[[:space:]]*"(.*)"$/\1/')
+  NEWEST_OUTCOME=$(printf '%s' "$HTTP_BODY" | grep -oE '"outcome"[[:space:]]*:[[:space:]]*"sent"' | tail -n 1 | sed -E 's/.*"(sent)"$/\1/')
+fi
+if [ -n "$NEWEST_REASONING" ] && [ "$NEWEST_REASONING" != "null" ] && [ -n "$NEWEST_COMMAND" ] && [ "$NEWEST_OUTCOME" = "sent" ]; then
+  _check C2 "the newest sent decision carries reasoning, command and outcome (reasoning: $NEWEST_REASONING | command: $NEWEST_COMMAND | outcome: $NEWEST_OUTCOME)" 0
+else
+  echo "NOTE: no sent decision for this connection yet (no walkthrough run, or only failed attempts) -- presence and well-formedness were still checked above; the newest-sent-entry shape check is a no-op here."
 fi
 
 # ---------------------------------------------------------------------------

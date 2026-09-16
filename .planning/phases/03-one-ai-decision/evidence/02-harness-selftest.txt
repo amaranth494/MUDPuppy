@@ -1,12 +1,13 @@
 ### bash scripts/verify-phase3.sh --self-test /tmp/phase3-selftest.txt
+# Re-captured after the harness fix in task 03-13-03 (refused-wrong-connection accepted; newest SENT decision checked, oldest-first order).
 ================================================================
 Phase 3 canned-report harness -- scripts/verify-phase3.sh
-Run started (UTC): 2026-09-16T03:30:23Z
+Run started (UTC): 2026-09-16T14:12:42Z
 Mode: --self-test (fixtures: scripts/fixtures/phase3/, no server)
 BASE_URL: http://fixture.invalid
 CONNECTION_ID: 00000000-0000-0000-0000-000000000000
 NOT_OWNED_CONNECTION_ID: ffffffff-ffff-ffff-ffff-ffffffffffff
-git rev-parse --short HEAD: 1b972f3
+git rev-parse --short HEAD: 4cb96ee
 ================================================================
 
 Ground rules: (1) proof here is this report or an end-user screenshot,
@@ -37,7 +38,7 @@ GET /api/v1/profiles/$CONNECTION_ID/decisions -> HTTP 200
 {"decisions":[{"id":"11111111-1111-1111-1111-111111111111","created_at":"2026-09-15T20:05:00Z","reasoning":"A passage leads north out of this small room; heading that way continues exploring.","command":"north","outcome":"sent","failure_kind":"","notice":""}]}
 PASS C2: decisions endpoint answers HTTP 200 for the owning connection (status 200)
 PASS C2: response carries a decisions array
-PASS C2: non-empty decisions carry reasoning, command and outcome on the newest entry (reasoning: A passage leads north out of this small room; heading that way continues exploring. | command: north | outcome: sent)
+PASS C2: the newest sent decision carries reasoning, command and outcome (reasoning: A passage leads north out of this small room; heading that way continues exploring. | command: north | outcome: sent)
 
 ---- Step 5: GET profiles/$NOT_OWNED_CONNECTION_ID/decisions -- refused, not someone else's rows (C2, T-3-03) ----
 GET /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/decisions -> HTTP 400
@@ -88,12 +89,12 @@ EXIT: 0
 ### bash scripts/verify-phase3.sh --self-test-negative /tmp/phase3-negative.txt
 ================================================================
 Phase 3 canned-report harness -- scripts/verify-phase3.sh
-Run started (UTC): 2026-09-16T03:30:25Z
+Run started (UTC): 2026-09-16T14:12:45Z
 Mode: --self-test-negative (fixtures: scripts/fixtures/phase3-negative/, no server)
 BASE_URL: http://fixture.invalid
 CONNECTION_ID: 00000000-0000-0000-0000-000000000000
 NOT_OWNED_CONNECTION_ID: ffffffff-ffff-ffff-ffff-ffffffffffff
-git rev-parse --short HEAD: 1b972f3
+git rev-parse --short HEAD: 4cb96ee
 ================================================================
 
 Ground rules: (1) proof here is this report or an end-user screenshot,
@@ -124,7 +125,7 @@ GET /api/v1/profiles/$CONNECTION_ID/decisions -> HTTP 200
 {"decisions":[{"id":"11111111-1111-1111-1111-111111111111","created_at":"2026-09-15T20:05:00Z","reasoning":"A passage leads north out of this small room; heading that way continues exploring.","command":"north","outcome":"sent","failure_kind":"","notice":""}]}
 PASS C2: decisions endpoint answers HTTP 200 for the owning connection (status 200)
 PASS C2: response carries a decisions array
-PASS C2: non-empty decisions carry reasoning, command and outcome on the newest entry (reasoning: A passage leads north out of this small room; heading that way continues exploring. | command: north | outcome: sent)
+PASS C2: the newest sent decision carries reasoning, command and outcome (reasoning: A passage leads north out of this small room; heading that way continues exploring. | command: north | outcome: sent)
 
 ---- Step 5: GET profiles/$NOT_OWNED_CONNECTION_ID/decisions -- refused, not someone else's rows (C2, T-3-03) ----
 GET /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/decisions -> HTTP 400
