@@ -779,7 +779,7 @@ func TestHandlerRegistration(t *testing.T) {
 		{OperatorStructured, "START", true},
 		{OperatorStructured, "STOP", true},
 		{OperatorStructured, "CHECK", true},
-		{OperatorStructured, "CANCEL", true},
+		{OperatorStructured, "CANCEL", false}, // PR02PH09: #CANCEL retired, registration commented out in dispatcher.go
 		{OperatorStructured, "UNKNOWN", false},
 	}
 
