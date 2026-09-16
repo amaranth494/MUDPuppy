@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: "Phase 3.1 executed and verified (6/6, human_needed: security review); evidence dossier published for owner acceptance; security review next"
-last_updated: "2026-09-16T22:46:24.793Z"
+stopped_at: "Phase 3.1 security review: risk register published, awaiting the owner's decisions on 15 items"
+last_updated: "2026-09-16T23:39:14.903Z"
 last_activity: 2026-09-16
 progress:
   total_phases: 9
@@ -113,6 +113,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-09-16T22:46:24.785Z
-Stopped at: Phase 3.1 executed and verified (6/6, human_needed: security review); evidence dossier published for owner acceptance; security review next
+Last session: 2026-09-16T23:39:14.896Z
+Stopped at: Phase 3.1 security review: risk register published, awaiting the owner's decisions on 15 items
 Resume file: .planning/phases/03.1-prompt-injection-review/03.1-SECURITY-AGENDA.md
