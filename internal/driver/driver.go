@@ -95,14 +95,26 @@ type Decisions interface {
 }
 
 // Notifier delivers a decision or system Event to the browser (plan
-// 03-09's websocket push). A nil Notifier passed to New is a silent no-op,
-// so this plan is independently runnable without plan 03-09.
+// 03-09's live push to the owner's open play screen). A nil Notifier
+// passed to New is a silent no-op, so this plan is independently runnable
+// without plan 03-09.
 type Notifier interface {
 	NotifyDecision(userID string, ev Event)
 }
 
-// Event is the payload plan 03-09 puts on the websocket and plan 03-10
-// renders. Kind is "decision" or "system".
+// NotifierFunc adapts a plain closure to Notifier, so cmd/server/main.go
+// can wire the browser push surface into the driver without
+// internal/driver ever importing the package that implements it — the
+// one-way dependency direction this package's doc comment describes.
+type NotifierFunc func(userID string, ev Event)
+
+// NotifyDecision satisfies Notifier by calling the wrapped closure.
+func (f NotifierFunc) NotifyDecision(userID string, ev Event) {
+	f(userID, ev)
+}
+
+// Event is the payload plan 03-09 delivers live to the browser and plan
+// 03-10 renders. Kind is "decision" or "system".
 type Event struct {
 	ID        string
 	Kind      string
@@ -142,6 +154,17 @@ func New(sessions Sessions, profiles Profiles, decisions Decisions, models Model
 		cfg:       cfg,
 		inFlight:  make(map[string]bool),
 	}
+}
+
+// SetNotifier attaches (or replaces) the Driver's Notifier after
+// construction, so cmd/server/main.go can build the browser-push-backed
+// notifier once both the handler that owns the live connection and the
+// Driver exist, and wire them together without reordering either
+// construction call. Intended to be called once during startup wiring,
+// before the server begins serving requests and before HandleEngage can
+// run concurrently.
+func (d *Driver) SetNotifier(n Notifier) {
+	d.notifier = n
 }
 
 // HandleEngage runs the phase's one decision for userID on connectionID:
@@ -341,7 +364,7 @@ func (d *Driver) notify(userID string, ev Event) {
 // logDecision emits one structured log line per stage of a decision. It
 // carries ids, a stage name and byte lengths only. The model's answer, the
 // command text, and any profile-specific text are never interpolated here
-// (T-3-07, T-3-02) — they are proven by a stored row, a websocket event, or
+// (T-3-07, T-3-02) — they are proven by a stored row, a live push event, or
 // an end-user screenshot elsewhere, never by a log line.
 func (d *Driver) logDecision(userID, connectionID, decisionID, stage, modelName, outcome, failureKind string, snapshotBytes, cmdLen int) {
 	log.Printf("[AI-PLAYER] decision user_id=%s connection_id=%s decision_id=%s stage=%s model=%s outcome=%s failure=%s snapshot_bytes=%d cmd_len=%d",

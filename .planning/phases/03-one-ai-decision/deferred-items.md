@@ -36,6 +36,14 @@ Reported by 03-08 (the driver).
 - **`internal/icm` `TestHandlerRegistration/CANCEL`** is confirmed still resolved at this plan's base and final commit (`go test ./internal/icm/...` passes cleanly) — no action needed, consistent with 03-05's and 03-07's notes above.
 - **No new out-of-scope findings.** `go test ./...` (whole repo) is fully green at this plan's final commit, with no failures outside this plan's own new/modified files.
 
+## Plan 03-09
+
+Reported by 03-09 (the decision panel's websocket push and read-back endpoint).
+
+- **`-race` still unavailable.** Same environment limitation as every prior Phase 3 plan (`CGO_ENABLED=0`, no `gcc`). `go test ./internal/session/... -run TestPushAI -race -v` and every other `-race` invocation named in this plan's `<verify>` blocks were run as plain `go test ... -v` instead. `TestPushAI`'s four subtests, the full `internal/session` suite, `internal/driver`'s whole-package tests and `internal/profiles`' `TestDecisionsReload` all pass. The new client registry (`WebSocketHandler.clients` + its own `clientsMu`) never touches `wsWriteMu`, matching the plan's own stated separation of concerns, but the race detector has not confirmed the absence of a data race on this machine. Whichever environment captures `evidence/01-test-report.txt` for plan 03-13 should run `-race` there if cgo is available.
+- **`internal/icm` `TestHandlerRegistration/CANCEL`** is confirmed still resolved at this plan's base and final commit (`go test ./...` passes cleanly whole-repo) — no action needed, consistent with prior plans' notes above.
+- **No other out-of-scope findings.** `go test ./...` (whole repo) is fully green at this plan's final commit, with no failures outside this plan's own new/modified files.
+
 ## Plan 03-07
 
 **Out-of-scope finding, documented in full in `03-07-SUMMARY.md` rather than fixed here:** `internal/auth/handler.go`'s `DEV MODE - OTP for %s: %s` lines (`Register` and `SendOTP`, the `else` branch of `if h.emailSender != nil && h.emailSender.IsConfigured()`) still print the one-time sign-in code directly. This branch only executes when SMTP is entirely unconfigured (`SMTPHost`/`SMTPUser`/`SMTPPass` all unset) — never true on staging or production, both of which require SMTP for email delivery to function at all. The plan's `<action>` and `<context>` named only the two `"STAGING: OTP sent to user, code: %s"` call sites (now routed through `logOTPIssued`, gated by `AUTH_LOG_OTP`); the DEV MODE lines were not among them and were left untouched. Flagged here for the Phase 3 security review (plan 03-13's agenda item for DR-2-01 closure) in case the owner wants this local-dev convenience closed off too — a one-line follow-up (route it through `logOTPIssued` or an equivalent gated helper).

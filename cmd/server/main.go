@@ -264,16 +264,40 @@ func main() {
 	// is triggered by exactly two callers — a real #AUTO ON engage
 	// (sessionHandler.SetEngageHook, fired only on a real state change)
 	// and a WAITING-to-ON reconnect resume (sessionManager.SetEngageHook,
-	// D-02). The notifier is nil until plan 03-09 supplies the websocket
-	// push; Driver.NotifyDecision is a no-op until then.
+	// D-02). The notifier is nil at construction and wired below once
+	// wsHandler exists (plan 03-09).
 	decisionStore := store.NewDecisionStore(db)
 	geminiClient := gemini.NewClient(0)
 	aiDriver := aidriver.New(sessionManager, profileStore, decisionStore, geminiClient, icmEngine.GetDispatcher(), nil, cfg)
 	sessionManager.SetEngageHook(aiDriver.HandleEngage)
 	sessionHandler.SetEngageHook(aiDriver.HandleEngage)
 
+	// Wire the same decisionStore instance to the decisions-read endpoint
+	// (plan 03-09) so a reloaded play screen reads back exactly what the
+	// driver above wrote.
+	profilesHandler.SetDecisionStore(decisionStore)
+
 	// Initialize WebSocket handler (SP02PH02)
 	wsHandler := session.NewWebSocketHandler(sessionManager, cfg)
+
+	// Wire the driver's notifications to the owner's open play screen
+	// (plan 03-09, D-08). The push's own error is deliberately discarded —
+	// PushAI already returns nil for a user with no open screen, and a
+	// closed browser tab must never affect the driver (T-3-36). The
+	// decision row is already stored before this notification runs, so a
+	// refresh recovers it through the decisions-read endpoint even if the
+	// tab was closed at the moment the decision happened.
+	aiDriver.SetNotifier(aidriver.NotifierFunc(func(userID string, ev aidriver.Event) {
+		_ = wsHandler.PushAI(userID, session.AIDecisionPayload{
+			ID:        ev.ID,
+			Kind:      ev.Kind,
+			Reasoning: ev.Reasoning,
+			Command:   ev.Command,
+			Outcome:   ev.Outcome,
+			Message:   ev.Message,
+			Timestamp: ev.Timestamp,
+		})
+	}))
 
 	// Initialize metrics (SP02PH04T03)
 	metrics.Init()
@@ -489,6 +513,19 @@ func main() {
 		switch r.Method {
 		case http.MethodGet:
 			profilesHandler.GetSessionTranscript(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// A connection's decisions, read back in the order they happened
+	// (D-12, plan 03-09): this is what lets a reloaded play screen rebuild
+	// what it missed. Ownership is resolved through GetProfileByConnection
+	// before any row is read (T-3-03).
+	mux.HandleFunc("/api/v1/profiles/{connection_id}/decisions", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			profilesHandler.GetDecisions(w, r)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
