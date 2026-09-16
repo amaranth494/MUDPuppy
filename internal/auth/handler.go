@@ -24,6 +24,7 @@ type Handler struct {
 	redisClient   *redis.Client
 	emailSender   *email.Sender
 	sessionSecret string
+	logOTPCode    bool
 }
 
 // NewHandler creates a new auth handler
@@ -38,7 +39,26 @@ func NewHandler(userStore *store.UserStore, redisClient *redis.Client, cfg *conf
 		redisClient:   redisClient,
 		emailSender:   emailSender,
 		sessionSecret: cfg.SessionSecret,
+		logOTPCode:    cfg.AuthLogOTP,
 	}
+}
+
+// This is the single place in this package allowed to print a
+// one-time sign-in code to the log (DR-2-01). Staging previously printed
+// the code on every OTP issuance, which meant anyone with staging log
+// access could sign in as any staging user; deferred at the Phase 1 and
+// Phase 2 security reviews, this closes it. By default (h.logOTPCode
+// false, the deployed value) only the audit fact that a code was issued
+// is printed — never the code, an email address, the user id, the code's
+// length, or any prefix of it. The code prints only when AUTH_LOG_OTP is
+// explicitly turned on for local debugging. No caller may print the code
+// directly ever again; both former call sites route through this helper.
+func (h *Handler) logOTPIssued(otp string) {
+	if h.logOTPCode {
+		log.Printf("STAGING: OTP sent to user, code: %s", otp)
+		return
+	}
+	log.Printf("[AUTH] one-time sign-in code issued (code suppressed; set AUTH_LOG_OTP=1 to print)")
 }
 
 // Request/Response types
@@ -177,8 +197,8 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Service unavailable. Please try again later.", http.StatusServiceUnavailable)
 			return
 		}
-		// Log OTP for staging verification (without PII)
-		log.Printf("STAGING: OTP sent to user, code: %s", otp)
+		// Log OTP issuance for staging verification, gated by DR-2-01
+		h.logOTPIssued(otp)
 	} else {
 		// In development, log the OTP
 		log.Printf("DEV MODE - OTP for %s: %s", email, otp)
@@ -266,8 +286,8 @@ func (h *Handler) SendOTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Service unavailable. Please try again later.", http.StatusServiceUnavailable)
 			return
 		}
-		// Log OTP for staging verification (without PII)
-		log.Printf("STAGING: OTP sent to user, code: %s", otp)
+		// Log OTP issuance for staging verification, gated by DR-2-01
+		h.logOTPIssued(otp)
 	} else {
 		// In development, log the OTP
 		log.Printf("DEV MODE - OTP for %s: %s", email, otp)

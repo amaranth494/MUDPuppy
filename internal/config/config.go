@@ -62,6 +62,12 @@ type Config struct {
 	// refused later, by AIConfigured().
 	AIDefaultModelSlug string
 	AIModels           map[string]AIModelEntry
+
+	// AuthLogOTP (DR-2-01). Off by default: the one-time sign-in code is
+	// never printed to the log unless this is explicitly turned on for
+	// local debugging. Staging's configuration does not set it. Never a
+	// fail-fast case — an unparseable value warns and stays false.
+	AuthLogOTP bool
 }
 
 // Load loads configuration from environment variables
@@ -232,6 +238,20 @@ func Load() (*Config, error) {
 		}
 	}
 	cfg.AIDefaultModelSlug = strings.ToUpper(os.Getenv("AI_MODEL_DEFAULT"))
+
+	// One-time sign-in code logging (DR-2-01, optional, defaults to false).
+	// Off is the deployed value: staging's configuration does not set this,
+	// so the code never reaches the log by default. An unparseable value
+	// warns and stays false — this must never become a fail-fast case.
+	cfg.AuthLogOTP = false
+	if otpLogStr := os.Getenv("AUTH_LOG_OTP"); otpLogStr != "" {
+		otpLog, err := strconv.ParseBool(otpLogStr)
+		if err != nil {
+			log.Printf("Warning: Invalid AUTH_LOG_OTP %q, using default false", otpLogStr)
+		} else {
+			cfg.AuthLogOTP = otpLog
+		}
+	}
 
 	return cfg, nil
 }
