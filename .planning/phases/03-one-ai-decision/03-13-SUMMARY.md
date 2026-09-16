@@ -211,3 +211,7 @@ Phase 3's Phase Validation is performed and filed. The verifier, code review and
 - `04-staging-ai-player.log` contains `cause=engage`, `cause=refused-not-configured`, `stage=request`, `stage=dispatch`, `stage=sent`, `stage=failed`, `event=open`, `event=close` and the migration 011 startup lines; the T-3-07/T-3-02 grep returns 0; the DR-2-01 `code:` grep returns 0.
 - The criterion table has four rows, each citing at least one evidence file, report and log citations carry line numbers, each row carries PASS.
 - No SQL statement was run and none is cited.
+
+## Owner approval
+
+Phase 3 was approved by the owner on 2026-09-16 through the One AI Decision Evidence Dossier (https://claude.ai/artifact/TAHL7XYLZNtXE4ZWWSm4XW), after the verifier passed 4 of 4, the code review's two critical and two warning findings were fixed in cbf7d97, 0b74ea7, 48165ab and 2a2f349 and redeployed as dd8d7cab, and the regression gate passed. Both 03-13 checkpoints are approved by that same act.
