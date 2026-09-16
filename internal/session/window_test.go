@@ -120,3 +120,60 @@ func TestWindowRingBound(t *testing.T) {
 		t.Fatalf("snapshot missing the last chunk's label %q; newest bytes were lost", lastLabel)
 	}
 }
+
+// TestWindowIncludesPreEngageText proves D-04's "including text from
+// before the switch was flipped" needs no special-casing: the window is
+// fed continuously by appendOutputWindow regardless of autopilot state, so
+// game text that arrived before #AUTO ON is already in the snapshot by the
+// time the driver takes its first look.
+func TestWindowIncludesPreEngageText(t *testing.T) {
+	m := newTestManager()
+	const userID = "pre-engage-user"
+	seedConnectedSession(m, userID, "conn-1")
+
+	// Push several chunks through appendOutputWindow, standing in for game
+	// output arriving before autopilot was ever switched on.
+	chunks := []string{
+		"You wake up in a dim room.\n",
+		"A rat scurries past.\n",
+		"Exits: north, east.\n",
+	}
+	for _, c := range chunks {
+		m.appendOutputWindow(userID, []byte(c))
+	}
+
+	got := m.RecentOutputSnapshot(userID)
+	lastEnd := -1
+	for _, c := range chunks {
+		idx := strings.Index(got, c)
+		if idx == -1 {
+			t.Fatalf("snapshot missing pre-engage chunk %q: got %q", c, got)
+		}
+		if idx <= lastEnd {
+			t.Fatalf("chunk %q is out of order in snapshot %q", c, got)
+		}
+		lastEnd = idx
+	}
+}
+
+// TestWindowSurvivesDisconnect drives the real Manager.Disconnect, never a
+// bare Session struct — a test that asserted on a constructed struct would
+// pass while the production path silently lost the window (RESEARCH
+// Pitfall 4). Proves D-02: a WAITING-to-ON resume must read text that
+// spans the drop.
+func TestWindowSurvivesDisconnect(t *testing.T) {
+	m := newTestManager()
+	const userID = "survives-disconnect-user"
+	seedConnectedSession(m, userID, "conn-1")
+
+	m.appendOutputWindow(userID, []byte("The room is quiet before the drop.\n"))
+
+	if err := m.Disconnect(userID, ReasonRemote); err != nil {
+		t.Fatalf("Disconnect err = %v, want nil", err)
+	}
+
+	got := m.RecentOutputSnapshot(userID)
+	if !strings.Contains(got, "The room is quiet before the drop.") {
+		t.Fatalf("RecentOutputSnapshot after Disconnect = %q, want it to still contain the pre-drop text", got)
+	}
+}
