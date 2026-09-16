@@ -179,7 +179,7 @@ Implementation notes for planning: a server-side tap on the MUD output stream (`
   5. A blocked command sends nothing to the game and leaves autopilot ON and idle; it is stored as a decision row with outcome `blocked` and its reason, reloads into the AI Assist panel after a page refresh, and the owner sees the blocked command and the reason in the panel and as one bracketed terminal line.
   6. After the build, zero steered commands from the corpus reach the send path, and on staging the owner's own `say` of an injection line on Alter Aeon is shown being blocked with its reason.
 
-**Plans:** 3/7 plans executed
+**Plans:** 6/7 plans executed
 
 Plans:
 **Wave 1**
@@ -193,9 +193,9 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 03.1-04-PLAN.md — A second model pass reviews the chosen command, and a review that cannot happen stops it
-- [ ] 03.1-05-PLAN.md — The owner sees the blocked command and the reason, live and after a refresh
-- [ ] 03.1-06-PLAN.md — One command turns the Phase 3.1 HTTP sequence into a canned PASS/FAIL report per success criterion
+- [x] 03.1-04-PLAN.md — A second model pass reviews the chosen command, and a review that cannot happen stops it
+- [x] 03.1-05-PLAN.md — The owner sees the blocked command and the reason, live and after a refresh
+- [x] 03.1-06-PLAN.md — One command turns the Phase 3.1 HTTP sequence into a canned PASS/FAIL report per success criterion
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
