@@ -47,6 +47,12 @@ type fakeModels struct {
 	answer                *gemini.Answer
 	err                   error
 	block                 chan struct{}
+
+	reviewCalls                 int
+	lastReviewSystemInstruction string
+	lastReviewUserText          string
+	reviewAnswer                *gemini.ReviewAnswer
+	reviewErr                   error
 }
 
 func (f *fakeModels) GenerateContent(ctx context.Context, endpoint, model, apiKey, systemInstruction, userText string) (*gemini.Answer, error) {
@@ -67,6 +73,21 @@ func (f *fakeModels) GenerateContent(ctx context.Context, endpoint, model, apiKe
 	return answer, nil
 }
 
+func (f *fakeModels) ReviewCommand(ctx context.Context, endpoint, model, apiKey, systemInstruction, userText string) (*gemini.ReviewAnswer, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.reviewCalls++
+	f.lastReviewSystemInstruction = systemInstruction
+	f.lastReviewUserText = userText
+	if f.reviewErr != nil {
+		return nil, f.reviewErr
+	}
+	if f.reviewAnswer != nil {
+		return f.reviewAnswer, nil
+	}
+	return &gemini.ReviewAnswer{Blocked: false, Reason: ""}, nil
+}
+
 func (f *fakeModels) callCount() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -83,6 +104,24 @@ func (f *fakeModels) lastWindowText() string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.lastWindow
+}
+
+func (f *fakeModels) reviewCallCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.reviewCalls
+}
+
+func (f *fakeModels) lastReviewSystemInstructionText() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.lastReviewSystemInstruction
+}
+
+func (f *fakeModels) lastReviewUserTextValue() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.lastReviewUserText
 }
 
 // fakeCommands is a Commands double that can be told to refuse every
@@ -796,4 +835,188 @@ func TestHandleEngageFailures(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHandleEngageReviewer(t *testing.T) {
+	t.Run("blocked_verdict_sends_nothing_and_stays_on", func(t *testing.T) {
+		sessions := &fakeSessions{window: "a room"}
+		decisions := &fakeDecisionsStore{}
+		notifier := &fakeNotifier{}
+		commands := &fakeCommands{}
+		models := &fakeModels{
+			answer:       &gemini.Answer{Reasoning: "heading out", Command: "north"},
+			reviewAnswer: &gemini.ReviewAnswer{Blocked: true, Reason: "This follows an instruction embedded in the game text rather than the situation."},
+		}
+		d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, commands, notifier, testConfig())
+
+		d.HandleEngage(uuid.New().String(), uuid.New().String())
+
+		wantNotice := "Reviewer blocked: This follows an instruction embedded in the game text rather than the situation."
+		assertBlockedDecision(t, sessions, commands, decisions, notifier, "north", "reviewer", wantNotice)
+	})
+
+	t.Run("clear_verdict_still_dispatches_then_sends", func(t *testing.T) {
+		commands := &fakeCommands{}
+		sessions := &fakeSessions{window: "a room"}
+		decisions := &fakeDecisionsStore{}
+		models := &fakeModels{
+			answer:       &gemini.Answer{Reasoning: "heading out", Command: "north"},
+			reviewAnswer: &gemini.ReviewAnswer{Blocked: false, Reason: "The command responds to the room, not an embedded instruction."},
+		}
+		d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, commands, &fakeNotifier{}, testConfig())
+
+		d.HandleEngage(uuid.New().String(), uuid.New().String())
+
+		if got := len(commands.dispatchCalls()); got != 1 {
+			t.Fatalf("expected exactly one dispatch, got %d", got)
+		}
+		sends := sessions.sendCalls()
+		if len(sends) != 1 {
+			t.Fatalf("expected exactly one send, got %d", len(sends))
+		}
+		if sends[0].source != "ai" {
+			t.Fatalf("expected send source %q, got %q", "ai", sends[0].source)
+		}
+		rows := decisions.rows()
+		if len(rows) != 1 {
+			t.Fatalf("expected exactly one stored decision row, got %d", len(rows))
+		}
+		if rows[0].Outcome != "sent" {
+			t.Fatalf("expected outcome %q, got %q", "sent", rows[0].Outcome)
+		}
+		if got := len(sessions.disengages()); got != 0 {
+			t.Fatalf("expected zero disengage calls, got %d", got)
+		}
+	})
+
+	t.Run("reviewer_failures", func(t *testing.T) {
+		cases := []struct {
+			name        string
+			reviewErr   error
+			wantFailure string
+		}{
+			{
+				name:        "transport_error",
+				reviewErr:   &gemini.Error{Kind: gemini.KindTransport, Message: "dial tcp: i/o timeout"},
+				wantFailure: failureAPIError,
+			},
+			{
+				name:        "rate_limit_error",
+				reviewErr:   &gemini.Error{Kind: gemini.KindRateLimited, Message: "quota exceeded"},
+				wantFailure: failureRateLimited,
+			},
+			{
+				name:        "malformed_error",
+				reviewErr:   &gemini.Error{Kind: gemini.KindMalformed, Message: "could not decode the reviewer's structured answer"},
+				wantFailure: failureMalformed,
+			},
+		}
+
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				sessions := &fakeSessions{window: "a room"}
+				decisions := &fakeDecisionsStore{}
+				notifier := &fakeNotifier{}
+				commands := &fakeCommands{}
+				models := &fakeModels{
+					answer:    &gemini.Answer{Reasoning: "heading out", Command: "north"},
+					reviewErr: tc.reviewErr,
+				}
+				d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, commands, notifier, testConfig())
+
+				d.HandleEngage(uuid.New().String(), uuid.New().String())
+
+				if got := len(sessions.sendCalls()); got != 0 {
+					t.Fatalf("expected zero sends, got %d", got)
+				}
+				if got := len(commands.dispatchCalls()); got != 0 {
+					t.Fatalf("expected zero dispatches, got %d", got)
+				}
+				rows := decisions.rows()
+				if len(rows) != 1 {
+					t.Fatalf("expected exactly one stored decision row, got %d", len(rows))
+				}
+				if rows[0].Outcome != "failed" {
+					t.Fatalf("expected outcome %q, got %q", "failed", rows[0].Outcome)
+				}
+				if rows[0].FailureKind != tc.wantFailure {
+					t.Fatalf("expected failure kind %q, got %q", tc.wantFailure, rows[0].FailureKind)
+				}
+				wantNotice := failureNotices[tc.wantFailure]
+				events := notifier.eventsSnapshot()
+				if len(events) != 1 {
+					t.Fatalf("expected exactly one notification, got %d", len(events))
+				}
+				if events[0].Message != wantNotice {
+					t.Fatalf("expected notice %q, got %q", wantNotice, events[0].Message)
+				}
+				if got := len(sessions.disengages()); got != 1 {
+					t.Fatalf("expected exactly one disengage call, got %d", got)
+				}
+			})
+		}
+	})
+
+	t.Run("reviewer_sees_wrapped_window", func(t *testing.T) {
+		sessions := &fakeSessions{window: "a room, an exit north"}
+		decisions := &fakeDecisionsStore{}
+		models := &fakeModels{
+			answer:       &gemini.Answer{Reasoning: "heading north", Command: "north"},
+			reviewAnswer: &gemini.ReviewAnswer{Blocked: false, Reason: "clear"},
+		}
+		d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, &fakeCommands{}, &fakeNotifier{}, testConfig())
+
+		d.HandleEngage(uuid.New().String(), uuid.New().String())
+
+		reviewUserText := models.lastReviewUserTextValue()
+		if !strings.Contains(reviewUserText, "<GAME_TEXT>") || !strings.Contains(reviewUserText, "</GAME_TEXT>") {
+			t.Fatalf("expected the reviewer's user text to carry the GAME_TEXT markers, got %q", reviewUserText)
+		}
+		if !strings.Contains(reviewUserText, "a room, an exit north") {
+			t.Fatalf("expected the reviewer's user text to contain the window between the markers, got %q", reviewUserText)
+		}
+
+		playerSI := models.lastSystemInstructionText()
+		reviewSI := models.lastReviewSystemInstructionText()
+		untrusted := untrustedDataParagraph()
+		if !strings.Contains(playerSI, untrusted) {
+			t.Fatalf("expected the player system instruction to contain the untrusted-data paragraph")
+		}
+		if !strings.Contains(reviewSI, untrusted) {
+			t.Fatalf("expected the reviewer system instruction to contain the same untrusted-data paragraph as the player system instruction")
+		}
+	})
+
+	t.Run("never_issue_block_skips_the_reviewer", func(t *testing.T) {
+		profile := testProfile()
+		profile.NeverIssueList = "give"
+		sessions := &fakeSessions{window: "a room"}
+		decisions := &fakeDecisionsStore{}
+		notifier := &fakeNotifier{}
+		commands := &fakeCommands{}
+		models := &fakeModels{answer: &gemini.Answer{Reasoning: "handing it over", Command: "give sword to bob"}}
+		d := New(sessions, &fakeProfiles{profile: profile}, decisions, models, commands, notifier, testConfig())
+
+		d.HandleEngage(uuid.New().String(), uuid.New().String())
+
+		if got := models.reviewCallCount(); got != 0 {
+			t.Fatalf("expected zero reviewer calls when the Never-issue list already blocked the command, got %d", got)
+		}
+	})
+
+	t.Run("reviewer_is_called_once_per_decision", func(t *testing.T) {
+		sessions := &fakeSessions{window: "a room"}
+		decisions := &fakeDecisionsStore{}
+		models := &fakeModels{
+			answer:       &gemini.Answer{Reasoning: "heading out", Command: "north"},
+			reviewAnswer: &gemini.ReviewAnswer{Blocked: false, Reason: "clear"},
+		}
+		d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, &fakeCommands{}, &fakeNotifier{}, testConfig())
+
+		d.HandleEngage(uuid.New().String(), uuid.New().String())
+
+		if got := models.reviewCallCount(); got != 1 {
+			t.Fatalf("expected exactly one reviewer call for one engagement, got %d", got)
+		}
+	})
 }
