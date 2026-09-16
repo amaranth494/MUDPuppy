@@ -267,7 +267,9 @@ func main() {
 	// D-02). The notifier is nil at construction and wired below once
 	// wsHandler exists (plan 03-09).
 	decisionStore := store.NewDecisionStore(db)
-	geminiClient := gemini.NewClient(0)
+	// 120s: current Gemini flash models take well over the 30s default to return a
+	// structured answer (seen on staging 2026-09-16: transport timeout at exactly 30s).
+	geminiClient := gemini.NewClient(120 * time.Second)
 	aiDriver := aidriver.New(sessionManager, profileStore, decisionStore, geminiClient, icmEngine.GetDispatcher(), nil, cfg)
 	sessionManager.SetEngageHook(aiDriver.HandleEngage)
 	sessionHandler.SetEngageHook(aiDriver.HandleEngage)
