@@ -5,6 +5,7 @@ import ConnectionsPage from './pages/ConnectionsPage';
 import SettingsPage from './pages/SettingsPage';
 import AccountPage from './pages/AccountPage';
 import HelpPage from './pages/HelpPage';
+import LogsPage from './pages/LogsPage';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import LoginScreen from './pages/LoginScreen';
 import Sidebar from './components/Sidebar';
@@ -174,7 +175,20 @@ function AppContent() {
 function AppRoutes() {
   return (
     <AuthGuard>
-      <AppContent />
+      <Routes>
+        {/*
+          03-11 (D-16/D-17): the log page is opened in a brand-new browser tab,
+          never the main play tab. It must render standalone here, NOT nested
+          inside AppContent — AppContent unconditionally mounts <PlayScreen />
+          (that is what keeps a session alive across route changes in the main
+          tab), and a second tab opened purely to read a log must not mount a
+          terminal, a sidebar, or a session at all. Do not "tidy" this route
+          into the app shell later; that would start/disturb a game session
+          just by opening a log page.
+        */}
+        <Route path="/logs/:connectionId" element={<LogsPage />} />
+        <Route path="*" element={<AppContent />} />
+      </Routes>
     </AuthGuard>
   );
 }
