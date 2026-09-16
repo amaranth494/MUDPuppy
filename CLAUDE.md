@@ -22,4 +22,5 @@ Verifier: verify against the phase's Phase Validation line and success criteria,
 - Source-of-truth documents: `.specify/specs/ai-game-player-design-v3.md` and `.specify/specs/safety-and-abuse-policy-v1.md`. All other `.specify/` specs and the constitution predate this effort and are treated as null; learn the existing system from the code.
 - The product is taken as-is. The AI driver runs server-side in Go and issues commands through the ICM automation context. The browser is the supervision surface. Reconnect is a connection-profile toggle, never an AI decision.
 - Environment: Railway project `mudpuppy`, environment `staging`. Production is untouched until final acceptance.
+- Push `ai-player` to GitHub (`git push origin ai-player`) at every phase close, after the security review commits land; the owner asked for this at the Phase 3 review (DR-3 R-13). Railway's dashboard Deploy rebuilds from GitHub, so an unpushed branch makes a dashboard deploy crash staging; day-to-day staging deploys stay `railway up` from the local checkout.
 - Stack: Go 1.26 backend, React + TypeScript + Vite frontend served as a static SPA, Postgres via golang-migrate migrations, Redis.
