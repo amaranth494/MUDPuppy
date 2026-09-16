@@ -559,6 +559,161 @@ func TestBuildSystemInstruction(t *testing.T) {
 	})
 }
 
+func TestMatchNeverIssue(t *testing.T) {
+	cases := []struct {
+		name        string
+		cmd         string
+		list        string
+		wantBlocked bool
+		wantEntry   string
+	}{
+		{
+			name:        "exact_match",
+			cmd:         "give",
+			list:        "give",
+			wantBlocked: true,
+			wantEntry:   "give",
+		},
+		{
+			name:        "entry_plus_arguments",
+			cmd:         "give sword to bob",
+			list:        "give",
+			wantBlocked: true,
+			wantEntry:   "give",
+		},
+		{
+			name:        "boundary_does_not_match_a_longer_word",
+			cmd:         "giveaway",
+			list:        "give",
+			wantBlocked: false,
+		},
+		{
+			name:        "case_insensitive_command",
+			cmd:         "GIVE SWORD",
+			list:        "give",
+			wantBlocked: true,
+			wantEntry:   "give",
+		},
+		{
+			name:        "case_insensitive_entry",
+			cmd:         "give sword",
+			list:        "GIVE",
+			wantBlocked: true,
+			wantEntry:   "GIVE",
+		},
+		{
+			name:        "entry_with_surrounding_whitespace",
+			cmd:         "give sword",
+			list:        "  give  ",
+			wantBlocked: true,
+			wantEntry:   "give",
+		},
+		{
+			name:        "blank_lines_amid_entries_match_nothing_on_their_own",
+			cmd:         "give sword",
+			list:        "\n\n   \ngive",
+			wantBlocked: true,
+			wantEntry:   "give",
+		},
+		{
+			name:        "wholly_blank_list_matches_nothing",
+			cmd:         "give sword",
+			list:        "",
+			wantBlocked: false,
+		},
+		{
+			name:        "multi_word_entry_matches_with_extra_words",
+			cmd:         "open vault door",
+			list:        "open vault",
+			wantBlocked: true,
+			wantEntry:   "open vault",
+		},
+		{
+			name:        "multi_word_entry_does_not_match_a_different_target",
+			cmd:         "open door",
+			list:        "open vault",
+			wantBlocked: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotEntry, gotBlocked := matchNeverIssue(tc.cmd, tc.list)
+			if gotBlocked != tc.wantBlocked {
+				t.Fatalf("expected blocked=%v, got %v", tc.wantBlocked, gotBlocked)
+			}
+			if tc.wantBlocked && gotEntry != tc.wantEntry {
+				t.Fatalf("expected matched entry %q, got %q", tc.wantEntry, gotEntry)
+			}
+		})
+	}
+}
+
+func TestHandleEngageNeverIssue(t *testing.T) {
+	cases := []struct {
+		name           string
+		neverIssueList string
+		answerCommand  string
+		wantBlocked    bool
+		wantEntry      string
+	}{
+		{
+			name:           "matches_the_first_entry",
+			neverIssueList: "give\nopen vault",
+			answerCommand:  "give sword to bob",
+			wantBlocked:    true,
+			wantEntry:      "give",
+		},
+		{
+			name:           "matches_a_later_entry",
+			neverIssueList: "give\nopen vault",
+			answerCommand:  "open vault door",
+			wantBlocked:    true,
+			wantEntry:      "open vault",
+		},
+		{
+			name:           "resembles_an_entry_but_does_not_match_at_the_boundary",
+			neverIssueList: "give",
+			answerCommand:  "giveaway",
+			wantBlocked:    false,
+		},
+		{
+			name:           "blank_list_proceeds",
+			neverIssueList: "",
+			answerCommand:  "north",
+			wantBlocked:    false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			profile := testProfile()
+			profile.NeverIssueList = tc.neverIssueList
+			sessions := &fakeSessions{window: "a room"}
+			decisions := &fakeDecisionsStore{}
+			notifier := &fakeNotifier{}
+			commands := &fakeCommands{}
+			models := &fakeModels{answer: &gemini.Answer{Reasoning: "heading out", Command: tc.answerCommand}}
+			d := New(sessions, &fakeProfiles{profile: profile}, decisions, models, commands, notifier, testConfig())
+
+			d.HandleEngage(uuid.New().String(), uuid.New().String())
+
+			if tc.wantBlocked {
+				wantNotice := `Matched Never-issue entry: "` + tc.wantEntry + `"`
+				assertBlockedDecision(t, sessions, commands, decisions, notifier, tc.answerCommand, "never-issue", wantNotice)
+				return
+			}
+
+			if got := len(sessions.sendCalls()); got != 1 {
+				t.Fatalf("expected exactly one send when the command does not match, got %d", got)
+			}
+			if got := len(commands.dispatchCalls()); got != 1 {
+				t.Fatalf("expected exactly one dispatch when the command does not match, got %d", got)
+			}
+		})
+	}
+}
+
 func TestHandleEngageFailures(t *testing.T) {
 	cases := []struct {
 		name        string

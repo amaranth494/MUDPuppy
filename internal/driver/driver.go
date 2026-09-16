@@ -264,6 +264,11 @@ func (d *Driver) HandleEngage(userID, connectionID string) {
 		return
 	}
 
+	if matchedEntry, blocked := matchNeverIssue(cmd, profile.NeverIssueList); blocked {
+		d.recordBlocked(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, "never-issue", "Matched Never-issue entry: \""+matchedEntry+"\"")
+		return
+	}
+
 	ctx := icm.ContextAutomation
 	normalized := &icm.NormalizedCommand{
 		Command:           cmd,
@@ -499,4 +504,32 @@ func validateCommand(raw string) (string, string) {
 		}
 	}
 	return trimmed, ""
+}
+
+// matchNeverIssue reports whether cmd starts with an entry on the owner's
+// Never-issue list (D-02): the command matches when it equals an entry, or
+// starts with an entry followed by a single space, compared
+// case-insensitively after trimming both sides. It has no I/O and runs
+// after validateCommand and before the ICM dispatch (D-04). This is
+// deliberately a plain string comparison and deliberately not a
+// user-supplied regular expression: the list is owner-editable, and a
+// regex there would be a denial-of-service vector for no benefit
+// (T-3.1-03). A command rephrased around a listed entry is not this
+// matcher's job to catch — the reviewer pass (plan 03.1-04) is the
+// intended backstop for that. Returns the matched entry exactly as the
+// owner wrote it (trimmed of surrounding whitespace, not lower-cased) so
+// the reason string quotes the owner's own text.
+func matchNeverIssue(cmd, list string) (matchedEntry string, blocked bool) {
+	cmdLower := strings.ToLower(cmd)
+	for _, line := range strings.Split(list, "\n") {
+		entry := strings.TrimSpace(line)
+		if entry == "" {
+			continue
+		}
+		entryLower := strings.ToLower(entry)
+		if cmdLower == entryLower || strings.HasPrefix(cmdLower, entryLower+" ") {
+			return entry, true
+		}
+	}
+	return "", false
 }
