@@ -232,6 +232,7 @@ func testProfile() *store.Profile {
 	return &store.Profile{
 		ConductRules:     "RULE: never grief another player. RULE: no scripting external bots.",
 		ApproachGuidance: "GUIDE: prioritize quest completion over open-ended exploration.",
+		NeverIssueList:   "",
 		AISettings:       store.AISettings{},
 	}
 }
@@ -400,6 +401,97 @@ func TestHandleEngage(t *testing.T) {
 		}
 		if got := len(sessions.disengages()); got != 1 {
 			t.Fatalf("expected exactly one disengage call, got %d", got)
+		}
+	})
+
+	t.Run("wraps_window_as_untrusted_data", func(t *testing.T) {
+		models := &fakeModels{answer: &gemini.Answer{Reasoning: "heading north", Command: "north"}}
+		decisions := &fakeDecisionsStore{}
+		sessions := &fakeSessions{window: "a room, an exit north"}
+		d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, &fakeCommands{}, &fakeNotifier{}, testConfig())
+
+		d.HandleEngage(uuid.New().String(), uuid.New().String())
+
+		wt := models.lastWindowText()
+		if !strings.HasPrefix(wt, "<GAME_TEXT>") {
+			t.Fatalf("expected the model's window to start with <GAME_TEXT>, got %q", wt)
+		}
+		if !strings.HasSuffix(wt, "</GAME_TEXT>") {
+			t.Fatalf("expected the model's window to end with </GAME_TEXT>, got %q", wt)
+		}
+		if !strings.Contains(wt, "a room, an exit north") {
+			t.Fatalf("expected the model's window to contain the snapshot text unchanged, got %q", wt)
+		}
+		rows := decisions.rows()
+		if len(rows) != 1 {
+			t.Fatalf("expected exactly one stored decision row, got %d", len(rows))
+		}
+		if rows[0].WindowText != "a room, an exit north" {
+			t.Fatalf("expected stored WindowText to be the unwrapped snapshot, got %q", rows[0].WindowText)
+		}
+	})
+}
+
+func TestBuildSystemInstruction(t *testing.T) {
+	t.Run("untrusted_data_paragraph_present", func(t *testing.T) {
+		profile := testProfile()
+		si := buildSystemInstruction(profile)
+		if !strings.Contains(si, "<GAME_TEXT>") || !strings.Contains(si, "</GAME_TEXT>") {
+			t.Fatalf("expected system instruction to mention both GAME_TEXT markers, got %q", si)
+		}
+		if !strings.Contains(si, "untrusted") {
+			t.Fatalf("expected system instruction to state the game text is untrusted, got %q", si)
+		}
+	})
+
+	t.Run("conduct_rules_and_guidance_verbatim", func(t *testing.T) {
+		profile := testProfile()
+		si := buildSystemInstruction(profile)
+		if !strings.Contains(si, profile.ConductRules) {
+			t.Fatalf("system instruction missing conduct rules verbatim")
+		}
+		if !strings.Contains(si, profile.ApproachGuidance) {
+			t.Fatalf("system instruction missing approach guidance verbatim")
+		}
+	})
+
+	t.Run("non_blank_never_issue_list_appears_under_heading", func(t *testing.T) {
+		profile := testProfile()
+		profile.NeverIssueList = "give\nopen vault"
+		si := buildSystemInstruction(profile)
+		if !strings.Contains(si, "Never-issue") {
+			t.Fatalf("expected a Never-issue heading, got %q", si)
+		}
+		if !strings.Contains(si, "give") || !strings.Contains(si, "open vault") {
+			t.Fatalf("expected every Never-issue entry present, got %q", si)
+		}
+	})
+
+	t.Run("blank_list_emits_no_heading", func(t *testing.T) {
+		profile := testProfile()
+		profile.NeverIssueList = ""
+		si := buildSystemInstruction(profile)
+		if strings.Contains(si, "Never-issue") {
+			t.Fatalf("expected no Never-issue heading for a blank list, got %q", si)
+		}
+	})
+
+	t.Run("whitespace_only_list_emits_no_heading", func(t *testing.T) {
+		profile := testProfile()
+		profile.NeverIssueList = "   \n\t  "
+		si := buildSystemInstruction(profile)
+		if strings.Contains(si, "Never-issue") {
+			t.Fatalf("expected no Never-issue heading for a whitespace-only list, got %q", si)
+		}
+	})
+
+	t.Run("answer_shape_instruction_is_last", func(t *testing.T) {
+		profile := testProfile()
+		profile.NeverIssueList = "give"
+		si := buildSystemInstruction(profile)
+		wantSuffix := "with no leading '#', '@', '$' or '%' character."
+		if !strings.HasSuffix(si, wantSuffix) {
+			t.Fatalf("expected system instruction to end with the answer-shape instruction, got %q", si)
 		}
 	})
 }
