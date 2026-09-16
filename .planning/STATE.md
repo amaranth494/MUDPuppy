@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: "Phase 3 secured 2026-09-16: 14 accepted, 7 deferred to the Phase 4 review (DR-3-01..07), none remediated; emergency prompt-injection task (DR-3-02) before Phase 4 planning; branch pushed to origin"
-last_updated: "2026-09-16T16:13:17.168Z"
+status: Phase 3 secured; Phase 3.1 inserted, ready to discuss
+stopped_at: Phase 3.1 context gathered
+last_updated: "2026-09-16T17:02:34.446Z"
 last_activity: 2026-09-16
 progress:
   total_phases: 9
@@ -62,7 +62,6 @@ Progress: [██▌       ] 25%
 
 - Phase 3.1 inserted after Phase 3 on 2026-09-16 (URGENT): Prompt injection through game text: investigate and mitigate (DR-3-02), from the Phase 3 security review
 
-
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table (five owner-locked, seven settled by design v3, four roadmap-level).
@@ -99,6 +98,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-09-16T15:56:57.362Z
-Stopped at: Phase 3 secured 2026-09-16: 14 accepted, 7 deferred to the Phase 4 review (DR-3-01..07), none remediated; emergency prompt-injection task (DR-3-02) before Phase 4 planning; branch pushed to origin
-Resume file: .planning/todos/pending/2026-09-16-phase4-security-carry-forward.md
+Last session: 2026-09-16T17:02:34.440Z
+Stopped at: Phase 3.1 context gathered
+Resume file: .planning/phases/03.1-prompt-injection-review/03.1-CONTEXT.md
