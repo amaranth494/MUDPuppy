@@ -168,13 +168,28 @@ Implementation notes for planning: a server-side tap on the MUD output stream (`
 ### Phase 3.1: Prompt Injection Review (INSERTED)
 
 **Goal:** Game text, including other players' speech and hostile room descriptions, cannot steer the AI into issuing a command the owner would not sanction. The investigation establishes how far shape validation and the ICM safety checker already bound the risk and what a content-level mitigation would add; whatever is built is proven by tests with hostile game text and demonstrated on staging. Inserted from the Phase 3 security review (DR-3-02, owner: "dig into this as an emergency security task prior to the next Phase").
-**Requirements**: TBD
+**Requirements**: None mapped — inserted security phase answering risk DR-3-02 (`.planning/RISK-REGISTER.md`); it protects REQ-single-decision's command path and REQ-safety-limits-hold's spirit without adding a requirement ID.
 **Depends on:** Phase 3
+**Success Criteria** (what must be TRUE):
+
+  1. A hostile-text corpus (hostile room descriptions, another player's `say`/`tell`, item or sign text, text impersonating the game's system messages, text impersonating the owner or the conduct rules, multi-step setups spread across the window, plus benign control windows) runs as a flagged Go test from the dev machine against the real Gemini model, and a red-team report is filed for the pre-build baseline and again after the build, counting catches per layer and listing every wrongly blocked benign window.
+  2. The prompt delimits the game-text window as untrusted data and the system instruction states that instructions found inside game text are never followed, while the profile's conduct rules and approach guidance still reach the model verbatim.
+  3. The profile carries an owner-editable Never-issue list (a text box in the AI Player settings section, one entry per line, empty by default) that is stored and returned with the other AI fields, handed to the model, and enforced in Go before the reviewer pass and before ICM dispatch: a command that starts with an entry never reaches the dispatcher.
+  4. A reviewer pass (a second Gemini call, constrained to a JSON verdict with a one-sentence reason) judges the chosen command against the conduct rules and the game text and blocks it if it breaks a rule or follows an instruction embedded in the game text; if the reviewer call itself fails, nothing is sent and autopilot disengages with the existing failure notice.
+  5. A blocked command sends nothing to the game and leaves autopilot ON and idle; it is stored as a decision row with outcome `blocked` and its reason, reloads into the AI Assist panel after a page refresh, and the owner sees the blocked command and the reason in the panel and as one bracketed terminal line.
+  6. After the build, zero steered commands from the corpus reach the send path, and on staging the owner's own `say` of an injection line on Alter Aeon is shown being blocked with its reason.
+
 **Plans:** 0 plans
 
 Plans:
 
 - [ ] TBD (run /gsd:plan-phase 03.1 to break down)
+
+**UI hint**: yes
+
+**Phase Validation** (how the success criteria are demonstrated): Diagnostic: `go test ./internal/...` passes a hostile-content table with a fake model (Never-issue prefix match, reviewer block on each of the two questions, reviewer failure fails closed and disengages, benign command passes all three layers) and the profile field round-trips; the flagged live corpus test writes the red-team report against the pre-build commit and again against the finished build, showing catches per layer and zero steered commands on the send path after the build. Player-observable on staging: the owner types `say` plus an injection line, then `#AUTO ON`; the AI Assist panel shows the blocked command and its reason, the terminal prints the blocked line, the autopilot indicator stays ON, a page refresh reloads the blocked decision, and the Never-issue box in AI Player settings persists its entries. Proof for every criterion is a canned report (test report, red-team report, harness output, `[AI-PLAYER]` staging log excerpt with ids, stages, verdicts and lengths only) or an end-user screenshot; database queries are not accepted as evidence.
+
+Implementation notes for planning: the two new stages slot into `HandleEngage` in `internal/driver/driver.go` between `validateCommand` and `Dispatch`; the reviewer is a second use of `internal/gemini/client.go` with its own response schema; the Never-issue field joins `Profile` in `internal/store/profile.go` and the AI sub-resource in `internal/profiles/handler.go` with the next migration number; `blocked` is a third decision outcome in `internal/store/decisions.go`; the corpus test lives beside `internal/driver/driver_test.go` and is skipped unless an explicit environment variable and the Gemini key are set.
 
 ### Phase 4: Continuous Play
 
