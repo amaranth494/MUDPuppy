@@ -1,0 +1,185 @@
+### bash scripts/verify-phase3-1.sh --self-test /tmp/p31-selftest.txt
+================================================================
+Phase 3.1 canned-report harness -- scripts/verify-phase3-1.sh
+Run started (UTC): 2026-09-16T19:07:15Z
+Mode: --self-test (fixtures: scripts/fixtures/phase3-1/, no server)
+BASE_URL: http://fixture.invalid
+CONNECTION_ID: 00000000-0000-0000-0000-000000000000
+NOT_OWNED_CONNECTION_ID: ffffffff-ffff-ffff-ffff-ffffffffffff
+git rev-parse --short HEAD: 341214f
+================================================================
+
+Ground rules: (1) proof here is this report or an end-user screenshot,
+never a database query. (2) C1, C2, C4 and C6 are red-team-run,
+hostile-content-test, reviewer-test and staging-screenshot proofs this
+script cannot reach; they appear below as SKIP lines naming their real
+evidence, never as PASS. (3) invocations: live, --self-test,
+--self-test-negative, --no-tests.
+
+
+---- Step 1: GET profiles/$CONNECTION_ID/ai-settings -- record existing fields (C3) ----
+GET /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
+{"conduct_rules":"Do not attack shopkeepers or other players.","approach_guidance":"Explore cautiously and favor low-risk actions.","never_issue_list":"","ai_settings":{"model_name":"gemini-2.5-flash","call_cap":50,"disengage_threshold":3}}
+PASS C3: ai-settings GET answers HTTP 200 for the owning connection (status 200)
+never_issue_list found before this run: 
+
+---- Step 2: PUT profiles/$CONNECTION_ID/ai-settings -- write a two-entry never_issue_list (C3) ----
+PUT /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
+{"conduct_rules":"Do not attack shopkeepers or other players.","approach_guidance":"Explore cautiously and favor low-risk actions.","never_issue_list":"give\nopen vault","ai_settings":{"model_name":"gemini-2.5-flash","call_cap":50,"disengage_threshold":3}}
+PASS C3: PUT accepts a two-entry never_issue_list ("give" and "open vault") (status 200)
+PASS C3: PUT response echoes the never_issue_list it was sent (got: give|open vault)
+
+---- Step 3: GET profiles/$CONNECTION_ID/ai-settings -- the two lines survive a real PUT and GET (C3) ----
+GET /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
+{"conduct_rules":"Do not attack shopkeepers or other players.","approach_guidance":"Explore cautiously and favor low-risk actions.","never_issue_list":"give\nopen vault","ai_settings":{"model_name":"gemini-2.5-flash","call_cap":50,"disengage_threshold":3}}
+PASS C3: ai-settings GET answers HTTP 200 after the PUT (status 200)
+PASS C3: never_issue_list round-trips character for character through PUT and GET (got: give|open vault)
+
+---- Step 4: PUT profiles/$CONNECTION_ID/ai-settings -- a 20001-character never_issue_list is refused (C3) ----
+PUT /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 400 (request body's never_issue_list omitted from this report: 20001 repeated characters, not game text, but long)
+{"error":"Never-issue list must be 20000 characters or less"}
+PASS C3: a 20001-character never_issue_list is refused with 400 (status 400)
+PASS C3: the refusal message matches the exact 20000-character cap sentence (got: Never-issue list must be 20000 characters or less)
+
+---- Step 5: PUT profiles/$CONNECTION_ID/ai-settings -- restore the pre-run never_issue_list (T-3.1-26) ----
+PUT /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
+{"conduct_rules":"Do not attack shopkeepers or other players.","approach_guidance":"Explore cautiously and favor low-risk actions.","never_issue_list":"","ai_settings":{"model_name":"gemini-2.5-flash","call_cap":50,"disengage_threshold":3}}
+PASS C3: the profile's never_issue_list is restored to its pre-run value (status 200)
+RESTORED: never_issue_list set back to what step 1 found -- this run leaves the profile exactly as it found it.
+
+---- Step 6: GET profiles/$CONNECTION_ID/decisions -- a blocked decision reads back (C5) ----
+GET /api/v1/profiles/$CONNECTION_ID/decisions -> HTTP 200
+{"decisions":[{"id":"22222222-2222-2222-2222-222222222222","created_at":"2026-09-16T20:05:00Z","reasoning":"A passage leads north out of this small room; heading that way continues exploring.","command":"north","outcome":"sent","failure_kind":"","notice":""},{"id":"33333333-3333-3333-3333-333333333333","created_at":"2026-09-16T20:06:00Z","reasoning":"","command":"give sword to bob","outcome":"blocked","failure_kind":"never-issue","notice":"Matched Never-issue entry: \"give\""}]}
+PASS C5: decisions endpoint answers HTTP 200 for the owning connection (status 200)
+PASS C5: response carries a decisions array
+PASS C5: the blocked decision carries a failure_kind of never-issue or reviewer (got: never-issue)
+PASS C5: the blocked decision carries a non-empty notice (notice: Matched Never-issue entry: "give")
+
+---- Step 7: GET profiles/$NOT_OWNED_CONNECTION_ID/decisions -- refused, not someone else's rows (C5, T-3.1-09) ----
+GET /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/decisions -> HTTP 400
+{"error":"Profile not found"}
+PASS C5: a not-owned/non-existent connection_id is refused, never answered with HTTP 200 rows (status 400)
+
+---- Step 8: go test -- driver, gemini, store and profiles packages ----
+SKIPPED (self-test mode: fixtures are the subject of this run, not the Go suite)
+
+---- Step 9: C1 -- out of this script's reach ----
+SKIP C1: the red-team run against a live model requires real Gemini quota and a connected game session; this script must not fabricate one. Proven instead by evidence/01-redteam-before.txt and evidence/05-redteam-after.txt
+
+---- Step 10: C2 -- out of this script's reach ----
+SKIP C2: the untrusted-data system-instruction framing is proven by a Go test, not an HTTP call. Proven by the TestBuildSystemInstruction run in evidence/02-test-report.txt
+
+---- Step 11: C4 -- out of this script's reach ----
+SKIP C4: the reviewer pass (a second Gemini call judging the model's chosen command) is proven by Go tests, not an HTTP call this script can drive. Proven by the TestHandleEngageReviewer and TestReviewCommand runs in evidence/02-test-report.txt
+
+---- Step 12: C6 -- out of this script's reach ----
+SKIP C6: the end-to-end staging demonstration (the owner seeing a blocked attempt on screen) requires a live game session and a human's eyes. Proven instead by the staging screenshots and the AFTER red-team report
+
+================================================================
+SUMMARY
+================================================================
+C1: SKIP
+C2: SKIP
+C3: PASS
+C4: SKIP
+C5: PASS
+C6: SKIP
+TOTAL CHECKS: 13  FAILURES: 0  SKIPPED: 4
+
+================================================================
+GO TEST EXIT: 0
+================================================================
+EXIT: 0
+
+### bash scripts/verify-phase3-1.sh --self-test-negative /tmp/p31-negative.txt
+================================================================
+Phase 3.1 canned-report harness -- scripts/verify-phase3-1.sh
+Run started (UTC): 2026-09-16T19:07:21Z
+Mode: --self-test-negative (fixtures: scripts/fixtures/phase3-1-negative/, no server)
+BASE_URL: http://fixture.invalid
+CONNECTION_ID: 00000000-0000-0000-0000-000000000000
+NOT_OWNED_CONNECTION_ID: ffffffff-ffff-ffff-ffff-ffffffffffff
+git rev-parse --short HEAD: 341214f
+================================================================
+
+Ground rules: (1) proof here is this report or an end-user screenshot,
+never a database query. (2) C1, C2, C4 and C6 are red-team-run,
+hostile-content-test, reviewer-test and staging-screenshot proofs this
+script cannot reach; they appear below as SKIP lines naming their real
+evidence, never as PASS. (3) invocations: live, --self-test,
+--self-test-negative, --no-tests.
+
+
+---- Step 1: GET profiles/$CONNECTION_ID/ai-settings -- record existing fields (C3) ----
+GET /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
+{"conduct_rules":"Do not attack shopkeepers or other players.","approach_guidance":"Explore cautiously and favor low-risk actions.","never_issue_list":"","ai_settings":{"model_name":"gemini-2.5-flash","call_cap":50,"disengage_threshold":3}}
+PASS C3: ai-settings GET answers HTTP 200 for the owning connection (status 200)
+never_issue_list found before this run: 
+
+---- Step 2: PUT profiles/$CONNECTION_ID/ai-settings -- write a two-entry never_issue_list (C3) ----
+PUT /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
+{"conduct_rules":"Do not attack shopkeepers or other players.","approach_guidance":"Explore cautiously and favor low-risk actions.","never_issue_list":"give\nopen vault","ai_settings":{"model_name":"gemini-2.5-flash","call_cap":50,"disengage_threshold":3}}
+PASS C3: PUT accepts a two-entry never_issue_list ("give" and "open vault") (status 200)
+PASS C3: PUT response echoes the never_issue_list it was sent (got: give|open vault)
+
+---- Step 3: GET profiles/$CONNECTION_ID/ai-settings -- the two lines survive a real PUT and GET (C3) ----
+GET /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
+{"_comment":"DELIBERATE FALSIFICATION for --self-test-negative (T-3.1-12): never_issue_list should echo back the two lines PUT in the previous step (\"give\\nopen vault\") but is wrongly the empty string here, as if the server had accepted the PUT and silently dropped the field. This is the one intentional difference from scripts/fixtures/phase3-1/03-ai-settings-get-after.json and must make the negative self-test print FAIL C3 and exit non-zero. Do not fix this file to match its positive twin.","conduct_rules":"Do not attack shopkeepers or other players.","approach_guidance":"Explore cautiously and favor low-risk actions.","never_issue_list":"","ai_settings":{"model_name":"gemini-2.5-flash","call_cap":50,"disengage_threshold":3}}
+PASS C3: ai-settings GET answers HTTP 200 after the PUT (status 200)
+FAIL C3: never_issue_list round-trips character for character through PUT and GET (expected: give|open vault, got: )
+
+---- Step 4: PUT profiles/$CONNECTION_ID/ai-settings -- a 20001-character never_issue_list is refused (C3) ----
+PUT /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 400 (request body's never_issue_list omitted from this report: 20001 repeated characters, not game text, but long)
+{"error":"Never-issue list must be 20000 characters or less"}
+PASS C3: a 20001-character never_issue_list is refused with 400 (status 400)
+PASS C3: the refusal message matches the exact 20000-character cap sentence (got: Never-issue list must be 20000 characters or less)
+
+---- Step 5: PUT profiles/$CONNECTION_ID/ai-settings -- restore the pre-run never_issue_list (T-3.1-26) ----
+PUT /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
+{"conduct_rules":"Do not attack shopkeepers or other players.","approach_guidance":"Explore cautiously and favor low-risk actions.","never_issue_list":"","ai_settings":{"model_name":"gemini-2.5-flash","call_cap":50,"disengage_threshold":3}}
+PASS C3: the profile's never_issue_list is restored to its pre-run value (status 200)
+RESTORED: never_issue_list set back to what step 1 found -- this run leaves the profile exactly as it found it.
+
+---- Step 6: GET profiles/$CONNECTION_ID/decisions -- a blocked decision reads back (C5) ----
+GET /api/v1/profiles/$CONNECTION_ID/decisions -> HTTP 200
+{"decisions":[{"id":"22222222-2222-2222-2222-222222222222","created_at":"2026-09-16T20:05:00Z","reasoning":"A passage leads north out of this small room; heading that way continues exploring.","command":"north","outcome":"sent","failure_kind":"","notice":""},{"id":"33333333-3333-3333-3333-333333333333","created_at":"2026-09-16T20:06:00Z","reasoning":"","command":"give sword to bob","outcome":"blocked","failure_kind":"never-issue","notice":"Matched Never-issue entry: \"give\""}]}
+PASS C5: decisions endpoint answers HTTP 200 for the owning connection (status 200)
+PASS C5: response carries a decisions array
+PASS C5: the blocked decision carries a failure_kind of never-issue or reviewer (got: never-issue)
+PASS C5: the blocked decision carries a non-empty notice (notice: Matched Never-issue entry: "give")
+
+---- Step 7: GET profiles/$NOT_OWNED_CONNECTION_ID/decisions -- refused, not someone else's rows (C5, T-3.1-09) ----
+GET /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/decisions -> HTTP 400
+{"error":"Profile not found"}
+PASS C5: a not-owned/non-existent connection_id is refused, never answered with HTTP 200 rows (status 400)
+
+---- Step 8: go test -- driver, gemini, store and profiles packages ----
+SKIPPED (self-test mode: fixtures are the subject of this run, not the Go suite)
+
+---- Step 9: C1 -- out of this script's reach ----
+SKIP C1: the red-team run against a live model requires real Gemini quota and a connected game session; this script must not fabricate one. Proven instead by evidence/01-redteam-before.txt and evidence/05-redteam-after.txt
+
+---- Step 10: C2 -- out of this script's reach ----
+SKIP C2: the untrusted-data system-instruction framing is proven by a Go test, not an HTTP call. Proven by the TestBuildSystemInstruction run in evidence/02-test-report.txt
+
+---- Step 11: C4 -- out of this script's reach ----
+SKIP C4: the reviewer pass (a second Gemini call judging the model's chosen command) is proven by Go tests, not an HTTP call this script can drive. Proven by the TestHandleEngageReviewer and TestReviewCommand runs in evidence/02-test-report.txt
+
+---- Step 12: C6 -- out of this script's reach ----
+SKIP C6: the end-to-end staging demonstration (the owner seeing a blocked attempt on screen) requires a live game session and a human's eyes. Proven instead by the staging screenshots and the AFTER red-team report
+
+================================================================
+SUMMARY
+================================================================
+C1: SKIP
+C2: SKIP
+C3: FAIL
+C4: SKIP
+C5: PASS
+C6: SKIP
+TOTAL CHECKS: 13  FAILURES: 1  SKIPPED: 4
+
+================================================================
+GO TEST EXIT: 0
+================================================================
+EXIT: 1
