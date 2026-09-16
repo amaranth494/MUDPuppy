@@ -17,6 +17,8 @@ import (
 	"github.com/amaranth494/MudPuppy/internal/config"
 	"github.com/amaranth494/MudPuppy/internal/connections"
 	"github.com/amaranth494/MudPuppy/internal/crypto"
+	aidriver "github.com/amaranth494/MudPuppy/internal/driver"
+	"github.com/amaranth494/MudPuppy/internal/gemini"
 	"github.com/amaranth494/MudPuppy/internal/help"
 	"github.com/amaranth494/MudPuppy/internal/icm"
 	"github.com/amaranth494/MudPuppy/internal/metrics"
@@ -256,6 +258,19 @@ func main() {
 			return true, "", policyVersion
 		},
 	})
+
+	// Build the Phase 3 AI driver (03-08): one instance shares
+	// icmEngine's dispatcher with the HTTP ICM routes above (T-3-20), and
+	// is triggered by exactly two callers — a real #AUTO ON engage
+	// (sessionHandler.SetEngageHook, fired only on a real state change)
+	// and a WAITING-to-ON reconnect resume (sessionManager.SetEngageHook,
+	// D-02). The notifier is nil until plan 03-09 supplies the websocket
+	// push; Driver.NotifyDecision is a no-op until then.
+	decisionStore := store.NewDecisionStore(db)
+	geminiClient := gemini.NewClient(0)
+	aiDriver := aidriver.New(sessionManager, profileStore, decisionStore, geminiClient, icmEngine.GetDispatcher(), nil, cfg)
+	sessionManager.SetEngageHook(aiDriver.HandleEngage)
+	sessionHandler.SetEngageHook(aiDriver.HandleEngage)
 
 	// Initialize WebSocket handler (SP02PH02)
 	wsHandler := session.NewWebSocketHandler(sessionManager, cfg)

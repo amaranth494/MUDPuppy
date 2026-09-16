@@ -36,9 +36,9 @@ const (
 
 // Session represents an active MUD connection session
 type Session struct {
-	UserID         string    `json:"user_id"`
-	Host           string    `json:"host"`
-	Port           int       `json:"port"`
+	UserID string `json:"user_id"`
+	Host   string `json:"host"`
+	Port   int    `json:"port"`
 	// ConnectionID names the saved connection profile this session was opened
 	// for, or is empty for a quick connect. Phase 2 code review C1/C2: the
 	// autopilot switch engages only for the profile that is actually connected
@@ -85,6 +85,28 @@ type Manager struct {
 	// becomes a no-op so the server runs with no database sink wired
 	// without panicking.
 	transcriptSink TranscriptSink
+
+	// engageHook is the Phase 3 AI driver's entry point (its HandleEngage
+	// method, supplied by cmd/server/main.go — this package declares the
+	// hook type and never imports the driver package itself, keeping the
+	// dependency direction one-way). Fired in exactly one place in this
+	// file: after a WAITING-to-ON resume actually changes state (D-02). A
+	// nil hook is a no-op.
+	engageHook EngageHook
+}
+
+// EngageHook is called once per real engagement: a WAITING-to-ON resume in
+// this file, and a fresh #AUTO ON engage in internal/session/handler.go's
+// Autopilot handler. userID and connectionID are always valid ids already
+// used elsewhere in this Manager.
+type EngageHook func(userID, connectionID string)
+
+// SetEngageHook wires the AI driver's entry point. A nil hook (the
+// zero-value default) makes every fire site below a no-op.
+func (m *Manager) SetEngageHook(h EngageHook) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.engageHook = h
 }
 
 // NewManager creates a new session manager
@@ -489,6 +511,21 @@ func (m *Manager) SetTranscriptSink(sink TranscriptSink) {
 	m.transcriptSink = sink
 }
 
+// CurrentGameSessionID returns the game session id of userID's currently
+// open transcript, so a decision row can be tied to the session it
+// happened in (plan 03-08). Returns false when there is no open
+// transcript — a quick connect with no profile, or no connection at all.
+func (m *Manager) CurrentGameSessionID(userID string) (uuid.UUID, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	t, ok := m.transcripts[userID]
+	if !ok {
+		return uuid.Nil, false
+	}
+	return t.gameSessionID, true
+}
+
 // openTranscriptLocked opens a session transcript for userID's new
 // connection. The caller must already hold m.mu. It is a no-op when
 // transcription is disabled (no sink configured), when connectionID is
@@ -714,6 +751,19 @@ func (m *Manager) resumeAutopilotLocked(userID, connectionID string) {
 	rec.WaitingSince = nil
 	m.logAutopilotTransition(userID, rec.ConnectionID, old, newState, "resume")
 	m.enqueueTranscriptLineLocked(userID, "marker", "[AI-ASSIST resumed]")
+
+	// D-02: a resume counts as an engagement and fires one fresh decision
+	// on the post-reconnect text. Started with `go` because m.mu is held
+	// here — calling the hook synchronously would deadlock the moment the
+	// driver reads anything back from this Manager (RecentOutputSnapshot,
+	// SendCommandAs, DisengageAutopilot, CurrentGameSessionID all take
+	// m.mu themselves). `go` returns immediately; the goroutine acquires
+	// the lock on its own schedule, after this function returns and
+	// releases it. Never fired from EngageAutopilot — the HTTP handler
+	// owns that trigger, so a single code path fires each real engage.
+	if m.engageHook != nil {
+		go m.engageHook(userID, rec.ConnectionID)
+	}
 }
 
 // SendCommand sends a command to the MUD server, tagged in the session
