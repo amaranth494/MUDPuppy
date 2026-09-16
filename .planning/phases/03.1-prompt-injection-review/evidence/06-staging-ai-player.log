@@ -116,3 +116,7 @@
 ### Startup lines, deployment 7f38f3d9
 2026/09/16 21:59:13 Migrations completed successfully (version=12, dirty=false)
 2026/09/16 21:59:13 Server starting on port 8080
+
+### Final staging deployment dfbb4295-e373-406c-a819-b7ad0d81f2d4 (the accepted build, WR-01 reverted) startup lines
+2026/09/16 22:44:26 Migrations completed successfully (version=12, dirty=false)
+2026/09/16 22:44:26 Server starting on port 8080
