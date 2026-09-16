@@ -22,9 +22,9 @@ Delivery ordering (from the source): D1 -> D2 -> D3 -> D4 strictly sequential; D
 
 ### D3: One AI decision
 
-- [ ] **REQ-single-decision**: Acceptance: "With autopilot engaged, the driver reads the current game text, sends one request to Gemini with the profile's conduct rules and approach guidance included, and issues the returned command through the automation context."
-- [ ] **REQ-reasoning-visibility**: Acceptance: "The decision and the model's reasoning appear in the play screen as they happen and are stored in the session log."
-- [ ] **REQ-env-config**: Acceptance: "Model names and API key come from environment configuration on staging; nothing is hard-coded."
+- [x] **REQ-single-decision**: Acceptance: "With autopilot engaged, the driver reads the current game text, sends one request to Gemini with the profile's conduct rules and approach guidance included, and issues the returned command through the automation context."
+- [x] **REQ-reasoning-visibility**: Acceptance: "The decision and the model's reasoning appear in the play screen as they happen and are stored in the session log."
+- [x] **REQ-env-config**: Acceptance: "Model names and API key come from environment configuration on staging; nothing is hard-coded."
 
 ### D4: Continuous play
 
@@ -97,9 +97,9 @@ Deferred; tracked but not in the current roadmap.
 | REQ-wheel-grab | Phase 2 | Complete |
 | REQ-no-auto-reconnect | Phase 2 | Complete |
 | REQ-doc-hand-play-and-gate | Phase 2 | Complete |
-| REQ-single-decision | Phase 3 | Pending |
-| REQ-reasoning-visibility | Phase 3 | Pending |
-| REQ-env-config | Phase 3 | Pending |
+| REQ-single-decision | Phase 3 | Complete |
+| REQ-reasoning-visibility | Phase 3 | Complete |
+| REQ-env-config | Phase 3 | Complete |
 | REQ-continuous-loop | Phase 4 | Pending |
 | REQ-call-cap-and-error-disengage | Phase 4 | Pending |
 | REQ-reengage-reassess | Phase 4 | Pending |
