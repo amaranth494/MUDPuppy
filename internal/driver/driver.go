@@ -329,6 +329,56 @@ func (d *Driver) recordFailure(userID, connectionID string, userUUID, connUUID u
 	d.logDecision(userID, connectionID, decisionID, "failed", modelName, outcome, failureKind, len(window), len(command))
 }
 
+// recordBlocked stores a blocked decision (D-08), notifies a decision
+// event carrying the attempted command and the reason it was stopped
+// (D-07), and logs the stage=blocked line. layer names which defence
+// caught it ("never-issue" here; "reviewer" in plan 03.1-04) and notice is
+// the caller-supplied reason, already in its final owner-facing form. This
+// is recordFailure's structural sibling, differing in exactly four ways:
+// Outcome is the fixed string "blocked" rather than derived from a failure
+// kind; FailureKind carries the layer name and Notice the caller's reason;
+// Kind is "decision" (not "system") so the panel renders the command
+// beside the reason; and — the one line that must not be copied from
+// recordFailure — there is deliberately no DisengageAutopilot call below.
+// A block leaves autopilot exactly where the owner set it (D-06); do not
+// "fix" this by adding a disengage call.
+func (d *Driver) recordBlocked(userID, connectionID string, userUUID, connUUID uuid.UUID, gameSessionID *uuid.UUID, modelName, window, reasoning, command, layer, notice string) {
+	decisionID := ""
+	if d.decisions != nil {
+		id, _, err := d.decisions.InsertDecision(store.DecisionRecord{
+			UserID:        userUUID,
+			ConnectionID:  connUUID,
+			GameSessionID: gameSessionID,
+			ModelName:     modelName,
+			WindowText:    window,
+			Reasoning:     reasoning,
+			Command:       command,
+			Outcome:       "blocked",
+			FailureKind:   layer,
+			Notice:        notice,
+		})
+		if err == nil {
+			decisionID = id.String()
+		}
+	}
+
+	d.notify(userID, Event{
+		ID:        decisionID,
+		Kind:      "decision",
+		Reasoning: reasoning,
+		Command:   command,
+		Outcome:   "blocked",
+		Message:   notice,
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+	})
+
+	// D-06: deliberately no autopilot-disengage call here — a block is
+	// the defence working, not the AI failing, and the switch must stay
+	// exactly where the owner left it. Do not "fix" this by adding one.
+
+	d.logDecision(userID, connectionID, decisionID, "blocked", modelName, "blocked", layer, len(window), len(command))
+}
+
 // recordSuccess stores a sent decision, notifies a decision event, and
 // logs the stage=sent line.
 func (d *Driver) recordSuccess(userID, connectionID string, userUUID, connUUID uuid.UUID, gameSessionID *uuid.UUID, modelName, window, reasoning, command string) {

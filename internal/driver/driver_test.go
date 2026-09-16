@@ -108,6 +108,14 @@ func (f *fakeCommands) Dispatch(ctx *icm.ExecutionContext, sessionID string, nor
 	return nil, nil
 }
 
+func (f *fakeCommands) dispatchCalls() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]string, len(f.calls))
+	copy(out, f.calls)
+	return out
+}
+
 type sendCall struct {
 	userID  string
 	command string
@@ -265,6 +273,61 @@ func waitForCalls(t *testing.T, m *fakeModels, want int) {
 		time.Sleep(time.Millisecond)
 	}
 	t.Fatalf("timed out waiting for %d model call(s), got %d", want, m.callCount())
+}
+
+// assertBlockedDecision asserts the full blocked contract (D-06, D-07,
+// D-08) for one HandleEngage run that is expected to have been stopped by
+// a defence layer: zero sends, zero dispatches, zero disengage calls (the
+// positive assertion RESEARCH Pitfall 1 requires — not merely the absence
+// of a failure), exactly one stored decision row with outcome "blocked",
+// the expected layer as FailureKind and the expected notice, the attempted
+// command, and exactly one decision-kind notification with a non-empty
+// message. Reused by TestHandleEngageNeverIssue here and by plan 03.1-04's
+// reviewer-pass table.
+func assertBlockedDecision(t *testing.T, sessions *fakeSessions, commands *fakeCommands, decisions *fakeDecisionsStore, notifier *fakeNotifier, wantCommand, wantLayer, wantNotice string) {
+	t.Helper()
+
+	if got := len(sessions.sendCalls()); got != 0 {
+		t.Fatalf("expected zero sends, got %d", got)
+	}
+	if got := len(commands.dispatchCalls()); got != 0 {
+		t.Fatalf("expected zero dispatches, got %d", got)
+	}
+	if got := len(sessions.disengages()); got != 0 {
+		t.Fatalf("expected zero disengage calls, got %d", got)
+	}
+
+	rows := decisions.rows()
+	if len(rows) != 1 {
+		t.Fatalf("expected exactly one stored decision row, got %d", len(rows))
+	}
+	row := rows[0]
+	if row.Outcome != "blocked" {
+		t.Fatalf("expected outcome %q, got %q", "blocked", row.Outcome)
+	}
+	if row.FailureKind != wantLayer {
+		t.Fatalf("expected failure kind %q, got %q", wantLayer, row.FailureKind)
+	}
+	if row.Notice != wantNotice {
+		t.Fatalf("expected notice %q, got %q", wantNotice, row.Notice)
+	}
+	if row.Command != wantCommand {
+		t.Fatalf("expected stored command %q, got %q", wantCommand, row.Command)
+	}
+
+	events := notifier.eventsSnapshot()
+	if len(events) != 1 {
+		t.Fatalf("expected exactly one notification, got %d", len(events))
+	}
+	if events[0].Kind != "decision" {
+		t.Fatalf("expected notification kind %q, got %q", "decision", events[0].Kind)
+	}
+	if events[0].Outcome != "blocked" {
+		t.Fatalf("expected notification outcome %q, got %q", "blocked", events[0].Outcome)
+	}
+	if events[0].Message == "" {
+		t.Fatalf("expected a non-empty notification message")
+	}
 }
 
 func TestHandleEngage(t *testing.T) {
