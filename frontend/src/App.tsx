@@ -179,7 +179,7 @@ function AppRoutes() {
         {/*
           03-11 (D-16/D-17): the log page is opened in a brand-new browser tab,
           never the main play tab. It must render standalone here, NOT nested
-          inside AppContent — AppContent unconditionally mounts <PlayScreen />
+          inside AppContent — AppContent unconditionally mounts the terminal
           (that is what keeps a session alive across route changes in the main
           tab), and a second tab opened purely to read a log must not mount a
           terminal, a sidebar, or a session at all. Do not "tidy" this route
