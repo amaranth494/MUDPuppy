@@ -179,13 +179,13 @@ Implementation notes for planning: a server-side tap on the MUD output stream (`
   5. A blocked command sends nothing to the game and leaves autopilot ON and idle; it is stored as a decision row with outcome `blocked` and its reason, reloads into the AI Assist panel after a page refresh, and the owner sees the blocked command and the reason in the panel and as one bracketed terminal line.
   6. After the build, zero steered commands from the corpus reach the send path, and on staging the owner's own `say` of an injection line on Alter Aeon is shown being blocked with its reason.
 
-**Plans:** 7 plans
+**Plans:** 2/7 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 03.1-01-PLAN.md — The hostile-text corpus runs against today's build and files the baseline red-team report
-- [ ] 03.1-02-PLAN.md — The owner can forbid commands on a profile, and the server stores and returns the list
+- [x] 03.1-01-PLAN.md — The hostile-text corpus runs against today's build and files the baseline red-team report
+- [x] 03.1-02-PLAN.md — The owner can forbid commands on a profile, and the server stores and returns the list
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
