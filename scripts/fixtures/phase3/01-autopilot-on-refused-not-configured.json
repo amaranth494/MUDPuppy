@@ -1,0 +1,2 @@
+200
+{"state":"off","outcome":"refused-not-configured","gate_allowed":true,"gate_message":"Autopilot refused: AI is not configured on this server","policy_version":"1.0"}

@@ -359,7 +359,16 @@ _print_response POST "session/autopilot"
 OUTCOME_1=$(_get_field "$HTTP_BODY" outcome)
 STATE_1=$(_get_field "$HTTP_BODY" state)
 GATE_MESSAGE_1=$(_get_field "$HTTP_BODY" gate_message)
-if [ "$OUTCOME_1" = "refused-not-configured" ]; then
+if [ -n "$FIXTURE_DIR" ]; then
+  # Self-test modes fix the world: the fixtures represent a server with the
+  # Gemini variables unset, so the correct answer is always
+  # refused-not-configured. The negative fixture set deliberately swaps
+  # this one response for outcome=engaged/state=on to prove the harness
+  # catches it (T-3-10).
+  _check_eq C3 "outcome is refused-not-configured (Gemini variables unset on the target server)" "$OUTCOME_1" "refused-not-configured"
+  _check_eq C3 "gate_message matches the exact D-20 refusal sentence" "$GATE_MESSAGE_1" "$D20_MESSAGE"
+  _check_eq C3 "state stays off on refusal" "$STATE_1" "off"
+elif [ "$OUTCOME_1" = "refused-not-configured" ]; then
   _check_eq C3 "outcome is refused-not-configured (Gemini variables unset on the target server)" "$OUTCOME_1" "refused-not-configured"
   _check_eq C3 "gate_message matches the exact D-20 refusal sentence" "$GATE_MESSAGE_1" "$D20_MESSAGE"
   _check_eq C3 "state stays off on refusal" "$STATE_1" "off"
