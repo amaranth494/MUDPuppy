@@ -1,0 +1,2 @@
+200
+{"conduct_rules":"Do not attack shopkeepers or other players.","approach_guidance":"Explore cautiously and favor low-risk actions.","never_issue_list":"give\nopen vault","ai_settings":{"model_name":"gemini-2.5-flash","call_cap":50,"disengage_threshold":3}}
