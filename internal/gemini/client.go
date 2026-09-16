@@ -169,6 +169,36 @@ const maxSuccessBodyBytes = 1 << 20 // 1MB
 // answer — is logged here; plan 03-08 logs the outcome with ids and
 // lengths only, never the content of any of these.
 func (c *Client) GenerateContent(ctx context.Context, endpoint, model, apiKey, systemInstruction, userText string) (*Answer, error) {
+	schema := responseSchema{
+		Type: "object",
+		Properties: map[string]schemaProperty{
+			"reasoning": {Type: "string"},
+			"command":   {Type: "string"},
+		},
+		Required: []string{"reasoning", "command"},
+	}
+	inner, err := c.doGenerate(ctx, endpoint, model, apiKey, systemInstruction, userText, schema)
+	if err != nil {
+		return nil, err
+	}
+	var answer Answer
+	if err := json.Unmarshal(inner, &answer); err != nil {
+		return nil, &Error{Kind: KindMalformed, Message: "could not decode the model's structured answer"}
+	}
+	return &answer, nil
+}
+
+// doGenerate is the shared plumbing behind GenerateContent and
+// ReviewCommand: it marshals a request carrying the given responseSchema,
+// posts it with the key in its one dedicated header (never a URL query
+// parameter — a URL with the key embedded in it lands in every access log,
+// proxy log, and Go transport error string that records the request URL,
+// the exact class of problem DR-2-01 exists to close, RESEARCH Pitfall 3),
+// maps a non-200 response through errorFromResponse, decodes the outer
+// envelope, and returns the first candidate's first part as raw JSON bytes
+// for the caller to decode a second time into its own answer shape.
+// Nothing about the outbound request or the response is logged here.
+func (c *Client) doGenerate(ctx context.Context, endpoint, model, apiKey, systemInstruction, userText string, schema responseSchema) ([]byte, error) {
 	reqBody := generateContentRequest{
 		SystemInstruction: contentBlock{Parts: []contentPart{{Text: systemInstruction}}},
 		Contents: []contentBlock{
@@ -176,14 +206,7 @@ func (c *Client) GenerateContent(ctx context.Context, endpoint, model, apiKey, s
 		},
 		GenerationConfig: generationConfig{
 			ResponseMimeType: "application/json",
-			ResponseSchema: responseSchema{
-				Type: "object",
-				Properties: map[string]schemaProperty{
-					"reasoning": {Type: "string"},
-					"command":   {Type: "string"},
-				},
-				Required: []string{"reasoning", "command"},
-			},
+			ResponseSchema:   schema,
 		},
 	}
 
@@ -197,11 +220,6 @@ func (c *Client) GenerateContent(ctx context.Context, endpoint, model, apiKey, s
 	if err != nil {
 		return nil, &Error{Kind: KindTransport, Message: fmt.Sprintf("build request: %v", err)}
 	}
-	// The key travels in this header, never as a URL query parameter: a
-	// URL with the key embedded in it lands in every access log, proxy
-	// log, and Go transport error string that records the request URL —
-	// the exact class of problem DR-2-01 exists to close (RESEARCH
-	// Pitfall 3).
 	req.Header.Set("x-goog-api-key", apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -228,12 +246,41 @@ func (c *Client) GenerateContent(ctx context.Context, endpoint, model, apiKey, s
 		return nil, &Error{Kind: KindMalformed, Message: "Gemini returned no candidates"}
 	}
 
-	inner := envelope.Candidates[0].Content.Parts[0].Text
-	var answer Answer
-	if err := json.Unmarshal([]byte(inner), &answer); err != nil {
-		return nil, &Error{Kind: KindMalformed, Message: "could not decode the model's structured answer"}
-	}
+	return []byte(envelope.Candidates[0].Content.Parts[0].Text), nil
+}
 
+// ReviewAnswer is the reviewer's constrained verdict on a command another
+// model already chose: whether to stop it, plus a one-sentence reason
+// written for the owner (D-03, D-08). This package assigns no meaning to
+// Blocked or Reason beyond decoding them — deciding what a verdict means,
+// what to do about it, and what the owner is told all live in the driver.
+type ReviewAnswer struct {
+	Blocked bool   `json:"blocked"`
+	Reason  string `json:"reason"`
+}
+
+// ReviewCommand asks the model to judge an already-chosen command (D-03).
+// Its error taxonomy, its key-in-header discipline, and its behaviour of
+// never repeating a failed call are identical to GenerateContent's — see
+// that method's doc comment, which applies verbatim here. This package
+// judges nothing about what the returned verdict means.
+func (c *Client) ReviewCommand(ctx context.Context, endpoint, model, apiKey, systemInstruction, userText string) (*ReviewAnswer, error) {
+	schema := responseSchema{
+		Type: "object",
+		Properties: map[string]schemaProperty{
+			"blocked": {Type: "boolean"},
+			"reason":  {Type: "string"},
+		},
+		Required: []string{"blocked", "reason"},
+	}
+	inner, err := c.doGenerate(ctx, endpoint, model, apiKey, systemInstruction, userText, schema)
+	if err != nil {
+		return nil, err
+	}
+	var answer ReviewAnswer
+	if err := json.Unmarshal(inner, &answer); err != nil {
+		return nil, &Error{Kind: KindMalformed, Message: "could not decode the reviewer's structured answer"}
+	}
 	return &answer, nil
 }
 
