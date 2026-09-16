@@ -17,6 +17,10 @@ type Handler struct {
 	manager   *Manager
 	config    *config.Config
 	callbacks *HandlerCallbacks
+	// engageHook is the Phase 3 AI driver's entry point, fired from the
+	// Autopilot handler's "on" branch — but only in the arm whose outcome
+	// is "engaged" (see SetEngageHook).
+	engageHook EngageHook
 }
 
 // HandlerCallbacks provides callbacks for session events
@@ -47,6 +51,12 @@ func NewHandlerWithCallbacks(manager *Manager, cfg *config.Config, callbacks *Ha
 		config:    cfg,
 		callbacks: callbacks,
 	}
+}
+
+// SetEngageHook wires the AI driver's entry point. A nil hook (the
+// zero-value default) makes the fire site in Autopilot a no-op.
+func (h *Handler) SetEngageHook(h2 EngageHook) {
+	h.engageHook = h2
 }
 
 // Request/Response types
@@ -391,6 +401,13 @@ func (h *Handler) Autopilot(w http.ResponseWriter, r *http.Request) {
 			resp.Outcome = "refused-wrong-connection"
 		case changed:
 			resp.Outcome = "engaged"
+			// D-03: only a real engage fires the driver — a repeated
+			// #AUTO ON lands in the "already-on" arm below and fires
+			// nothing. Started with `go` so the HTTP response returns at
+			// once; the decision arrives later over the websocket.
+			if h.engageHook != nil {
+				go h.engageHook(userIDStr, req.ConnectionID.String())
+			}
 		default:
 			resp.Outcome = "already-on"
 		}
