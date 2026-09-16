@@ -272,6 +272,11 @@ func main() {
 	sessionManager.SetEngageHook(aiDriver.HandleEngage)
 	sessionHandler.SetEngageHook(aiDriver.HandleEngage)
 
+	// Wire the same decisionStore instance to the decisions-read endpoint
+	// (plan 03-09) so a reloaded play screen reads back exactly what the
+	// driver above wrote.
+	profilesHandler.SetDecisionStore(decisionStore)
+
 	// Initialize WebSocket handler (SP02PH02)
 	wsHandler := session.NewWebSocketHandler(sessionManager, cfg)
 
@@ -508,6 +513,19 @@ func main() {
 		switch r.Method {
 		case http.MethodGet:
 			profilesHandler.GetSessionTranscript(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// A connection's decisions, read back in the order they happened
+	// (D-12, plan 03-09): this is what lets a reloaded play screen rebuild
+	// what it missed. Ownership is resolved through GetProfileByConnection
+	// before any row is read (T-3-03).
+	mux.HandleFunc("/api/v1/profiles/{connection_id}/decisions", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			profilesHandler.GetDecisions(w, r)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}

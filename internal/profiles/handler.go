@@ -31,6 +31,15 @@ type transcriptStorage interface {
 	GetSessionLines(gameSessionID, connectionID uuid.UUID, limit int) ([]store.GameSessionLine, error)
 }
 
+// decisionsStorage is the subset of *store.DecisionStore the decisions
+// endpoint calls (task 03-09-03). Same discipline as profileStorage and
+// transcriptStorage above: an interface lets decisions_test.go exercise
+// the handler with a hand-written fake instead of a live Postgres
+// connection.
+type decisionsStorage interface {
+	ListForConnection(connectionID uuid.UUID, limit int) ([]store.Decision, error)
+}
+
 // Handler handles profiles HTTP requests
 type Handler struct {
 	profileStore profileStorage
@@ -38,6 +47,23 @@ type Handler struct {
 	// making ListSessions/GetSessionTranscript answer 503 rather than
 	// panic — a missing dependency fails closed.
 	transcripts transcriptStorage
+	// decisions is nil until SetDecisionStore is called, making
+	// GetDecisions answer 503 rather than panic — a missing dependency
+	// fails closed, same discipline as transcripts above.
+	decisions decisionsStorage
+}
+
+// SetDecisionStore wires the connection's-decisions read endpoint
+// (task 03-09-03) to s. Assigning a nil *store.DecisionStore straight into
+// the decisionsStorage interface field would produce a non-nil interface
+// with a nil underlying pointer (the same well-known Go trap
+// NewHandlerWithTranscripts guards against below), so a nil s is a no-op
+// and h.decisions stays a true nil interface, keeping the endpoint's
+// fail-closed 503 behavior.
+func (h *Handler) SetDecisionStore(s *store.DecisionStore) {
+	if s != nil {
+		h.decisions = s
+	}
 }
 
 // NewHandler creates a new profiles handler with no transcript store
