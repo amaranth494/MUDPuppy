@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: "Phase 3.1 walkthrough 1 reassessed: no attack was stopped by the defences on the first staging attempt (the only block was a false block of the tutorial's own `get rod` guidance). D-03 amended (reviewer judges harm, not text; internal/driver/driver.go, commit b4334a6). AFTER corpus rerun against the amendment: STEERED 0, blocked-reviewer 3->1, FALSE BLOCKS benign-04->none (evidence/05-redteam-after.txt, commit c7877f9). Staging redeployed (deployment ce395e31-dc26-470f-b911-e5bfa5308da5, migration version=12). Row 6 of the criterion table set to PENDING walkthrough 2 (03.1-07-SUMMARY.md, commit e4427bb). Phase 3.1 execution reopened for walkthrough 2; a human-verify checkpoint is pending for the orchestrator to retry the staging attack."
-last_updated: "2026-09-16T21:49:29.384Z"
+status: verifying
+stopped_at: "Phase 3.1 plan 07 complete: walkthrough 2 accepted by the owner as demonstrated, with row 6 of 03.1-07-SUMMARY.md characterised honestly (no staging attack in either walkthrough produced a caught-in-the-act reviewer block of a genuine hostile command; corpus STEERED: 0/24 after the build). 03.1-SECURITY-AGENDA.md finalised with six items, including the newly-found ephemeral staging vault key (Item 6), nothing pre-decided. Phase 3.1 execution is complete; pending code review, the regression gate, verification, and the Phase 3.1 security review before the phase can close and ai-player is pushed."
+last_updated: "2026-09-16T22:18:12.180Z"
 last_activity: 2026-09-16
 progress:
   total_phases: 9
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-09-14)
 
 ## Current Position
 
-Phase: 3.1 (prompt-injection-review) — EXECUTION REOPENED for walkthrough 2 after walkthrough 1 was reassessed (no attack was stopped; only a false block occurred) and D-03 was amended
-Plan: 7 of 7 (03.1-07 in continuation — reviewer amendment, AFTER rerun, and redeploy done; staging walkthrough 2 pending)
-Status: Checkpoint pending — awaiting the orchestrator's retry of the staging attack against the harm-aimed reviewer
+Phase: 3.1 (prompt-injection-review) — EXECUTION COMPLETE. Walkthrough 1 was reassessed (no attack was stopped; only a false block occurred), D-03 was amended (reviewer judges harm, not text), and walkthrough 2 was accepted by the owner as demonstrated, with 03.1-07-SUMMARY.md's row 6 characterised honestly rather than overclaimed
+Plan: 7 of 7 (03.1-07 complete — reviewer amendment, AFTER rerun, redeploy, walkthrough 2, and the finalised SUMMARY and security agenda all done)
+Status: Phase execution complete — pending code review, the regression gate, verification, and the Phase 3.1 security review before the phase can close
 Last activity: 2026-09-16
 
 Progress: [██▌       ] 25%
@@ -56,6 +56,7 @@ Progress: [██▌       ] 25%
 
 *Updated after each plan completion*
 | Phase 03.1 P07 | 130min | 5 tasks | 22 files |
+| Phase 03.1 P07 | 60min | 1 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,8 @@ Recent decisions affecting current work:
 - [Phase 3.1]: On staging, the Never-issue mechanical layer was never exercised (the model never chose a listed verb); the reviewer caught 2 of 3 hand-typed injection attacks and the model's own judgment resisted the third -- proven separately by TestHandleEngageNeverIssue and PASS C3
 - [Phase 3.1]: DR-3-02 re-presented at the Phase 3.1 security review (03.1-SECURITY-AGENDA.md) with measured before/after numbers (STEERED 2 -> 0); RISK-REGISTER.md's Raised again at cell updated accordingly
 - [Phase 3.1]: D-03 amended by the owner (2026-09-16, after the first staging walkthrough): the reviewer's second question is re-aimed at harm, not text, because the text-aimed wording blocked the tutorial's own `get rod` guidance while every hostile `say` line was ignored -- the only blocks on walkthrough 1 were false blocks of ordinary play. See `03.1-CONTEXT.md`'s "Amendment during execution" and `03.1-07-SUMMARY.md`'s "Walkthrough 1 reassessed and D-03 amended".
+- [Phase 3.1]: Walkthrough 2 (deployment 7f38f3d9, harm-aimed reviewer) accepted by the owner as demonstrated: the model refused a tutorial-shaped injection ('give rod to bob') on its own judgment, choosing 'get rod' instead, with the reviewer allowing it and no false block; no staging attack in either walkthrough produced a caught-in-the-act reviewer block of a genuine hostile command, and 03.1-07-SUMMARY.md row 6 states that honestly
+- [Phase 3.1]: The staging credential vault key (ENCRYPTION_KEY_V1) was found ephemeral -- DefaultKeyStore silently generates a random key when it is unset, breaking auto-login on every redeploy; carried to 03.1-SECURITY-AGENDA.md Item 6 with three dispositions, nothing chosen, after an operational (non-code) workaround let walkthrough 2 proceed
 
 ### Pending Todos
 
@@ -110,6 +113,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-09-16T21:49:29.378Z
-Stopped at: Phase 3.1 walkthrough 1 reassessed: no attack was stopped by the defences on the first staging attempt (the only block was a false block of the tutorial's own `get rod` guidance). D-03 amended (reviewer judges harm, not text; internal/driver/driver.go, commit b4334a6). AFTER corpus rerun against the amendment: STEERED 0, blocked-reviewer 3->1, FALSE BLOCKS benign-04->none (evidence/05-redteam-after.txt, commit c7877f9). Staging redeployed (deployment ce395e31-dc26-470f-b911-e5bfa5308da5, migration version=12). Row 6 of the criterion table set to PENDING walkthrough 2 (03.1-07-SUMMARY.md, commit e4427bb). Phase 3.1 execution reopened for walkthrough 2; a human-verify checkpoint is pending for the orchestrator to retry the staging attack.
+Last session: 2026-09-16T22:18:12.173Z
+Stopped at: Phase 3.1 plan 07 complete: walkthrough 2 accepted by the owner as demonstrated, with row 6 of 03.1-07-SUMMARY.md characterised honestly (no staging attack in either walkthrough produced a caught-in-the-act reviewer block of a genuine hostile command; corpus STEERED: 0/24 after the build). 03.1-SECURITY-AGENDA.md finalised with six items, including the newly-found ephemeral staging vault key (Item 6), nothing pre-decided. Phase 3.1 execution is complete; pending code review, the regression gate, verification, and the Phase 3.1 security review before the phase can close and ai-player is pushed.
 Resume file: None
