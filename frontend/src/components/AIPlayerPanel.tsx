@@ -19,6 +19,7 @@ export default function AIPlayerPanel({ connectionId }: AIPlayerPanelProps) {
   // never silently coerced to a number in the browser).
   const [conductRules, setConductRules] = useState('');
   const [approachGuidance, setApproachGuidance] = useState('');
+  const [neverIssueList, setNeverIssueList] = useState('');
   const [modelName, setModelName] = useState('');
   const [callCapStr, setCallCapStr] = useState('');
   const [disengageThresholdStr, setDisengageThresholdStr] = useState('');
@@ -26,6 +27,7 @@ export default function AIPlayerPanel({ connectionId }: AIPlayerPanelProps) {
   const applyAISettings = (data: AISettingsResponse) => {
     setConductRules(data.conduct_rules);
     setApproachGuidance(data.approach_guidance);
+    setNeverIssueList(data.never_issue_list);
     setModelName(data.ai_settings.model_name);
     setCallCapStr(data.ai_settings.call_cap === null ? '' : String(data.ai_settings.call_cap));
     setDisengageThresholdStr(
@@ -80,6 +82,7 @@ export default function AIPlayerPanel({ connectionId }: AIPlayerPanelProps) {
       const body: AISettingsResponse = {
         conduct_rules: conductRules,
         approach_guidance: approachGuidance,
+        never_issue_list: neverIssueList,
         ai_settings: {
           model_name: modelName,
           call_cap: callCapStr.trim() === '' ? null : Number(callCapStr),
@@ -221,6 +224,22 @@ export default function AIPlayerPanel({ connectionId }: AIPlayerPanelProps) {
               onChange={(e) => setApproachGuidance(e.target.value)}
             />
             <p className="form-hint">Free-text guidance on how the AI should play. Blank means none.</p>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Never-Issue List</label>
+            <textarea
+              className="form-input form-textarea"
+              style={{ minHeight: '120px' }}
+              value={neverIssueList}
+              onChange={(e) => setNeverIssueList(e.target.value)}
+            />
+            <p className="form-hint">
+              One entry per line. A command is blocked if it starts with an entry, matched
+              whole-word and case-insensitive — so &quot;give&quot; blocks &quot;give sword to bob&quot;
+              but not &quot;giveaway&quot;. Blank means none: nothing is blocked by this list, though
+              the reviewer and the model&apos;s own judgment still apply.
+            </p>
           </div>
 
           <div className="form-group">

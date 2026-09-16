@@ -130,11 +130,15 @@ type TimersResponse struct {
 
 // AISettingsResponse is the GET response and PUT request body for the
 // ai-settings sub-resource. It carries exactly conduct rules, approach
-// guidance and AI settings — no acceptance field and no reconnect field
-// (D-13, T-1-01); acceptance is writable only through AcceptPolicy.
+// guidance, the Never-issue list, and AI settings — no acceptance field and
+// no reconnect field (D-13, T-1-01); acceptance is writable only through
+// AcceptPolicy. NeverIssueList is an owner-written list of commands the AI
+// must never issue, one entry per line, enforced mechanically in Go before
+// dispatch (D-02, 03.1-CONTEXT.md); it is empty by default on every profile.
 type AISettingsResponse struct {
 	ConductRules     string           `json:"conduct_rules"`
 	ApproachGuidance string           `json:"approach_guidance"`
+	NeverIssueList   string           `json:"never_issue_list"`
 	AISettings       store.AISettings `json:"ai_settings"`
 }
 
@@ -592,6 +596,7 @@ func (h *Handler) GetAISettings(w http.ResponseWriter, r *http.Request) {
 	h.sendJSON(w, AISettingsResponse{
 		ConductRules:     profile.ConductRules,
 		ApproachGuidance: profile.ApproachGuidance,
+		NeverIssueList:   profile.NeverIssueList,
 		AISettings:       profile.AISettings,
 	})
 }
@@ -623,6 +628,7 @@ func (h *Handler) PutAISettings(w http.ResponseWriter, r *http.Request) {
 	updates := &store.ProfileUpdate{
 		ConductRules:     &req.ConductRules,
 		ApproachGuidance: &req.ApproachGuidance,
+		NeverIssueList:   &req.NeverIssueList,
 		AISettings:       &req.AISettings,
 	}
 
@@ -641,6 +647,7 @@ func (h *Handler) PutAISettings(w http.ResponseWriter, r *http.Request) {
 	h.sendJSON(w, AISettingsResponse{
 		ConductRules:     updatedProfile.ConductRules,
 		ApproachGuidance: updatedProfile.ApproachGuidance,
+		NeverIssueList:   updatedProfile.NeverIssueList,
 		AISettings:       updatedProfile.AISettings,
 	})
 }
@@ -842,6 +849,9 @@ func validateAISettings(req AISettingsResponse) *ValidationError {
 	}
 	if len(req.ApproachGuidance) > 20000 {
 		return &ValidationError{Message: "Approach guidance must be 20000 characters or less"}
+	}
+	if len(req.NeverIssueList) > 20000 {
+		return &ValidationError{Message: "Never-issue list must be 20000 characters or less"}
 	}
 	if len(req.AISettings.ModelName) > 200 {
 		return &ValidationError{Message: "Model name must be 200 characters or less"}

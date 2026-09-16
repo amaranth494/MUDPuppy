@@ -299,6 +299,7 @@ export interface AISettings {
 export interface AISettingsResponse {
   conduct_rules: string;
   approach_guidance: string;
+  never_issue_list: string;
   ai_settings: AISettings;
 }
 
