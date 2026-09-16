@@ -1206,6 +1206,9 @@ async function executeTokenList(
                   context.outputMessage?.(`\r\n${white}[Autopilot is already off]${reset}\r\n`);
                   break;
                 case 'refused-gate':
+                case 'refused-not-configured':
+                  // D-20 (plan 03-06): the server refused because no AI model or key is
+                  // configured; print its exact sentence, same shape as the policy gate.
                   context.outputMessage?.(`\r\n${red}[${answer.gate_message ?? ''}]${reset}\r\n`);
                   break;
                 case 'refused-no-session':
