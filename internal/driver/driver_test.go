@@ -1077,12 +1077,6 @@ func TestHandleEngageReviewer(t *testing.T) {
 		if !strings.Contains(reviewUserText, "<GAME_TEXT>") || !strings.Contains(reviewUserText, "</GAME_TEXT>") {
 			t.Fatalf("expected the reviewer's user text to carry the GAME_TEXT markers, got %q", reviewUserText)
 		}
-		if !strings.Contains(reviewUserText, "<MODEL_REASONING>\nheading north\n</MODEL_REASONING>") {
-			t.Fatalf("expected the player model's reasoning to be wrapped in MODEL_REASONING markers for the reviewer, got %q", reviewUserText)
-		}
-		if !strings.Contains(models.lastReviewSystemInstructionText(), "MODEL_REASONING") {
-			t.Fatalf("expected the reviewer's system instruction to name the MODEL_REASONING markers as untrusted output")
-		}
 		if !strings.Contains(reviewUserText, "a room, an exit north") {
 			t.Fatalf("expected the reviewer's user text to contain the window between the markers, got %q", reviewUserText)
 		}

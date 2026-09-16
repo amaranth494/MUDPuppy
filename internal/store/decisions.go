@@ -75,7 +75,7 @@ func NewDecisionStore(db *sql.DB) *DecisionStore {
 }
 
 // InsertDecision writes one decision row and returns its generated id and
-// created_at. rec.Outcome is validated against the four allowed values
+// created_at. rec.Outcome is validated against the three allowed values
 // before the SQL call, so a bad value is a call-site Go error rather than a
 // CHECK-constraint violation. A nil GameSessionID inserts NULL.
 func (s *DecisionStore) InsertDecision(rec DecisionRecord) (uuid.UUID, time.Time, error) {
