@@ -1,0 +1,173 @@
+### bash scripts/verify-phase3.sh --self-test /tmp/phase3-selftest.txt
+================================================================
+Phase 3 canned-report harness -- scripts/verify-phase3.sh
+Run started (UTC): 2026-09-16T03:30:23Z
+Mode: --self-test (fixtures: scripts/fixtures/phase3/, no server)
+BASE_URL: http://fixture.invalid
+CONNECTION_ID: 00000000-0000-0000-0000-000000000000
+NOT_OWNED_CONNECTION_ID: ffffffff-ffff-ffff-ffff-ffffffffffff
+git rev-parse --short HEAD: 1b972f3
+================================================================
+
+Ground rules: (1) proof here is this report or an end-user screenshot,
+never a database query. (2) C1 and the live half of C2 are
+live-Gemini/live-MUD behaviours this script cannot reach without
+fabricating a connected game and a configured model; they appear below
+as SKIP lines naming their screenshot/log evidence, never as PASS.
+(3) invocations: live, --self-test, --self-test-negative, --no-tests.
+
+
+---- Step 1: POST session/autopilot action=on -- the D-20 configuration gate (C3) ----
+POST /api/v1/session/autopilot -> HTTP 200
+{"state":"off","outcome":"refused-not-configured","gate_allowed":true,"gate_message":"Autopilot refused: AI is not configured on this server","policy_version":"1.0"}
+PASS C3: outcome is refused-not-configured (Gemini variables unset on the target server) (got: refused-not-configured)
+PASS C3: gate_message matches the exact D-20 refusal sentence (got: Autopilot refused: AI is not configured on this server)
+PASS C3: state stays off on refusal (got: off)
+
+---- Step 2: GET session/status -- autopilot_state agrees with step 1 (C3) ----
+GET /api/v1/session/status -> HTTP 200
+{"state":"disconnected","autopilot_state":"off"}
+PASS C3: autopilot_state agrees with step 1's state (got: off)
+
+---- Step 3: source grep -- no model identifier is a literal in Go source (C3, REQ-env-config) ----
+SKIPPED (self-test mode: fixtures are the subject of this run, not this repository's Go source)
+
+---- Step 4: GET profiles/$CONNECTION_ID/decisions -- survives a refresh, no query needed (C2) ----
+GET /api/v1/profiles/$CONNECTION_ID/decisions -> HTTP 200
+{"decisions":[{"id":"11111111-1111-1111-1111-111111111111","created_at":"2026-09-15T20:05:00Z","reasoning":"A passage leads north out of this small room; heading that way continues exploring.","command":"north","outcome":"sent","failure_kind":"","notice":""}]}
+PASS C2: decisions endpoint answers HTTP 200 for the owning connection (status 200)
+PASS C2: response carries a decisions array
+PASS C2: non-empty decisions carry reasoning, command and outcome on the newest entry (reasoning: A passage leads north out of this small room; heading that way continues exploring. | command: north | outcome: sent)
+
+---- Step 5: GET profiles/$NOT_OWNED_CONNECTION_ID/decisions -- refused, not someone else's rows (C2, T-3-03) ----
+GET /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/decisions -> HTTP 400
+{"error":"Profile not found"}
+PASS C2: a not-owned/non-existent connection_id is refused, never answered with HTTP 200 rows (status 400)
+
+---- Step 6: GET profiles/$CONNECTION_ID/sessions -- the transcript half of the session log (C2) ----
+GET /api/v1/profiles/$CONNECTION_ID/sessions -> HTTP 200
+{"sessions":[{"id":"22222222-2222-2222-2222-222222222222","started_at":"2026-09-15T19:55:00Z","ended_at":null,"line_count":3}]}
+PASS C2: sessions endpoint answers HTTP 200 for the owning connection (status 200)
+PASS C2: response carries a sessions array
+
+---- Step 6b: GET profiles/$CONNECTION_ID/sessions/$NEWEST_SESSION_ID -- transcript lines are tagged human/ai/game/marker (C2) ----
+GET /api/v1/profiles/$CONNECTION_ID/sessions/$NEWEST_SESSION_ID -> HTTP 200
+{"session_id":"22222222-2222-2222-2222-222222222222","lines":[{"seq":1,"source":"human","text":"look"},{"seq":2,"source":"game","text":"You are standing in a small room."},{"seq":3,"source":"ai","text":"north"}]}
+PASS C2: session transcript read answers HTTP 200 (status 200)
+PASS C2: response carries a lines array
+PASS C2: transcript lines carry a source in human|ai|game|marker (got: human)
+
+---- Step 7: C2 (live half) -- out of this script's reach ----
+SKIP C2: the live half of reasoning visibility requires a connected game session and a configured model; proven instead by evidence/05-decision-in-panel.png and evidence/07-panel-after-refresh.png
+
+---- Step 8: POST /api/v1/icm/validate -- the ICM routes now answer (C4) ----
+POST /api/v1/icm/validate -> HTTP 200
+{"valid":true,"normalized":{"command":"north","operator":"","requiresExecution":false}}
+PASS C4: the ICM validate route answers with anything other than 404 -- before this phase it did not exist at all (status 200)
+
+---- Step 9: go test -- ICM dispatch and driver-engage diagnostics (C4) ----
+SKIPPED (self-test mode: fixtures are the subject of this run, not the Go suite)
+
+---- Step 10: C1 -- out of this script's reach ----
+SKIP C1: engaging autopilot with a live decision requires a connected game session and a configured model; this script must not fabricate one. Proven instead by evidence/06-ai-assist-terminal-line.png and the stage=request, stage=dispatch and stage=sent lines of evidence/04-staging-ai-player.log
+
+================================================================
+SUMMARY
+================================================================
+C1: SKIP
+C2: PASS
+C3: PASS
+C4: PASS
+TOTAL CHECKS: 14  FAILURES: 0  SKIPPED: 2
+
+================================================================
+GO TEST EXIT: 0
+================================================================
+EXIT: 0
+
+### bash scripts/verify-phase3.sh --self-test-negative /tmp/phase3-negative.txt
+================================================================
+Phase 3 canned-report harness -- scripts/verify-phase3.sh
+Run started (UTC): 2026-09-16T03:30:25Z
+Mode: --self-test-negative (fixtures: scripts/fixtures/phase3-negative/, no server)
+BASE_URL: http://fixture.invalid
+CONNECTION_ID: 00000000-0000-0000-0000-000000000000
+NOT_OWNED_CONNECTION_ID: ffffffff-ffff-ffff-ffff-ffffffffffff
+git rev-parse --short HEAD: 1b972f3
+================================================================
+
+Ground rules: (1) proof here is this report or an end-user screenshot,
+never a database query. (2) C1 and the live half of C2 are
+live-Gemini/live-MUD behaviours this script cannot reach without
+fabricating a connected game and a configured model; they appear below
+as SKIP lines naming their screenshot/log evidence, never as PASS.
+(3) invocations: live, --self-test, --self-test-negative, --no-tests.
+
+
+---- Step 1: POST session/autopilot action=on -- the D-20 configuration gate (C3) ----
+POST /api/v1/session/autopilot -> HTTP 200
+{"state":"on","outcome":"engaged","gate_allowed":true,"policy_version":"1.0"}
+FAIL C3: outcome is refused-not-configured (Gemini variables unset on the target server) (expected: refused-not-configured, got: engaged)
+FAIL C3: gate_message matches the exact D-20 refusal sentence (expected: Autopilot refused: AI is not configured on this server, got: )
+FAIL C3: state stays off on refusal (expected: off, got: on)
+
+---- Step 2: GET session/status -- autopilot_state agrees with step 1 (C3) ----
+GET /api/v1/session/status -> HTTP 200
+{"state":"disconnected","autopilot_state":"off"}
+FAIL C3: autopilot_state agrees with step 1's state (expected: on, got: off)
+
+---- Step 3: source grep -- no model identifier is a literal in Go source (C3, REQ-env-config) ----
+SKIPPED (self-test mode: fixtures are the subject of this run, not this repository's Go source)
+
+---- Step 4: GET profiles/$CONNECTION_ID/decisions -- survives a refresh, no query needed (C2) ----
+GET /api/v1/profiles/$CONNECTION_ID/decisions -> HTTP 200
+{"decisions":[{"id":"11111111-1111-1111-1111-111111111111","created_at":"2026-09-15T20:05:00Z","reasoning":"A passage leads north out of this small room; heading that way continues exploring.","command":"north","outcome":"sent","failure_kind":"","notice":""}]}
+PASS C2: decisions endpoint answers HTTP 200 for the owning connection (status 200)
+PASS C2: response carries a decisions array
+PASS C2: non-empty decisions carry reasoning, command and outcome on the newest entry (reasoning: A passage leads north out of this small room; heading that way continues exploring. | command: north | outcome: sent)
+
+---- Step 5: GET profiles/$NOT_OWNED_CONNECTION_ID/decisions -- refused, not someone else's rows (C2, T-3-03) ----
+GET /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/decisions -> HTTP 400
+{"error":"Profile not found"}
+PASS C2: a not-owned/non-existent connection_id is refused, never answered with HTTP 200 rows (status 400)
+
+---- Step 6: GET profiles/$CONNECTION_ID/sessions -- the transcript half of the session log (C2) ----
+GET /api/v1/profiles/$CONNECTION_ID/sessions -> HTTP 200
+{"sessions":[{"id":"22222222-2222-2222-2222-222222222222","started_at":"2026-09-15T19:55:00Z","ended_at":null,"line_count":3}]}
+PASS C2: sessions endpoint answers HTTP 200 for the owning connection (status 200)
+PASS C2: response carries a sessions array
+
+---- Step 6b: GET profiles/$CONNECTION_ID/sessions/$NEWEST_SESSION_ID -- transcript lines are tagged human/ai/game/marker (C2) ----
+GET /api/v1/profiles/$CONNECTION_ID/sessions/$NEWEST_SESSION_ID -> HTTP 200
+{"session_id":"22222222-2222-2222-2222-222222222222","lines":[{"seq":1,"source":"human","text":"look"},{"seq":2,"source":"game","text":"You are standing in a small room."},{"seq":3,"source":"ai","text":"north"}]}
+PASS C2: session transcript read answers HTTP 200 (status 200)
+PASS C2: response carries a lines array
+PASS C2: transcript lines carry a source in human|ai|game|marker (got: human)
+
+---- Step 7: C2 (live half) -- out of this script's reach ----
+SKIP C2: the live half of reasoning visibility requires a connected game session and a configured model; proven instead by evidence/05-decision-in-panel.png and evidence/07-panel-after-refresh.png
+
+---- Step 8: POST /api/v1/icm/validate -- the ICM routes now answer (C4) ----
+POST /api/v1/icm/validate -> HTTP 200
+{"valid":true,"normalized":{"command":"north","operator":"","requiresExecution":false}}
+PASS C4: the ICM validate route answers with anything other than 404 -- before this phase it did not exist at all (status 200)
+
+---- Step 9: go test -- ICM dispatch and driver-engage diagnostics (C4) ----
+SKIPPED (self-test mode: fixtures are the subject of this run, not the Go suite)
+
+---- Step 10: C1 -- out of this script's reach ----
+SKIP C1: engaging autopilot with a live decision requires a connected game session and a configured model; this script must not fabricate one. Proven instead by evidence/06-ai-assist-terminal-line.png and the stage=request, stage=dispatch and stage=sent lines of evidence/04-staging-ai-player.log
+
+================================================================
+SUMMARY
+================================================================
+C1: SKIP
+C2: PASS
+C3: FAIL
+C4: PASS
+TOTAL CHECKS: 14  FAILURES: 4  SKIPPED: 2
+
+================================================================
+GO TEST EXIT: 0
+================================================================
+EXIT: 1
