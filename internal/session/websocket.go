@@ -26,6 +26,11 @@ const (
 	// on/waiting/off state, Data carries the cause) rather than adding new
 	// struct fields — see plan 02-03's wire contract.
 	MsgTypeAutopilot = "autopilot"
+	// MsgTypeAI is the outbound push of an AI decision or system notice
+	// (plan 03-09, D-08). It carries a typed Decision payload rather than
+	// cramming several variable-length text fields into Data/Status, which
+	// an autopilot transition's two short values do not need.
+	MsgTypeAI = "ai"
 )
 
 // WebSocket message structure
@@ -43,6 +48,23 @@ type WSMessage struct {
 	// ConnectionID is meaningful only on inbound "connect" messages: the
 	// saved connection profile the browser is opening, if any.
 	ConnectionID string `json:"connection_id,omitempty"`
+	// Decision carries an AI decision or system notice (MsgTypeAI only,
+	// plan 03-09, D-08); nil on every other message type.
+	Decision *AIDecisionPayload `json:"decision,omitempty"`
+}
+
+// AIDecisionPayload is the payload of an outbound MsgTypeAI message
+// (D-08). Kind is "decision" (Reasoning and Command are set, Outcome is
+// "sent") or "system" (Message carries a locked failure/refusal notice,
+// Outcome is "refused" or "failed"). Never logged in full (T-3-07).
+type AIDecisionPayload struct {
+	ID        string `json:"id"`
+	Kind      string `json:"kind"`
+	Reasoning string `json:"reasoning"`
+	Command   string `json:"command"`
+	Outcome   string `json:"outcome"`
+	Message   string `json:"message"`
+	Timestamp string `json:"timestamp"`
 }
 
 // IsHumanSource is the wheel-grab's classification rule. Absent or
@@ -122,6 +144,16 @@ func (r *RateLimiter) Allow() bool {
 	return false
 }
 
+// wsWriter is the minimal websocket write capability writeJSON needs. The
+// real *websocket.Conn satisfies it. Declaring it as an interface is the
+// one seam PushAI's tests use to exercise the registry-lookup-and-write
+// path with a fake connection, since registerClient's production callers
+// only ever have a real *websocket.Conn to register (task 03-09-01).
+type wsWriter interface {
+	WriteJSON(v interface{}) error
+	SetWriteDeadline(t time.Time) error
+}
+
 // WebSocketHandler handles WebSocket connections for MUD session streaming
 type WebSocketHandler struct {
 	manager        *Manager
@@ -130,6 +162,12 @@ type WebSocketHandler struct {
 	rateLimiters   map[string]*RateLimiter
 	rateLimitersMu sync.RWMutex
 	wsWriteMu      sync.Mutex // Protects WebSocket writes from concurrent goroutines
+
+	// clients is the per-user registry PushAI reads (plan 03-09). Its own
+	// RWMutex guards map access only — wsWriteMu above serialises the
+	// actual writes, a distinct concern (T-3-08).
+	clients   map[string]wsWriter
+	clientsMu sync.RWMutex
 }
 
 // NewWebSocketHandler creates a new WebSocket handler
@@ -146,7 +184,51 @@ func NewWebSocketHandler(manager *Manager, cfg *config.Config) *WebSocketHandler
 			},
 		},
 		rateLimiters: make(map[string]*RateLimiter),
+		clients:      make(map[string]wsWriter),
 	}
+}
+
+// registerClient records userID's open play-screen connection so PushAI
+// can find it later. Keyed only by the authenticated user id taken from
+// the upgraded connection's own request context — never a client-supplied
+// field (T-3-11).
+func (h *WebSocketHandler) registerClient(userID string, conn *websocket.Conn) {
+	h.clientsMu.Lock()
+	defer h.clientsMu.Unlock()
+	h.clients[userID] = conn
+}
+
+// unregisterClient removes userID's registration only if it still points
+// at conn. A new tab registers its own connection before the old tab's
+// deferred teardown runs; without this comparison the old tab's
+// unregister would delete the new tab's entry (T-3-11).
+func (h *WebSocketHandler) unregisterClient(userID string, conn *websocket.Conn) {
+	h.clientsMu.Lock()
+	defer h.clientsMu.Unlock()
+	if stored, ok := h.clients[userID]; ok && stored == wsWriter(conn) {
+		delete(h.clients, userID)
+	}
+}
+
+// PushAI sends an AI decision or system notice to userID's open play
+// screen (D-08). A user with no open screen is a silent no-op — the
+// driver goroutine calling this must never be blocked or broken by a
+// closed browser tab (T-3-36). The payload is never logged; a write
+// failure logs at most one line naming the user and an error class only
+// (T-3-07).
+func (h *WebSocketHandler) PushAI(userID string, payload AIDecisionPayload) error {
+	h.clientsMu.RLock()
+	conn, ok := h.clients[userID]
+	h.clientsMu.RUnlock()
+	if !ok {
+		return nil
+	}
+
+	if err := h.writeJSON(conn, WSMessage{Type: MsgTypeAI, Decision: &payload}); err != nil {
+		log.Printf("[AI-PLAYER] ai-push user_id=%s outcome=failed error_class=%T", userID, err)
+		return err
+	}
+	return nil
 }
 
 // getRateLimiter gets or creates a rate limiter for a user
@@ -175,8 +257,11 @@ func (h *WebSocketHandler) removeRateLimiter(userID string) {
 	h.rateLimitersMu.Unlock()
 }
 
-// writeJSON writes JSON to the WebSocket with proper locking and deadline
-func (h *WebSocketHandler) writeJSON(conn *websocket.Conn, v interface{}) error {
+// writeJSON writes JSON to the WebSocket with proper locking and deadline.
+// conn is typed wsWriter rather than the concrete *websocket.Conn so this
+// is still the single write path (T-3-08) whether the caller is the real
+// connect/data/status flow or PushAI's registry lookup.
+func (h *WebSocketHandler) writeJSON(conn wsWriter, v interface{}) error {
 	h.wsWriteMu.Lock()
 	defer h.wsWriteMu.Unlock()
 	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
@@ -211,6 +296,11 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	defer conn.Close()
+
+	// Register this connection as userIDStr's open play screen so PushAI
+	// (plan 03-09) can find it, and unregister on every exit path below.
+	h.registerClient(userIDStr, conn)
+	defer h.unregisterClient(userIDStr, conn)
 
 	// Set read limit to prevent memory exhaustion (SP02 hardening)
 	conn.SetReadLimit(65536) // 64KB max message size
