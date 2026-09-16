@@ -20,6 +20,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Profile Foundation and Policy Gate** - Profiles gain conduct rules, approach guidance, AI settings with conservative defaults, and a one-time Safety and Abuse policy acceptance that gates AI configuration and engagement (completed 2026-09-15)
 - [x] **Phase 2: Autopilot Switch** - `#AUTO ON` / `#AUTO OFF`, a server-owned engaged state with a truthful indicator, the wheel-grab rule, and a waiting state across disconnects that resumes on return, all with no AI behind it
  (completed 2026-09-15)
+
 - [ ] **Phase 3: One AI Decision** - ICM engine wired server-side, Gemini connected from env config, one decision made and issued through the automation context, reasoning shown live and persisted
 - [ ] **Phase 4: Continuous Play** - Session goal, paced read/decide/act loop, call cap and error disengage with visible notices, clean reassessment on re-engage, all safety limits under test
 - [ ] **Phase 5: Coaching Channel** - Chat pane beside the terminal: guidance lands in the next decision, pause/resume, promote guidance into the profile
@@ -125,10 +126,10 @@ Implementation notes for planning: `#AUTO` is parsed in the browser directive gr
 Plans:
 **Wave 1**
 
-- [ ] 03-01-PLAN.md — The server holds a rolling, ANSI-free window of the recent game text
-- [ ] 03-02-PLAN.md — The server can ask Gemini for one decision, with model and key taken only from the environment
-- [ ] 03-03-PLAN.md — The ICM engine is live and an automation-context command provably passes its safety checker
-- [ ] 03-04-PLAN.md — `#AUTO` answers only to ON and OFF
+- [x] 03-01-PLAN.md — The server holds a rolling, ANSI-free window of the recent game text
+- [x] 03-02-PLAN.md — The server can ask Gemini for one decision, with model and key taken only from the environment
+- [x] 03-03-PLAN.md — The ICM engine is live and an automation-context command provably passes its safety checker
+- [x] 03-04-PLAN.md — `#AUTO` answers only to ON and OFF
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -264,7 +265,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 |-------|----------------|--------|-----------|
 | 1. Profile Foundation and Policy Gate | 6/6 | Complete    | 2026-09-15 |
 | 2. Autopilot Switch | 7/7 | Complete    | 2026-09-15 |
-| 3. One AI Decision | 0/13 | Planned | - |
+| 3. One AI Decision | 4/13 | In Progress|  |
 | 4. Continuous Play | 0/TBD | Not started | - |
 | 5. Coaching Channel | 0/TBD | Not started | - |
 | 6. Measurement and Memory | 0/TBD | Not started | - |
