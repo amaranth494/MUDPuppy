@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: "Phase 3 secured 2026-09-16: 14 accepted, 7 deferred to the Phase 4 review (DR-3-01..07), none remediated; emergency prompt-injection task (DR-3-02) before Phase 4 planning; branch pushed to origin"
-last_updated: "2026-09-16T15:56:57.370Z"
+last_updated: "2026-09-16T16:13:17.168Z"
 last_activity: 2026-09-16
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 3
   total_plans: 26
   completed_plans: 26
-  percent: 38
+  percent: 33
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-14)
 
 **Core value:** The owner can hand the wheel to the AI and take it back instantly, always seeing what the AI is doing and why, with every mechanical safety limit holding, and the AI getting measurably better session over session by the game's own numbers.
-**Current focus:** Phase 03 — one-ai-decision
+**Current focus:** Phase 3.1 — prompt-injection-review (inserted, urgent), then Phase 4 — continuous-play
 
 ## Current Position
 
-Phase: 4
+Phase: 3.1
 Plan: Not started
-Status: Executing Phase 03
+Status: Phase 3 secured; Phase 3.1 inserted, ready to discuss
 Last activity: 2026-09-16
 
 Progress: [██▌       ] 25%
@@ -57,6 +57,11 @@ Progress: [██▌       ] 25%
 *Updated after each plan completion*
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 3.1 inserted after Phase 3 on 2026-09-16 (URGENT): Prompt injection through game text: investigate and mitigate (DR-3-02), from the Phase 3 security review
+
 
 ### Decisions
 

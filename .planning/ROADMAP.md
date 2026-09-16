@@ -22,6 +22,7 @@ Decimal phases appear between their surrounding integers in numeric order.
  (completed 2026-09-15)
 
 - [x] **Phase 3: One AI Decision** - ICM engine wired server-side, Gemini connected from env config, one decision made and issued through the automation context, reasoning shown live and persisted (completed 2026-09-16)
+- [ ] **Phase 3.1: Prompt Injection Review** (INSERTED) - Game text cannot steer the AI into a command the owner would not sanction; the investigation and any mitigation are proven by tests with hostile room text and demonstrated on staging (urgent, from the Phase 3 security review, DR-3-02)
 - [ ] **Phase 4: Continuous Play** - Session goal, paced read/decide/act loop, call cap and error disengage with visible notices, clean reassessment on re-engage, all safety limits under test
 - [ ] **Phase 5: Coaching Channel** - Chat pane beside the terminal: guidance lands in the next decision, pause/resume, promote guidance into the profile
 - [ ] **Phase 6: Measurement and Memory** - Progression tally from the game's status numbers, session debriefs, learned notes carried into the next session, manual driving captured as demonstrations
@@ -163,6 +164,17 @@ Plans:
 **Phase Validation** (how the success criteria are demonstrated): Player-observable on staging: with autopilot engaged, one decision and its reasoning appear in the play screen and the game responds to the issued command. Diagnostic: a decisions table row exists for that decision and is returned after a page refresh; a `go test` proves the command passed through the ICM dispatcher in the automation context; with the Gemini environment variables unset, engagement fails with a clear error and no command is sent.
 
 Implementation notes for planning: a server-side tap on the MUD output stream (`internal/session`) giving the driver a bounded buffer of recent game text; new tables for AI sessions and decisions (migration `011`+); a Gemini client package; a new websocket message type carrying decisions and reasoning to the play screen; the driver package is Go under `internal/` and calls the ICM dispatcher with `ContextAutomation`.
+
+### Phase 3.1: Prompt Injection Review (INSERTED)
+
+**Goal:** Game text, including other players' speech and hostile room descriptions, cannot steer the AI into issuing a command the owner would not sanction. The investigation establishes how far shape validation and the ICM safety checker already bound the risk and what a content-level mitigation would add; whatever is built is proven by tests with hostile game text and demonstrated on staging. Inserted from the Phase 3 security review (DR-3-02, owner: "dig into this as an emergency security task prior to the next Phase").
+**Requirements**: TBD
+**Depends on:** Phase 3
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd:plan-phase 03.1 to break down)
 
 ### Phase 4: Continuous Play
 

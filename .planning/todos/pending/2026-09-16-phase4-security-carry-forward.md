@@ -10,11 +10,11 @@ status: pending
 
 Seven risks were deferred at the Phase 3 security review (2026-09-16). Each must be raised again at the Phase 4 security review with the same three choices, and the owner's notes below are instructions for Phase 4's planning, not suggestions. The project cannot close while any of them stays deferred.
 
-## Before Phase 4 starts: an emergency security task
+## Before Phase 4 starts: an emergency security task (owned by Phase 3.1, inserted 2026-09-16)
 
 | ID | Risk | Owner note (verbatim) | What it asks for |
 |----|------|-----------------------|------------------|
-| DR-3-02 (R-06, T-3-01, **high**) | Prompt injection through game text steers which command the AI issues; shape validation bounds the command's form, not its content. | "I don't want to hold up this Phase with this, but I want to dig into this as a emergency security task prior to the next Phase." | A dedicated investigation and, if warranted, a mitigation plan (second model pass reviewing the chosen command against the room text, a denylist of high-risk verbs, or both) run and reviewed with the owner **before** Phase 4 planning is approved. Treat as the first item of the Phase 4 discuss step, or as its own emergency task on the roadmap. |
+| DR-3-02 (R-06, T-3-01, **high**) | Prompt injection through game text steers which command the AI issues; shape validation bounds the command's form, not its content. | "I don't want to hold up this Phase with this, but I want to dig into this as a emergency security task prior to the next Phase." | A dedicated investigation and, if warranted, a mitigation plan (second model pass reviewing the chosen command against the room text, a denylist of high-risk verbs, or both) run and reviewed with the owner **before** Phase 4 planning is approved. Owned by the inserted Phase 3.1 (Prompt Injection Review), whose security review re-decides DR-3-02; Phase 4 only confirms the outcome. |
 
 ## Build into Phase 4
 
