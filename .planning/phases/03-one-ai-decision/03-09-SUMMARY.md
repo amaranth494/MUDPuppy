@@ -152,3 +152,18 @@ None beyond what this plan's own `<threat_model>` already covers (T-3-03, T-3-07
 ---
 *Phase: 03-one-ai-decision*
 *Completed: 2026-09-15*
+
+## Self-Check: PASSED
+
+- FOUND: internal/session/websocket.go
+- FOUND: internal/session/websocket_test.go
+- FOUND: internal/driver/driver.go
+- FOUND: internal/profiles/handler.go
+- FOUND: internal/profiles/decisions.go
+- FOUND: internal/profiles/decisions_test.go
+- FOUND: cmd/server/main.go
+- FOUND: .planning/phases/03-one-ai-decision/deferred-items.md
+- FOUND: 9d5d08a (Task 1 commit)
+- FOUND: d5cde93 (Task 2 commit)
+- FOUND: 8ff5fd8 (Task 3 commit)
+- FOUND: 8825524 (deferred-items docs commit)
