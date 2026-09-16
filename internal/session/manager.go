@@ -62,6 +62,14 @@ type Manager struct {
 	conns     map[string]net.Conn
 	cleanups  map[string]context.CancelFunc
 	autopilot map[string]*AutopilotRecord // userID -> autopilot state
+	// outputWindow holds each user's recent-game-text ring, fed continuously
+	// by ReadOutput from the moment a connection is live (D-04). It lives
+	// here, not on Session, and is never cleared on Connect or Disconnect —
+	// the same "must outlive the session" rule already documented on
+	// AutopilotRecord.ConnectionID above, because a WAITING-to-ON resume
+	// must read a window that spans the drop (D-02, RESEARCH Pitfall 4). It
+	// is cleared only by a process restart. Do not "tidy" this away.
+	outputWindow map[string]*ringBuffer // userID -> recent game text for the AI
 }
 
 // NewManager creates a new session manager
@@ -126,6 +134,7 @@ func NewManager(portWhitelist string, portDenylist string, portAllowlistOverride
 		conns:                 make(map[string]net.Conn),
 		cleanups:              make(map[string]context.CancelFunc),
 		autopilot:             make(map[string]*AutopilotRecord),
+		outputWindow:          make(map[string]*ringBuffer),
 	}
 }
 
@@ -410,6 +419,41 @@ func (m *Manager) AutopilotStateFor(userID string) AutopilotState {
 	return rec.State
 }
 
+// appendOutputWindow feeds p (already telnet- and ANSI-stripped) into the
+// user's recent-output ring, lazily creating it on first use. A no-op for
+// an empty p. Called from ReadOutput for every byte the game ever sends,
+// so the window is kept continuously regardless of autopilot state (D-04's
+// "including text from before the switch was flipped").
+func (m *Manager) appendOutputWindow(userID string, p []byte) {
+	if len(p) == 0 {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	ring, ok := m.outputWindow[userID]
+	if !ok {
+		ring = newRingBuffer()
+		m.outputWindow[userID] = ring
+	}
+	ring.append(p)
+}
+
+// RecentOutputSnapshot returns the current contents of the user's
+// recent-output window, oldest-first, or "" when there is none. This is
+// the only method the driver (plan 03-08) calls to get the AI's first
+// look at the game. Same RLock/defer shape as AutopilotStateFor.
+func (m *Manager) RecentOutputSnapshot(userID string) string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	ring, ok := m.outputWindow[userID]
+	if !ok {
+		return ""
+	}
+	return ring.snapshot()
+}
+
 // EngageAutopilot handles #AUTO ON. It reads m.sessions directly under the
 // held lock rather than calling GetSession, which takes RLock itself and
 // would deadlock against the Lock held here (sync.RWMutex is not
@@ -629,6 +673,13 @@ func (m *Manager) ReadOutput(userID string, buffer []byte) (int, error) {
 	// Reset idle timer on any incoming data
 	if n > 0 {
 		m.ResetIdleTimer(userID)
+		// Feed the AI's recent-output window from the bytes actually read.
+		// ReadOutput does not hold m.mu here (the RLock above was already
+		// released), so appendOutputWindow's own locking is safe to call.
+		// A new slice is built for the window; buffer itself is not
+		// mutated, since the same slice is what relayMUDToClient forwards
+		// to the browser and the browser must keep receiving full ANSI.
+		m.appendOutputWindow(userID, stripANSI(stripTelnetIAC(buffer[:n])))
 	}
 
 	return n, nil
