@@ -18,6 +18,7 @@ import (
 	"github.com/amaranth494/MudPuppy/internal/connections"
 	"github.com/amaranth494/MudPuppy/internal/crypto"
 	"github.com/amaranth494/MudPuppy/internal/help"
+	"github.com/amaranth494/MudPuppy/internal/icm"
 	"github.com/amaranth494/MudPuppy/internal/metrics"
 	"github.com/amaranth494/MudPuppy/internal/profiles"
 	"github.com/amaranth494/MudPuppy/internal/redis"
@@ -175,6 +176,17 @@ func main() {
 	// Initialize profiles handler (SP04PH02)
 	profilesHandler := profiles.NewHandler(profileStore)
 
+	// Initialize the ICM engine exactly once (Phase 3, 03-03-02). internal/icm
+	// has existed since before this project started (dispatcher, safety
+	// checker, automation execution context) but nothing has ever imported
+	// it - this is its first caller. icmEngine stays in scope for the rest
+	// of main: plan 03-08's driver constructor receives
+	// icmEngine.GetDispatcher() so the AI driver's commands and the HTTP
+	// routes below share one Dispatcher and therefore one SafetyChecker
+	// state (T-3-20).
+	icmEngine := icm.NewEngine()
+	icmHandler := icm.NewHandlerWithEngine(icmEngine)
+
 	// Initialize help handler (SP06PH01T04)
 	helpHandler := help.NewHandler("./help")
 
@@ -305,6 +317,12 @@ func main() {
 	mux.HandleFunc("/api/v1/session/disconnect", sessionHandler.Disconnect)
 	mux.HandleFunc("/api/v1/session/status", sessionHandler.Status)
 	mux.HandleFunc("/api/v1/session/autopilot", sessionHandler.Autopilot)
+
+	// Add ICM endpoints to mux (Phase 3, 03-03-02) - the four routes have
+	// never been reachable before this. Registered on the same mux every
+	// other /api/v1 route uses, so they sit inside the same
+	// sessionMiddleware wrap below; no separate auth path is introduced.
+	icmHandler.RegisterRoutes(mux)
 
 	// Add profiles endpoints to mux (SP04PH02)
 	mux.HandleFunc("/api/v1/profiles/{id}", func(w http.ResponseWriter, r *http.Request) {
