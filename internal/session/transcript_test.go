@@ -73,24 +73,22 @@ func (f *fakeTranscriptSink) allLines() []TranscriptLine {
 	return out
 }
 
-// seedTranscript drives Manager.openTranscriptLocked directly, standing in
-// for what a real Connect call would do — Manager.Connect dials for real
+// seedTranscript drives Manager.openTranscript directly, standing in for
+// what a real Connect call would do — Manager.Connect dials for real
 // (manager_test.go's own seedConnectedSession comment explains why a unit
 // test cannot drive a genuine connect), so this is legitimate white-box
-// setup for the same reason.
+// setup for the same reason. openTranscript takes m.mu itself (code
+// review CR-01), so it must be called without the lock held.
 func seedTranscript(m *Manager, userID, connID string) {
-	m.mu.Lock()
-	m.openTranscriptLocked(userID, connID)
-	m.mu.Unlock()
+	m.openTranscript(userID, connID)
 }
 
-// closeTranscript drives Manager.closeTranscriptLocked directly, forcing a
+// closeTranscript drives Manager.closeTranscript directly, forcing a
 // deterministic flush of any batched lines instead of waiting on
-// transcriptBatchTick.
+// transcriptBatchTick. closeTranscript takes m.mu itself (code review
+// CR-01), so it must be called without the lock held.
 func closeTranscript(m *Manager, userID string) {
-	m.mu.Lock()
-	m.closeTranscriptLocked(userID)
-	m.mu.Unlock()
+	m.closeTranscript(userID)
 }
 
 // seedConn wires a net.Pipe as userID's connection, with a goroutine

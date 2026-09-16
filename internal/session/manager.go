@@ -276,8 +276,13 @@ func (m *Manager) Connect(ctx context.Context, userID, host string, port int, co
 
 	// Open a session transcript for this connection, if it is a
 	// saved-profile connection (D-14). A quick connect (connectionID=="")
-	// is never transcribed.
-	m.openTranscriptLocked(userID, connectionID)
+	// is never transcribed. openTranscript takes m.mu itself only for the
+	// brief map insert; the OpenGameSession database round trip runs with
+	// no lock held so a slow connect never stalls every other user's
+	// session (code review CR-01).
+	m.mu.Unlock()
+	m.openTranscript(userID, connectionID)
+	m.mu.Lock()
 
 	// Record metrics
 	metrics.Get().IncConnect()
@@ -395,8 +400,18 @@ func (m *Manager) Disconnect(userID, reason string) error {
 	m.parkAutopilotLocked(userID)
 
 	// Close the session transcript, if one is open, before the session
-	// itself is removed below (D-14).
-	m.closeTranscriptLocked(userID)
+	// itself is removed below (D-14). closeTranscript resolves and removes
+	// the transcript from the map under m.mu, then runs the blocking
+	// drain-wait and CloseGameSession call with no lock held, so a slow
+	// database round trip on disconnect never stalls every other user's
+	// session (code review CR-01). Releasing/re-acquiring m.mu here is
+	// safe: nothing between this point and Disconnect's return depends on
+	// m.transcripts, and closeTranscript's own locked resolve-then-remove
+	// step means no concurrent caller can ever observe a half-torn-down
+	// transcript.
+	m.mu.Unlock()
+	m.closeTranscript(userID)
+	m.mu.Lock()
 
 	// Remove session from map - this ensures clean state for reconnection
 	// and prevents orphaned sessions
@@ -526,13 +541,21 @@ func (m *Manager) CurrentGameSessionID(userID string) (uuid.UUID, bool) {
 	return t.gameSessionID, true
 }
 
-// openTranscriptLocked opens a session transcript for userID's new
-// connection. The caller must already hold m.mu. It is a no-op when
+// openTranscript opens a session transcript for userID's new connection.
+// The caller must NOT hold m.mu (code review CR-01): this method takes the
+// lock itself, only for the brief moments that read m.transcriptSink and
+// install the new transcriptSession into m.transcripts. The
+// OpenGameSession database round trip runs with no lock held, so a slow
+// connect never stalls every other user's session. It is a no-op when
 // transcription is disabled (no sink configured), when connectionID is
 // empty — a quick connect with no profile is never transcribed (D-14) —
 // or when either id fails to parse as a UUID.
-func (m *Manager) openTranscriptLocked(userID, connectionID string) {
-	if m.transcriptSink == nil || connectionID == "" {
+func (m *Manager) openTranscript(userID, connectionID string) {
+	m.mu.RLock()
+	sink := m.transcriptSink
+	m.mu.RUnlock()
+
+	if sink == nil || connectionID == "" {
 		return
 	}
 
@@ -545,7 +568,7 @@ func (m *Manager) openTranscriptLocked(userID, connectionID string) {
 		return
 	}
 
-	gameSessionID, err := m.transcriptSink.OpenGameSession(userUUID, connUUID)
+	gameSessionID, err := sink.OpenGameSession(userUUID, connUUID) // no lock held
 	if err != nil {
 		log.Printf("[AI-PLAYER] transcript user_id=%s connection_id=%s event=open-error error=%v",
 			userID, connectionID, err)
@@ -559,27 +582,40 @@ func (m *Manager) openTranscriptLocked(userID, connectionID string) {
 		lines:         make(chan TranscriptLine, transcriptChannelCapacity),
 		done:          make(chan struct{}),
 	}
-	go t.writeLoop(m.transcriptSink)
+	go t.writeLoop(sink)
+
+	m.mu.Lock()
 	m.transcripts[userID] = t
+	m.mu.Unlock()
 
 	log.Printf("[AI-PLAYER] transcript user_id=%s connection_id=%s game_session_id=%s event=open",
 		userID, connectionID, gameSessionID)
 }
 
-// closeTranscriptLocked closes and removes userID's open transcript, if
-// any. The caller must already hold m.mu. A no-op when transcription is
-// disabled or none was ever opened (a quick connect never had one). This
-// blocks until the write loop has drained and the store's close call
-// returns, mirroring the deliberate open/close lifecycle (D-14) rather
-// than the never-block guarantee that applies to enqueue on the hot MUD
-// read/write path (T-3-26).
-func (m *Manager) closeTranscriptLocked(userID string) {
+// closeTranscript closes and removes userID's open transcript, if any. The
+// caller must NOT hold m.mu (code review CR-01): this method resolves the
+// transcript and removes it from m.transcripts under a single brief
+// m.mu.Lock so a concurrent caller can never observe a half-torn-down
+// transcript, then runs the blocking drain-wait and store close call with
+// no lock held, so a slow disconnect never stalls every other user's
+// session. A no-op when transcription is disabled or none was ever opened
+// (a quick connect never had one). The blocking half mirrors the
+// deliberate open/close lifecycle (D-14) rather than the never-block
+// guarantee that applies to enqueue on the hot MUD read/write path
+// (T-3-26).
+func (m *Manager) closeTranscript(userID string) {
+	m.mu.Lock()
 	t, ok := m.transcripts[userID]
+	if ok {
+		delete(m.transcripts, userID)
+	}
+	sink := m.transcriptSink
+	m.mu.Unlock()
+
 	if !ok {
 		return
 	}
-	delete(m.transcripts, userID)
-	t.close(m.transcriptSink)
+	t.close(sink)
 }
 
 // enqueueTranscriptLine enqueues one transcript line for userID's open
