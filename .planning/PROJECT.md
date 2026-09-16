@@ -21,7 +21,7 @@ The existing MUDPuppy product is taken as-is per owner decision; its prior specs
 
 Requirement IDs come from `.planning/intel/requirements.md` and are quoted from the design's D1-D8 "Accepted when" bullets and Definition of complete. Full list with acceptance text in `.planning/REQUIREMENTS.md`.
 
-- [ ] D3 One AI decision: REQ-single-decision, REQ-reasoning-visibility, REQ-env-config
+- [x] D3 One AI decision: REQ-single-decision, REQ-reasoning-visibility, REQ-env-config — Validated in Phase 3: One AI Decision (2026-09-16). Proof filed under `.planning/phases/03-one-ai-decision/evidence/`: test report (zero failures, zero data races, no model literal in source), harness self-test, canned report against staging (RUN A with the Gemini variables unset: 20 checks, 0 failures; RUN B after the walkthrough returning the stored decision; RUN C on the post-review build), `[AI-PLAYER]` log excerpt with engage, refusal, request/dispatch/sent and failure lines, and ten end-user screenshots. Verification 4/4; owner approved via the One AI Decision Evidence Dossier. Code review's two criticals (transcript tap held the manager lock during DB I/O; send-on-closed-channel race) and two warnings fixed in cbf7d97, 0b74ea7, 48165ab, 2a2f349 and redeployed as dd8d7cab.
 - [ ] D4 Continuous play: REQ-continuous-loop, REQ-call-cap-and-error-disengage, REQ-reengage-reassess
 - [ ] D5 Coaching channel: REQ-coaching-chat, REQ-pause-resume, REQ-promote-guidance
 - [ ] D6 Measurement and memory: REQ-progression-tally, REQ-session-debrief, REQ-memory-carryover
@@ -112,4 +112,4 @@ Requirement IDs come from `.planning/intel/requirements.md` and are quoted from 
 | The Phase 6 debrief records the amount of coaching required in the session. | Definition of complete item 5 requires "required coaching declines" to be measurable across sessions; without a recorded count the Phase 8 trend cannot be shown. Derived from REQ-improvement-trend, not invented. | Pending |
 
 ---
-*Last updated: 2026-09-15 after Phase 2 completed, verified on staging, and approved by the owner; the switch now binds to the connected profile (code review fix b5c8bf5)*
+*Last updated: 2026-09-16 after Phase 3 completed, demonstrated on staging with one Gemini decision through the ICM automation context, and approved by the owner; code review fixes cbf7d97..2a2f349 redeployed*
