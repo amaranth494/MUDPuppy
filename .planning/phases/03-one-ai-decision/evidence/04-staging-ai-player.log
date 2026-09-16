@@ -1,0 +1,117 @@
+### STARTUP EXCERPT A -- staging deploy 8f6251fe (commit e57e91a), Gemini variables ABSENT (task 03-13-02)
+# captured with: railway logs -d 8f6251fe-11c0-411d-8226-6eb714843c9d -e staging -s MudPuppy
+2026/09/16 03:49:30 Running database migrations (golang-migrate)...
+2026/09/16 03:49:30 Migrations completed successfully (version=11, dirty=false)
+2026/09/16 03:49:30 Ensuring AI Player columns exist...
+2026/09/16 03:49:30 AI Player columns ensured
+2026/09/16 03:49:30 Server starting on port 8080
+
+### STARTUP EXCERPT B -- staging deploy c394504f (commit 567af77), Gemini variables SET (task 03-13-03)
+# captured with: railway logs -d c394504f-3637-45d3-b52a-ebef0413d52e -e staging -s MudPuppy
+2026/09/16 13:36:52 AI Player columns ensured
+2026/09/16 13:36:52 Running database migrations (golang-migrate)...
+2026/09/16 13:36:52 Migrations completed successfully (version=11, dirty=false)
+2026/09/16 13:36:52 Ensuring AI Player columns exist...
+2026/09/16 13:36:52 Server starting on port 8080
+
+### [AI-PLAYER] LINES -- staging, captured with the Railway CLI, one section per deployment: railway logs -d <deployment-id> -e staging -s MudPuppy | grep -F '[AI-PLAYER]'
+# Walkthrough connection ids: 00daed67-7d1c-434d-8c61-0063feb6e672 (Phase 2 Walkthrough), 89ea91f3-d4ec-47bc-b6b9-c8204868d332 (Phase 2 Hand Play), 3239395c-0f51-4511-8f05-a355cf27c58e (Phase 2 Refusal, policy never accepted).
+
+## deployment 8f6251fe -- task 03-13-02: Gemini variables ABSENT (RUN A, screenshots 08 and 09)
+2026/09/16 03:51:35 [AI-PLAYER] transcript user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 game_session_id=ad1ebf70-81bb-4b0d-8d65-4146fdd2e4a9 event=open
+2026/09/16 03:51:35 [AI-PLAYER] decisions-read user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 outcome=listed count=0
+2026/09/16 03:51:39 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=off cause=refused-not-configured
+2026/09/16 03:58:44 [AI-PLAYER] transcript user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 game_session_id=ad1ebf70-81bb-4b0d-8d65-4146fdd2e4a9 event=close lines=18 dropped=0
+2026/09/16 03:58:48 [AI-PLAYER] transcript user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 game_session_id=134cbfe9-e7db-448e-83e0-cddc9b33ba8b event=open
+2026/09/16 03:58:48 [AI-PLAYER] decisions-read user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 outcome=listed count=0
+2026/09/16 03:58:52 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=off cause=refused-not-configured
+2026/09/16 04:02:19 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=off cause=refused-not-configured
+2026/09/16 04:02:23 [AI-PLAYER] decisions-read user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 outcome=listed count=0
+2026/09/16 04:02:24 [AI-PLAYER] decisions-read user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=ffffffff-ffff-ffff-ffff-ffffffffffff outcome=refused count=0
+2026/09/16 04:02:24 [AI-PLAYER] transcript-read user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 game_session_id= outcome=listed lines=3
+2026/09/16 04:02:25 [AI-PLAYER] transcript-read user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 game_session_id=134cbfe9-e7db-448e-83e0-cddc9b33ba8b outcome=read lines=17
+2026/09/16 06:29:26 [AI-PLAYER] transcript user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 game_session_id=134cbfe9-e7db-448e-83e0-cddc9b33ba8b event=close lines=18 dropped=0
+
+## deployment c394504f -- task 03-13-03: key set, model gemini-2.5-flash (404 from the vendor)
+2026/09/16 13:40:53 [AI-PLAYER] transcript user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 game_session_id=728a0bc3-4d2c-4265-9ab9-2949a29db8f3 event=open
+2026/09/16 13:40:54 [AI-PLAYER] decisions-read user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 outcome=listed count=0
+2026/09/16 13:41:11 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=on cause=engage
+2026/09/16 13:41:11 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 decision_id= stage=request model= outcome= failure= snapshot_bytes=1399 cmd_len=0
+2026/09/16 13:41:11 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=off cause=ai-failure
+2026/09/16 13:41:11 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 decision_id=05b8f82f-8a94-4615-abe8-782303e1dab8 stage=failed model=gemini-2.5-flash outcome=failed failure=api-error snapshot_bytes=1399 cmd_len=0
+
+## deployment 1421a68a -- task 03-13-03: model-error diagnostic line added
+2026/09/16 13:44:57 [AI-PLAYER] transcript user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 game_session_id=86e7ebbc-770f-4c41-afc0-91cf871196f8 event=open
+2026/09/16 13:44:57 [AI-PLAYER] decisions-read user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 outcome=listed count=1
+2026/09/16 13:45:03 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=on cause=engage
+2026/09/16 13:45:03 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 decision_id= stage=request model= outcome= failure= snapshot_bytes=1260 cmd_len=0
+2026/09/16 13:45:03 [AI-PLAYER] model-error user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 model=gemini-2.5-flash kind=transport http=404
+2026/09/16 13:45:03 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=off cause=ai-failure
+2026/09/16 13:45:03 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 decision_id=816b7038-32eb-4333-8031-fbb4b4cdf420 stage=failed model=gemini-2.5-flash outcome=failed failure=api-error snapshot_bytes=1260 cmd_len=0
+
+## deployment 4ef71070 -- task 03-13-03: model gemini-3.8-flash (30s client timeout)
+2026/09/16 13:48:44 [AI-PLAYER] transcript user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 game_session_id=9caefa34-ae97-4da0-8d7c-84da489f6a44 event=open
+2026/09/16 13:48:44 [AI-PLAYER] decisions-read user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 outcome=listed count=2
+2026/09/16 13:48:51 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=on cause=engage
+2026/09/16 13:48:51 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 decision_id= stage=request model= outcome= failure= snapshot_bytes=1399 cmd_len=0
+2026/09/16 13:49:21 [AI-PLAYER] model-error user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 model=gemini-3.8-flash kind=transport http=0
+2026/09/16 13:49:21 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=off cause=ai-failure
+2026/09/16 13:49:21 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 decision_id=69058784-59da-4481-9070-3d41c9695658 stage=failed model=gemini-3.8-flash outcome=failed failure=api-error snapshot_bytes=1399 cmd_len=0
+
+## deployment 3edc4abd -- task 03-13-03: client timeout raised to 120s (503 from the vendor)
+2026/09/16 13:53:06 [AI-PLAYER] transcript user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 game_session_id=30e99fb8-0d99-4544-9e3e-8178d48c450b event=open
+2026/09/16 13:53:06 [AI-PLAYER] decisions-read user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 outcome=listed count=3
+2026/09/16 13:53:14 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=on cause=engage
+2026/09/16 13:53:14 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 decision_id= stage=request model= outcome= failure= snapshot_bytes=1399 cmd_len=0
+2026/09/16 13:53:18 [AI-PLAYER] model-error user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 model=gemini-3.8-flash kind=transport http=503
+2026/09/16 13:53:18 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=off cause=ai-failure
+2026/09/16 13:53:18 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 decision_id=dcc8e0a8-c02c-474e-81db-131601f134b7 stage=failed model=gemini-3.8-flash outcome=failed failure=api-error snapshot_bytes=1399 cmd_len=0
+2026/09/16 13:55:08 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 decision_id= stage=request model= outcome= failure= snapshot_bytes=1399 cmd_len=0
+2026/09/16 13:55:08 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=on cause=engage
+2026/09/16 13:55:29 [AI-PLAYER] model-error user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 model=gemini-3.8-flash kind=transport http=503
+2026/09/16 13:55:29 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=off cause=ai-failure
+2026/09/16 13:55:29 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 decision_id=4ae3bc3f-2270-4273-97da-9c5a3244a48e stage=failed model=gemini-3.8-flash outcome=failed failure=api-error snapshot_bytes=1399 cmd_len=0
+
+## deployment 2f2fcd71 -- task 03-13-03: model gemini-3.5-flash -- the walkthrough decision, refresh, forced failure, hand play
+2026/09/16 13:58:09 [AI-PLAYER] transcript user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 game_session_id=ebb40680-f93f-429d-ae76-5c579608f5d0 event=open
+2026/09/16 13:58:09 [AI-PLAYER] decisions-read user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 outcome=listed count=5
+2026/09/16 13:58:17 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=on cause=engage
+2026/09/16 13:58:17 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 decision_id= stage=request model= outcome= failure= snapshot_bytes=1399 cmd_len=0
+2026/09/16 13:58:24 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 decision_id= stage=answer model=gemini-3.5-flash outcome= failure= snapshot_bytes=1399 cmd_len=3
+2026/09/16 13:58:24 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 decision_id= stage=dispatch model=gemini-3.5-flash outcome= failure= snapshot_bytes=1399 cmd_len=3
+2026/09/16 13:58:24 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 decision_id=736af29b-8348-4ed4-b561-8654d13cec25 stage=sent model=gemini-3.5-flash outcome=sent failure= snapshot_bytes=1399 cmd_len=3
+2026/09/16 13:59:38 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=off cause=wheel-grab
+2026/09/16 13:59:56 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=off new=on cause=engage
+2026/09/16 13:59:56 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 decision_id= stage=request model= outcome= failure= snapshot_bytes=2273 cmd_len=0
+2026/09/16 13:59:57 [AI-PLAYER] model-error user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 model=gemini-3.5-flash kind=transport http=503
+2026/09/16 13:59:57 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 old=on new=off cause=ai-failure
+2026/09/16 13:59:57 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 decision_id=acd1611a-7d9c-45e2-9440-c2313718328c stage=failed model=gemini-3.5-flash outcome=failed failure=api-error snapshot_bytes=2273 cmd_len=0
+2026/09/16 14:01:41 [AI-PLAYER] transcript user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=00daed67-7d1c-434d-8c61-0063feb6e672 game_session_id=ebb40680-f93f-429d-ae76-5c579608f5d0 event=close lines=60 dropped=0
+2026/09/16 14:01:57 [AI-PLAYER] transcript user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 game_session_id=0a9c475f-e369-4c46-b27e-c9f306447c9c event=open
+2026/09/16 14:01:57 [AI-PLAYER] decisions-read user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 outcome=listed count=0
+2026/09/16 14:02:13 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 old=off new=on cause=engage
+2026/09/16 14:02:13 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 decision_id= stage=request model= outcome= failure= snapshot_bytes=3672 cmd_len=0
+2026/09/16 14:02:16 [AI-PLAYER] model-error user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 model=gemini-3.5-flash kind=transport http=503
+2026/09/16 14:02:16 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 old=on new=off cause=ai-failure
+2026/09/16 14:02:16 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 decision_id=507c506f-cda2-469e-a762-75dc93ada3c4 stage=failed model=gemini-3.5-flash outcome=failed failure=api-error snapshot_bytes=3672 cmd_len=0
+2026/09/16 14:02:48 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 old=off new=on cause=engage
+2026/09/16 14:02:48 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 decision_id= stage=request model= outcome= failure= snapshot_bytes=3672 cmd_len=0
+2026/09/16 14:02:54 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 decision_id= stage=answer model=gemini-3.5-flash outcome= failure= snapshot_bytes=3672 cmd_len=3
+2026/09/16 14:02:54 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 decision_id= stage=dispatch model=gemini-3.5-flash outcome= failure= snapshot_bytes=3672 cmd_len=3
+2026/09/16 14:02:54 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 decision_id=41a23421-b1f9-4f48-b123-d684ee768176 stage=sent model=gemini-3.5-flash outcome=sent failure= snapshot_bytes=3672 cmd_len=3
+2026/09/16 14:03:45 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 old=on new=off cause=wheel-grab
+2026/09/16 14:03:47 [AI-PLAYER] transcript user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 game_session_id=0a9c475f-e369-4c46-b27e-c9f306447c9c event=close lines=60 dropped=0
+2026/09/16 14:04:45 [AI-PLAYER] transcript user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 game_session_id=04d4ee08-df7f-48c6-bd90-deb55c9b60fc event=open
+2026/09/16 14:04:45 [AI-PLAYER] decisions-read user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 outcome=listed count=2
+2026/09/16 14:05:19 [AI-PLAYER] ai settings saved connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 model_name_blank=false call_cap_blank=true threshold_blank=true
+2026/09/16 14:05:19 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 old=off new=off cause=already-off
+2026/09/16 14:05:21 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 old=off new=on cause=engage
+2026/09/16 14:05:21 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 decision_id= stage=request model= outcome= failure= snapshot_bytes=5667 cmd_len=0
+2026/09/16 14:05:21 [AI-PLAYER] model-error user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 model=no-such-model kind=transport http=404
+2026/09/16 14:05:21 [AI-PLAYER] autopilot user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 old=on new=off cause=ai-failure
+2026/09/16 14:05:21 [AI-PLAYER] decision user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 decision_id=10364d8d-3f07-4a46-ad5a-6ca5e16e9998 stage=failed model=no-such-model outcome=failed failure=api-error snapshot_bytes=5667 cmd_len=0
+2026/09/16 14:05:56 [AI-PLAYER] ai settings saved connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 model_name_blank=true call_cap_blank=true threshold_blank=true
+2026/09/16 14:06:37 [AI-PLAYER] transcript-read user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 game_session_id= outcome=listed lines=2
+2026/09/16 14:06:58 [AI-PLAYER] transcript-read user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 game_session_id=0a9c475f-e369-4c46-b27e-c9f306447c9c outcome=read lines=60
+2026/09/16 14:07:48 [AI-PLAYER] transcript user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=89ea91f3-d4ec-47bc-b6b9-c8204868d332 game_session_id=04d4ee08-df7f-48c6-bd90-deb55c9b60fc event=close lines=20 dropped=0
+2026/09/16 14:08:05 [AI-PLAYER] transcript user_id=31e8f3da-39bd-42d5-bb35-983c69be3ebd connection_id=3239395c-0f51-4511-8f05-a355cf27c58e game_session_id=9e799349-d207-4a75-8c58-189b86542c6c event=open
