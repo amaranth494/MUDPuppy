@@ -1160,21 +1160,21 @@ async function executeTokenList(
           continue;
 
         case 'AUTO':
-          // 02-04-01: Handle #AUTO / #AUTO ON / #AUTO OFF / #AUTO STATUS (D-04, D-05, D-08, D-11).
-          // Side-effect only, like #HELP: no command is ever emitted here, so a typed
-          // #AUTO line can never itself reach the MUD or disengage autopilot (D-08).
+          // 02-04-01/03-04-01: Handle #AUTO ON / #AUTO OFF (D-04, D-05, D-08, D-11).
+          // D-11 amends Phase 2's D-05: #AUTO takes only ON and OFF now. A bare #AUTO
+          // or any other argument prints the single locked notice below; the badge and
+          // the AI Assist panel are the status surfaces. Side-effect only, like #HELP:
+          // no command is ever emitted here, so a typed #AUTO line can never itself
+          // reach the MUD or disengage autopilot (D-08).
           {
             const red = getAnsiColorCode('red');
             const white = getAnsiColorCode('white');
             const brightGreen = getAnsiColorCode('brightgreen');
-            const brightYellow = getAnsiColorCode('brightyellow');
             const reset = '\x1b[0m';
 
             const rawArg = (token.args || '').trim().toUpperCase();
-            let action: 'on' | 'off' | 'status' | null;
-            if (rawArg === '' || rawArg === 'STATUS') {
-              action = 'status';
-            } else if (rawArg === 'ON') {
+            let action: 'on' | 'off' | null;
+            if (rawArg === 'ON') {
               action = 'on';
             } else if (rawArg === 'OFF') {
               action = 'off';
@@ -1183,9 +1183,9 @@ async function executeTokenList(
             }
 
             if (action === null) {
-              // Discretionary addition: the grammar accepts any argument, but only
-              // ON/OFF/STATUS (and bare #AUTO) are meaningful. Not part of the UI contract.
-              context.outputMessage?.(`\r\n${red}[Autopilot: use #AUTO ON, #AUTO OFF, or #AUTO STATUS]${reset}\r\n`);
+              // D-11: the only meaningful arguments are ON and OFF. Everything else,
+              // including a bare #AUTO, gets this one locked line.
+              context.outputMessage?.(`\r\n${red}[Autopilot: don't know what you're talking about. Your options are ON or OFF]${reset}\r\n`);
             } else if (!context.autopilotControl) {
               // No connection to autopilot control yet (e.g. before any session context
               // wires it in) — same answer as a connected-game refusal (D-03/D-11).
@@ -1215,14 +1215,10 @@ async function executeTokenList(
                   // Code review C2: the request named a profile other than the connected one.
                   context.outputMessage?.(`\r\n${red}[Autopilot can only be engaged for the profile that is connected]${reset}\r\n`);
                   break;
-                case 'status': {
-                  const stateUpper = answer.state.toUpperCase();
-                  const gateResult = answer.gate_allowed
-                    ? `passed (policy v${answer.policy_version ?? ''} accepted)`
-                    : (answer.gate_message ?? '');
-                  context.outputMessage?.(`\r\n${brightYellow}Autopilot: ${stateUpper}. Engage gate: ${gateResult}.${reset}\r\n`);
-                  break;
-                }
+                // D-11: the 'status' outcome arm is retired here — #AUTO never sends
+                // action 'status' anymore. The union member and the server's status wire
+                // action are untouched (badge and AI Assist panel remain the status
+                // surfaces); this switch simply no longer has a caller for that arm.
                 default:
                   break;
               }
