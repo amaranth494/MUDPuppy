@@ -133,9 +133,9 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 03-05-PLAN.md — Every saved-profile connection is transcribed and the transcript can be read back by its owner
-- [ ] 03-06-PLAN.md — `#AUTO ON` is refused with a clear notice when the AI is not configured on this server
-- [ ] 03-07-PLAN.md — The staging sign-in code never reaches the log (DR-2-01)
+- [x] 03-05-PLAN.md — Every saved-profile connection is transcribed and the transcript can be read back by its owner
+- [x] 03-06-PLAN.md — `#AUTO ON` is refused with a clear notice when the AI is not configured on this server
+- [x] 03-07-PLAN.md — The staging sign-in code never reaches the log (DR-2-01)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -265,7 +265,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 |-------|----------------|--------|-----------|
 | 1. Profile Foundation and Policy Gate | 6/6 | Complete    | 2026-09-15 |
 | 2. Autopilot Switch | 7/7 | Complete    | 2026-09-15 |
-| 3. One AI Decision | 4/13 | In Progress|  |
+| 3. One AI Decision | 7/13 | In Progress|  |
 | 4. Continuous Play | 0/TBD | Not started | - |
 | 5. Coaching Channel | 0/TBD | Not started | - |
 | 6. Measurement and Memory | 0/TBD | Not started | - |
