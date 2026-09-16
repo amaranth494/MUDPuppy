@@ -358,3 +358,16 @@ GO TEST EXIT: 0
 ================================================================
 
 EXIT: 0
+
+### RUN B supplement: the walkthrough session itself (the harness reads only the newest session, which held no AI line)
+# GET /api/v1/profiles/89ea91f3-d4ec-47bc-b6b9-c8204868d332/sessions/0a9c475f-e369-4c46-b27e-c9f306447c9c -> HTTP 200
+# source counts: human=3 ai=1 game=52 marker=4
+{"source": "human", "text": "look"}
+{"source": "human", "text": "help"}
+{"source": "marker", "text": "[AI-ASSIST engaged]"}
+{"source": "marker", "text": "[AI-ASSIST disengaged: ai-failure]"}
+{"source": "marker", "text": "[AI-ASSIST engaged]"}
+{"source": "ai", "text": "yes"}
+{"source": "marker", "text": "[AI-ASSIST disengaged: wheel-grab]"}
+{"source": "human", "text": "no"}
+EXIT: 0
