@@ -630,7 +630,7 @@ Not applicable — this is a greenfield-within-brownfield feature phase (new tab
 
 **If this table is empty:** N/A — six assumptions are logged above, none rated above Low risk.
 
-## Open Questions
+## Open Questions (RESOLVED — see plans 03-05 and 03-13)
 
 1. **ICM's `RecordExecution` gap for AI-issued passthrough commands (Pitfall 2).**
    - What we know: `Dispatch`'s safety *check* runs for every non-preview-context call regardless of whether a handler exists; `RecordExecution` (which feeds the circuit breaker and rate-limiter's own counters) only runs after a handler successfully executes, and no handler exists for plain passthrough commands.
