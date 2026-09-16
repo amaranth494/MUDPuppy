@@ -76,7 +76,7 @@ export interface AIDecisionPayload {
   kind: 'decision' | 'system';
   reasoning?: string;
   command?: string;
-  outcome?: 'sent' | 'refused' | 'failed';
+  outcome?: 'sent' | 'refused' | 'failed' | 'blocked';
   message?: string;
   timestamp: string;
 }

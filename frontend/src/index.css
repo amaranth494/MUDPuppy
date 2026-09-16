@@ -331,6 +331,17 @@ body {
 .ai-decision.outcome-refused .ai-decision-command {
   color: var(--color-error);
 }
+.ai-decision.outcome-blocked {
+  border-left: 2px solid var(--color-warning);
+}
+.ai-decision.outcome-blocked .ai-decision-command {
+  color: var(--color-warning);
+}
+.ai-decision-blocked-reason {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-dim);
+  margin-top: var(--spacing-xs);
+}
 
 .ai-system-line {
   font-size: var(--font-size-sm);
