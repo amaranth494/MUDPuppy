@@ -179,7 +179,7 @@ Implementation notes for planning: a server-side tap on the MUD output stream (`
   5. A blocked command sends nothing to the game and leaves autopilot ON and idle; it is stored as a decision row with outcome `blocked` and its reason, reloads into the AI Assist panel after a page refresh, and the owner sees the blocked command and the reason in the panel and as one bracketed terminal line.
   6. After the build, zero steered commands from the corpus reach the send path, and on staging the owner's own `say` of an injection line on Alter Aeon is shown being blocked with its reason.
 
-**Plans:** 2/7 plans executed
+**Plans:** 3/7 plans executed
 
 Plans:
 **Wave 1**
@@ -189,7 +189,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 03.1-03-PLAN.md — Game text reaches the model marked untrusted, and a forbidden command never reaches the dispatcher
+- [x] 03.1-03-PLAN.md — Game text reaches the model marked untrusted, and a forbidden command never reaches the dispatcher
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
