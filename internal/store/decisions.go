@@ -9,13 +9,17 @@ import (
 )
 
 // validDecisionOutcomes mirrors the migration's
-// CHECK (outcome IN ('sent','refused','failed')) constraint (D-12), so an
-// invalid value is a Go error at the call site rather than a mid-insert SQL
-// error.
+// CHECK (outcome IN ('sent','refused','failed','blocked')) constraint
+// (D-12), so an invalid value is a Go error at the call site rather than a
+// mid-insert SQL error. sent/refused/failed are the AI's own outcomes;
+// blocked (D-06) is a fourth, distinct outcome recorded when a mechanical
+// or reviewer defence layer stops a command before it reaches the game —
+// the defence working as designed, not the AI failing.
 var validDecisionOutcomes = map[string]bool{
 	"sent":    true,
 	"refused": true,
 	"failed":  true,
+	"blocked": true,
 }
 
 // defaultDecisionListLimit applies when the caller passes limit <= 0.

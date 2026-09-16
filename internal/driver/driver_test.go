@@ -108,6 +108,14 @@ func (f *fakeCommands) Dispatch(ctx *icm.ExecutionContext, sessionID string, nor
 	return nil, nil
 }
 
+func (f *fakeCommands) dispatchCalls() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]string, len(f.calls))
+	copy(out, f.calls)
+	return out
+}
+
 type sendCall struct {
 	userID  string
 	command string
@@ -232,6 +240,7 @@ func testProfile() *store.Profile {
 	return &store.Profile{
 		ConductRules:     "RULE: never grief another player. RULE: no scripting external bots.",
 		ApproachGuidance: "GUIDE: prioritize quest completion over open-ended exploration.",
+		NeverIssueList:   "",
 		AISettings:       store.AISettings{},
 	}
 }
@@ -264,6 +273,61 @@ func waitForCalls(t *testing.T, m *fakeModels, want int) {
 		time.Sleep(time.Millisecond)
 	}
 	t.Fatalf("timed out waiting for %d model call(s), got %d", want, m.callCount())
+}
+
+// assertBlockedDecision asserts the full blocked contract (D-06, D-07,
+// D-08) for one HandleEngage run that is expected to have been stopped by
+// a defence layer: zero sends, zero dispatches, zero disengage calls (the
+// positive assertion RESEARCH Pitfall 1 requires — not merely the absence
+// of a failure), exactly one stored decision row with outcome "blocked",
+// the expected layer as FailureKind and the expected notice, the attempted
+// command, and exactly one decision-kind notification with a non-empty
+// message. Reused by TestHandleEngageNeverIssue here and by plan 03.1-04's
+// reviewer-pass table.
+func assertBlockedDecision(t *testing.T, sessions *fakeSessions, commands *fakeCommands, decisions *fakeDecisionsStore, notifier *fakeNotifier, wantCommand, wantLayer, wantNotice string) {
+	t.Helper()
+
+	if got := len(sessions.sendCalls()); got != 0 {
+		t.Fatalf("expected zero sends, got %d", got)
+	}
+	if got := len(commands.dispatchCalls()); got != 0 {
+		t.Fatalf("expected zero dispatches, got %d", got)
+	}
+	if got := len(sessions.disengages()); got != 0 {
+		t.Fatalf("expected zero disengage calls, got %d", got)
+	}
+
+	rows := decisions.rows()
+	if len(rows) != 1 {
+		t.Fatalf("expected exactly one stored decision row, got %d", len(rows))
+	}
+	row := rows[0]
+	if row.Outcome != "blocked" {
+		t.Fatalf("expected outcome %q, got %q", "blocked", row.Outcome)
+	}
+	if row.FailureKind != wantLayer {
+		t.Fatalf("expected failure kind %q, got %q", wantLayer, row.FailureKind)
+	}
+	if row.Notice != wantNotice {
+		t.Fatalf("expected notice %q, got %q", wantNotice, row.Notice)
+	}
+	if row.Command != wantCommand {
+		t.Fatalf("expected stored command %q, got %q", wantCommand, row.Command)
+	}
+
+	events := notifier.eventsSnapshot()
+	if len(events) != 1 {
+		t.Fatalf("expected exactly one notification, got %d", len(events))
+	}
+	if events[0].Kind != "decision" {
+		t.Fatalf("expected notification kind %q, got %q", "decision", events[0].Kind)
+	}
+	if events[0].Outcome != "blocked" {
+		t.Fatalf("expected notification outcome %q, got %q", "blocked", events[0].Outcome)
+	}
+	if events[0].Message == "" {
+		t.Fatalf("expected a non-empty notification message")
+	}
 }
 
 func TestHandleEngage(t *testing.T) {
@@ -402,6 +466,252 @@ func TestHandleEngage(t *testing.T) {
 			t.Fatalf("expected exactly one disengage call, got %d", got)
 		}
 	})
+
+	t.Run("wraps_window_as_untrusted_data", func(t *testing.T) {
+		models := &fakeModels{answer: &gemini.Answer{Reasoning: "heading north", Command: "north"}}
+		decisions := &fakeDecisionsStore{}
+		sessions := &fakeSessions{window: "a room, an exit north"}
+		d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, &fakeCommands{}, &fakeNotifier{}, testConfig())
+
+		d.HandleEngage(uuid.New().String(), uuid.New().String())
+
+		wt := models.lastWindowText()
+		if !strings.HasPrefix(wt, "<GAME_TEXT>") {
+			t.Fatalf("expected the model's window to start with <GAME_TEXT>, got %q", wt)
+		}
+		if !strings.HasSuffix(wt, "</GAME_TEXT>") {
+			t.Fatalf("expected the model's window to end with </GAME_TEXT>, got %q", wt)
+		}
+		if !strings.Contains(wt, "a room, an exit north") {
+			t.Fatalf("expected the model's window to contain the snapshot text unchanged, got %q", wt)
+		}
+		rows := decisions.rows()
+		if len(rows) != 1 {
+			t.Fatalf("expected exactly one stored decision row, got %d", len(rows))
+		}
+		if rows[0].WindowText != "a room, an exit north" {
+			t.Fatalf("expected stored WindowText to be the unwrapped snapshot, got %q", rows[0].WindowText)
+		}
+	})
+}
+
+func TestBuildSystemInstruction(t *testing.T) {
+	t.Run("untrusted_data_paragraph_present", func(t *testing.T) {
+		profile := testProfile()
+		si := buildSystemInstruction(profile)
+		if !strings.Contains(si, "<GAME_TEXT>") || !strings.Contains(si, "</GAME_TEXT>") {
+			t.Fatalf("expected system instruction to mention both GAME_TEXT markers, got %q", si)
+		}
+		if !strings.Contains(si, "untrusted") {
+			t.Fatalf("expected system instruction to state the game text is untrusted, got %q", si)
+		}
+	})
+
+	t.Run("conduct_rules_and_guidance_verbatim", func(t *testing.T) {
+		profile := testProfile()
+		si := buildSystemInstruction(profile)
+		if !strings.Contains(si, profile.ConductRules) {
+			t.Fatalf("system instruction missing conduct rules verbatim")
+		}
+		if !strings.Contains(si, profile.ApproachGuidance) {
+			t.Fatalf("system instruction missing approach guidance verbatim")
+		}
+	})
+
+	t.Run("non_blank_never_issue_list_appears_under_heading", func(t *testing.T) {
+		profile := testProfile()
+		profile.NeverIssueList = "give\nopen vault"
+		si := buildSystemInstruction(profile)
+		if !strings.Contains(si, "Never-issue") {
+			t.Fatalf("expected a Never-issue heading, got %q", si)
+		}
+		if !strings.Contains(si, "give") || !strings.Contains(si, "open vault") {
+			t.Fatalf("expected every Never-issue entry present, got %q", si)
+		}
+	})
+
+	t.Run("blank_list_emits_no_heading", func(t *testing.T) {
+		profile := testProfile()
+		profile.NeverIssueList = ""
+		si := buildSystemInstruction(profile)
+		if strings.Contains(si, "Never-issue") {
+			t.Fatalf("expected no Never-issue heading for a blank list, got %q", si)
+		}
+	})
+
+	t.Run("whitespace_only_list_emits_no_heading", func(t *testing.T) {
+		profile := testProfile()
+		profile.NeverIssueList = "   \n\t  "
+		si := buildSystemInstruction(profile)
+		if strings.Contains(si, "Never-issue") {
+			t.Fatalf("expected no Never-issue heading for a whitespace-only list, got %q", si)
+		}
+	})
+
+	t.Run("answer_shape_instruction_is_last", func(t *testing.T) {
+		profile := testProfile()
+		profile.NeverIssueList = "give"
+		si := buildSystemInstruction(profile)
+		wantSuffix := "with no leading '#', '@', '$' or '%' character."
+		if !strings.HasSuffix(si, wantSuffix) {
+			t.Fatalf("expected system instruction to end with the answer-shape instruction, got %q", si)
+		}
+	})
+}
+
+func TestMatchNeverIssue(t *testing.T) {
+	cases := []struct {
+		name        string
+		cmd         string
+		list        string
+		wantBlocked bool
+		wantEntry   string
+	}{
+		{
+			name:        "exact_match",
+			cmd:         "give",
+			list:        "give",
+			wantBlocked: true,
+			wantEntry:   "give",
+		},
+		{
+			name:        "entry_plus_arguments",
+			cmd:         "give sword to bob",
+			list:        "give",
+			wantBlocked: true,
+			wantEntry:   "give",
+		},
+		{
+			name:        "boundary_does_not_match_a_longer_word",
+			cmd:         "giveaway",
+			list:        "give",
+			wantBlocked: false,
+		},
+		{
+			name:        "case_insensitive_command",
+			cmd:         "GIVE SWORD",
+			list:        "give",
+			wantBlocked: true,
+			wantEntry:   "give",
+		},
+		{
+			name:        "case_insensitive_entry",
+			cmd:         "give sword",
+			list:        "GIVE",
+			wantBlocked: true,
+			wantEntry:   "GIVE",
+		},
+		{
+			name:        "entry_with_surrounding_whitespace",
+			cmd:         "give sword",
+			list:        "  give  ",
+			wantBlocked: true,
+			wantEntry:   "give",
+		},
+		{
+			name:        "blank_lines_amid_entries_match_nothing_on_their_own",
+			cmd:         "give sword",
+			list:        "\n\n   \ngive",
+			wantBlocked: true,
+			wantEntry:   "give",
+		},
+		{
+			name:        "wholly_blank_list_matches_nothing",
+			cmd:         "give sword",
+			list:        "",
+			wantBlocked: false,
+		},
+		{
+			name:        "multi_word_entry_matches_with_extra_words",
+			cmd:         "open vault door",
+			list:        "open vault",
+			wantBlocked: true,
+			wantEntry:   "open vault",
+		},
+		{
+			name:        "multi_word_entry_does_not_match_a_different_target",
+			cmd:         "open door",
+			list:        "open vault",
+			wantBlocked: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotEntry, gotBlocked := matchNeverIssue(tc.cmd, tc.list)
+			if gotBlocked != tc.wantBlocked {
+				t.Fatalf("expected blocked=%v, got %v", tc.wantBlocked, gotBlocked)
+			}
+			if tc.wantBlocked && gotEntry != tc.wantEntry {
+				t.Fatalf("expected matched entry %q, got %q", tc.wantEntry, gotEntry)
+			}
+		})
+	}
+}
+
+func TestHandleEngageNeverIssue(t *testing.T) {
+	cases := []struct {
+		name           string
+		neverIssueList string
+		answerCommand  string
+		wantBlocked    bool
+		wantEntry      string
+	}{
+		{
+			name:           "matches_the_first_entry",
+			neverIssueList: "give\nopen vault",
+			answerCommand:  "give sword to bob",
+			wantBlocked:    true,
+			wantEntry:      "give",
+		},
+		{
+			name:           "matches_a_later_entry",
+			neverIssueList: "give\nopen vault",
+			answerCommand:  "open vault door",
+			wantBlocked:    true,
+			wantEntry:      "open vault",
+		},
+		{
+			name:           "resembles_an_entry_but_does_not_match_at_the_boundary",
+			neverIssueList: "give",
+			answerCommand:  "giveaway",
+			wantBlocked:    false,
+		},
+		{
+			name:           "blank_list_proceeds",
+			neverIssueList: "",
+			answerCommand:  "north",
+			wantBlocked:    false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			profile := testProfile()
+			profile.NeverIssueList = tc.neverIssueList
+			sessions := &fakeSessions{window: "a room"}
+			decisions := &fakeDecisionsStore{}
+			notifier := &fakeNotifier{}
+			commands := &fakeCommands{}
+			models := &fakeModels{answer: &gemini.Answer{Reasoning: "heading out", Command: tc.answerCommand}}
+			d := New(sessions, &fakeProfiles{profile: profile}, decisions, models, commands, notifier, testConfig())
+
+			d.HandleEngage(uuid.New().String(), uuid.New().String())
+
+			if tc.wantBlocked {
+				wantNotice := `Matched Never-issue entry: "` + tc.wantEntry + `"`
+				assertBlockedDecision(t, sessions, commands, decisions, notifier, tc.answerCommand, "never-issue", wantNotice)
+				return
+			}
+
+			if got := len(sessions.sendCalls()); got != 1 {
+				t.Fatalf("expected exactly one send when the command does not match, got %d", got)
+			}
+			if got := len(commands.dispatchCalls()); got != 1 {
+				t.Fatalf("expected exactly one dispatch when the command does not match, got %d", got)
+			}
+		})
+	}
 }
 
 func TestHandleEngageFailures(t *testing.T) {
