@@ -239,6 +239,24 @@ _get_never_issue_list() {
   fi
 }
 
+# _get_text_field <json> <field>
+# Like _get_never_issue_list but for any flat string field: extracts the field
+# and decodes its JSON string escapes (\n, \" and \\) back to real characters.
+# Used for conduct_rules and approach_guidance so the PUT and the restore step
+# never re-escape what the GET returned (which doubled backslashes on every run).
+_get_text_field() {
+  local json="$1" field="$2"
+  if command -v jq >/dev/null 2>&1; then
+    printf '%s' "$json" | jq -r --arg f "$field" '.[$f] // ""' 2>/dev/null
+  else
+    printf '%s' "$json" \
+      | grep -oE "\"$field\"[[:space:]]*:[[:space:]]*\"([^\"\\\\]|\\\\.)*\"" \
+      | head -n 1 \
+      | sed -E "s/^\"$field\"[[:space:]]*:[[:space:]]*\"(.*)\"$/\\1/" \
+      | sed -E 's/\\n/\n/g; s/\\"/"/g; s/\\\\/\\/g'
+  fi
+}
+
 # _get_ai_settings_json <json>
 # Extracts the raw ai_settings object substring, unchanged, so it can be
 # echoed back verbatim on the PUT that restores/round-trips the profile.
@@ -422,8 +440,8 @@ _step "Step 1: GET profiles/\$CONNECTION_ID/ai-settings -- record existing field
 _http GET "profiles/${CONNECTION_ID}/ai-settings"
 _print_response GET "profiles/\$CONNECTION_ID/ai-settings"
 _check_status C3 "ai-settings GET answers HTTP 200 for the owning connection" "200"
-ORIG_CONDUCT_RULES=$(_get_field "$HTTP_BODY" conduct_rules)
-ORIG_APPROACH_GUIDANCE=$(_get_field "$HTTP_BODY" approach_guidance)
+ORIG_CONDUCT_RULES=$(_get_text_field "$HTTP_BODY" conduct_rules)
+ORIG_APPROACH_GUIDANCE=$(_get_text_field "$HTTP_BODY" approach_guidance)
 ORIG_NEVER_ISSUE_LIST=$(_get_never_issue_list "$HTTP_BODY")
 ORIG_AI_SETTINGS_JSON=$(_get_ai_settings_json "$HTTP_BODY")
 echo "never_issue_list found before this run: $(printf '%s' "$ORIG_NEVER_ISSUE_LIST" | tr '\n' '|')"
