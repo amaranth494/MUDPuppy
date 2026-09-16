@@ -20,6 +20,7 @@ type Profile struct {
 	Timers                Timers            `json:"timers"`
 	ConductRules          string            `json:"conduct_rules"`
 	ApproachGuidance      string            `json:"approach_guidance"`
+	NeverIssueList        string            `json:"never_issue_list"`
 	AISettings            AISettings        `json:"ai_settings"`
 	PolicyVersionAccepted *string           `json:"policy_version_accepted"`
 	PolicyAcceptedAt      *string           `json:"policy_accepted_at"`
@@ -141,6 +142,7 @@ type ProfileUpdate struct {
 	Timers           *Timers            `json:"timers,omitempty"`
 	ConductRules     *string            `json:"conduct_rules,omitempty"`
 	ApproachGuidance *string            `json:"approach_guidance,omitempty"`
+	NeverIssueList   *string            `json:"never_issue_list,omitempty"`
 	AISettings       *AISettings        `json:"ai_settings,omitempty"`
 }
 
@@ -214,7 +216,7 @@ func (s *ProfileStore) CreateProfile(userID, connectionID uuid.UUID) (*Profile, 
 func (s *ProfileStore) GetProfile(userID, profileID uuid.UUID) (*Profile, error) {
 	query := `
 		SELECT id, user_id, connection_id, keybindings, settings, aliases, triggers, variables, timers,
-			conduct_rules, approach_guidance, ai_settings, policy_version_accepted, policy_accepted_at,
+			conduct_rules, approach_guidance, never_issue_list, ai_settings, policy_version_accepted, policy_accepted_at,
 			created_at, updated_at
 		FROM profiles
 		WHERE id = $1 AND user_id = $2
@@ -236,6 +238,7 @@ func (s *ProfileStore) GetProfile(userID, profileID uuid.UUID) (*Profile, error)
 		&timersJSON,
 		&profile.ConductRules,
 		&profile.ApproachGuidance,
+		&profile.NeverIssueList,
 		&aiSettingsJSON,
 		&policyVersionAcceptedNS,
 		&policyAcceptedAtNS,
@@ -293,7 +296,7 @@ func (s *ProfileStore) GetProfile(userID, profileID uuid.UUID) (*Profile, error)
 func (s *ProfileStore) GetProfileByConnection(userID, connectionID uuid.UUID) (*Profile, error) {
 	query := `
 		SELECT id, user_id, connection_id, keybindings, settings, aliases, triggers, variables, timers,
-			conduct_rules, approach_guidance, ai_settings, policy_version_accepted, policy_accepted_at,
+			conduct_rules, approach_guidance, never_issue_list, ai_settings, policy_version_accepted, policy_accepted_at,
 			created_at, updated_at
 		FROM profiles
 		WHERE connection_id = $1 AND user_id = $2
@@ -315,6 +318,7 @@ func (s *ProfileStore) GetProfileByConnection(userID, connectionID uuid.UUID) (*
 		&timersJSON,
 		&profile.ConductRules,
 		&profile.ApproachGuidance,
+		&profile.NeverIssueList,
 		&aiSettingsJSON,
 		&policyVersionAcceptedNS,
 		&policyAcceptedAtNS,
@@ -389,6 +393,7 @@ func (s *ProfileStore) UpdateProfile(userID, profileID uuid.UUID, updates *Profi
 	var aiSettingsJSON []byte
 	var conductRules string
 	var approachGuidance string
+	var neverIssueList string
 
 	if updates.Keybindings != nil {
 		keybindingsJSON, _ = json.Marshal(*updates.Keybindings)
@@ -438,6 +443,12 @@ func (s *ProfileStore) UpdateProfile(userID, profileID uuid.UUID, updates *Profi
 		approachGuidance = existing.ApproachGuidance
 	}
 
+	if updates.NeverIssueList != nil {
+		neverIssueList = *updates.NeverIssueList
+	} else {
+		neverIssueList = existing.NeverIssueList
+	}
+
 	if updates.AISettings != nil {
 		aiSettingsJSON, _ = json.Marshal(*updates.AISettings)
 	} else {
@@ -447,14 +458,14 @@ func (s *ProfileStore) UpdateProfile(userID, profileID uuid.UUID, updates *Profi
 	query := `
 		UPDATE profiles
 		SET keybindings = $1, settings = $2, aliases = $3, triggers = $4, variables = $5, timers = $6,
-			conduct_rules = $7, approach_guidance = $8, ai_settings = $9, updated_at = NOW()
-		WHERE id = $10 AND user_id = $11
+			conduct_rules = $7, approach_guidance = $8, never_issue_list = $9, ai_settings = $10, updated_at = NOW()
+		WHERE id = $11 AND user_id = $12
 		RETURNING updated_at
 	`
 
 	var updatedAt string
 	err = s.db.QueryRow(query, keybindingsJSON, settingsJSON, aliasesJSON, triggersJSON, variablesJSON, timersJSON,
-		conductRules, approachGuidance, aiSettingsJSON, profileID, userID).Scan(&updatedAt)
+		conductRules, approachGuidance, neverIssueList, aiSettingsJSON, profileID, userID).Scan(&updatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -484,6 +495,9 @@ func (s *ProfileStore) UpdateProfile(userID, profileID uuid.UUID, updates *Profi
 	}
 	if updates.ApproachGuidance != nil {
 		existing.ApproachGuidance = *updates.ApproachGuidance
+	}
+	if updates.NeverIssueList != nil {
+		existing.NeverIssueList = *updates.NeverIssueList
 	}
 	if updates.AISettings != nil {
 		existing.AISettings = *updates.AISettings

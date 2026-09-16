@@ -53,6 +53,9 @@ func (f *fakeProfileStore) UpdateProfile(userID, profileID uuid.UUID, updates *s
 	if updates.ApproachGuidance != nil {
 		f.profile.ApproachGuidance = *updates.ApproachGuidance
 	}
+	if updates.NeverIssueList != nil {
+		f.profile.NeverIssueList = *updates.NeverIssueList
+	}
 	if updates.AISettings != nil {
 		f.profile.AISettings = *updates.AISettings
 	}
@@ -103,11 +106,31 @@ func TestAISettingsRoundTrip(t *testing.T) {
 	fake := &fakeProfileStore{profile: newTestProfile(userID, profileID, connectionID)}
 	h := &Handler{profileStore: fake}
 
+	path := "/api/v1/profiles/" + connectionID.String() + "/ai-settings"
+
+	// A freshly built test profile answers GET with an empty never_issue_list
+	// (the empty-by-default guarantee, D-02): no starter set ships because
+	// the engine holds no game knowledge.
+	preGetReq := newTestRequest(http.MethodGet, path, userID, nil)
+	preGetRec := httptest.NewRecorder()
+	h.GetAISettings(preGetRec, preGetReq)
+	if preGetRec.Code != http.StatusOK {
+		t.Fatalf("pre-PUT GET status = %d, body = %s", preGetRec.Code, preGetRec.Body.String())
+	}
+	var preGot AISettingsResponse
+	if err := json.NewDecoder(preGetRec.Body).Decode(&preGot); err != nil {
+		t.Fatalf("decode pre-PUT GET response: %v", err)
+	}
+	if preGot.NeverIssueList != "" {
+		t.Errorf("NeverIssueList before PUT = %q, want empty", preGot.NeverIssueList)
+	}
+
 	callCap := 25
 	threshold := 2
 	putBody := AISettingsResponse{
 		ConductRules:     "no PKing",
 		ApproachGuidance: "level cautiously",
+		NeverIssueList:   "give\nremove all",
 		AISettings: store.AISettings{
 			ModelName:          "gemini-2.5-pro",
 			CallCap:            &callCap,
@@ -115,7 +138,6 @@ func TestAISettingsRoundTrip(t *testing.T) {
 		},
 	}
 
-	path := "/api/v1/profiles/" + connectionID.String() + "/ai-settings"
 	putReq := newTestRequest(http.MethodPut, path, userID, putBody)
 	putRec := httptest.NewRecorder()
 	h.PutAISettings(putRec, putReq)
@@ -139,6 +161,9 @@ func TestAISettingsRoundTrip(t *testing.T) {
 	}
 	if got.ApproachGuidance != "level cautiously" {
 		t.Errorf("ApproachGuidance = %q, want %q", got.ApproachGuidance, "level cautiously")
+	}
+	if got.NeverIssueList != "give\nremove all" {
+		t.Errorf("NeverIssueList = %q, want %q", got.NeverIssueList, "give\nremove all")
 	}
 	if got.AISettings.ModelName != "gemini-2.5-pro" {
 		t.Errorf("ModelName = %q, want %q", got.AISettings.ModelName, "gemini-2.5-pro")
@@ -220,6 +245,33 @@ func TestAISettingsRejectsOverLengthText(t *testing.T) {
 		t.Fatalf("status = %d, want 400", putRec.Code)
 	}
 	want := `{"error":"Conduct rules must be 20000 characters or less"}` + "\n"
+	if putRec.Body.String() != want {
+		t.Errorf("body = %q, want %q", putRec.Body.String(), want)
+	}
+	if fake.lastUpdate != nil {
+		t.Errorf("fake store recorded an update, want none")
+	}
+}
+
+func TestAISettingsRejectsOverLengthNeverIssueList(t *testing.T) {
+	userID := uuid.New()
+	profileID := uuid.New()
+	connectionID := uuid.New()
+	fake := &fakeProfileStore{profile: newTestProfile(userID, profileID, connectionID)}
+	h := &Handler{profileStore: fake}
+
+	overLength := strings.Repeat("a", 20001)
+	putBody := AISettingsResponse{NeverIssueList: overLength}
+
+	path := "/api/v1/profiles/" + connectionID.String() + "/ai-settings"
+	putReq := newTestRequest(http.MethodPut, path, userID, putBody)
+	putRec := httptest.NewRecorder()
+	h.PutAISettings(putRec, putReq)
+
+	if putRec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", putRec.Code)
+	}
+	want := `{"error":"Never-issue list must be 20000 characters or less"}` + "\n"
 	if putRec.Body.String() != want {
 		t.Errorf("body = %q, want %q", putRec.Body.String(), want)
 	}
