@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: "Phase 3.1 plan 07 complete: walkthrough 2 accepted by the owner as demonstrated, with row 6 of 03.1-07-SUMMARY.md characterised honestly (no staging attack in either walkthrough produced a caught-in-the-act reviewer block of a genuine hostile command; corpus STEERED: 0/24 after the build). 03.1-SECURITY-AGENDA.md finalised with six items, including the newly-found ephemeral staging vault key (Item 6), nothing pre-decided. Phase 3.1 execution is complete; pending code review, the regression gate, verification, and the Phase 3.1 security review before the phase can close and ai-player is pushed."
-last_updated: "2026-09-16T22:18:12.180Z"
+stopped_at: "Phase 3.1 executed and verified (6/6, human_needed: security review); evidence dossier published for owner acceptance; security review next"
+last_updated: "2026-09-16T22:46:24.793Z"
 last_activity: 2026-09-16
 progress:
   total_phases: 9
@@ -113,6 +113,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-09-16T22:18:12.173Z
-Stopped at: Phase 3.1 plan 07 complete: walkthrough 2 accepted by the owner as demonstrated, with row 6 of 03.1-07-SUMMARY.md characterised honestly (no staging attack in either walkthrough produced a caught-in-the-act reviewer block of a genuine hostile command; corpus STEERED: 0/24 after the build). 03.1-SECURITY-AGENDA.md finalised with six items, including the newly-found ephemeral staging vault key (Item 6), nothing pre-decided. Phase 3.1 execution is complete; pending code review, the regression gate, verification, and the Phase 3.1 security review before the phase can close and ai-player is pushed.
-Resume file: None
+Last session: 2026-09-16T22:46:24.785Z
+Stopped at: Phase 3.1 executed and verified (6/6, human_needed: security review); evidence dossier published for owner acceptance; security review next
+Resume file: .planning/phases/03.1-prompt-injection-review/03.1-SECURITY-AGENDA.md
