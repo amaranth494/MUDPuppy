@@ -179,11 +179,27 @@ Implementation notes for planning: a server-side tap on the MUD output stream (`
   5. A blocked command sends nothing to the game and leaves autopilot ON and idle; it is stored as a decision row with outcome `blocked` and its reason, reloads into the AI Assist panel after a page refresh, and the owner sees the blocked command and the reason in the panel and as one bracketed terminal line.
   6. After the build, zero steered commands from the corpus reach the send path, and on staging the owner's own `say` of an injection line on Alter Aeon is shown being blocked with its reason.
 
-**Plans:** 0 plans
+**Plans:** 7 plans
 
 Plans:
+**Wave 1**
 
-- [ ] TBD (run /gsd:plan-phase 03.1 to break down)
+- [ ] 03.1-01-PLAN.md — The hostile-text corpus runs against today's build and files the baseline red-team report
+- [ ] 03.1-02-PLAN.md — The owner can forbid commands on a profile, and the server stores and returns the list
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 03.1-03-PLAN.md — Game text reaches the model marked untrusted, and a forbidden command never reaches the dispatcher
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 03.1-04-PLAN.md — A second model pass reviews the chosen command, and a review that cannot happen stops it
+- [ ] 03.1-05-PLAN.md — The owner sees the blocked command and the reason, live and after a refresh
+- [ ] 03.1-06-PLAN.md — One command turns the Phase 3.1 HTTP sequence into a canned PASS/FAIL report per success criterion
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 03.1-07-PLAN.md — Phase 3.1 demonstrated on Alter Aeon from staging and filed as evidence: red-team before and after, test report, canned report, staging log excerpt, screenshots, security-review agenda
 
 **UI hint**: yes
 
