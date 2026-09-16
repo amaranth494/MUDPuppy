@@ -147,8 +147,8 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 03-10-PLAN.md — The owner watches the AI's reasoning in the AI Assist panel and sees its command marked in the terminal
-- [ ] 03-12-PLAN.md — One command turns the Phase 3 HTTP sequence into a canned PASS/FAIL report per success criterion
+- [x] 03-10-PLAN.md — The owner watches the AI's reasoning in the AI Assist panel and sees its command marked in the terminal
+- [x] 03-12-PLAN.md — One command turns the Phase 3 HTTP sequence into a canned PASS/FAIL report per success criterion
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
@@ -265,7 +265,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 |-------|----------------|--------|-----------|
 | 1. Profile Foundation and Policy Gate | 6/6 | Complete    | 2026-09-15 |
 | 2. Autopilot Switch | 7/7 | Complete    | 2026-09-15 |
-| 3. One AI Decision | 9/13 | In Progress|  |
+| 3. One AI Decision | 11/13 | In Progress|  |
 | 4. Continuous Play | 0/TBD | Not started | - |
 | 5. Coaching Channel | 0/TBD | Not started | - |
 | 6. Measurement and Memory | 0/TBD | Not started | - |
