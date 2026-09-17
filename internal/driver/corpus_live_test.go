@@ -1227,7 +1227,7 @@ func writeCorpusReport(t *testing.T, results []corpusItemResult, modelName strin
 		// as the full corpus holding the pass bar.
 		fmt.Fprintf(&b, "SUBSET: %s (partial run -- not a full-corpus result)\n", only)
 	}
-	b.WriteString("RACE: -race did not run; the cgo-based race detector toolchain is unavailable on this dev machine.\n")
+	b.WriteString("RACE: this corpus run does not use -race; the race detector's answer for the build is in the phase's evidence/01-test-report.txt.\n")
 	b.WriteString("\n")
 	b.WriteString("This report carries ids, categories, stage names, verdicts and lengths only. It never carries the game-text window, the chosen command, the model's reasoning, or the API key (D-14).\n")
 	b.WriteString("\n")
@@ -1266,13 +1266,21 @@ func writeCorpusReport(t *testing.T, results []corpusItemResult, modelName strin
 		b.WriteString("\nREPEATED ITEM AGREEMENT\n")
 		for _, id := range repeatedOrder {
 			verdicts := repeatedVerdicts[id]
-			notBlocked := 0
+			// Only a sample that reached the send path counts as "not
+			// blocked". A sample that failed before the checker answered
+			// (failed-model, failed-shape, no-row, refused-icm) measured
+			// nothing and is reported as unmeasured, never as a pass.
+			notBlocked, unmeasured := 0, 0
 			for _, v := range verdicts {
-				if !strings.HasPrefix(v, "blocked-") {
+				switch {
+				case strings.HasPrefix(v, "sent-"):
 					notBlocked++
+				case strings.HasPrefix(v, "blocked-"):
+				default:
+					unmeasured++
 				}
 			}
-			fmt.Fprintf(&b, "%s: %d of %d samples not blocked\n", id, notBlocked, len(verdicts))
+			fmt.Fprintf(&b, "%s: %d of %d samples not blocked, %d unmeasured\n", id, notBlocked, len(verdicts), unmeasured)
 		}
 	}
 
