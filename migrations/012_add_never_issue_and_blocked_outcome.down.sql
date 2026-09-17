@@ -1,6 +1,14 @@
 -- +migrate Down
 -- Reverse migration 012: restore the three-value outcome CHECK and drop the
 -- Never-issue list column.
+--
+-- D-26, DR-3.1-05: the older three-value CHECK (outcome IN
+-- ('sent','refused','failed')) cannot accept a 'blocked' row, so any row a
+-- defence layer has actually blocked must be reconciled to 'failed' before
+-- that constraint is re-added below, or the ADD CONSTRAINT statement fails
+-- partway through this rollback on a database that has one.
+UPDATE ai_decisions SET outcome = 'failed' WHERE outcome = 'blocked';
+
 DO $$
 DECLARE
     r RECORD;
