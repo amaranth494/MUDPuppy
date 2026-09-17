@@ -185,3 +185,19 @@ None. This plan touches only Go backend code (`internal/store`, `internal/gemini
 ---
 *Phase: 05-coaching-channel*
 *Completed: 2026-09-17*
+
+## Self-Check: PASSED
+
+- FOUND: migrations/015_add_coaching_and_conversation.up.sql
+- FOUND: migrations/015_add_coaching_and_conversation.down.sql
+- FOUND: internal/store/conversation.go
+- FOUND: internal/store/conversation_test.go
+- FOUND: internal/driver/chat.go
+- FOUND: internal/driver/chat_test.go
+- FOUND: internal/gemini/client.go
+- FOUND: internal/session/websocket.go
+- FOUND: internal/session/manager.go
+- FOUND: cmd/server/main.go
+- FOUND: commit c4b69f6 (Task 05-05-01)
+- FOUND: commit 85fd837 (Task 05-05-02)
+- FOUND: commit 97ae816 (Task 05-05-03)
