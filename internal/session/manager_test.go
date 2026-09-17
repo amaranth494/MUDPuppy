@@ -896,28 +896,92 @@ func TestManager_PauseNeverResumesByItself(t *testing.T) {
 }
 
 // TestManager_WheelGrabWhilePausedLandsOff proves D-16: the wheel-grab rule
-// is the same in every engaged state. DisengageAutopilot with cause
-// "wheel-grab" is the exact call applyWheelGrab makes once it decides a
-// human-sourced command takes the wheel back; this test drives that same
-// path directly against a paused switch.
+// is the same in every engaged state the owner can type in.
+//
+// Code review CR-01 of Phase 5: this test used to call DisengageAutopilot
+// directly, the call applyWheelGrab never reached for a paused switch, so it
+// passed while the behaviour it is named for did not exist. It now goes
+// through applyWheelGrab itself, the only place a typed command arrives, and
+// pins the guard (AutopilotGrabbable) in each state.
 func TestManager_WheelGrabWhilePausedLandsOff(t *testing.T) {
-	m := newTestManager()
-	const userID = "wheelpause-user-1"
-	seedConnectedSession(m, userID, "conn-1")
-	if _, _, _, err := m.EngageAutopilotEpoch(userID, "conn-1"); err != nil {
-		t.Fatalf("engage err = %v, want nil", err)
-	}
-	if state, changed := m.PauseAutopilot(userID); !changed || state != AutopilotWaiting {
-		t.Fatalf("PauseAutopilot = (%q, %v), want (%q, true)", state, changed, AutopilotWaiting)
-	}
+	t.Run("the_guard_in_each_state", func(t *testing.T) {
+		m := newTestManager()
+		const userID = "wheelpause-guard-1"
 
-	state, changed := m.DisengageAutopilot(userID, "wheel-grab")
-	if !changed || state != AutopilotOff {
-		t.Fatalf("DisengageAutopilot(wheel-grab) while paused = (%q, %v), want (%q, true)", state, changed, AutopilotOff)
-	}
-	if paused, lost := m.AutopilotWaitingReasons(userID); paused || lost {
-		t.Fatalf("AutopilotWaitingReasons after wheel-grab = (%v, %v), want (false, false)", paused, lost)
-	}
+		if state, ok := m.AutopilotGrabbable(userID); ok || state != AutopilotOff {
+			t.Fatalf("never engaged: AutopilotGrabbable = (%q, %v), want (%q, false)", state, ok, AutopilotOff)
+		}
+
+		seedConnectedSession(m, userID, "conn-1")
+		if _, _, _, err := m.EngageAutopilotEpoch(userID, "conn-1"); err != nil {
+			t.Fatalf("engage err = %v, want nil", err)
+		}
+		if state, ok := m.AutopilotGrabbable(userID); !ok || state != AutopilotOn {
+			t.Fatalf("on: AutopilotGrabbable = (%q, %v), want (%q, true)", state, ok, AutopilotOn)
+		}
+
+		m.PauseAutopilot(userID)
+		if state, ok := m.AutopilotGrabbable(userID); !ok || state != AutopilotWaiting {
+			t.Fatalf("paused: AutopilotGrabbable = (%q, %v), want (%q, true)", state, ok, AutopilotWaiting)
+		}
+
+		m.DisengageAutopilot(userID, "disengage")
+		if state, ok := m.AutopilotGrabbable(userID); ok || state != AutopilotOff {
+			t.Fatalf("off: AutopilotGrabbable = (%q, %v), want (%q, false)", state, ok, AutopilotOff)
+		}
+	})
+
+	t.Run("a_disconnect_only_waiting_is_not_grabbable", func(t *testing.T) {
+		m := newTestManager()
+		const userID = "wheelpause-guard-2"
+		seedConnectedSession(m, userID, "conn-1")
+		if _, _, _, err := m.EngageAutopilotEpoch(userID, "conn-1"); err != nil {
+			t.Fatalf("engage err = %v, want nil", err)
+		}
+		if err := m.Disconnect(userID, ReasonRemote); err != nil {
+			t.Fatalf("Disconnect err = %v, want nil", err)
+		}
+		if state, ok := m.AutopilotGrabbable(userID); ok || state != AutopilotWaiting {
+			t.Fatalf("connection lost only: AutopilotGrabbable = (%q, %v), want (%q, false)", state, ok, AutopilotWaiting)
+		}
+	})
+
+	t.Run("typing_while_paused_lands_off_and_stops_the_stint", func(t *testing.T) {
+		m := newTestManager()
+		const userID = "wheelpause-user-1"
+		seedConnectedSession(m, userID, "conn-1")
+		if _, _, _, err := m.EngageAutopilotEpoch(userID, "conn-1"); err != nil {
+			t.Fatalf("engage err = %v, want nil", err)
+		}
+		if state, changed := m.PauseAutopilot(userID); !changed || state != AutopilotWaiting {
+			t.Fatalf("PauseAutopilot = (%q, %v), want (%q, true)", state, changed, AutopilotWaiting)
+		}
+
+		// Registered after the pause so the pause's own hook firing is not
+		// counted: what is asserted is the grab's.
+		time.Sleep(20 * time.Millisecond)
+		disengageFired := make(chan uint64, 4)
+		m.SetDisengageHook(func(uid string, epoch uint64) { disengageFired <- epoch })
+
+		grabbed, state := applyWheelGrab(m, userID, "user")
+		if !grabbed || state != AutopilotOff {
+			t.Fatalf("applyWheelGrab while paused = (%v, %q), want (true, %q)", grabbed, state, AutopilotOff)
+		}
+		if got := m.AutopilotStateFor(userID); got != AutopilotOff {
+			t.Fatalf("AutopilotStateFor after the grab = %q, want %q", got, AutopilotOff)
+		}
+		if paused, lost := m.AutopilotWaitingReasons(userID); paused || lost {
+			t.Fatalf("AutopilotWaitingReasons after wheel-grab = (%v, %v), want (false, false)", paused, lost)
+		}
+		if !pollUntil(t, 2*time.Second, func() bool { return len(disengageFired) >= 1 }) {
+			t.Fatalf("timed out waiting for the disengage hook to fire on a wheel-grab while paused")
+		}
+
+		// A second typed command finds the switch Off and grabs nothing.
+		if grabbed, state := applyWheelGrab(m, userID, "user"); grabbed || state != AutopilotOff {
+			t.Fatalf("second applyWheelGrab = (%v, %q), want (false, %q)", grabbed, state, AutopilotOff)
+		}
+	})
 }
 
 // TestManager_PauseStopsTheLoopAndKeepsReading is D-14's mechanical half:

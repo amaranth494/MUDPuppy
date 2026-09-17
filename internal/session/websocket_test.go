@@ -350,6 +350,75 @@ func TestWheelGrabSourceRule(t *testing.T) {
 			}
 		})
 
+		// Code review CR-01 of Phase 5 (D-16): a human command typed while the
+		// owner's pause stands takes the wheel exactly as it does while On.
+		// This goes THROUGH applyWheelGrab, the only place typing arrives.
+		t.Run("paused_is_grabbed", func(t *testing.T) {
+			m := newTestManager()
+			const userID = "wg-user-7"
+			seedConnectedSession(m, userID, "conn-1")
+			_, _, pausedEpoch, err := m.EngageAutopilotEpoch(userID, "conn-1")
+			if err != nil {
+				t.Fatalf("engage err = %v, want nil", err)
+			}
+			if state, changed := m.PauseAutopilot(userID); !changed || state != AutopilotWaiting {
+				t.Fatalf("PauseAutopilot = (%q, %v), want (%q, true)", state, changed, AutopilotWaiting)
+			}
+
+			engageFired := make(chan struct{}, 4)
+			m.SetEngageHook(func(uid, connID string, epoch uint64) { engageFired <- struct{}{} })
+
+			grabbed, state := applyWheelGrab(m, userID, "user")
+			if !grabbed {
+				t.Fatalf("grabbed = false, want true (D-16: typing takes the wheel, paused or not)")
+			}
+			if state != AutopilotOff {
+				t.Fatalf("state = %q, want %q", state, AutopilotOff)
+			}
+			if got := m.AutopilotStateFor(userID); got != AutopilotOff {
+				t.Fatalf("AutopilotStateFor = %q, want %q", got, AutopilotOff)
+			}
+			if paused, lost := m.AutopilotWaitingReasons(userID); paused || lost {
+				t.Fatalf("AutopilotWaitingReasons after the grab = (%v, %v), want (false, false)", paused, lost)
+			}
+
+			// Off means Off: Resume must not bring AI-player back without a
+			// fresh #AUTO ON, and must not start a stint.
+			if state, changed := m.ResumeAutopilotByOwner(userID); changed || state != AutopilotOff {
+				t.Fatalf("ResumeAutopilotByOwner after the grab = (%q, %v), want (%q, false)", state, changed, AutopilotOff)
+			}
+			time.Sleep(20 * time.Millisecond)
+			if len(engageFired) != 0 {
+				t.Fatalf("engage hook fired %d time(s) after a wheel-grab while paused, want 0", len(engageFired))
+			}
+			if _, epoch := m.AutopilotEpochFor(userID); epoch != pausedEpoch {
+				t.Fatalf("epoch after the grab = %d, want unchanged %d (a grab never begins a stint)", epoch, pausedEpoch)
+			}
+		})
+
+		t.Run("paused_trigger_source_is_not_grabbed", func(t *testing.T) {
+			m := newTestManager()
+			const userID = "wg-user-8"
+			seedConnectedSession(m, userID, "conn-1")
+			if _, _, err := m.EngageAutopilot(userID, "conn-1"); err != nil {
+				t.Fatalf("engage err = %v, want nil", err)
+			}
+			if _, changed := m.PauseAutopilot(userID); !changed {
+				t.Fatalf("PauseAutopilot changed = false, want true")
+			}
+
+			grabbed, state := applyWheelGrab(m, userID, "trigger")
+			if grabbed {
+				t.Fatalf("grabbed = true, want false (automation never takes the wheel)")
+			}
+			if state != AutopilotWaiting {
+				t.Fatalf("state = %q, want %q", state, AutopilotWaiting)
+			}
+			if paused, _ := m.AutopilotWaitingReasons(userID); !paused {
+				t.Fatalf("paused_by_owner cleared by an automation command, want it to stand")
+			}
+		})
+
 		t.Run("second_user_untouched", func(t *testing.T) {
 			m := newTestManager()
 			const userA = "wg-user-a"

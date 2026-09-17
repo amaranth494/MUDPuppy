@@ -178,15 +178,22 @@ func IsHumanSource(source string) bool {
 // applyWheelGrab decides whether a browser-sent command takes the wheel
 // back from autopilot. It takes a *Manager argument rather than being a
 // method on WebSocketHandler so the rule is testable without opening a
-// socket. It can only move a user's own autopilot from on to off — never
-// engage or resume anything — so a client that forges a source label can
-// at most keep its own already-on autopilot on (threat T-2-01).
+// socket. It can only move a user's own autopilot to off — never engage or
+// resume anything — so a client that forges a source label can at most keep
+// its own already-engaged autopilot engaged (threat T-2-01).
+//
+// D-16 (code review CR-01 of Phase 5): the rule is the same in every engaged
+// state the owner can type in. That is On, and Waiting when the owner paused
+// it. A Waiting that stands on a lost connection alone is left parked; the
+// read loop refuses MsgTypeData with "Not connected" before it gets here, and
+// Manager.AutopilotGrabbable holds the same line for any other caller.
 func applyWheelGrab(m *Manager, userID, source string) (grabbed bool, state AutopilotState) {
 	if !IsHumanSource(source) {
 		return false, m.AutopilotStateFor(userID)
 	}
-	if m.AutopilotStateFor(userID) != AutopilotOn {
-		return false, m.AutopilotStateFor(userID)
+	cur, grabbable := m.AutopilotGrabbable(userID)
+	if !grabbable {
+		return false, cur
 	}
 	newState, changed := m.DisengageAutopilot(userID, "wheel-grab")
 	if !changed {

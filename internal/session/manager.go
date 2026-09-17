@@ -1196,6 +1196,34 @@ func (m *Manager) AutopilotWaitingReasons(userID string) (pausedByOwner bool, co
 	return rec.PausedByOwner, rec.ConnectionLost
 }
 
+// AutopilotGrabbable reports whether a human-typed game command takes the
+// wheel from userID's autopilot right now (D-16, code review CR-01 of
+// Phase 5), together with the state it read. State and the owner-pause
+// reason are read under ONE lock so the pair is consistent.
+//
+// The wheel can be grabbed when the switch is On, and when it is Waiting
+// because the owner paused it: in both the owner is at a live game and can
+// type. A Waiting that stands on a lost connection alone is not grabbable --
+// nothing can be typed at a disconnected game, and quietly turning a parked
+// switch Off would break the resume-on-reconnect promise (D-19).
+func (m *Manager) AutopilotGrabbable(userID string) (AutopilotState, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	rec, ok := m.autopilot[userID]
+	if !ok {
+		return AutopilotOff, false
+	}
+	switch rec.State {
+	case AutopilotOn:
+		return rec.State, true
+	case AutopilotWaiting:
+		return rec.State, rec.PausedByOwner
+	default:
+		return rec.State, false
+	}
+}
+
 // ErrAutopilotNotOn is what SendCommandAs and SendAICommand return for an
 // AI command when autopilot is not On at the moment of the write, or (for
 // SendAICommand) when it is On but for a later stint than the one the
