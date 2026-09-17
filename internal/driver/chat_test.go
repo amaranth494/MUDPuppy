@@ -475,6 +475,46 @@ func TestHandleChat_MessageTooLong(t *testing.T) {
 	}
 }
 
+// TestHandleChat_MessageLengthIsCountedInCharacters proves code review IN-01
+// of Phase 5: the limit is 1000 CHARACTERS, as its notice says, so a message
+// in a script that takes more than one byte per character is not refused
+// early, and one that really is too long still is.
+func TestHandleChat_MessageLengthIsCountedInCharacters(t *testing.T) {
+	t.Run("four_hundred_cyrillic_characters_are_accepted", func(t *testing.T) {
+		f := newChatFixture(nil)
+		message := strings.Repeat("ж", 400) // 800 bytes
+		if len(message) <= 400 {
+			t.Fatalf("precondition: expected a multi-byte message, got %d bytes", len(message))
+		}
+
+		f.driver.HandleChat(f.userID, f.connID, message)
+
+		if got := f.models.chatCallCount(); got != 1 {
+			t.Fatalf("expected the message answered, got %d Chat call(s)", got)
+		}
+	})
+
+	t.Run("exactly_the_limit_in_multibyte_characters_is_accepted", func(t *testing.T) {
+		f := newChatFixture(nil)
+		f.driver.HandleChat(f.userID, f.connID, strings.Repeat("語", maxChatMessageLength)) // 3000 bytes
+		if got := f.models.chatCallCount(); got != 1 {
+			t.Fatalf("expected a message of exactly %d characters answered, got %d Chat call(s)", maxChatMessageLength, got)
+		}
+	})
+
+	t.Run("one_character_over_is_still_refused", func(t *testing.T) {
+		f := newChatFixture(nil)
+		f.driver.HandleChat(f.userID, f.connID, strings.Repeat("語", maxChatMessageLength+1))
+		if got := f.models.chatCallCount(); got != 0 {
+			t.Fatalf("expected no model call, got %d", got)
+		}
+		events := f.notifier.chatEventsSnapshot()
+		if len(events) != 1 || events[0].Text != chatMessageTooLongNotice {
+			t.Fatalf("expected the too-long notice, got %+v", events)
+		}
+	})
+}
+
 // TestHandleChat_PromptCarriesCoachingInEffect proves D-17: the coaching
 // currently in effect travels in AI-chatter's own prompt, in its own
 // delimited block, with the verbatim-copy instruction present; an empty

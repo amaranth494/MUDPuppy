@@ -15,6 +15,7 @@ import (
 	"log"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/amaranth494/MudPuppy/internal/gemini"
 	"github.com/amaranth494/MudPuppy/internal/store"
@@ -119,7 +120,10 @@ func (d *Driver) HandleChat(userID, connectionID, message string) {
 	if trimmed == "" {
 		return
 	}
-	if len(trimmed) > maxChatMessageLength {
+	// Counted in characters, as the notice says, not bytes (code review IN-01
+	// of Phase 5): a 400-character Cyrillic or CJK message is 800 to 1200
+	// bytes and used to be refused as "too long (1000 characters or fewer)".
+	if utf8.RuneCountInString(trimmed) > maxChatMessageLength {
 		d.notifyChatSystem(userID, chatMessageTooLongNotice, chatStateFailed)
 		log.Printf("[AI-CHATTER] chat user_id=%s connection_id=%s stage=failed reason=too-long message_len=%d", userID, connectionID, len(trimmed))
 		return
