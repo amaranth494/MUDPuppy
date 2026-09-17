@@ -131,6 +131,10 @@ The owner was not signed out of any session during this plan, and no private-win
 - AR-4-08's code-side answer is in place; the remaining evidence (the signed-out screenshot) is plan 05-11's to file.
 - No blockers for downstream Phase 5 plans.
 
+## Self-Check: PASSED
+
+All created/modified files found on disk (internal/config/config.go, internal/config/config_test.go, frontend/src/App.tsx, this SUMMARY.md); all commit hashes (cf9a701, fd82c77, 2dda3f7) found in `git log --oneline --all`.
+
 ---
 *Phase: 05-coaching-channel*
 *Completed: 2026-09-17*
