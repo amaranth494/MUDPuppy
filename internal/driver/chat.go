@@ -213,6 +213,9 @@ func (d *Driver) HandleChat(userID, connectionID, message string) {
 	if len(coachingResult.withdrawn) > 0 {
 		log.Printf("[AI-CHATTER] chat user_id=%s connection_id=%s stage=coaching-withdrawn count=%d", userID, connectionID, len(coachingResult.withdrawn))
 	}
+	if coachingResult.storeError != "" {
+		log.Printf("[AI-CHATTER] chat user_id=%s connection_id=%s stage=coaching-store-error op=%s", userID, connectionID, coachingResult.storeError)
+	}
 	if coachingResult.rejected > 0 || coachingResult.overLimit > 0 {
 		// Counts only, never the refused text (code review CR-02 of Phase 5).
 		log.Printf("[AI-CHATTER] chat user_id=%s connection_id=%s stage=coaching-rejected count=%d over_limit=%d", userID, connectionID, coachingResult.rejected, coachingResult.overLimit)
@@ -241,6 +244,11 @@ type coachingApplyResult struct {
 	// ever stored.
 	rejected  int
 	overLimit int
+	// storeError is "" when the coaching store behaved, "read" when the
+	// current list could not be read and "write" when the new list could not
+	// be stored (code review WR-04 of Phase 5). Either way nothing changed,
+	// and pushed/withdrawn/dropped are empty so nothing is claimed.
+	storeError string
 }
 
 // applyCoaching is HandleChat's own push/withdraw step (D-08, D-09, D-10).
@@ -254,10 +262,11 @@ type coachingApplyResult struct {
 // after neutralising is dropped silently, and a push that exactly matches a
 // line already present is not duplicated. The maxCoachingBullets ceiling is
 // enforced once, at the end, by dropping the oldest surviving entries and
-// counting how many were dropped. A nil Coaching collaborator, or a read
-// error, makes this a no-op: the model's push/withdraw requests are
-// silently ignored, exactly like every other nil-safe collaborator in this
-// package.
+// counting how many were dropped. A nil Coaching collaborator makes this a
+// no-op, exactly like every other nil-safe collaborator in this package. A
+// store ERROR is different (code review WR-04 of Phase 5): a failed read or
+// a failed write changes nothing, claims nothing, and is reported to the
+// owner and the log through storeError.
 //
 // Code review CR-02 of Phase 5 adds the mechanical provenance gate
 // (coaching_gate.go). ownerMessage is the owner's CURRENT chat message. A
@@ -273,10 +282,17 @@ func (d *Driver) applyCoaching(gameSessionID uuid.UUID, ownerMessage string, pus
 	if d.coaching == nil {
 		return result
 	}
+	if len(pushes) == 0 && len(withdraws) == 0 {
+		return result
+	}
 
+	// Code review WR-04 of Phase 5: a failed read used to be treated as an
+	// empty list, so the next push REPLACED every standing line with one.
+	// Without the current list nothing can be changed safely: stop here,
+	// leave the store alone and say so.
 	current, err := d.coaching.CoachingFor(gameSessionID)
 	if err != nil {
-		current = nil
+		return coachingApplyResult{storeError: "read"}
 	}
 
 	for _, w := range withdraws {
@@ -334,7 +350,18 @@ func (d *Driver) applyCoaching(gameSessionID uuid.UUID, ownerMessage string, pus
 	}
 
 	if len(result.pushed) > 0 || len(result.withdrawn) > 0 {
-		_ = d.coaching.UpdateCoaching(gameSessionID, current)
+		// Code review WR-04 of Phase 5: a failed write used to be discarded
+		// while the reply still quoted the line as sent and the received
+		// marker still fired, for a line AI-player would never read. What the
+		// owner is told must be what was stored: on a write error nothing is
+		// reported as sent, withdrawn or dropped.
+		if err := d.coaching.UpdateCoaching(gameSessionID, current); err != nil {
+			return coachingApplyResult{
+				storeError: "write",
+				rejected:   result.rejected,
+				overLimit:  result.overLimit,
+			}
+		}
 	}
 
 	return result
@@ -382,6 +409,11 @@ const coachingWithdrawNoMatchSentence = "Nothing you named matches a suggestion 
 // itself is never shown, stored or logged.
 const coachingRejectedSentence = "AI-chatter tried to send a line you did not ask for; it was not sent."
 
+// coachingStoreErrorSentence is the fixed sentence the owner reads when the
+// coaching list could not be read or saved (code review WR-04 of Phase 5):
+// nothing was changed, and nothing is claimed.
+const coachingStoreErrorSentence = "AI-chatter could not change the coaching just now, so nothing was sent to AI-player or taken back. Try again in a moment."
+
 // coachingOverLimitSentence is the fixed sentence for lines that passed the
 // gate but arrived after maxPushesPerMessage had been accepted, so the owner
 // is never left believing more was sent than the quoted lines above show.
@@ -410,6 +442,10 @@ func composeChatReply(result coachingApplyResult, modelReply string) string {
 	}
 	if result.dropped > 0 {
 		b.WriteString(fmt.Sprintf("The oldest %d suggestion(s) were dropped to stay within the coaching limit.\n", result.dropped))
+	}
+	if result.storeError != "" {
+		b.WriteString(coachingStoreErrorSentence)
+		b.WriteString("\n")
 	}
 	if result.rejected > 0 {
 		b.WriteString(coachingRejectedSentence)

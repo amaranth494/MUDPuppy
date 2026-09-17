@@ -283,6 +283,104 @@ func TestCoachingGate(t *testing.T) {
 	})
 }
 
+// TestCoachingStoreErrorsAreNotSwallowed proves code review WR-04 of Phase 5:
+// a failed read never wipes the standing list, a failed write is never
+// reported as a line sent, and either way the owner is told plainly and no
+// received marker fires.
+func TestCoachingStoreErrorsAreNotSwallowed(t *testing.T) {
+	t.Run("a_read_error_leaves_the_list_alone_and_claims_nothing", func(t *testing.T) {
+		f := newChatFixture(nil)
+		f.coaching.seed(f.gameSessionID, []string{"keep to the shadows", "greet the guard politely"})
+		f.coaching.readErr = fmt.Errorf("connection reset")
+		f.models.chatAnswer = &gemini.ChatAnswer{Reply: "done.", Push: []string{"avoid the north road"}}
+
+		f.driver.HandleChat(f.userID, f.connID, "avoid the north road")
+
+		if calls := f.coaching.updateCallsSnapshot(); len(calls) != 0 {
+			t.Fatalf("expected NO write after a failed read (it would replace the whole list), got %d: %+v", len(calls), calls)
+		}
+		f.coaching.readErr = nil
+		stored, _ := f.coaching.CoachingFor(f.gameSessionID)
+		if !reflect.DeepEqual(stored, []string{"keep to the shadows", "greet the guard politely"}) {
+			t.Fatalf("expected the standing list untouched, got %v", stored)
+		}
+		reply := lastReply(t, f)
+		if !strings.Contains(reply, coachingStoreErrorSentence) {
+			t.Fatalf("expected the owner to be told, got %q", reply)
+		}
+		if strings.Contains(reply, coachingSentPrefix) {
+			t.Fatalf("expected no line reported as sent, got %q", reply)
+		}
+		if got := coachingReceivedCount(f); got != 0 {
+			t.Fatalf("expected no coaching-received marker, got %d", got)
+		}
+	})
+
+	t.Run("a_write_error_is_never_reported_as_sent", func(t *testing.T) {
+		f := newChatFixture(nil)
+		f.coaching.seed(f.gameSessionID, []string{"keep to the shadows"})
+		f.coaching.updateErr = fmt.Errorf("disk full")
+		f.models.chatAnswer = &gemini.ChatAnswer{
+			Reply:    "done.",
+			Push:     []string{"avoid the north road"},
+			Withdraw: []string{"keep to the shadows"},
+		}
+
+		f.driver.HandleChat(f.userID, f.connID, "avoid the north road and forget the shadows")
+
+		stored, _ := f.coaching.CoachingFor(f.gameSessionID)
+		if !reflect.DeepEqual(stored, []string{"keep to the shadows"}) {
+			t.Fatalf("expected the standing list unchanged after a failed write, got %v", stored)
+		}
+		reply := lastReply(t, f)
+		if !strings.Contains(reply, coachingStoreErrorSentence) {
+			t.Fatalf("expected the owner to be told, got %q", reply)
+		}
+		if strings.Contains(reply, coachingSentPrefix) || strings.Contains(reply, coachingWithdrewPrefix) {
+			t.Fatalf("expected nothing reported as sent or withdrawn, got %q", reply)
+		}
+		if got := coachingReceivedCount(f); got != 0 {
+			t.Fatalf("expected no coaching-received marker for a line that was never stored, got %d", got)
+		}
+	})
+
+	t.Run("a_read_error_with_nothing_asked_for_says_nothing", func(t *testing.T) {
+		f := newChatFixture(nil)
+		f.coaching.readErr = fmt.Errorf("connection reset")
+
+		f.driver.HandleChat(f.userID, f.connID, "why did you go north?")
+
+		if strings.Contains(lastReply(t, f), coachingStoreErrorSentence) {
+			t.Fatalf("expected no store-error sentence when no change was asked for, got %q", lastReply(t, f))
+		}
+	})
+
+	t.Run("the_error_is_logged_with_a_stage_and_no_text", func(t *testing.T) {
+		var buf bytes.Buffer
+		prevOut := log.Writer()
+		log.SetOutput(&buf)
+		defer log.SetOutput(prevOut)
+
+		f := newChatFixture(nil)
+		f.coaching.updateErr = fmt.Errorf("disk full")
+		f.models.chatAnswer = &gemini.ChatAnswer{Reply: "done.", Push: []string{"avoid the north road"}}
+		f.driver.HandleChat(f.userID, f.connID, "avoid the north road")
+
+		logged := buf.String()
+		if !strings.Contains(logged, "stage=coaching-store-error op=write") {
+			t.Fatalf("expected a coaching-store-error line, got:\n%s", logged)
+		}
+		if strings.Contains(logged, "stage=coaching-pushed") {
+			t.Fatalf("expected no coaching-pushed line for a line that was never stored:\n%s", logged)
+		}
+		for _, secret := range []string{"north road", "disk full"} {
+			if strings.Contains(logged, secret) {
+				t.Fatalf("log output carries text it must never carry (%q):\n%s", secret, logged)
+			}
+		}
+	})
+}
+
 // TestCoachingGateLogsCountsOnly proves the refusal is logged with a stage
 // and counts and never with the refused text, the owner's message or the
 // game text (log lines carry ids, stages, outcomes, counts and lengths only).
