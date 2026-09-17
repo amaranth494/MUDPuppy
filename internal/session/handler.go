@@ -21,6 +21,12 @@ type Handler struct {
 	// Autopilot handler's "on" branch — but only in the arm whose outcome
 	// is "engaged" (see SetEngageHook).
 	engageHook EngageHook
+	// aiNotifier is the AI panel's thinking-stream channel (Phase 5,
+	// D-15), mirroring internal/profiles.Handler's own aiNotifier
+	// convention: nil until SetAINotifier is called, making the pause and
+	// resume system-line notices a silent no-op — a missing notifier never
+	// blocks a pause or resume itself.
+	aiNotifier func(userID string, payload AIDecisionPayload)
 }
 
 // HandlerCallbacks provides callbacks for session events
@@ -57,6 +63,31 @@ func NewHandlerWithCallbacks(manager *Manager, cfg *config.Config, callbacks *Ha
 // zero-value default) makes the fire site in Autopilot a no-op.
 func (h *Handler) SetEngageHook(h2 EngageHook) {
 	h.engageHook = h2
+}
+
+// SetAINotifier wires the AI system-line channel (Phase 5, D-15), following
+// SetEngageHook's injection precedent. A nil fn (the zero-value default)
+// makes notifyAutopilotSystemLine below a no-op.
+func (h *Handler) SetAINotifier(fn func(userID string, payload AIDecisionPayload)) {
+	h.aiNotifier = fn
+}
+
+// notifyAutopilotSystemLine builds the fixed-shape AIDecisionPayload every
+// pause/resume notice uses (mirroring internal/profiles.Handler's own
+// goal-changed notice verbatim) and pushes it through h.aiNotifier when one
+// is wired. It carries no ids, no reasons and no free text beyond the fixed
+// message — there is nothing to redact because nothing variable goes in.
+func (h *Handler) notifyAutopilotSystemLine(userID, outcome, message string) {
+	if h.aiNotifier == nil {
+		return
+	}
+	h.aiNotifier(userID, AIDecisionPayload{
+		ID:        uuid.New().String(),
+		Kind:      "system",
+		Outcome:   outcome,
+		Message:   message,
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+	})
 }
 
 // Request/Response types
@@ -455,6 +486,10 @@ func (h *Handler) Autopilot(w http.ResponseWriter, r *http.Request) {
 		resp.State = string(newState)
 		if changed {
 			resp.Outcome = "paused"
+			// D-15: the stream prints a notice only on a real transition —
+			// a pause that returned already-waiting or already-off never
+			// claims a transition that did not happen.
+			h.notifyAutopilotSystemLine(userIDStr, "paused", "Autopilot paused")
 		} else if newState == AutopilotOff {
 			resp.Outcome = "already-off"
 		} else {
@@ -474,6 +509,11 @@ func (h *Handler) Autopilot(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case changed:
 			resp.Outcome = "resumed"
+			// D-15: ResumeAutopilotByOwner reports changed==false whenever
+			// ConnectionLost is still standing, so gating the notice on
+			// changed alone is automatically "only after every waiting
+			// reason has cleared" — no reason condition is re-derived here.
+			h.notifyAutopilotSystemLine(userIDStr, "resumed", "Autopilot resumed")
 		case newState == AutopilotWaiting:
 			// Another reason (a lost connection) is still standing (D-15).
 			resp.Outcome = "still-waiting"
