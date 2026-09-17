@@ -154,15 +154,19 @@ func (d *Driver) HandleChat(userID, connectionID, message string) {
 	// as the live instruction, not as history.
 	tail := d.recentConversationTail(gsID)
 
-	// Store the owner's message before any model call, and notify it
-	// immediately so it appears in the conversation right away.
-	if ownerLine, appendErr := d.appendChatLine(gsID, "owner", trimmed); appendErr == nil {
-		d.notifyChat(userID, ChatEvent{
-			ID:        fmt.Sprintf("%d", ownerLine.ID),
-			Speaker:   "owner",
-			Text:      trimmed,
-			Timestamp: ownerLine.CreatedAt.UTC().Format(time.RFC3339),
-		})
+	// Store the owner's message before any model call, and show it
+	// immediately so it appears in the conversation right away. Code review
+	// WR-05 of Phase 5: it is shown whether or not it could be stored. If
+	// any line of this exchange could not be stored the owner is told so,
+	// once, after everything else he is shown.
+	unsaved := false
+	defer func() {
+		if unsaved {
+			d.notifyChatSystem(userID, chatNotSavedNotice, chatStateFailed)
+		}
+	}()
+	if !d.storeAndShowChatLine(userID, connectionID, gsID, "owner", trimmed) {
+		unsaved = true
 	}
 	log.Printf("[AI-CHATTER] chat user_id=%s connection_id=%s stage=received message_len=%d", userID, connectionID, len(trimmed))
 
@@ -197,13 +201,12 @@ func (d *Driver) HandleChat(userID, connectionID, message string) {
 	coachingResult := d.applyCoaching(gsID, trimmed, answer.Push, answer.Withdraw)
 	finalReply := composeChatReply(coachingResult, answer.Reply)
 
-	if replyLine, appendErr := d.appendChatLine(gsID, "chatter", finalReply); appendErr == nil {
-		d.notifyChat(userID, ChatEvent{
-			ID:        fmt.Sprintf("%d", replyLine.ID),
-			Speaker:   "chatter",
-			Text:      finalReply,
-			Timestamp: replyLine.CreatedAt.UTC().Format(time.RFC3339),
-		})
+	// Code review WR-05 of Phase 5 (D-09: nothing reaches AI-player that the
+	// owner cannot see). The coaching above has ALREADY been applied, so the
+	// reply that quotes it must reach the owner even when it cannot be
+	// stored. It used to be dropped on a storage error.
+	if !d.storeAndShowChatLine(userID, connectionID, gsID, "chatter", finalReply) {
+		unsaved = true
 	}
 	log.Printf("[AI-CHATTER] chat user_id=%s connection_id=%s stage=reply reply_len=%d", userID, connectionID, len(finalReply))
 
@@ -497,11 +500,42 @@ func (d *Driver) endChat(userID string) {
 	delete(d.chatInFlight, userID)
 }
 
+// chatNotSavedNotice is shown once, after the lines themselves, when any
+// line of an exchange could not be stored (code review WR-05 of Phase 5).
+const chatNotSavedNotice = "This part of the conversation could not be saved. It will be gone after a refresh and will not appear on the Logs page."
+
+// unsavedChatIDPrefix starts the id of a chat line that was shown but not
+// stored. A stored line's id is its row id, a plain number, so the two can
+// never collide and the panel can still key and de-duplicate by id.
+const unsavedChatIDPrefix = "unsaved-"
+
+// storeAndShowChatLine stores one conversation line and ALWAYS shows it to
+// the owner (code review WR-05 of Phase 5): with the stored row's id and
+// time when it was stored, with a generated id and the current time when it
+// was not. It reports whether the line was stored. The log line carries the
+// speaker and a length, never the text.
+func (d *Driver) storeAndShowChatLine(userID, connectionID string, gameSessionID uuid.UUID, speaker, text string) bool {
+	id := unsavedChatIDPrefix + uuid.NewString()
+	ts := time.Now().UTC()
+	line, err := d.appendChatLine(gameSessionID, speaker, text)
+	if err == nil {
+		id = fmt.Sprintf("%d", line.ID)
+		ts = line.CreatedAt.UTC()
+	} else {
+		log.Printf("[AI-CHATTER] chat user_id=%s connection_id=%s stage=conversation-store-error speaker=%s text_len=%d", userID, connectionID, speaker, len(text))
+	}
+	d.notifyChat(userID, ChatEvent{
+		ID:        id,
+		Speaker:   speaker,
+		Text:      text,
+		Timestamp: ts.Format(time.RFC3339),
+	})
+	return err == nil
+}
+
 // appendChatLine is a nil-safe wrapper around Conversation.AppendChatLine:
 // a nil Conversation collaborator, or a storage error, means the line is
-// simply not appended -- mirroring persistMemory's own storage-error
-// tolerance elsewhere in this package. A chat reply must still reach the
-// owner even when storage fails.
+// not appended. The caller, storeAndShowChatLine, still shows it.
 func (d *Driver) appendChatLine(gameSessionID uuid.UUID, speaker, text string) (store.ConversationLine, error) {
 	if d.conversation == nil {
 		return store.ConversationLine{}, errConversationUnwired

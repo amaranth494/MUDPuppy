@@ -746,6 +746,83 @@ func TestHandleChat_CoachingCeilings(t *testing.T) {
 	}
 }
 
+// TestHandleChat_ReplyIsShownEvenWhenItCannotBeSaved proves code review WR-05
+// of Phase 5 (D-09): when the conversation cannot be stored, the owner still
+// sees his own message and AI-chatter's reply -- including the quoted line
+// for coaching that has ALREADY been applied -- and is told once, after
+// them, that the exchange was not saved.
+func TestHandleChat_ReplyIsShownEvenWhenItCannotBeSaved(t *testing.T) {
+	assertShownUnsaved := func(t *testing.T, f *chatTestFixture) {
+		t.Helper()
+		stored, _ := f.coaching.CoachingFor(f.gameSessionID)
+		if len(stored) != 1 || stored[0] != "avoid the north road" {
+			t.Fatalf("expected the coaching applied, got %v", stored)
+		}
+
+		events := f.notifier.chatEventsSnapshot()
+		if len(events) != 3 {
+			t.Fatalf("expected owner echo, reply and one not-saved notice, got %d: %+v", len(events), events)
+		}
+		owner, reply, notice := events[0], events[1], events[2]
+		if owner.Speaker != "owner" || owner.Text != "avoid the north road" {
+			t.Fatalf("expected the owner's own message shown first, got %+v", owner)
+		}
+		if reply.Speaker != "chatter" || !strings.HasPrefix(reply.Text, coachingSentPrefix+"avoid the north road") {
+			t.Fatalf("expected the reply shown with the quoted line (D-09), got %+v", reply)
+		}
+		if notice.Speaker != "system" || notice.State != chatStateFailed || notice.Text != chatNotSavedNotice {
+			t.Fatalf("expected the not-saved notice last, got %+v", notice)
+		}
+		for _, ev := range []ChatEvent{owner, reply} {
+			if !strings.HasPrefix(ev.ID, unsavedChatIDPrefix) {
+				t.Errorf("expected an unsaved line to carry a generated id, got %q", ev.ID)
+			}
+		}
+		if owner.ID == reply.ID {
+			t.Errorf("expected distinct ids for the two unsaved lines, both %q", owner.ID)
+		}
+		if got := coachingReceivedCount(f); got != 1 {
+			t.Fatalf("expected the coaching-received marker (the coaching WAS applied), got %d", got)
+		}
+	}
+
+	t.Run("a_storage_error", func(t *testing.T) {
+		f := newChatFixture(nil)
+		f.conversation.appendErr = fmt.Errorf("disk full")
+		f.models.chatAnswer = &gemini.ChatAnswer{Reply: "done.", Push: []string{"avoid the north road"}}
+
+		f.driver.HandleChat(f.userID, f.connID, "avoid the north road")
+
+		assertShownUnsaved(t, f)
+	})
+
+	t.Run("no_conversation_store_wired_at_all", func(t *testing.T) {
+		f := newChatFixture(nil)
+		f.driver.SetConversation(nil)
+		f.models.chatAnswer = &gemini.ChatAnswer{Reply: "done.", Push: []string{"avoid the north road"}}
+
+		f.driver.HandleChat(f.userID, f.connID, "avoid the north road")
+
+		assertShownUnsaved(t, f)
+	})
+
+	t.Run("a_stored_exchange_carries_row_ids_and_no_notice", func(t *testing.T) {
+		f := newChatFixture(nil)
+
+		f.driver.HandleChat(f.userID, f.connID, "hello")
+
+		events := f.notifier.chatEventsSnapshot()
+		if len(events) != 2 {
+			t.Fatalf("expected exactly the owner echo and the reply, got %d: %+v", len(events), events)
+		}
+		for _, ev := range events {
+			if strings.HasPrefix(ev.ID, unsavedChatIDPrefix) || ev.ID == "" {
+				t.Errorf("expected a stored line to carry its row id, got %q", ev.ID)
+			}
+		}
+	})
+}
+
 // TestCoachingHasOneWriter is a source-level assertion (matching Phase 4's
 // corpus well-formedness test's own os.ReadFile discipline) that
 // UpdateCoaching is CALLED (".UpdateCoaching(", a method call on a
