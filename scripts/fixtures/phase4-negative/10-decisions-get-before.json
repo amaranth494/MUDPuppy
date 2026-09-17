@@ -1,0 +1,2 @@
+200
+{"decisions":[{"id":"22222222-2222-2222-2222-222222222222","created_at":"2026-09-16T20:05:00Z","reasoning":"A passage leads north out of this small room; heading that way continues exploring.","command":"north","outcome":"sent","failure_kind":"","notice":""}]}
