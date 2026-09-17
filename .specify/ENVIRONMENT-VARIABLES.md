@@ -35,10 +35,24 @@ These variables are configured in code but not currently tracked in Railway:
 | **COMMAND_RATE_LIMIT_PER_SECOND** | `10` | No | Server-side rate limiting |
 | **MUD_PORT_DENYLIST** | `25,465,587,110,143,993,995,53,80,443,1433,1521,3306,5432,6379,27017,22,3389,5900,445,139,2049` | No | Blocked ports for MUD proxy |
 | **MUD_PORT_ALLOWLIST** | (empty) | No | Override whitelist - if set, ONLY these ports allowed |
-| **ENCRYPTION_KEY_V1** | (none) | No | Credential encryption key v1 |
-| **ENCRYPTION_KEY_V2** | (none) | No | Credential encryption key v2 |
-| **ENCRYPTION_KEY_V3** | (none) | No | Credential encryption key v3 |
+| **ENCRYPTION_KEY_V1** | (none) | Yes (outside local development) | Credential encryption key v1. Outside local development (`RAILWAY_ENVIRONMENT` set) the server refuses to start without it. A missing key means the credential vault generates a new random key on every process start, and every previously stored credential becomes unreadable. On the owner's own machine (`RAILWAY_ENVIRONMENT` unset) the server still starts with this variable absent. |
+| **ENCRYPTION_KEY_V2** | (none) | No | Credential encryption key v2 (optional rotation slot) |
+| **ENCRYPTION_KEY_V3** | (none) | No | Credential encryption key v3 (optional rotation slot) |
 | **ADMIN_METRICS_SECRET** | (none) | Yes (if used) | Secret for /api/v1/admin/metrics |
+
+---
+
+## Rotating the credential vault key
+
+The credential vault (`ENCRYPTION_KEY_V1`/`V2`/`V3`) encrypts every saved MUD connection's stored credentials at rest. Rotate it with these steps:
+
+1. Generate a new 32-byte key and base64-encode it (any offline tool that produces cryptographically random bytes is fine).
+2. Set the new value as `ENCRYPTION_KEY_V2` (or the next free slot after V1/V2 are both in use) on the target environment. Do not overwrite `ENCRYPTION_KEY_V1` yet — reads must still succeed against credentials encrypted under the current key.
+3. Redeploy so the new key is loaded into the running process's key store.
+4. Re-save each stored connection's credentials through the app so they are re-encrypted under the newest key.
+5. On a later deploy, once nothing is left encrypted under the retired key, remove that slot's environment variable.
+
+Key values are never pasted into a plan, a summary, an evidence file, a log line, or a commit message — only the variable name and slot number are ever written down.
 
 ---
 
