@@ -1,10 +1,69 @@
 package config
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // Fake credential values only — never a real Gemini key (T-3-16).
 const testFakeKey = "test-key-not-a-real-credential"
 const testFakeKey2 = "test-key-not-a-real-credential-2"
+
+// TestLoadRequiresEncryptionKeyOutsideDevelopment proves D-25 (DR-3.1-04):
+// outside local development the server refuses to start when the
+// credential-vault key is absent, instead of quietly starting with a
+// freshly generated key that makes every stored credential unreadable
+// after the next restart. The owner's own machine (RAILWAY_ENVIRONMENT
+// unset) is unaffected.
+func TestLoadRequiresEncryptionKeyOutsideDevelopment(t *testing.T) {
+	t.Run("staging without the key fails", func(t *testing.T) {
+		t.Setenv("SESSION_SECRET", "test-secret")
+		t.Setenv("RAILWAY_ENVIRONMENT", "staging")
+		t.Setenv("ENCRYPTION_KEY_V1", "")
+
+		cfg, err := Load()
+		if err == nil {
+			t.Fatal("expected Load() to return an error when ENCRYPTION_KEY_V1 is unset outside local development")
+		}
+		if cfg != nil {
+			t.Errorf("expected nil config on error, got %+v", cfg)
+		}
+		if !strings.Contains(err.Error(), "ENCRYPTION_KEY_V1") {
+			t.Errorf("error %q does not mention ENCRYPTION_KEY_V1", err.Error())
+		}
+		if strings.Contains(err.Error(), testFakeKey) {
+			t.Error("error text must never contain key material")
+		}
+	})
+
+	t.Run("staging with the key set succeeds", func(t *testing.T) {
+		t.Setenv("SESSION_SECRET", "test-secret")
+		t.Setenv("RAILWAY_ENVIRONMENT", "staging")
+		t.Setenv("ENCRYPTION_KEY_V1", testFakeKey)
+
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load() returned error: %v", err)
+		}
+		if cfg == nil {
+			t.Fatal("Load() returned nil *Config")
+		}
+	})
+
+	t.Run("local development without the key succeeds", func(t *testing.T) {
+		t.Setenv("SESSION_SECRET", "test-secret")
+		t.Setenv("RAILWAY_ENVIRONMENT", "")
+		t.Setenv("ENCRYPTION_KEY_V1", "")
+
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("Load() returned error on the owner's own machine: %v", err)
+		}
+		if cfg == nil {
+			t.Fatal("Load() returned nil *Config")
+		}
+	})
+}
 
 func TestLoadAIRegistry(t *testing.T) {
 	t.Setenv("SESSION_SECRET", "test-secret")

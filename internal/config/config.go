@@ -186,6 +186,19 @@ func Load() (*Config, error) {
 	cfg.EncryptionKeyV2 = os.Getenv("ENCRYPTION_KEY_V2")
 	cfg.EncryptionKeyV3 = os.Getenv("ENCRYPTION_KEY_V3")
 
+	// D-25, DR-3.1-04: outside local development, a missing vault key must
+	// stop the server rather than let internal/crypto.DefaultKeyStore
+	// silently generate a fresh random key on every process start, which
+	// makes every previously stored credential undecryptable after a
+	// restart. RAILWAY_ENVIRONMENT (the same signal already used by
+	// internal/driver/corpus_live_test.go) distinguishes Railway from the
+	// owner's own machine; DefaultKeyStore's generated-key fallback stays
+	// in place for local development, unchanged. Never log the key, its
+	// length, or any other environment value here.
+	if cfg.EncryptionKeyV1 == "" && os.Getenv("RAILWAY_ENVIRONMENT") != "" {
+		return nil, errors.New("ENCRYPTION_KEY_V1 environment variable is required outside local development")
+	}
+
 	// AI model registry (Phase 3, D-18). Scanned from the environment once:
 	// for every AI_MODEL_<SLUG>_NAME variable, the middle segment is the
 	// slug, and AI_MODEL_<SLUG>_ENDPOINT / _KEY / _PROVIDER fill out the
