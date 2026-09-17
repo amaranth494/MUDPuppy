@@ -297,7 +297,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 05-06-PLAN.md — A coaching line reaches AI-player's next decision, and the owner can take it back in words
+- [x] 05-06-PLAN.md — A coaching line reaches AI-player's next decision, and the owner can take it back in words
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -384,7 +384,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 2. Autopilot Switch | 7/7 | Complete    | 2026-09-15 |
 | 3. One AI Decision | 13/13 | Complete    | 2026-09-16 |
 | 4. Continuous Play | 11/11 | Complete    | 2026-09-17 |
-| 5. Coaching Channel | 5/11 | In Progress|  |
+| 5. Coaching Channel | 6/11 | In Progress|  |
 | 6. Measurement and Memory | 0/TBD | Not started | - |
 | 7. Study Loader | 0/TBD | Not started | - |
 | 8. Acceptance Run on Alter Aeon | 0/TBD | Not started | - |
