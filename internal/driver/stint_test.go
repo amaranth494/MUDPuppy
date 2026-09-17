@@ -1,12 +1,14 @@
 package driver
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/amaranth494/MudPuppy/internal/gemini"
 	"github.com/amaranth494/MudPuppy/internal/session"
+	"github.com/amaranth494/MudPuppy/internal/store"
 	"github.com/google/uuid"
 )
 
@@ -441,6 +443,79 @@ func TestSendFailureIsNotAModelFailure(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestMissingQuestIsRepairedAtTheNextDecision is the driver half of code
+// review WR-09 of Phase 4: a goal with no active Quest (the goal endpoint's
+// Quest upsert failed after the goal was saved, or the goal predates the
+// Quest store) used to stay that way for ever, with every Quest Memory
+// update dropped. The next decision now creates the Quest through the same
+// ensure-or-create upsert the goal endpoint uses, and the update is stored.
+func TestMissingQuestIsRepairedAtTheNextDecision(t *testing.T) {
+	newDriver := func(quests *fakeQuestStore, goal string) (*Driver, *fakeSessions) {
+		sessions := &fakeSessions{window: "a room"}
+		sessions.engageState()
+		models := &fakeModels{
+			answer:       &gemini.Answer{Reasoning: "heading north", Command: "north", QuestMemory: []string{"the tower is north of the square"}},
+			reviewAnswer: &gemini.ReviewAnswer{Blocked: false, Reason: "clear"},
+		}
+		profile := testProfile()
+		profile.SessionGoal = goal
+		d := New(sessions, &fakeProfiles{profile: profile}, &fakeDecisionsStore{}, models, &fakeCommands{}, &fakeNotifier{}, testConfig())
+		d.SetQuests(quests)
+		return d, sessions
+	}
+
+	t.Run("a_goal_with_no_quest_gets_one_and_its_memory_is_stored", func(t *testing.T) {
+		quests := &fakeQuestStore{active: false}
+		d, _ := newDriver(quests, "reach the tower")
+
+		d.HandleEngage(uuid.New().String(), uuid.New().String())
+
+		if got := quests.ensureCallsSnapshot(); len(got) != 1 || got[0] != "reach the tower" {
+			t.Fatalf("expected exactly one repair of %q, got %v", "reach the tower", got)
+		}
+		updates := quests.updateBulletsCallsSnapshot()
+		if len(updates) != 1 || len(updates[0].bullets) != 1 || updates[0].bullets[0] != "the tower is north of the square" {
+			t.Fatalf("expected the Quest Memory update to be stored against the repaired Quest, got %+v", updates)
+		}
+
+		// The next decision finds the Quest: no second repair.
+		d.HandleEngage(uuid.New().String(), uuid.New().String())
+		if got := quests.ensureCallsSnapshot(); len(got) != 1 {
+			t.Fatalf("expected no repair once the Quest exists, got %v", got)
+		}
+	})
+
+	t.Run("an_existing_quest_is_never_touched_by_the_repair", func(t *testing.T) {
+		quests := &fakeQuestStore{active: true, quest: store.Quest{ID: uuid.New(), Bullets: []string{}}}
+		d, _ := newDriver(quests, "reach the tower")
+		d.HandleEngage(uuid.New().String(), uuid.New().String())
+		if got := quests.ensureCallsSnapshot(); len(got) != 0 {
+			t.Fatalf("expected no ensure call when the Quest exists (the upsert bumps updated_at), got %v", got)
+		}
+	})
+
+	t.Run("a_blank_goal_creates_nothing", func(t *testing.T) {
+		quests := &fakeQuestStore{active: false}
+		d, _ := newDriver(quests, "   ")
+		d.HandleEngage(uuid.New().String(), uuid.New().String())
+		if got := quests.ensureCallsSnapshot(); len(got) != 0 {
+			t.Fatalf("expected a blank goal to create no Quest (D-04), got %v", got)
+		}
+	})
+
+	t.Run("a_failed_repair_never_fails_the_decision", func(t *testing.T) {
+		quests := &fakeQuestStore{active: false, ensureErr: errors.New("connection refused")}
+		d, sessions := newDriver(quests, "reach the tower")
+		d.HandleEngage(uuid.New().String(), uuid.New().String())
+		if got := len(sessions.sendCalls()); got != 1 {
+			t.Fatalf("expected the command to be sent despite the failed repair, got %d sends", got)
+		}
+		if got := quests.updateBulletsCallsSnapshot(); len(got) != 0 {
+			t.Fatalf("expected no bullet write with no Quest, got %+v", got)
+		}
+	})
 }
 
 // loopRegistered reports whether a pacing loop is registered for userID and,

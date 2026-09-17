@@ -208,6 +208,10 @@ type Decisions interface {
 // them.
 type Quests interface {
 	ActiveQuestFor(connectionID uuid.UUID, goalText string) (store.Quest, bool, error)
+	// EnsureActiveQuest is the goal endpoint's own reactivate-or-create
+	// upsert (D-04). The driver calls it only to REPAIR a goal that has no
+	// active Quest (code review WR-09 of Phase 4) -- see activeQuest.
+	EnsureActiveQuest(userID, connectionID uuid.UUID, goalText string) (store.Quest, error)
 	// UpdateBullets stores a Quest's curated bullet list (D-11, plan 04-08).
 	// The real *store.QuestStore's method of this name satisfies this
 	// interface with no adapter.
@@ -559,7 +563,7 @@ func (d *Driver) decide(ctx context.Context, userID, connectionID string, first 
 	promptCtx := promptContext{
 		Profile:       profile,
 		Goal:          profile.SessionGoal,
-		QuestBullets:  d.activeQuestBullets(connUUID, profile.SessionGoal),
+		QuestBullets:  d.activeQuestBullets(userUUID, connUUID, profile.SessionGoal),
 		SessionMemory: d.sessionMemoryBullets(gameSessionID),
 	}
 
@@ -650,7 +654,7 @@ func (d *Driver) decide(ctx context.Context, userID, connectionID string, first 
 	// here on (sent, blocked, or a shape failure that still parsed) shares
 	// the same answer, and memory is about what happened this decision, not
 	// about whether the resulting command went through.
-	d.persistMemory(userID, connectionID, connUUID, gameSessionID, profile.SessionGoal, answer)
+	d.persistMemory(userID, connectionID, userUUID, connUUID, gameSessionID, profile.SessionGoal, answer)
 
 	cmd, failKind := validateCommand(answer.Command)
 	if failKind != "" {
@@ -779,15 +783,45 @@ func (d *Driver) decide(ctx context.Context, userID, connectionID string, first 
 // nil Quests collaborator, a blank goal, a not-found Quest, or a lookup
 // error all resolve to no bullets rather than an error — Quest Memory is
 // prompt context, not a correctness dependency runIteration can fail on.
-func (d *Driver) activeQuestBullets(connectionID uuid.UUID, goalText string) []string {
-	if d.quests == nil {
-		return nil
-	}
-	quest, found, err := d.quests.ActiveQuestFor(connectionID, goalText)
-	if err != nil || !found {
+func (d *Driver) activeQuestBullets(userID, connectionID uuid.UUID, goalText string) []string {
+	quest, found := d.activeQuest(userID, connectionID, goalText)
+	if !found {
 		return nil
 	}
 	return clampBullets(quest.Bullets, maxQuestBullets)
+}
+
+// activeQuest resolves the active Quest for connectionID's goal, and REPAIRS
+// a goal that has none (code review WR-09 of Phase 4). A non-blank goal is
+// supposed to always name an active Quest (D-04), but the goal endpoint
+// saves the goal and ensures the Quest in two steps: when the second failed
+// (or the goal was saved while no Quest store was wired) the goal was left
+// with no Quest, nothing ever created one, the owner could not fix it by
+// re-saving the same text, and every Quest Memory update from then on was
+// dropped with a log line per decision. So when the lookup finds nothing for
+// a non-blank goal, this calls the very same reactivate-or-create upsert the
+// goal endpoint uses. It is called only on a miss, never on every decision:
+// the upsert touches the row's updated_at. Lookup and repair errors both
+// resolve to "no Quest" -- Quest Memory is prompt context, not something a
+// decision can fail on. Logs ids and an outcome only.
+func (d *Driver) activeQuest(userID, connectionID uuid.UUID, goalText string) (store.Quest, bool) {
+	if d.quests == nil || strings.TrimSpace(goalText) == "" {
+		return store.Quest{}, false
+	}
+	quest, found, err := d.quests.ActiveQuestFor(connectionID, goalText)
+	if err != nil {
+		return store.Quest{}, false
+	}
+	if found {
+		return quest, true
+	}
+	quest, err = d.quests.EnsureActiveQuest(userID, connectionID, goalText)
+	if err != nil {
+		log.Printf("[AI-PLAYER] quest-repair user_id=%s connection_id=%s outcome=error", userID, connectionID)
+		return store.Quest{}, false
+	}
+	log.Printf("[AI-PLAYER] quest-repair user_id=%s connection_id=%s outcome=created", userID, connectionID)
+	return quest, true
 }
 
 // sessionMemoryBullets reads the current game session's Session Memory
@@ -823,7 +857,7 @@ func (d *Driver) sessionMemoryBullets(gameSessionID *uuid.UUID) []string {
 // never fatal — the command this decision chose has already been decided
 // by the time this runs (T-4-29). Logs one [AI-PLAYER] memory line, with
 // counts and byte totals only, whenever either field was present.
-func (d *Driver) persistMemory(userID, connectionID string, connUUID uuid.UUID, gameSessionID *uuid.UUID, goal string, answer *gemini.Answer) {
+func (d *Driver) persistMemory(userID, connectionID string, userUUID, connUUID uuid.UUID, gameSessionID *uuid.UUID, goal string, answer *gemini.Answer) {
 	if answer.SessionMemory == nil && answer.QuestMemory == nil {
 		return
 	}
@@ -842,8 +876,11 @@ func (d *Driver) persistMemory(userID, connectionID string, connUUID uuid.UUID, 
 	if answer.QuestMemory != nil && strings.TrimSpace(goal) != "" {
 		questBullets = truncateBullets(answer.QuestMemory, maxQuestBullets, maxBulletChars)
 		if d.quests != nil {
-			quest, found, err := d.quests.ActiveQuestFor(connUUID, goal)
-			if err != nil || !found {
+			// activeQuest repairs a goal that has no Quest (code review
+			// WR-09 of Phase 4); by this point the prompt-assembly call
+			// earlier in the same iteration has normally done so already.
+			quest, found := d.activeQuest(userUUID, connUUID, goal)
+			if !found {
 				log.Printf("[AI-PLAYER] memory-store-error user_id=%s connection_id=%s layer=quest reason=lookup", userID, connectionID)
 			} else if err := d.quests.UpdateBullets(quest.ID, questBullets); err != nil {
 				log.Printf("[AI-PLAYER] memory-store-error user_id=%s connection_id=%s layer=quest reason=update", userID, connectionID)

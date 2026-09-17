@@ -625,6 +625,9 @@ type fakeQuestStore struct {
 	activeErr error
 	updateErr error
 	calls     []updateBulletsCall
+
+	ensureErr   error
+	ensureCalls []string // goal text of each EnsureActiveQuest call, in order
 }
 
 func (f *fakeQuestStore) ActiveQuestFor(connectionID uuid.UUID, goalText string) (store.Quest, bool, error) {
@@ -634,6 +637,33 @@ func (f *fakeQuestStore) ActiveQuestFor(connectionID uuid.UUID, goalText string)
 		return store.Quest{}, false, f.activeErr
 	}
 	return f.quest, f.active, nil
+}
+
+// EnsureActiveQuest mirrors the real store's reactivate-or-create upsert
+// closely enough for the driver's repair path (code review WR-09 of Phase
+// 4): it records the call and, unless ensureErr is set, makes the canned
+// Quest active from then on, so a following ActiveQuestFor finds it.
+func (f *fakeQuestStore) EnsureActiveQuest(userID, connectionID uuid.UUID, goalText string) (store.Quest, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.ensureCalls = append(f.ensureCalls, goalText)
+	if f.ensureErr != nil {
+		return store.Quest{}, f.ensureErr
+	}
+	if f.quest.ID == uuid.Nil {
+		f.quest.ID = uuid.New()
+	}
+	f.quest.GoalText = goalText
+	f.active = true
+	return f.quest, nil
+}
+
+func (f *fakeQuestStore) ensureCallsSnapshot() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]string, len(f.ensureCalls))
+	copy(out, f.ensureCalls)
+	return out
 }
 
 func (f *fakeQuestStore) UpdateBullets(questID uuid.UUID, bullets []string) error {

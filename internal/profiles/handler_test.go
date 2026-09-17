@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -110,10 +111,16 @@ type fakeQuestStore struct {
 	calls []string // goal text passed to each EnsureActiveQuest call, in order
 	seen  map[string]time.Time
 	tick  int64
+
+	// err, when set, makes EnsureActiveQuest fail (code review WR-09).
+	err error
 }
 
 func (f *fakeQuestStore) EnsureActiveQuest(userID, connectionID uuid.UUID, goalText string) (store.Quest, error) {
 	f.calls = append(f.calls, goalText)
+	if f.err != nil {
+		return store.Quest{}, f.err
+	}
 	if f.seen == nil {
 		f.seen = make(map[string]time.Time)
 	}
@@ -723,6 +730,71 @@ func TestGoalSaveTouchesOnlyTheGoal(t *testing.T) {
 	}
 	if fake.profile.ConductRules != "RULE: the owner's newest conduct rules" || fake.profile.NeverIssueList != "give\ndrop" {
 		t.Fatalf("a goal save changed another column: %+v", fake.profile)
+	}
+}
+
+// TestGoalQuestFailureIsNotSilent is the handler half of code review WR-09
+// of Phase 4. The goal text is saved, then the Quest upsert fails. That used
+// to be answered 200 with quest "none", and the owner could not repair it:
+// the panel skips a PUT whose text equals the last one that succeeded. It is
+// now an error the panel shows, saying the goal IS saved and what to do, so
+// pressing Enter again re-sends -- and a retry that works answers 200.
+func TestGoalQuestFailureIsNotSilent(t *testing.T) {
+	userID := uuid.New()
+	profileID := uuid.New()
+	connectionID := uuid.New()
+	fake := &fakeProfileStore{profile: newTestProfile(userID, profileID, connectionID)}
+	quests := &fakeQuestStore{err: errors.New("connection refused")}
+	var pushed []AIEvent
+	h := &Handler{profileStore: fake, quests: quests}
+	h.SetAINotifier(func(uid string, ev AIEvent) { pushed = append(pushed, ev) })
+
+	path := "/api/v1/profiles/" + connectionID.String() + "/ai-goal"
+	rec := httptest.NewRecorder()
+	h.PutGoal(rec, newTestRequest(http.MethodPut, path, userID, GoalResponse{Goal: "reach the tower"}))
+
+	if rec.Code == http.StatusOK {
+		t.Fatalf("a failed Quest upsert was answered 200: %s", rec.Body.String())
+	}
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
+	}
+	var body struct {
+		Error string `json:"error"`
+		Goal  string `json:"goal"`
+		Quest string `json:"quest"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode error body: %v", err)
+	}
+	if body.Error != GoalQuestFailedMessage || body.Quest != "failed" || body.Goal != "reach the tower" {
+		t.Fatalf("error body = %+v, want the quest-failed message, quest %q and the saved goal", body, "failed")
+	}
+	if strings.Contains(body.Error, "connection refused") {
+		t.Fatalf("the store's own error text reached the owner: %q", body.Error)
+	}
+
+	// The goal text itself IS saved, and the goal-changed line is true.
+	if fake.profile.SessionGoal != "reach the tower" {
+		t.Fatalf("SessionGoal = %q, want the goal saved despite the Quest failure", fake.profile.SessionGoal)
+	}
+	if len(pushed) != 1 || pushed[0].Message != "Goal changed: reach the tower" {
+		t.Fatalf("pushed = %+v, want the one goal-changed line", pushed)
+	}
+
+	// The owner presses Enter again; the store has recovered.
+	quests.err = nil
+	retry := httptest.NewRecorder()
+	h.PutGoal(retry, newTestRequest(http.MethodPut, path, userID, GoalResponse{Goal: "reach the tower"}))
+	if retry.Code != http.StatusOK {
+		t.Fatalf("retry status = %d, body = %s", retry.Code, retry.Body.String())
+	}
+	var got GoalResponse
+	if err := json.NewDecoder(retry.Body).Decode(&got); err != nil {
+		t.Fatalf("decode retry response: %v", err)
+	}
+	if got.Quest != "created" {
+		t.Fatalf("retry quest = %q, want %q", got.Quest, "created")
 	}
 }
 

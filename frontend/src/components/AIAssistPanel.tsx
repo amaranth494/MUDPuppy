@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AIDecisionPayload } from '../types';
-import { getDecisions, getGoal, putGoal, getSessionMemory } from '../services/api';
+import { getDecisions, getGoal, putGoal, getSessionMemory, GoalQuestError } from '../services/api';
 import { useSession } from '../context/SessionContext';
 
 interface AIAssistPanelProps {
@@ -200,13 +200,21 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
         try {
           await putGoal(connectionId, { goal: toSave });
           lastCommittedGoalRef.current = toSave;
-        } catch {
+        } catch (err) {
+          // Code review WR-09: when the goal text was saved but its Quest
+          // could not be prepared, the server says so in words written for
+          // the owner; show them rather than the generic line. Either way
+          // lastCommittedGoalRef is left alone, so Enter sends it again.
+          const message =
+            err instanceof GoalQuestError
+              ? `[${err.message}]`
+              : '[Failed to save session goal — try again]';
           setEntries((prev) => [
             ...prev,
             {
               kind: 'system',
               id: `goal-save-failed-${Date.now()}`,
-              message: '[Failed to save session goal — try again]',
+              message,
               outcome: 'failed',
             },
           ]);

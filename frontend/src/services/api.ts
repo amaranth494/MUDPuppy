@@ -689,6 +689,12 @@ export async function getGoal(connectionId: string): Promise<GoalResponse> {
   return await response.json();
 }
 
+// GoalQuestError is what putGoal throws when the goal text WAS saved but its
+// Quest could not be prepared (code review WR-09): the server answers an
+// error whose body carries quest === 'failed' and a message written for the
+// owner, which the panel shows as it is.
+export class GoalQuestError extends Error {}
+
 // Save the session goal for a connection (D-01, D-03); commits on blur/Enter
 export async function putGoal(connectionId: string, body: GoalResponse): Promise<GoalResponse> {
   const response = await fetch(`${API_BASE}/profiles/${connectionId}/ai-goal`, {
@@ -702,6 +708,9 @@ export async function putGoal(connectionId: string, body: GoalResponse): Promise
   handleAuthError(response);
   if (!response.ok) {
     const data = await response.json();
+    if (data.quest === 'failed' && typeof data.error === 'string') {
+      throw new GoalQuestError(data.error);
+    }
     throw new Error(data.error || 'Failed to save session goal');
   }
   return await response.json();

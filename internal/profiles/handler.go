@@ -842,6 +842,7 @@ func (h *Handler) PutGoal(w http.ResponseWriter, r *http.Request) {
 	if trimmedGoal != "" && h.quests != nil {
 		if q, qerr := h.quests.EnsureActiveQuest(userUUID, connectionID, req.Goal); qerr != nil {
 			log.Printf("[PH0106] Ensure active quest failed: %v", qerr)
+			questWord = "failed"
 		} else if q.CreatedAt.Equal(q.UpdatedAt) {
 			questWord = "created"
 		} else {
@@ -865,7 +866,38 @@ func (h *Handler) PutGoal(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	// Code review WR-09 of Phase 4: a goal whose Quest could not be prepared
+	// used to be answered 200 with quest "none", silently. The goal text IS
+	// saved (and the goal-changed line above is true), but the owner is told
+	// the Quest half failed, in words the panel shows as they are, and can
+	// simply press Enter again: the panel re-sends a goal whose save did not
+	// succeed. The driver also repairs a missing Quest by itself at the next
+	// decision, so Quest Memory is never lost for longer than that.
+	if questWord == "failed" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(goalQuestFailedResponse{
+			Error: GoalQuestFailedMessage,
+			Goal:  updatedProfile.SessionGoal,
+			Quest: questWord,
+		})
+		return
+	}
+
 	h.sendJSON(w, GoalResponse{Goal: updatedProfile.SessionGoal, Quest: questWord})
+}
+
+// GoalQuestFailedMessage is what the owner is shown when the goal text was
+// saved but its Quest could not be prepared (code review WR-09 of Phase 4).
+const GoalQuestFailedMessage = "Your goal was saved, but its Quest could not be prepared. Press Enter in the goal box to try again."
+
+// goalQuestFailedResponse is PutGoal's error body for that case: the usual
+// {"error": ...} every handler error carries, plus the saved goal and
+// quest "failed" so the panel can tell it from a goal that was not saved.
+type goalQuestFailedResponse struct {
+	Error string `json:"error"`
+	Goal  string `json:"goal"`
+	Quest string `json:"quest"`
 }
 
 // GetSessionMemory handles GET /api/v1/profiles/:connection_id/ai-memory
