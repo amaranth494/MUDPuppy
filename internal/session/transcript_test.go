@@ -27,6 +27,9 @@ type fakeTranscriptSink struct {
 
 	appendFunc func(gameSessionID uuid.UUID, lines []TranscriptLine) error
 	closeFunc  func(gameSessionID uuid.UUID) error
+
+	// openDelay, when set, makes OpenGameSession take that long.
+	openDelay time.Duration
 }
 
 type fakeOpen struct {
@@ -35,6 +38,9 @@ type fakeOpen struct {
 }
 
 func (f *fakeTranscriptSink) OpenGameSession(userID, connectionID uuid.UUID) (uuid.UUID, error) {
+	if f.openDelay > 0 {
+		time.Sleep(f.openDelay) // a slow database round trip (code review WR-04 of Phase 4)
+	}
 	f.mu.Lock()
 	f.opens = append(f.opens, fakeOpen{userID: userID, connectionID: connectionID})
 	f.mu.Unlock()
@@ -415,6 +421,130 @@ func TestSendAICommand_LostConnectionLeavesTheSwitchWaiting(t *testing.T) {
 	}
 	if got := m.AutopilotStateFor(userID); got != AutopilotWaiting {
 		t.Fatalf("AutopilotStateFor = %q, want %q (nothing above may move it)", got, AutopilotWaiting)
+	}
+}
+
+// TestResumeFiresAfterTheGameSessionExists is code review WR-04 of Phase 4.
+// It drives the tail of Connect (a unit test cannot dial) with a transcript
+// sink whose OpenGameSession is slow, as a database round trip is. The
+// engage hook -- the stint's reassess decision -- must find the game session
+// already there, so that decision reads and writes Session Memory; and the
+// slow open must not be done under the manager lock.
+func TestResumeFiresAfterTheGameSessionExists(t *testing.T) {
+	m := newTestManager()
+	sink := &fakeTranscriptSink{openDelay: 150 * time.Millisecond}
+	m.SetTranscriptSink(sink)
+	userID := uuid.New().String()
+	connID := uuid.New().String()
+
+	// Engage, then drop: the switch is parked at waiting.
+	seedConnectedSession(m, userID, connID)
+	if _, _, err := m.EngageAutopilot(userID, connID); err != nil {
+		t.Fatalf("engage: %v", err)
+	}
+	if err := m.Disconnect(userID, ReasonRemote); err != nil {
+		t.Fatalf("Disconnect: %v", err)
+	}
+	if got := m.AutopilotStateFor(userID); got != AutopilotWaiting {
+		t.Fatalf("AutopilotStateFor = %q, want %q", got, AutopilotWaiting)
+	}
+
+	type hookSaw struct {
+		haveGameSession bool
+		epoch           uint64
+	}
+	saw := make(chan hookSaw, 1)
+	m.SetEngageHook(func(uid, cid string, epoch uint64) {
+		_, ok := m.CurrentGameSessionID(uid)
+		saw <- hookSaw{haveGameSession: ok, epoch: epoch}
+	})
+
+	// The reconnect, exactly as Connect does it after a successful dial.
+	client := seedConn(m, userID)
+	defer client.Close()
+	lockFree := make(chan bool, 1)
+	go func() {
+		// While the slow open is under way another user's read must go
+		// through: the round trip is not done under m.mu.
+		time.Sleep(40 * time.Millisecond)
+		done := make(chan struct{})
+		go func() { m.AutopilotStateFor("someone-else"); close(done) }()
+		select {
+		case <-done:
+			lockFree <- true
+		case <-time.After(80 * time.Millisecond):
+			lockFree <- false
+		}
+	}()
+	m.mu.Lock()
+	m.sessions[userID] = &Session{UserID: userID, ConnectionID: connID, State: StateConnected}
+	m.openTranscriptThenResumeLocked(userID, connID, client)
+	m.mu.Unlock()
+
+	if !<-lockFree {
+		t.Fatalf("the manager lock was held across the OpenGameSession round trip")
+	}
+	select {
+	case got := <-saw:
+		if !got.haveGameSession {
+			t.Fatalf("the engage hook fired before the game session existed: the reassess decision would have no Session Memory")
+		}
+		if got.epoch != 2 {
+			t.Fatalf("engage hook epoch = %d, want 2", got.epoch)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("the engage hook never fired on resume")
+	}
+	if got := m.AutopilotStateFor(userID); got != AutopilotOn {
+		t.Fatalf("AutopilotStateFor = %q, want %q", got, AutopilotOn)
+	}
+
+	// The resumed marker now lands in the new transcript as well.
+	closeTranscript(m, userID)
+	found := false
+	for _, l := range sink.allLines() {
+		if l.Source == "marker" && l.Text == "[AI-ASSIST resumed]" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected the [AI-ASSIST resumed] marker in the reconnect's transcript, got %+v", sink.allLines())
+	}
+}
+
+// TestResumeSkippedWhenTheConnectionDroppedDuringTheOpen: the lock is
+// released for the transcript open, so the socket can drop meanwhile; a
+// switch parked at waiting must then stay parked.
+func TestResumeSkippedWhenTheConnectionDroppedDuringTheOpen(t *testing.T) {
+	m := newTestManager()
+	userID := uuid.New().String()
+	connID := uuid.New().String()
+	seedConnectedSession(m, userID, connID)
+	if _, _, err := m.EngageAutopilot(userID, connID); err != nil {
+		t.Fatalf("engage: %v", err)
+	}
+	if err := m.Disconnect(userID, ReasonRemote); err != nil {
+		t.Fatalf("Disconnect: %v", err)
+	}
+
+	fired := make(chan struct{}, 1)
+	m.SetEngageHook(func(uid, cid string, epoch uint64) { fired <- struct{}{} })
+
+	stale, other := net.Pipe()
+	defer stale.Close()
+	defer other.Close()
+
+	m.mu.Lock()
+	// m.conns holds no socket for the user: the one Connect dialled is gone.
+	m.openTranscriptThenResumeLocked(userID, connID, stale)
+	m.mu.Unlock()
+
+	time.Sleep(30 * time.Millisecond)
+	if len(fired) != 0 {
+		t.Fatalf("the engage hook fired for a connection that had already dropped")
+	}
+	if got := m.AutopilotStateFor(userID); got != AutopilotWaiting {
+		t.Fatalf("AutopilotStateFor = %q, want %q", got, AutopilotWaiting)
 	}
 }
 

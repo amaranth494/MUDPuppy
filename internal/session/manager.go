@@ -335,19 +335,8 @@ func (m *Manager) Connect(ctx context.Context, userID, host string, port int, co
 	m.sessions[userID] = session
 	m.conns[userID] = conn
 
-	// Resume a waiting autopilot now that the dial has actually succeeded,
-	// but only onto the profile it was parked on.
-	m.resumeAutopilotLocked(userID, connectionID)
-
-	// Open a session transcript for this connection, if it is a
-	// saved-profile connection (D-14). A quick connect (connectionID=="")
-	// is never transcribed. openTranscript takes m.mu itself only for the
-	// brief map insert; the OpenGameSession database round trip runs with
-	// no lock held so a slow connect never stalls every other user's
-	// session (code review CR-01).
-	m.mu.Unlock()
-	m.openTranscript(userID, connectionID)
-	m.mu.Lock()
+	// Open the session transcript, THEN resume a waiting autopilot.
+	m.openTranscriptThenResumeLocked(userID, connectionID, conn)
 
 	// Record metrics
 	metrics.Get().IncConnect()
@@ -360,6 +349,45 @@ func (m *Manager) Connect(ctx context.Context, userID, host string, port int, co
 
 	log.Printf("[SP02PH01] Connection established for user=%s", userID)
 	return session, nil
+}
+
+// openTranscriptThenResumeLocked is the tail of a successful Connect. The
+// caller holds m.mu; this method releases it for the transcript open and
+// holds it again when it returns.
+//
+// Order (code review WR-04 of Phase 4): the transcript -- and with it the
+// game session id -- exists BEFORE the resume fires the engage hook. It used
+// to be the other way round: the resume fired `go engageHook` and only then
+// was the transcript opened, a database round trip the engage goroutine
+// almost always beat. The stint's first decision -- the reassess decision
+// D-08 and D-31 are about, since a page refresh re-makes the connection --
+// then found no game session: no Session Memory in its prompt, its memory
+// update silently discarded, its decision row stored with no
+// game_session_id. (The "[AI-ASSIST resumed]" transcript marker was lost the
+// same way and now lands too.)
+//
+// Opening a session transcript for this connection happens only if it is a
+// saved-profile connection (D-14); a quick connect (connectionID=="") is
+// never transcribed. openTranscript takes m.mu itself only for the brief map
+// insert; the OpenGameSession database round trip still runs with NO lock
+// held, so a slow connect never stalls every other user's session (code
+// review CR-01 of Phase 3).
+//
+// The lock was released meanwhile, so the resume happens only if conn is
+// still this user's socket: a connection that dropped during the round trip
+// has already been torn down by Disconnect and must stay parked.
+func (m *Manager) openTranscriptThenResumeLocked(userID, connectionID string, conn net.Conn) {
+	m.mu.Unlock()
+	m.openTranscript(userID, connectionID)
+	m.mu.Lock()
+
+	if m.conns[userID] != conn {
+		return
+	}
+
+	// Resume a waiting autopilot now that the dial has actually succeeded,
+	// but only onto the profile it was parked on.
+	m.resumeAutopilotLocked(userID, connectionID)
 }
 
 // startTimers starts idle timeout and hard cap timers
