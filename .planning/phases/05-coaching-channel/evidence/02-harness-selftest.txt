@@ -1,13 +1,12 @@
-### CLEAN SELF-TEST
 ### bash scripts/verify-phase5.sh --self-test <file>
 ================================================================
 Phase 5 canned-report harness -- scripts/verify-phase5.sh
-Run started (UTC): 2026-09-17T21:17:37Z
+Run started (UTC): 2026-09-17T23:02:28Z
 Mode: --self-test (fixtures: scripts/fixtures/phase5/, no server)
 BASE_URL: http://fixture.invalid
 CONNECTION_ID: 00000000-0000-0000-0000-000000000000
 NOT_OWNED_CONNECTION_ID: ffffffff-ffff-ffff-ffff-ffffffffffff
-git rev-parse --short HEAD: dbfe98c
+git rev-parse --short HEAD: 9073422
 ================================================================
 
 Ground rules: (1) proof here is this report or an end-user screenshot,
@@ -85,49 +84,72 @@ PASS C2: ai-conversation DELETE is refused with 405 Method Not Allowed (status 4
 
 ---- Step 11: GET profiles/$CONNECTION_ID/ai-settings -- record the current settings (C3, restore discipline) ----
 GET /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
-{"conduct_rules":"Do not attack other players.","approach_guidance":"Explore cautiously.","never_issue_list":"","ai_settings":{"model_name":"","call_cap":null,"disengage_threshold":null,"rate_limit_per_second":null}}
+(response body not printed -- it holds the profile's conduct rules, approach guidance and Never-issue list)
+fields present: conduct_rules=yes approach_guidance=yes never_issue_list=yes ai_settings=yes error=no
+rate_limit_per_second: 2
 PASS C3: ai-settings GET answers HTTP 200 for the owning connection (status 200)
-rate_limit_per_second found before this run (kept for the restore step): null
+sha256 of the settings found before this run (first 8): 88f8c419
+rate_limit_per_second found before this run: 2
+PASS C3: step 11's settings can be re-sent with only the rate limit changed (exactly one rate-limit member; swapping its own value back in changes nothing)
 
 ---- Step 12: PUT profiles/$CONNECTION_ID/ai-settings -- set the rate limit to 5, inside 1-20 (C3, D-25) ----
+PASS C3: the body about to be sent is step 11's with only the rate limit changed (sha256 of the body with the original number back in: 88f8c419, step 11's: 88f8c419)
 PUT /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
-{"conduct_rules":"Do not attack other players.","approach_guidance":"Explore cautiously.","never_issue_list":"","ai_settings":{"model_name":"","call_cap":null,"disengage_threshold":null,"rate_limit_per_second":5}}
+(response body not printed -- it holds the profile's conduct rules, approach guidance and Never-issue list)
+fields present: conduct_rules=yes approach_guidance=yes never_issue_list=yes ai_settings=yes error=no
+rate_limit_per_second: 5
 PASS C3: PUT accepts an in-bounds rate limit (status 200)
 
 ---- Step 13: GET profiles/$CONNECTION_ID/ai-settings -- the set value returns (C3, D-25) ----
 GET /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
-{"conduct_rules":"Do not attack other players.","approach_guidance":"Explore cautiously.","never_issue_list":"","ai_settings":{"model_name":"","call_cap":null,"disengage_threshold":null,"rate_limit_per_second":5}}
+(response body not printed -- it holds the profile's conduct rules, approach guidance and Never-issue list)
+fields present: conduct_rules=yes approach_guidance=yes never_issue_list=yes ai_settings=yes error=no
+rate_limit_per_second: 5
 PASS C3: ai-settings GET answers HTTP 200 after the PUT (status 200)
 PASS C3: the set rate limit round-trips through PUT and GET (got: 5)
 
 ---- Step 14: PUT profiles/$CONNECTION_ID/ai-settings -- set the rate limit to blank (C3, D-25) ----
+PASS C3: the body about to be sent is step 11's with only the rate limit changed (sha256 of the body with the original number back in: 88f8c419, step 11's: 88f8c419)
 PUT /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
-{"conduct_rules":"Do not attack other players.","approach_guidance":"Explore cautiously.","never_issue_list":"","ai_settings":{"model_name":"","call_cap":null,"disengage_threshold":null,"rate_limit_per_second":null}}
+(response body not printed -- it holds the profile's conduct rules, approach guidance and Never-issue list)
+fields present: conduct_rules=yes approach_guidance=yes never_issue_list=yes ai_settings=yes error=no
+rate_limit_per_second: null
 PASS C3: PUT accepts a blank rate limit (status 200)
 
 ---- Step 15: GET profiles/$CONNECTION_ID/ai-settings -- a blank value returns blank (C3, D-25) ----
 GET /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
-{"conduct_rules":"Do not attack other players.","approach_guidance":"Explore cautiously.","never_issue_list":"","ai_settings":{"model_name":"","call_cap":null,"disengage_threshold":null,"rate_limit_per_second":null}}
+(response body not printed -- it holds the profile's conduct rules, approach guidance and Never-issue list)
+fields present: conduct_rules=yes approach_guidance=yes never_issue_list=yes ai_settings=yes error=no
+rate_limit_per_second: null
 PASS C3: ai-settings GET answers HTTP 200 after the blank PUT (status 200)
 PASS C3: a blank rate limit round-trips as null, resolved to the server default in Go, not the browser (got: null)
 
 ---- Step 16: PUT profiles/$CONNECTION_ID/ai-settings -- an out-of-range rate limit is rejected (C3, D-25) ----
+PASS C3: the body about to be sent is step 11's with only the rate limit changed (sha256 of the body with the original number back in: 88f8c419, step 11's: 88f8c419)
 PUT /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 400
-{"error":"AI command rate limit must be between 1 and 20 commands per second"}
+(response body not printed -- it holds the profile's conduct rules, approach guidance and Never-issue list)
+fields present: conduct_rules=no approach_guidance=no never_issue_list=no ai_settings=no error=yes
+rate_limit_per_second: <absent>
 PASS C3: an out-of-range rate limit is rejected with 400 (status 400)
 PASS C3: the refusal message matches the exact bounds sentence (got: AI command rate limit must be between 1 and 20 commands per second)
 
----- Step 17: PUT profiles/$CONNECTION_ID/ai-settings -- restore the pre-run settings (restore discipline) ----
+---- Step 17: PUT profiles/$CONNECTION_ID/ai-settings -- send step 11's settings back exactly as they were read (restore discipline) ----
+sha256 of the body being sent (first 8): 88f8c419 -- step 11's was 88f8c419
 PUT /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
-{"conduct_rules":"Do not attack other players.","approach_guidance":"Explore cautiously.","never_issue_list":"","ai_settings":{"model_name":"","call_cap":null,"disengage_threshold":null,"rate_limit_per_second":null}}
-PASS C3: the profile's AI settings are restored to their pre-run values (status 200)
+(response body not printed -- it holds the profile's conduct rules, approach guidance and Never-issue list)
+fields present: conduct_rules=yes approach_guidance=yes never_issue_list=yes ai_settings=yes error=no
+rate_limit_per_second: 2
+PASS C3: the restore PUT is accepted (status 200)
 
----- Step 18: GET profiles/$CONNECTION_ID/ai-settings -- the restore matches what step 11 found (restore discipline) ----
+---- Step 18: GET profiles/$CONNECTION_ID/ai-settings -- the settings are byte for byte what step 11 found (restore discipline) ----
 GET /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
-{"conduct_rules":"Do not attack other players.","approach_guidance":"Explore cautiously.","never_issue_list":"","ai_settings":{"model_name":"","call_cap":null,"disengage_threshold":null,"rate_limit_per_second":null}}
+(response body not printed -- it holds the profile's conduct rules, approach guidance and Never-issue list)
+fields present: conduct_rules=yes approach_guidance=yes never_issue_list=yes ai_settings=yes error=no
+rate_limit_per_second: 2
 PASS C3: ai-settings GET answers HTTP 200 after the restore (status 200)
-PASS C3: the restored rate limit matches what step 11 found (got: null)
-RESTORED: AI settings set back to what step 11 found. (The captured game text, decisions, coaching and conversation this run touched, if any, are untouched: this run wrote nothing to any of them.)
+PASS C3: the restored rate limit matches what step 11 found (got: 2)
+PASS C3: the restored settings are byte for byte what step 11 found -- conduct rules, approach guidance and Never-issue list included (sha256 before: 88f8c419, after: 88f8c419)
+RESTORED: the AI settings are exactly what step 11 found. (The captured game text, decisions, coaching and conversation this run touched, if any, are untouched: this run wrote nothing to any of them.)
 
 ---- Step 19: GET profiles/$NOT_OWNED_CONNECTION_ID/ai-coaching -- refused, not answered with someone else's coaching (C4, T-4-09) ----
 GET /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/ai-coaching -> HTTP 400
@@ -150,19 +172,18 @@ C2: PASS
 C3: PASS
 C4: PASS
 C5: SKIP
-TOTAL CHECKS: 37  FAILURES: 0  SKIPPED: 1
+TOTAL CHECKS: 42  FAILURES: 0  SKIPPED: 1
 EXIT: 0
 
-### NEGATIVE SELF-TEST
 ### bash scripts/verify-phase5.sh --self-test-negative <file>
 ================================================================
 Phase 5 canned-report harness -- scripts/verify-phase5.sh
-Run started (UTC): 2026-09-17T21:17:47Z
+Run started (UTC): 2026-09-17T23:02:39Z
 Mode: --self-test-negative (fixtures: scripts/fixtures/phase5-negative/, no server)
 BASE_URL: http://fixture.invalid
 CONNECTION_ID: 00000000-0000-0000-0000-000000000000
 NOT_OWNED_CONNECTION_ID: ffffffff-ffff-ffff-ffff-ffffffffffff
-git rev-parse --short HEAD: dbfe98c
+git rev-parse --short HEAD: 9073422
 ================================================================
 
 Ground rules: (1) proof here is this report or an end-user screenshot,
@@ -240,49 +261,72 @@ PASS C2: ai-conversation DELETE is refused with 405 Method Not Allowed (status 4
 
 ---- Step 11: GET profiles/$CONNECTION_ID/ai-settings -- record the current settings (C3, restore discipline) ----
 GET /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
-{"conduct_rules":"Do not attack other players.","approach_guidance":"Explore cautiously.","never_issue_list":"","ai_settings":{"model_name":"","call_cap":null,"disengage_threshold":null,"rate_limit_per_second":null}}
+(response body not printed -- it holds the profile's conduct rules, approach guidance and Never-issue list)
+fields present: conduct_rules=yes approach_guidance=yes never_issue_list=yes ai_settings=yes error=no
+rate_limit_per_second: 2
 PASS C3: ai-settings GET answers HTTP 200 for the owning connection (status 200)
-rate_limit_per_second found before this run (kept for the restore step): null
+sha256 of the settings found before this run (first 8): 88f8c419
+rate_limit_per_second found before this run: 2
+PASS C3: step 11's settings can be re-sent with only the rate limit changed (exactly one rate-limit member; swapping its own value back in changes nothing)
 
 ---- Step 12: PUT profiles/$CONNECTION_ID/ai-settings -- set the rate limit to 5, inside 1-20 (C3, D-25) ----
+PASS C3: the body about to be sent is step 11's with only the rate limit changed (sha256 of the body with the original number back in: 88f8c419, step 11's: 88f8c419)
 PUT /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
-{"conduct_rules":"Do not attack other players.","approach_guidance":"Explore cautiously.","never_issue_list":"","ai_settings":{"model_name":"","call_cap":null,"disengage_threshold":null,"rate_limit_per_second":5}}
+(response body not printed -- it holds the profile's conduct rules, approach guidance and Never-issue list)
+fields present: conduct_rules=yes approach_guidance=yes never_issue_list=yes ai_settings=yes error=no
+rate_limit_per_second: 5
 PASS C3: PUT accepts an in-bounds rate limit (status 200)
 
 ---- Step 13: GET profiles/$CONNECTION_ID/ai-settings -- the set value returns (C3, D-25) ----
 GET /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
-{"conduct_rules":"Do not attack other players.","approach_guidance":"Explore cautiously.","never_issue_list":"","ai_settings":{"model_name":"","call_cap":null,"disengage_threshold":null,"rate_limit_per_second":7}}
+(response body not printed -- it holds the profile's conduct rules, approach guidance and Never-issue list)
+fields present: conduct_rules=yes approach_guidance=yes never_issue_list=yes ai_settings=yes error=no
+rate_limit_per_second: 7
 PASS C3: ai-settings GET answers HTTP 200 after the PUT (status 200)
 FAIL C3: the set rate limit round-trips through PUT and GET (expected: 5, got: 7)
 
 ---- Step 14: PUT profiles/$CONNECTION_ID/ai-settings -- set the rate limit to blank (C3, D-25) ----
+PASS C3: the body about to be sent is step 11's with only the rate limit changed (sha256 of the body with the original number back in: 88f8c419, step 11's: 88f8c419)
 PUT /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
-{"conduct_rules":"Do not attack other players.","approach_guidance":"Explore cautiously.","never_issue_list":"","ai_settings":{"model_name":"","call_cap":null,"disengage_threshold":null,"rate_limit_per_second":null}}
+(response body not printed -- it holds the profile's conduct rules, approach guidance and Never-issue list)
+fields present: conduct_rules=yes approach_guidance=yes never_issue_list=yes ai_settings=yes error=no
+rate_limit_per_second: null
 PASS C3: PUT accepts a blank rate limit (status 200)
 
 ---- Step 15: GET profiles/$CONNECTION_ID/ai-settings -- a blank value returns blank (C3, D-25) ----
 GET /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
-{"conduct_rules":"Do not attack other players.","approach_guidance":"Explore cautiously.","never_issue_list":"","ai_settings":{"model_name":"","call_cap":null,"disengage_threshold":null,"rate_limit_per_second":null}}
+(response body not printed -- it holds the profile's conduct rules, approach guidance and Never-issue list)
+fields present: conduct_rules=yes approach_guidance=yes never_issue_list=yes ai_settings=yes error=no
+rate_limit_per_second: null
 PASS C3: ai-settings GET answers HTTP 200 after the blank PUT (status 200)
 PASS C3: a blank rate limit round-trips as null, resolved to the server default in Go, not the browser (got: null)
 
 ---- Step 16: PUT profiles/$CONNECTION_ID/ai-settings -- an out-of-range rate limit is rejected (C3, D-25) ----
+PASS C3: the body about to be sent is step 11's with only the rate limit changed (sha256 of the body with the original number back in: 88f8c419, step 11's: 88f8c419)
 PUT /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 400
-{"error":"AI command rate limit must be between 1 and 20 commands per second"}
+(response body not printed -- it holds the profile's conduct rules, approach guidance and Never-issue list)
+fields present: conduct_rules=no approach_guidance=no never_issue_list=no ai_settings=no error=yes
+rate_limit_per_second: <absent>
 PASS C3: an out-of-range rate limit is rejected with 400 (status 400)
 PASS C3: the refusal message matches the exact bounds sentence (got: AI command rate limit must be between 1 and 20 commands per second)
 
----- Step 17: PUT profiles/$CONNECTION_ID/ai-settings -- restore the pre-run settings (restore discipline) ----
+---- Step 17: PUT profiles/$CONNECTION_ID/ai-settings -- send step 11's settings back exactly as they were read (restore discipline) ----
+sha256 of the body being sent (first 8): 88f8c419 -- step 11's was 88f8c419
 PUT /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
-{"conduct_rules":"Do not attack other players.","approach_guidance":"Explore cautiously.","never_issue_list":"","ai_settings":{"model_name":"","call_cap":null,"disengage_threshold":null,"rate_limit_per_second":null}}
-PASS C3: the profile's AI settings are restored to their pre-run values (status 200)
+(response body not printed -- it holds the profile's conduct rules, approach guidance and Never-issue list)
+fields present: conduct_rules=yes approach_guidance=yes never_issue_list=yes ai_settings=yes error=no
+rate_limit_per_second: 2
+PASS C3: the restore PUT is accepted (status 200)
 
----- Step 18: GET profiles/$CONNECTION_ID/ai-settings -- the restore matches what step 11 found (restore discipline) ----
+---- Step 18: GET profiles/$CONNECTION_ID/ai-settings -- the settings are byte for byte what step 11 found (restore discipline) ----
 GET /api/v1/profiles/$CONNECTION_ID/ai-settings -> HTTP 200
-{"conduct_rules":"Do not attack other players.","approach_guidance":"Explore cautiously.","never_issue_list":"","ai_settings":{"model_name":"","call_cap":null,"disengage_threshold":null,"rate_limit_per_second":null}}
+(response body not printed -- it holds the profile's conduct rules, approach guidance and Never-issue list)
+fields present: conduct_rules=yes approach_guidance=yes never_issue_list=yes ai_settings=yes error=no
+rate_limit_per_second: 2
 PASS C3: ai-settings GET answers HTTP 200 after the restore (status 200)
-PASS C3: the restored rate limit matches what step 11 found (got: null)
-RESTORED: AI settings set back to what step 11 found. (The captured game text, decisions, coaching and conversation this run touched, if any, are untouched: this run wrote nothing to any of them.)
+PASS C3: the restored rate limit matches what step 11 found (got: 2)
+PASS C3: the restored settings are byte for byte what step 11 found -- conduct rules, approach guidance and Never-issue list included (sha256 before: 88f8c419, after: 88f8c419)
+RESTORED: the AI settings are exactly what step 11 found. (The captured game text, decisions, coaching and conversation this run touched, if any, are untouched: this run wrote nothing to any of them.)
 
 ---- Step 19: GET profiles/$NOT_OWNED_CONNECTION_ID/ai-coaching -- refused, not answered with someone else's coaching (C4, T-4-09) ----
 GET /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/ai-coaching -> HTTP 400
@@ -305,5 +349,5 @@ C2: PASS
 C3: FAIL
 C4: PASS
 C5: SKIP
-TOTAL CHECKS: 37  FAILURES: 1  SKIPPED: 1
+TOTAL CHECKS: 42  FAILURES: 1  SKIPPED: 1
 EXIT: 1
