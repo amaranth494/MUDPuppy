@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: "Phase 3.1 security review: risk register published, awaiting the owner's decisions on 15 items"
-last_updated: "2026-09-17T00:05:18.856Z"
+stopped_at: "Phase 3.1 closed 2026-09-16: dossier accepted, security review done (1 accepted, 5 deferred to the Phase 4 review), ai-player pushed. Next: /gsd-discuss-phase 4"
+last_updated: "2026-09-17T00:05:32.927Z"
 last_activity: 2026-09-17
 progress:
   total_phases: 9
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-09-14)
 
 Phase: 4
 Plan: Not started
-Status: Phase execution complete — pending code review, the regression gate, verification, and the Phase 3.1 security review before the phase can close
+Status: Phase 3.1 closed (secured 2026-09-16); Phase 4 ready to discuss
 Last activity: 2026-09-17
 
 Progress: [██▌       ] 25%
@@ -114,6 +114,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-09-16T23:39:14.896Z
-Stopped at: Phase 3.1 security review: risk register published, awaiting the owner's decisions on 15 items
-Resume file: .planning/phases/03.1-prompt-injection-review/03.1-SECURITY-AGENDA.md
+Last session: 2026-09-17T00:05:32.918Z
+Stopped at: Phase 3.1 closed 2026-09-16: dossier accepted, security review done (1 accepted, 5 deferred to the Phase 4 review), ai-player pushed. Next: /gsd-discuss-phase 4
+Resume file: .planning/todos/pending/2026-09-16-phase4-carry-forward-from-3.1.md
