@@ -51,6 +51,13 @@ type WSMessage struct {
 	// Decision carries an AI decision or system notice (MsgTypeAI only,
 	// plan 03-09, D-08); nil on every other message type.
 	Decision *AIDecisionPayload `json:"decision,omitempty"`
+	// PausedByOwner and ConnectionLost are meaningful only on a
+	// MsgTypeAutopilot push (Phase 5, D-15): the same two independent
+	// waiting reasons AutopilotResponse carries over REST, read through
+	// AutopilotWaitingReasons on every autopilot push this file makes,
+	// including the wheel-grab push below.
+	PausedByOwner  bool `json:"paused_by_owner,omitempty"`
+	ConnectionLost bool `json:"connection_lost,omitempty"`
 }
 
 // AIDecisionPayload is the payload of an outbound MsgTypeAI message
@@ -563,7 +570,14 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 			// every path below regardless of whether the grab happened or
 			// the push succeeded (no lost keystrokes, T-2-12).
 			if grabbed, state := applyWheelGrab(h.manager, userIDStr, wsMsg.Source); grabbed {
-				_ = h.writeJSON(conn, WSMessage{Type: MsgTypeAutopilot, Status: string(state), Data: "wheel-grab"})
+				pausedByOwner, connectionLost := h.manager.AutopilotWaitingReasons(userIDStr)
+				_ = h.writeJSON(conn, WSMessage{
+					Type:           MsgTypeAutopilot,
+					Status:         string(state),
+					Data:           "wheel-grab",
+					PausedByOwner:  pausedByOwner,
+					ConnectionLost: connectionLost,
+				})
 			}
 
 			// Send command to MUD via channel

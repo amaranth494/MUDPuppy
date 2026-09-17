@@ -634,3 +634,328 @@ func TestSendAICommand_RefusedOnEpochMismatch(t *testing.T) {
 		t.Fatalf("the previous stint's command reached the wire: %q", written())
 	}
 }
+
+// TestAutopilotRecordCarriesBothWaitingReasons proves D-15's two
+// independent waiting reasons round-trip through AutopilotWaitingReasons
+// for all four combinations, and pins that Engage/Disengage/EnterWaiting/
+// Resume still return exactly what they returned before this plan for
+// every input -- a later refactor cannot quietly move reason logic into
+// them (RESEARCH Pitfall 1).
+func TestAutopilotRecordCarriesBothWaitingReasons(t *testing.T) {
+	m := newTestManager()
+	const userID = "reasons-user-1"
+
+	combos := []struct {
+		paused, lost bool
+	}{
+		{false, false},
+		{true, false},
+		{false, true},
+		{true, true},
+	}
+	for _, c := range combos {
+		m.mu.Lock()
+		m.autopilot[userID] = &AutopilotRecord{State: AutopilotWaiting, PausedByOwner: c.paused, ConnectionLost: c.lost}
+		m.mu.Unlock()
+
+		gotPaused, gotLost := m.AutopilotWaitingReasons(userID)
+		if gotPaused != c.paused || gotLost != c.lost {
+			t.Errorf("combo %+v: AutopilotWaitingReasons = (%v, %v), want (%v, %v)", c, gotPaused, gotLost, c.paused, c.lost)
+		}
+	}
+
+	if paused, lost := m.AutopilotWaitingReasons("never-engaged"); paused || lost {
+		t.Errorf("AutopilotWaitingReasons for a never-engaged user = (%v, %v), want (false, false)", paused, lost)
+	}
+
+	pureTests := []struct {
+		name        string
+		fn          func(AutopilotState) (AutopilotState, bool)
+		from        AutopilotState
+		wantState   AutopilotState
+		wantChanged bool
+	}{
+		{"off_Engage_on", Engage, AutopilotOff, AutopilotOn, true},
+		{"on_Engage_unchanged", Engage, AutopilotOn, AutopilotOn, false},
+		{"waiting_Engage_unchanged", Engage, AutopilotWaiting, AutopilotWaiting, false},
+		{"on_Disengage_off", Disengage, AutopilotOn, AutopilotOff, true},
+		{"waiting_Disengage_off", Disengage, AutopilotWaiting, AutopilotOff, true},
+		{"off_Disengage_unchanged", Disengage, AutopilotOff, AutopilotOff, false},
+		{"on_EnterWaiting_waiting", EnterWaiting, AutopilotOn, AutopilotWaiting, true},
+		{"off_EnterWaiting_unchanged", EnterWaiting, AutopilotOff, AutopilotOff, false},
+		{"waiting_EnterWaiting_unchanged", EnterWaiting, AutopilotWaiting, AutopilotWaiting, false},
+		{"waiting_Resume_on", Resume, AutopilotWaiting, AutopilotOn, true},
+		{"off_Resume_unchanged", Resume, AutopilotOff, AutopilotOff, false},
+		{"on_Resume_unchanged", Resume, AutopilotOn, AutopilotOn, false},
+	}
+	for _, tt := range pureTests {
+		gotState, gotChanged := tt.fn(tt.from)
+		if gotState != tt.wantState || gotChanged != tt.wantChanged {
+			t.Errorf("%s: (state, changed) = (%q, %v), want (%q, %v)", tt.name, gotState, gotChanged, tt.wantState, tt.wantChanged)
+		}
+	}
+}
+
+// TestManager_ResumeRequiresBothReasonsClear proves T-5-01's mitigation: a
+// pause and a disconnect can arrive in either order, and the switch only
+// leaves Waiting once both reasons have cleared.
+func TestManager_ResumeRequiresBothReasonsClear(t *testing.T) {
+	t.Run("pause_then_disconnect_then_reconnect_then_owner_resume", func(t *testing.T) {
+		m := newTestManager()
+		const userID = "reqclear-user-1"
+		seedConnectedSession(m, userID, "conn-1")
+		_, _, epoch1, err := m.EngageAutopilotEpoch(userID, "conn-1")
+		if err != nil {
+			t.Fatalf("engage err = %v, want nil", err)
+		}
+
+		fired := make(chan struct{}, 4)
+		m.SetEngageHook(func(uid, connID string, epoch uint64) { fired <- struct{}{} })
+
+		if state, changed := m.PauseAutopilot(userID); !changed || state != AutopilotWaiting {
+			t.Fatalf("PauseAutopilot = (%q, %v), want (%q, true)", state, changed, AutopilotWaiting)
+		}
+
+		if err := m.Disconnect(userID, ReasonRemote); err != nil {
+			t.Fatalf("Disconnect err = %v, want nil", err)
+		}
+
+		m.mu.Lock()
+		m.sessions[userID] = &Session{UserID: userID, ConnectionID: "conn-1", State: StateConnected}
+		m.resumeAutopilotLocked(userID, "conn-1")
+		m.mu.Unlock()
+
+		if got := m.AutopilotStateFor(userID); got != AutopilotWaiting {
+			t.Fatalf("AutopilotStateFor after reconnect = %q, want %q (a reconnect alone must not un-pause)", got, AutopilotWaiting)
+		}
+		if paused, lost := m.AutopilotWaitingReasons(userID); !paused || lost {
+			t.Fatalf("AutopilotWaitingReasons after reconnect = (%v, %v), want (true, false)", paused, lost)
+		}
+		time.Sleep(20 * time.Millisecond)
+		if len(fired) != 0 {
+			t.Fatalf("engage hook fired after a reconnect while the owner's pause still stands")
+		}
+
+		state, changed := m.ResumeAutopilotByOwner(userID)
+		if !changed || state != AutopilotOn {
+			t.Fatalf("ResumeAutopilotByOwner = (%q, %v), want (%q, true)", state, changed, AutopilotOn)
+		}
+		if !pollUntil(t, 2*time.Second, func() bool { return len(fired) >= 1 }) {
+			t.Fatalf("timed out waiting for the engage hook to fire on owner resume")
+		}
+		<-fired
+		if len(fired) != 0 {
+			t.Fatalf("expected exactly one engage hook firing, got an extra one queued")
+		}
+		if _, epoch := m.AutopilotEpochFor(userID); epoch != epoch1+1 {
+			t.Fatalf("epoch after owner resume = %d, want %d", epoch, epoch1+1)
+		}
+	})
+
+	t.Run("disconnect_then_pause_then_owner_resume_then_reconnect", func(t *testing.T) {
+		m := newTestManager()
+		const userID = "reqclear-user-2"
+		seedConnectedSession(m, userID, "conn-1")
+		_, _, epoch1, err := m.EngageAutopilotEpoch(userID, "conn-1")
+		if err != nil {
+			t.Fatalf("engage err = %v, want nil", err)
+		}
+
+		fired := make(chan struct{}, 4)
+		m.SetEngageHook(func(uid, connID string, epoch uint64) { fired <- struct{}{} })
+
+		if err := m.Disconnect(userID, ReasonRemote); err != nil {
+			t.Fatalf("Disconnect err = %v, want nil", err)
+		}
+		if state, changed := m.PauseAutopilot(userID); changed || state != AutopilotWaiting {
+			t.Fatalf("PauseAutopilot while already waiting = (%q, %v), want (%q, false)", state, changed, AutopilotWaiting)
+		}
+		if paused, lost := m.AutopilotWaitingReasons(userID); !paused || !lost {
+			t.Fatalf("AutopilotWaitingReasons after disconnect+pause = (%v, %v), want (true, true)", paused, lost)
+		}
+
+		// Owner resume first: PausedByOwner clears, but ConnectionLost still
+		// stands, so the switch must stay Waiting with no hook fire.
+		if state, changed := m.ResumeAutopilotByOwner(userID); changed || state != AutopilotWaiting {
+			t.Fatalf("ResumeAutopilotByOwner while still disconnected = (%q, %v), want (%q, false)", state, changed, AutopilotWaiting)
+		}
+		time.Sleep(20 * time.Millisecond)
+		if len(fired) != 0 {
+			t.Fatalf("engage hook fired after an owner resume while the connection is still lost")
+		}
+
+		m.mu.Lock()
+		m.sessions[userID] = &Session{UserID: userID, ConnectionID: "conn-1", State: StateConnected}
+		m.resumeAutopilotLocked(userID, "conn-1")
+		m.mu.Unlock()
+
+		if !pollUntil(t, 2*time.Second, func() bool { return len(fired) >= 1 }) {
+			t.Fatalf("timed out waiting for the engage hook to fire on reconnect")
+		}
+		if got := m.AutopilotStateFor(userID); got != AutopilotOn {
+			t.Fatalf("AutopilotStateFor after reconnect clears the last reason = %q, want %q", got, AutopilotOn)
+		}
+		if _, epoch := m.AutopilotEpochFor(userID); epoch != epoch1+1 {
+			t.Fatalf("epoch after reconnect resume = %d, want %d", epoch, epoch1+1)
+		}
+	})
+}
+
+// TestManager_ResumeByOwnerFiresEngageHookOnce proves the pause/resume
+// hook-firing discipline with the connection healthy throughout: the
+// disengage hook fires once on pause, the engage hook fires once on
+// resume, and the resumed epoch is strictly greater than the paused one.
+func TestManager_ResumeByOwnerFiresEngageHookOnce(t *testing.T) {
+	m := newTestManager()
+	const userID = "fireonce-user-1"
+	seedConnectedSession(m, userID, "conn-1")
+	_, _, pausedEpoch, err := m.EngageAutopilotEpoch(userID, "conn-1")
+	if err != nil {
+		t.Fatalf("engage err = %v, want nil", err)
+	}
+
+	disengageFired := make(chan uint64, 4)
+	engageFired := make(chan uint64, 4)
+	m.SetDisengageHook(func(uid string, epoch uint64) { disengageFired <- epoch })
+	m.SetEngageHook(func(uid, connID string, epoch uint64) { engageFired <- epoch })
+
+	if state, changed := m.PauseAutopilot(userID); !changed || state != AutopilotWaiting {
+		t.Fatalf("PauseAutopilot = (%q, %v), want (%q, true)", state, changed, AutopilotWaiting)
+	}
+	if !pollUntil(t, 2*time.Second, func() bool { return len(disengageFired) >= 1 }) {
+		t.Fatalf("timed out waiting for the disengage hook to fire on pause")
+	}
+	if got := <-disengageFired; got != pausedEpoch {
+		t.Fatalf("disengage hook fired with epoch %d, want %d", got, pausedEpoch)
+	}
+	if len(disengageFired) != 0 {
+		t.Fatalf("expected exactly one disengage hook firing on pause, got an extra one queued")
+	}
+
+	state, changed := m.ResumeAutopilotByOwner(userID)
+	if !changed || state != AutopilotOn {
+		t.Fatalf("ResumeAutopilotByOwner = (%q, %v), want (%q, true)", state, changed, AutopilotOn)
+	}
+	if !pollUntil(t, 2*time.Second, func() bool { return len(engageFired) >= 1 }) {
+		t.Fatalf("timed out waiting for the engage hook to fire on resume")
+	}
+	resumedEpoch := <-engageFired
+	if len(engageFired) != 0 {
+		t.Fatalf("expected exactly one engage hook firing on resume, got an extra one queued")
+	}
+	if resumedEpoch <= pausedEpoch {
+		t.Fatalf("resumed epoch %d is not strictly greater than the paused epoch %d", resumedEpoch, pausedEpoch)
+	}
+}
+
+// TestManager_PauseNeverResumesByItself proves D-13/D-15's core promise:
+// once paused, nothing but an owner resume starts the switch again.
+func TestManager_PauseNeverResumesByItself(t *testing.T) {
+	m := newTestManager()
+	const userID = "neverself-user-1"
+	seedConnectedSession(m, userID, "conn-1")
+	if _, _, _, err := m.EngageAutopilotEpoch(userID, "conn-1"); err != nil {
+		t.Fatalf("engage err = %v, want nil", err)
+	}
+
+	engageFired := make(chan struct{}, 4)
+	m.SetEngageHook(func(uid, connID string, epoch uint64) { engageFired <- struct{}{} })
+
+	if state, changed := m.PauseAutopilot(userID); !changed || state != AutopilotWaiting {
+		t.Fatalf("PauseAutopilot = (%q, %v), want (%q, true)", state, changed, AutopilotWaiting)
+	}
+
+	// A reconnect on the same connection while the owner's pause stands
+	// must not resume it.
+	m.mu.Lock()
+	m.sessions[userID] = &Session{UserID: userID, ConnectionID: "conn-1", State: StateConnected}
+	m.resumeAutopilotLocked(userID, "conn-1")
+	m.mu.Unlock()
+	if got := m.AutopilotStateFor(userID); got != AutopilotWaiting {
+		t.Fatalf("AutopilotStateFor after reconnect = %q, want %q", got, AutopilotWaiting)
+	}
+
+	// A second pause is a no-op that leaves the state exactly where it was.
+	if state, changed := m.PauseAutopilot(userID); changed || state != AutopilotWaiting {
+		t.Fatalf("second PauseAutopilot = (%q, %v), want (%q, false)", state, changed, AutopilotWaiting)
+	}
+
+	// A status change: a disconnect on top of an owner pause records its
+	// own reason but must not resume anything either.
+	if err := m.Disconnect(userID, ReasonRemote); err != nil {
+		t.Fatalf("Disconnect err = %v, want nil", err)
+	}
+	if got := m.AutopilotStateFor(userID); got != AutopilotWaiting {
+		t.Fatalf("AutopilotStateFor after a disconnect on top of a pause = %q, want %q", got, AutopilotWaiting)
+	}
+
+	time.Sleep(20 * time.Millisecond)
+	if len(engageFired) != 0 {
+		t.Fatalf("engage hook fired without an owner resume, got %d firing(s)", len(engageFired))
+	}
+}
+
+// TestManager_WheelGrabWhilePausedLandsOff proves D-16: the wheel-grab rule
+// is the same in every engaged state. DisengageAutopilot with cause
+// "wheel-grab" is the exact call applyWheelGrab makes once it decides a
+// human-sourced command takes the wheel back; this test drives that same
+// path directly against a paused switch.
+func TestManager_WheelGrabWhilePausedLandsOff(t *testing.T) {
+	m := newTestManager()
+	const userID = "wheelpause-user-1"
+	seedConnectedSession(m, userID, "conn-1")
+	if _, _, _, err := m.EngageAutopilotEpoch(userID, "conn-1"); err != nil {
+		t.Fatalf("engage err = %v, want nil", err)
+	}
+	if state, changed := m.PauseAutopilot(userID); !changed || state != AutopilotWaiting {
+		t.Fatalf("PauseAutopilot = (%q, %v), want (%q, true)", state, changed, AutopilotWaiting)
+	}
+
+	state, changed := m.DisengageAutopilot(userID, "wheel-grab")
+	if !changed || state != AutopilotOff {
+		t.Fatalf("DisengageAutopilot(wheel-grab) while paused = (%q, %v), want (%q, true)", state, changed, AutopilotOff)
+	}
+	if paused, lost := m.AutopilotWaitingReasons(userID); paused || lost {
+		t.Fatalf("AutopilotWaitingReasons after wheel-grab = (%v, %v), want (false, false)", paused, lost)
+	}
+}
+
+// TestManager_PauseStopsTheLoopAndKeepsReading is D-14's mechanical half:
+// pausing stops the loop (the disengage hook fires, the engage hook does
+// not) but the Immediate Context window keeps filling exactly as it does
+// with autopilot fully on.
+func TestManager_PauseStopsTheLoopAndKeepsReading(t *testing.T) {
+	m := newTestManager()
+	const userID = "pauseread-user-1"
+	seedConnectedSession(m, userID, "conn-1")
+	if _, _, _, err := m.EngageAutopilotEpoch(userID, "conn-1"); err != nil {
+		t.Fatalf("engage err = %v, want nil", err)
+	}
+
+	disengageFired := make(chan struct{}, 4)
+	engageFired := make(chan struct{}, 4)
+	m.SetDisengageHook(func(uid string, epoch uint64) { disengageFired <- struct{}{} })
+	m.SetEngageHook(func(uid, connID string, epoch uint64) { engageFired <- struct{}{} })
+
+	if state, changed := m.PauseAutopilot(userID); !changed || state != AutopilotWaiting {
+		t.Fatalf("PauseAutopilot = (%q, %v), want (%q, true)", state, changed, AutopilotWaiting)
+	}
+	if !pollUntil(t, 2*time.Second, func() bool { return len(disengageFired) >= 1 }) {
+		t.Fatalf("timed out waiting for the disengage hook to fire on pause")
+	}
+
+	before := m.RecentOutputSnapshot(userID)
+	m.appendOutputWindow(userID, []byte("A room. Exits: north.\n"))
+	after := m.RecentOutputSnapshot(userID)
+	if len(after) <= len(before) {
+		t.Fatalf("RecentOutputSnapshot did not grow while paused: before %q, after %q", before, after)
+	}
+
+	time.Sleep(20 * time.Millisecond)
+	if len(disengageFired) != 1 {
+		t.Fatalf("expected exactly one disengage hook firing, got %d", len(disengageFired))
+	}
+	if len(engageFired) != 0 {
+		t.Fatalf("expected no engage hook firing while paused, got %d", len(engageFired))
+	}
+}

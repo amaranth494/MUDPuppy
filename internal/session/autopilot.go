@@ -51,6 +51,20 @@ type AutopilotRecord struct {
 	// record's, which is what stops a decision that outlived its stint from
 	// being sent in the next one after a quick re-engage.
 	Epoch uint64
+	// PausedByOwner and ConnectionLost are D-15's two independent waiting
+	// reasons (Phase 5). A record in AutopilotWaiting always has at least
+	// one of them true -- pausing while already waiting from a disconnect
+	// sets PausedByOwner without changing State, and a disconnect while
+	// already paused by the owner sets ConnectionLost the same way. The
+	// engage hook fires only on a transition that leaves both false: a
+	// reconnect alone clears only ConnectionLost, and an owner resume alone
+	// clears only PausedByOwner. Both reasons are cleared whenever the
+	// switch lands Off, by any cause. All bookkeeping on these two fields
+	// lives in manager.go; Engage, Disengage, EnterWaiting and Resume below
+	// take and return only AutopilotState and must never grow a reason
+	// parameter (RESEARCH Pitfall 1).
+	PausedByOwner  bool
+	ConnectionLost bool
 }
 
 // ErrNoConnectedSession is returned when #AUTO ON is attempted with no

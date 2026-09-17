@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/amaranth494/MudPuppy/internal/config"
@@ -568,6 +569,298 @@ func TestAutopilotHandler_AIConfigRefusal(t *testing.T) {
 		}
 		if resp.Outcome == "refused-not-configured" {
 			t.Errorf("outcome = %q, #AUTO OFF must never be refused for a missing AI config", resp.Outcome)
+		}
+	})
+}
+
+// TestAutopilotHandler_PauseAndResumeActions drives the endpoint with
+// "pause" then "resume" for the four sequences plan 05-01-02 names: pause
+// from on, resume from paused, resume while the connection is also lost,
+// and pause while off.
+func TestAutopilotHandler_PauseAndResumeActions(t *testing.T) {
+	t.Run("pause_from_on", func(t *testing.T) {
+		m := newTestManager()
+		userID := uuid.New()
+		connID := uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
+		h := newAutopilotHandler(m, alwaysAllow(""))
+
+		onReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: connID}))
+		h.Autopilot(httptest.NewRecorder(), onReq)
+
+		req := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "pause"}))
+		rec := httptest.NewRecorder()
+		h.Autopilot(rec, req)
+
+		resp := decodeAutopilotResponse(t, rec)
+		if resp.State != string(AutopilotWaiting) {
+			t.Errorf("state = %q, want %q", resp.State, AutopilotWaiting)
+		}
+		if resp.Outcome != "paused" {
+			t.Errorf("outcome = %q, want %q", resp.Outcome, "paused")
+		}
+		if !resp.PausedByOwner {
+			t.Errorf("paused_by_owner = false, want true")
+		}
+		if resp.ConnectionLost {
+			t.Errorf("connection_lost = true, want false")
+		}
+	})
+
+	t.Run("resume_from_paused", func(t *testing.T) {
+		m := newTestManager()
+		userID := uuid.New()
+		connID := uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
+		h := newAutopilotHandler(m, alwaysAllow(""))
+
+		onReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: connID}))
+		h.Autopilot(httptest.NewRecorder(), onReq)
+		pauseReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "pause"}))
+		h.Autopilot(httptest.NewRecorder(), pauseReq)
+
+		req := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "resume"}))
+		rec := httptest.NewRecorder()
+		h.Autopilot(rec, req)
+
+		resp := decodeAutopilotResponse(t, rec)
+		if resp.State != string(AutopilotOn) {
+			t.Errorf("state = %q, want %q", resp.State, AutopilotOn)
+		}
+		if resp.Outcome != "resumed" {
+			t.Errorf("outcome = %q, want %q", resp.Outcome, "resumed")
+		}
+		if resp.PausedByOwner || resp.ConnectionLost {
+			t.Errorf("(paused_by_owner, connection_lost) = (%v, %v), want (false, false)", resp.PausedByOwner, resp.ConnectionLost)
+		}
+	})
+
+	t.Run("resume_while_connection_also_lost", func(t *testing.T) {
+		m := newTestManager()
+		userID := uuid.New()
+		connID := uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
+		h := newAutopilotHandler(m, alwaysAllow(""))
+
+		onReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: connID}))
+		h.Autopilot(httptest.NewRecorder(), onReq)
+		pauseReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "pause"}))
+		h.Autopilot(httptest.NewRecorder(), pauseReq)
+		if err := m.Disconnect(userID.String(), ReasonRemote); err != nil {
+			t.Fatalf("Disconnect: %v", err)
+		}
+
+		req := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "resume"}))
+		rec := httptest.NewRecorder()
+		h.Autopilot(rec, req)
+
+		resp := decodeAutopilotResponse(t, rec)
+		if resp.State != string(AutopilotWaiting) {
+			t.Errorf("state = %q, want %q", resp.State, AutopilotWaiting)
+		}
+		if resp.Outcome != "still-waiting" {
+			t.Errorf("outcome = %q, want %q", resp.Outcome, "still-waiting")
+		}
+		if !resp.ConnectionLost {
+			t.Errorf("connection_lost = false, want true")
+		}
+		if resp.PausedByOwner {
+			t.Errorf("paused_by_owner = true, want false (the owner resume already cleared its own reason)")
+		}
+	})
+
+	t.Run("pause_while_off", func(t *testing.T) {
+		m := newTestManager()
+		userID := uuid.New()
+		h := newAutopilotHandler(m, alwaysAllow(""))
+
+		req := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "pause"}))
+		rec := httptest.NewRecorder()
+		h.Autopilot(rec, req)
+
+		resp := decodeAutopilotResponse(t, rec)
+		if resp.State != string(AutopilotOff) {
+			t.Errorf("state = %q, want %q", resp.State, AutopilotOff)
+		}
+		if resp.Outcome != "already-off" {
+			t.Errorf("outcome = %q, want %q", resp.Outcome, "already-off")
+		}
+		if resp.PausedByOwner || resp.ConnectionLost {
+			t.Errorf("(paused_by_owner, connection_lost) = (%v, %v), want (false, false)", resp.PausedByOwner, resp.ConnectionLost)
+		}
+	})
+}
+
+// TestAutopilotHandler_EmitsPausedAndResumedNotices proves D-15's thinking-
+// stream notices: a locked, unbracketed message on every real pause and
+// resume, silence otherwise, and no panic with no notifier wired at all.
+func TestAutopilotHandler_EmitsPausedAndResumedNotices(t *testing.T) {
+	t.Run("pause_from_on_emits_exactly_one_paused_notice", func(t *testing.T) {
+		m := newTestManager()
+		userID := uuid.New()
+		connID := uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
+		h := newAutopilotHandler(m, alwaysAllow(""))
+
+		var got []AIDecisionPayload
+		h.SetAINotifier(func(uid string, payload AIDecisionPayload) { got = append(got, payload) })
+
+		onReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: connID}))
+		h.Autopilot(httptest.NewRecorder(), onReq)
+
+		pauseReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "pause"}))
+		h.Autopilot(httptest.NewRecorder(), pauseReq)
+
+		if len(got) != 1 {
+			t.Fatalf("got %d notices, want exactly 1: %+v", len(got), got)
+		}
+		if got[0].Kind != "system" {
+			t.Errorf("Kind = %q, want %q", got[0].Kind, "system")
+		}
+		if got[0].Outcome != "paused" {
+			t.Errorf("Outcome = %q, want %q", got[0].Outcome, "paused")
+		}
+		if got[0].Message != "Autopilot paused" {
+			t.Errorf("Message = %q, want exactly %q", got[0].Message, "Autopilot paused")
+		}
+		if strings.ContainsAny(got[0].Message, "[]") {
+			t.Errorf("Message %q contains a bracket; the panel adds brackets, not this handler", got[0].Message)
+		}
+	})
+
+	t.Run("resume_from_paused_only_emits_exactly_one_resumed_notice", func(t *testing.T) {
+		m := newTestManager()
+		userID := uuid.New()
+		connID := uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
+		h := newAutopilotHandler(m, alwaysAllow(""))
+
+		onReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: connID}))
+		h.Autopilot(httptest.NewRecorder(), onReq)
+		pauseReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "pause"}))
+		h.Autopilot(httptest.NewRecorder(), pauseReq)
+
+		var got []AIDecisionPayload
+		h.SetAINotifier(func(uid string, payload AIDecisionPayload) { got = append(got, payload) })
+
+		resumeReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "resume"}))
+		h.Autopilot(httptest.NewRecorder(), resumeReq)
+
+		if len(got) != 1 {
+			t.Fatalf("got %d notices, want exactly 1: %+v", len(got), got)
+		}
+		if got[0].Outcome != "resumed" {
+			t.Errorf("Outcome = %q, want %q", got[0].Outcome, "resumed")
+		}
+		if got[0].Message != "Autopilot resumed" {
+			t.Errorf("Message = %q, want exactly %q", got[0].Message, "Autopilot resumed")
+		}
+		if strings.ContainsAny(got[0].Message, "[]") {
+			t.Errorf("Message %q contains a bracket; the panel adds brackets, not this handler", got[0].Message)
+		}
+	})
+
+	t.Run("resume_while_connection_also_lost_emits_nothing_until_the_last_reason_clears", func(t *testing.T) {
+		m := newTestManager()
+		userID := uuid.New()
+		connID := uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
+		h := newAutopilotHandler(m, alwaysAllow(""))
+
+		onReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: connID}))
+		h.Autopilot(httptest.NewRecorder(), onReq)
+		pauseReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "pause"}))
+		h.Autopilot(httptest.NewRecorder(), pauseReq)
+		if err := m.Disconnect(userID.String(), ReasonRemote); err != nil {
+			t.Fatalf("Disconnect: %v", err)
+		}
+
+		var got []AIDecisionPayload
+		h.SetAINotifier(func(uid string, payload AIDecisionPayload) { got = append(got, payload) })
+
+		resumeReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "resume"}))
+		h.Autopilot(httptest.NewRecorder(), resumeReq)
+
+		if len(got) != 0 {
+			t.Fatalf("resume while the connection is still lost emitted %d notice(s), want 0: %+v", len(got), got)
+		}
+
+		// A later reconnect (resumeAutopilotLocked's path) clears the last
+		// reason and completes the resume, but that path fires the engage
+		// hook, never this handler's notifier — no notice from a reconnect.
+		m.mu.Lock()
+		m.sessions[userID.String()] = &Session{UserID: userID.String(), ConnectionID: connID.String(), State: StateConnected}
+		m.resumeAutopilotLocked(userID.String(), connID.String())
+		m.mu.Unlock()
+		if got := m.AutopilotStateFor(userID.String()); got != AutopilotOn {
+			t.Fatalf("AutopilotStateFor after reconnect = %q, want %q", got, AutopilotOn)
+		}
+	})
+
+	t.Run("pause_while_already_waiting_from_a_disconnect_emits_nothing", func(t *testing.T) {
+		m := newTestManager()
+		userID := uuid.New()
+		connID := uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
+		h := newAutopilotHandler(m, alwaysAllow(""))
+
+		onReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: connID}))
+		h.Autopilot(httptest.NewRecorder(), onReq)
+		if err := m.Disconnect(userID.String(), ReasonRemote); err != nil {
+			t.Fatalf("Disconnect: %v", err)
+		}
+
+		var got []AIDecisionPayload
+		h.SetAINotifier(func(uid string, payload AIDecisionPayload) { got = append(got, payload) })
+
+		pauseReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "pause"}))
+		h.Autopilot(httptest.NewRecorder(), pauseReq)
+
+		if len(got) != 0 {
+			t.Fatalf("pause while already waiting from a disconnect emitted %d notice(s), want 0: %+v", len(got), got)
+		}
+	})
+
+	t.Run("pause_while_off_emits_nothing", func(t *testing.T) {
+		m := newTestManager()
+		userID := uuid.New()
+		h := newAutopilotHandler(m, alwaysAllow(""))
+
+		var got []AIDecisionPayload
+		h.SetAINotifier(func(uid string, payload AIDecisionPayload) { got = append(got, payload) })
+
+		pauseReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "pause"}))
+		h.Autopilot(httptest.NewRecorder(), pauseReq)
+
+		if len(got) != 0 {
+			t.Fatalf("pause while off emitted %d notice(s), want 0: %+v", len(got), got)
+		}
+	})
+
+	t.Run("no_notifier_set_still_returns_normal_responses_and_does_not_panic", func(t *testing.T) {
+		m := newTestManager()
+		userID := uuid.New()
+		connID := uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
+		h := newAutopilotHandler(m, alwaysAllow("")) // SetAINotifier never called
+
+		onReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: connID}))
+		h.Autopilot(httptest.NewRecorder(), onReq)
+
+		pauseReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "pause"}))
+		pauseRec := httptest.NewRecorder()
+		h.Autopilot(pauseRec, pauseReq)
+		pauseResp := decodeAutopilotResponse(t, pauseRec)
+		if pauseResp.Outcome != "paused" {
+			t.Errorf("pause outcome = %q, want %q", pauseResp.Outcome, "paused")
+		}
+
+		resumeReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "resume"}))
+		resumeRec := httptest.NewRecorder()
+		h.Autopilot(resumeRec, resumeReq)
+		resumeResp := decodeAutopilotResponse(t, resumeRec)
+		if resumeResp.Outcome != "resumed" {
+			t.Errorf("resume outcome = %q, want %q", resumeResp.Outcome, "resumed")
 		}
 	})
 }

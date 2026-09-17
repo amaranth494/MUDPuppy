@@ -356,6 +356,14 @@ func main() {
 		})
 	})
 
+	// Wire the pause/resume system-line notices (plan 05-01-03, D-15)
+	// through the exact same wsHandler.PushAI path — session.Handler
+	// already speaks session.AIDecisionPayload, so no conversion struct is
+	// needed here the way profiles.AIEvent above needs one.
+	sessionHandler.SetAINotifier(func(userID string, payload session.AIDecisionPayload) {
+		_ = wsHandler.PushAI(userID, payload)
+	})
+
 	// Initialize metrics (SP02PH04T03)
 	metrics.Init()
 
