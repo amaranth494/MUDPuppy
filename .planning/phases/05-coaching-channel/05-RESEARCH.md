@@ -487,17 +487,19 @@ d.safety.RecordExecution(sessionID, normalized.Command) // never reached for AI 
 
 **If this table is empty:** N/A — see rows above.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should the coaching store be a new column on `game_sessions` (mirroring `session_memory` exactly) or a separate table?**
    - What we know: D-08 ties coaching's lifetime to Session Memory's lifetime exactly (Phase 4 D-31's login-scoped inheritance). The SQL pattern for inheriting a JSONB column across the login boundary is already written and tested (`transcripts.go`).
    - What's unclear: whether coaching's separate concerns (it needs individual add/withdraw semantics driven by AI-chatter's structured answer, versus Session Memory's whole-list-replace semantics driven by AI-player) argue for its own table with per-entry rows (enabling, e.g., an audit trail of *when* each suggestion was pushed/withdrawn) rather than a JSONB array column.
    - Recommendation: Claude's Discretion, explicitly deferred by CONTEXT.md ("coaching suggestions stored per login and profile like Session Memory"). A JSONB column matching `session_memory`'s exact shape is the lower-effort, more-consistent choice; a dedicated table is only worth the extra migration/query complexity if the planner wants per-suggestion timestamps surfaced somewhere (nothing in the UI spec currently shows one).
+   - **RESOLVED (planning, 2026-09-17):** JSONB column, not a separate table. Plan 05-05 adds game_sessions.coaching_suggestions in migration 015; plan 05-06 gives it Session Memory's exact three-method shape and the same login_started_at inheritance, and seeds it in openGameSessionSQL beside session_memory. No per-suggestion timestamps are surfaced anywhere, so the extra table was not earned.
 
 2. **Does the "Coaching received" marker (D-05) ride the existing `MsgTypeAI` channel or does it need its own?**
    - What we know: `05-UI-SPEC.md` confirms the marker is a plain `.ai-system-line` in the thinking stream, styled exactly like the existing goal-changed neutral line, and "carries no suggestion text."
    - What's unclear: whether this marker is emitted by `HandleChat` (immediately, when the push happens) or by the *next* `runIteration` (when the coaching is actually read into a prompt) — D-05 says "at that moment" (implying immediate, from `HandleChat`) but also "the marker, followed by the next decision's logged reasoning reflecting the coaching, is the evidence for success criterion 1" (implying the marker precedes, not depends on, the next decision).
    - Recommendation: Emit the marker from `HandleChat` at the moment of push/withdraw, over the existing `MsgTypeAI`/`Notifier.NotifyDecision` path (Kind: "system", Outcome: something new like "coaching-received") — this matches "at that moment" literally and requires no new websocket message type for this one line, since `AIAssistPanel.tsx`'s existing `handleAI` switch already renders any `kind: 'system'` entry as a bracketed line in the thinking stream.
+   - **RESOLVED (planning, 2026-09-17):** Emitted by HandleChat at the moment of the push or withdraw, over the existing MsgTypeAI / Notifier path as Kind system with Outcome coaching-received (plan 05-06, task 05-06-01). No new websocket message type. Planning added one correction the research could not have known: the wire Message is the unbracketed text Coaching received, because AIAssistPanel.tsx already wraps a system line in square brackets when it renders it, so the owner reads the locked string exactly once. The same convention governs the pause and resume notices in plan 05-01.
 
 ## Environment Availability
 

@@ -278,7 +278,41 @@ Implementation notes for planning: the loop is a server-side goroutine per engag
   3. Chat is only ever plain text and AI-chatter can change no configuration; a help article in the app explains AI-chatter, AI-player and how the owner copies a suggestion into conduct rules or approach guidance by hand. (Promotion withdrawn by the owner 2026-09-17.)
   4. The AI panel sits beside the terminal in the play screen as one panel with two views: AI-player's decisions, reasoning and notices on top, and the owner's conversation with AI-chatter below; every suggestion pushed to AI-player is visible to the owner (quoted in the reply, listed under "Coaching in effect", marked in the stream). Each of the two views can be popped out into its own separate window and works the same there (added by the owner 2026-09-17; `05-CONTEXT.md` D-29).
 
-**Plans**: TBD
+**Plans**: 11 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 05-01-PLAN.md — The owner can pause AI-player, and it only starts again when every reason to wait is gone
+- [ ] 05-02-PLAN.md — The safety checker stops blocking ordinary fights, and an answer that never said no no longer sends the command
+- [ ] 05-03-PLAN.md — No host runs on a made-up vault key, and a signed-out visitor never reads a log page
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 05-04-PLAN.md — The AI's own commands are counted against a speed limit the owner can set
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 05-05-PLAN.md — The owner types to AI-chatter and gets a real answer that knows everything AI-player knows
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 05-06-PLAN.md — A coaching line reaches AI-player's next decision, and the owner can take it back in words
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 05-07-PLAN.md — One panel, two views: the thinking stream on top, the conversation below, with Pause and Coaching in effect
+- [ ] 05-10-PLAN.md — One command turns the reachable half of this phase into a canned report
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 05-08-PLAN.md — Either view can be popped into its own window and works the same there
+- [ ] 05-09-PLAN.md — The Help page explains the two levels and the by-hand copy, and the Logs page shows the conversation
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 05-11-PLAN.md — The phase is demonstrated on staging and the evidence and security agenda are filed
+
 **UI hint**: yes
 
 **Phase Validation** (how the success criteria are demonstrated): Player-observable on staging: send a coaching message and read it reflected in the next decision's logged reasoning; pause from the AI-player button and confirm from the log that the game is still being read with no model calls and no commands sent, then resume and read the reassessing first decision; open the help article and follow it to copy a suggestion into AI settings by hand. Diagnostic: chat messages are stored against the AI session and can be queried alongside the decisions they influenced.
