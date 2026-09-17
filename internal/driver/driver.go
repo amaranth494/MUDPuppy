@@ -681,8 +681,11 @@ func (d *Driver) activeQuestBullets(connectionID uuid.UUID, goalText string) []s
 }
 
 // sessionMemoryBullets reads the current game session's Session Memory
-// bullets (D-10), clamped to D-12's ceiling (maxSessionMemoryBullets). A
-// nil Memory collaborator, no current game session, or a lookup error all
+// bullets -- which now live for the MUDPuppy login, per connection profile
+// (D-31, amending D-10), not the game connection, though each game session
+// still keeps its own copy for Phase 6 -- clamped to D-12's ceiling
+// (maxSessionMemoryBullets). A nil Memory collaborator, no current game
+// session, or a lookup error all
 // resolve to no bullets, for the same reason as activeQuestBullets above.
 func (d *Driver) sessionMemoryBullets(gameSessionID *uuid.UUID) []string {
 	if d.memory == nil || gameSessionID == nil {

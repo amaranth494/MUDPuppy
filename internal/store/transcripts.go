@@ -59,15 +59,45 @@ func NewTranscriptStore(db *sql.DB) *TranscriptStore {
 	return &TranscriptStore{db: db}
 }
 
+// openGameSessionSQL is declared as a package-level constant, rather than
+// an inline literal, so transcripts_test.go (no database connection) can
+// assert on its exact text: one INSERT, no SELECT-then-INSERT race, that
+// seeds session_memory from the same user_id and connection_id's most
+// recent earlier game session started at or after users.login_started_at,
+// falling back to an empty array when there is none (D-31, amending D-10 --
+// Session Memory now lives for the MUDPuppy login, not the game
+// connection).
+const openGameSessionSQL = `INSERT INTO game_sessions (user_id, connection_id, session_memory)
+	VALUES ($1, $2, COALESCE(
+		(SELECT gs.session_memory
+		 FROM game_sessions gs
+		 JOIN users u ON u.id = gs.user_id
+		 WHERE gs.user_id = $1
+		   AND gs.connection_id = $2
+		   AND gs.started_at >= u.login_started_at
+		 ORDER BY gs.started_at DESC
+		 LIMIT 1),
+		'[]'::jsonb
+	))
+	RETURNING id`
+
 // OpenGameSession starts a new transcript row for a saved-profile
 // connection (D-14). The caller (internal/session) is responsible for
 // never calling this for a quick connect (no profile).
+//
+// The new row's session_memory is seeded, in this same single INSERT, from
+// the most recent earlier game_sessions row for the same user_id and
+// connection_id whose started_at is at or after that user's
+// login_started_at -- so Session Memory lives for the MUDPuppy login, per
+// connection profile (D-31, amending D-10), not for the game connection: a
+// page refresh, a game reconnect, a dropped socket, or a server redeploy
+// all keep it, because the game session(s) they open still start after the
+// same login boundary. The first game connection after a new sign-in (or
+// after a sign-out, which also bumps login_started_at) finds no such row
+// and seeds '[]'::jsonb.
 func (s *TranscriptStore) OpenGameSession(userID, connectionID uuid.UUID) (uuid.UUID, error) {
 	var id uuid.UUID
-	err := s.db.QueryRow(
-		`INSERT INTO game_sessions (user_id, connection_id) VALUES ($1, $2) RETURNING id`,
-		userID, connectionID,
-	).Scan(&id)
+	err := s.db.QueryRow(openGameSessionSQL, userID, connectionID).Scan(&id)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -132,8 +162,10 @@ func (s *TranscriptStore) CloseGameSession(gameSessionID uuid.UUID) error {
 }
 
 // SessionMemoryFor reads back a game session's curated Session Memory
-// bullets (D-10), returning an empty slice rather than nil when the
-// column holds an empty JSON array, when it holds SQL NULL, or when no
+// bullets -- which now live for the MUDPuppy login (D-31, amending D-10),
+// not the game session's own row, though each game session still keeps its
+// own copy here for Phase 6 -- returning an empty slice rather than nil
+// when the column holds an empty JSON array, when it holds SQL NULL, or when no
 // row matches gameSessionID at all -- a read failure here is never fatal
 // to the caller (internal/driver's prompt assembly), it just means no
 // Session Memory reaches the prompt this iteration. Unused by any real
@@ -186,8 +218,9 @@ func (s *TranscriptStore) UpdateSessionMemory(gameSessionID uuid.UUID, memory []
 }
 
 // SessionMemoryForConnection reads back the Session Memory bullets stored
-// against connectionID's most recent open game session (D-10), for the
-// owner's read-only memory endpoint (plan 04-08). Returns an empty, never
+// against connectionID's most recent open game session -- which now live
+// for the MUDPuppy login, not the game connection (D-31, amending D-10) --
+// for the owner's read-only memory endpoint (plan 04-08). Returns an empty, never
 // nil, slice and a nil error when the connection has no currently open
 // game session — the same "nothing yet" shape SessionMemoryFor already
 // returns for a missing row, so a profile that has never engaged autopilot
