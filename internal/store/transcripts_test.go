@@ -76,6 +76,31 @@ func TestOpenGameSession_FallsBackToEmptyArray(t *testing.T) {
 	}
 }
 
+// TestCloseOrphanedGameSessions_OnlyEndsOpenRows pins the startup sweep's
+// reach without a database connection: one UPDATE of game_sessions that sets
+// ended_at and nothing else, only where ended_at is still null -- so it can
+// never re-stamp a session that closed normally -- and that never names
+// session_memory, so an interrupted session keeps the bullets it last wrote.
+func TestCloseOrphanedGameSessions_OnlyEndsOpenRows(t *testing.T) {
+	stmt := sqlWithoutComments(closeOrphanedGameSessionsSQL)
+	fields := strings.Join(strings.Fields(stmt), " ")
+
+	if got := strings.Count(fields, "UPDATE "); got != 1 {
+		t.Errorf("expected exactly one UPDATE in closeOrphanedGameSessionsSQL, got %d:\n%s", got, stmt)
+	}
+	if !strings.HasPrefix(fields, "UPDATE game_sessions SET ended_at = NOW() WHERE ") {
+		t.Errorf("expected the statement to set ended_at, and only ended_at, on game_sessions:\n%s", stmt)
+	}
+	if !strings.HasSuffix(fields, " WHERE ended_at IS NULL") {
+		t.Errorf("expected the statement's whole predicate to be ended_at IS NULL:\n%s", stmt)
+	}
+	for _, forbidden := range []string{"session_memory", "DELETE", "INSERT", ",", ";"} {
+		if strings.Contains(fields, forbidden) {
+			t.Errorf("closeOrphanedGameSessionsSQL must not contain %q:\n%s", forbidden, stmt)
+		}
+	}
+}
+
 // TestSessionMemoryForConnection_ReadsThisLoginsNewestSession pins the
 // read-back the panel and the harness use to the same boundary
 // openGameSessionSQL seeds from (D-31). It must not pick "the newest row

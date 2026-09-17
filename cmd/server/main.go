@@ -188,6 +188,16 @@ func main() {
 	// instance, two consumers — the session manager's write-side tap and
 	// the profiles handler's owner-scoped read endpoints below.
 	transcriptStore := store.NewTranscriptStore(db)
+	// Close the game sessions a previous process left open: a stop or a
+	// redeploy never reaches CloseGameSession, and this single instance
+	// holds every live game connection in memory, so before it accepts
+	// connections no game session can be live. The log line carries the
+	// count only. A failure here must never stop the server from starting.
+	if closed, err := transcriptStore.CloseOrphanedGameSessions(); err != nil {
+		log.Printf("[AI-PLAYER] stage=close_orphaned_game_sessions error=true")
+	} else {
+		log.Printf("[AI-PLAYER] stage=close_orphaned_game_sessions closed=%d", closed)
+	}
 	// Create encryption key store - uses DefaultKeyStore to generate default key if none configured
 	keyStore, err := crypto.DefaultKeyStore()
 	if err != nil {

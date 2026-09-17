@@ -161,6 +161,36 @@ func (s *TranscriptStore) CloseGameSession(gameSessionID uuid.UUID) error {
 	return err
 }
 
+// closeOrphanedGameSessionsSQL is a package-level constant so
+// transcripts_test.go (no database connection) can pin its reach: it sets
+// ended_at, only on rows whose ended_at is still null, and names no other
+// column -- Session Memory in particular is left exactly as the interrupted
+// session last wrote it.
+const closeOrphanedGameSessionsSQL = `UPDATE game_sessions SET ended_at = NOW() WHERE ended_at IS NULL`
+
+// CloseOrphanedGameSessions closes every game session a previous server
+// process left open, returning how many rows it closed. A stopped or
+// redeployed process never reaches CloseGameSession for its live
+// connections, so without this their rows keep a null ended_at forever
+// (seen on staging 2026-09-17: each redeploy left one), and anything that
+// reads "closed game sessions" -- Phase 6's Session Memory consolidation --
+// would skip or misread them.
+//
+// Assumption: the server runs as a single instance that holds every live
+// game connection in memory, so at process start no game session can be
+// live and every open row is an orphan. Call it once, at startup, before
+// the server accepts connections -- never while sessions may be open. If a
+// redeploy ever overlaps two processes, a session still draining in the old
+// one is merely stamped a little early: its own CloseGameSession becomes
+// the no-op it is already written to be.
+func (s *TranscriptStore) CloseOrphanedGameSessions() (int64, error) {
+	res, err := s.db.Exec(closeOrphanedGameSessionsSQL)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
 // SessionMemoryFor reads back a game session's curated Session Memory
 // bullets -- which now live for the MUDPuppy login (D-31, amending D-10),
 // not the game session's own row, though each game session still keeps its
