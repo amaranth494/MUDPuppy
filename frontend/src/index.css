@@ -2401,6 +2401,15 @@ body {
   color: var(--color-text);
 }
 
+/* D-21: the "Delete Captured Text Now" danger zone, visually separated from
+   the non-destructive Save AI Settings button by a top border, so a click
+   near Save can never land on a destructive control (T-4-30). */
+.ai-player-danger-zone {
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-border);
+}
+
 /* Tooltip Icon */
 .tooltip-icon {
   display: inline-block;

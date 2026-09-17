@@ -1,4 +1,4 @@
-import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, AutomationCredentials, Profile, UpdateProfileRequest, Alias, Trigger, Variable, Timer, AliasesResponse, TriggersResponse, VariablesResponse, TimersResponse, HelpSection, HelpSummary, AISettingsResponse, GoalResponse, SessionMemoryResponse, PolicyResponse, EngageGateResponse, AIDecisionPayload, StoredDecision, GameSessionSummary, TranscriptLine } from '../types';
+import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, AutomationCredentials, Profile, UpdateProfileRequest, Alias, Trigger, Variable, Timer, AliasesResponse, TriggersResponse, VariablesResponse, TimersResponse, HelpSection, HelpSummary, AISettingsResponse, GoalResponse, SessionMemoryResponse, DeleteCapturedTextResponse, PolicyResponse, EngageGateResponse, AIDecisionPayload, StoredDecision, GameSessionSummary, TranscriptLine } from '../types';
 import { logErrorToConsole } from './log';
 import { CommandSource } from './automation';
 import { AutopilotAnswer } from './automation/evaluator';
@@ -717,6 +717,22 @@ export async function getSessionMemory(connectionId: string): Promise<SessionMem
   if (!response.ok) {
     const data = await response.json();
     throw new Error(data.error || 'Failed to load session memory');
+  }
+  return await response.json();
+}
+
+// Delete captured game-text snapshots and session transcripts for a
+// connection immediately (D-21), behind the panel's own two-step
+// confirmation. Decision rows, reasoning, and outcomes are never touched.
+export async function deleteCapturedText(connectionId: string): Promise<DeleteCapturedTextResponse> {
+  const response = await fetch(`${API_BASE}/profiles/${connectionId}/captured-text`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to delete captured text');
   }
   return await response.json();
 }

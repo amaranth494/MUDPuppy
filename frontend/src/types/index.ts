@@ -335,6 +335,15 @@ export interface SessionMemoryResponse {
   session_memory: string[];
 }
 
+// DeleteCapturedTextResponse is the response for the owner's immediate
+// "delete captured text now" action (D-21), matching
+// internal/profiles/handler.go's DeleteCapturedTextResponse field for
+// field.
+export interface DeleteCapturedTextResponse {
+  snapshots_cleared: number;
+  transcript_lines_deleted: number;
+}
+
 export interface PolicyResponse {
   text: string;
   version: string;

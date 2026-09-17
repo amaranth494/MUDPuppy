@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AISettingsResponse, PolicyResponse } from '../types';
-import { getPolicy, acceptPolicy, getAISettings, putAISettings } from '../services/api';
+import { getPolicy, acceptPolicy, getAISettings, putAISettings, deleteCapturedText } from '../services/api';
 
 interface AIPlayerPanelProps {
   connectionId: string;
@@ -23,6 +23,12 @@ export default function AIPlayerPanel({ connectionId }: AIPlayerPanelProps) {
   const [modelName, setModelName] = useState('');
   const [callCapStr, setCallCapStr] = useState('');
   const [disengageThresholdStr, setDisengageThresholdStr] = useState('');
+
+  // The captured-text danger zone (D-21) — its own two-step inline
+  // confirmation, separate from the settings-save state above so a save in
+  // flight can never be confused with a delete in flight.
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const applyAISettings = (data: AISettingsResponse) => {
     setConductRules(data.conduct_rules);
@@ -96,6 +102,24 @@ export default function AIPlayerPanel({ connectionId }: AIPlayerPanelProps) {
       setError(err instanceof Error ? err.message : 'Failed to save AI settings');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // The captured-text danger zone's confirm step (D-21): the Yes button.
+  // Failure shows the locked wording, not the raw error, per 04-UI-SPEC.md.
+  const handleDeleteCapturedText = async () => {
+    if (!connectionId) return;
+    setIsDeleting(true);
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      await deleteCapturedText(connectionId);
+      setSuccessMessage('Captured text deleted.');
+      setConfirmingDelete(false);
+    } catch {
+      setError('Failed to delete captured text — refresh the page to try again');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -285,6 +309,27 @@ export default function AIPlayerPanel({ connectionId }: AIPlayerPanelProps) {
             <button className="btn btn-primary" onClick={handleSave} disabled={isSaving}>
               {isSaving ? 'Saving...' : 'Save AI Settings'}
             </button>
+          </div>
+
+          <div className="ai-player-danger-zone">
+            <p className="form-hint">
+              This permanently deletes captured game-text snapshots and session transcripts for this profile. Decision rows, reasoning, and outcomes stay on record. This cannot be undone.
+            </p>
+            {confirmingDelete ? (
+              <div className="delete-confirm">
+                <span>Delete captured text now?</span>
+                <button className="btn btn-sm btn-danger" onClick={handleDeleteCapturedText} disabled={isDeleting}>
+                  Yes
+                </button>
+                <button className="btn btn-sm" onClick={() => setConfirmingDelete(false)} disabled={isDeleting}>
+                  No
+                </button>
+              </div>
+            ) : (
+              <button className="btn btn-sm btn-secondary" onClick={() => setConfirmingDelete(true)}>
+                Delete Captured Text Now
+              </button>
+            )}
           </div>
         </>
       )}
