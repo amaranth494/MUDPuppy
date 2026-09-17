@@ -69,6 +69,8 @@ Declared values (must be multiples of 4) — the project's existing tokens in `i
 
 **No new pixel literals this phase.** The panel keeps its Phase 3 geometry unchanged (380×480px, 96px bottom offset, `max-height: calc(100vh - 160px)`) — the new goal box, status line, and Session Memory header live inside the existing panel by sharing space with the scrollable decision list (see Layout section), not by growing the panel. This is a deliberate reuse, not an oversight: introducing new geometry here would be exactly the kind of plumbing decision the project asks to skip.
 
+**Amendment, 2026-09-17 (owner-approved during the 04-11 walkthrough, decision D-30):** on staging the unchanged 480px panel left the decision list about 120px, room for one decision, which defeats "every decision visible with its reasoning". The panel height is now 760px (one literal changed in `.ai-assist-panel`); width, bottom offset and `max-height: calc(100vh - 160px)` are unchanged, so the panel still never leaves the window.
+
 ---
 
 ## Typography

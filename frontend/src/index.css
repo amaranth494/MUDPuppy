@@ -247,13 +247,16 @@ body {
   color: #888;
 }
 
-/* 03-10: AI Assist panel (D-06 to D-08) — verbatim from 03-UI-SPEC.md section 1 */
+/* 03-10: AI Assist panel (D-06 to D-08) — verbatim from 03-UI-SPEC.md section 1,
+   except height: Phase 4's goal box, status line and memory header left the
+   480px panel room for one decision, so it now grows to 760px (owner-approved
+   amendment to 04-UI-SPEC.md, 2026-09-17); max-height still keeps it on screen. */
 .ai-assist-panel {
   position: fixed;
   right: var(--spacing-lg);
   bottom: 96px; /* clears .input-row */
   width: 380px;
-  height: 480px;
+  height: 760px;
   max-height: calc(100vh - 160px);
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
