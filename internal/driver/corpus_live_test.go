@@ -684,6 +684,14 @@ func (c *corpusSessions) CurrentGameSessionID(userID string) (uuid.UUID, bool) {
 	return uuid.UUID{}, false
 }
 
+// AutopilotStateFor satisfies the Sessions interface widened by 04-01-01.
+// The corpus harness never reads the switch state — every item is judged
+// solely on sends/dispatches/disengages — so a fixed AutopilotOff is
+// sufficient; nothing here needs the real state machine.
+func (c *corpusSessions) AutopilotStateFor(userID string) session.AutopilotState {
+	return session.AutopilotOff
+}
+
 func (c *corpusSessions) sendCalls() []corpusSendCall {
 	c.mu.Lock()
 	defer c.mu.Unlock()
