@@ -1,7 +1,19 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import { AIDecisionPayload, ChatLine } from '../types';
-import { getDecisions, getGoal, putGoal, getSessionMemory, GoalQuestError, getCoaching, getConversation, setAutopilot } from '../services/api';
+import {
+  getDecisions,
+  getGoal,
+  putGoal,
+  getSessionMemory,
+  GoalQuestError,
+  getCoaching,
+  getConversation,
+  setAutopilot,
+  getConnection,
+} from '../services/api';
 import { useSession } from '../context/SessionContext';
+import { openPopout, closePopout } from '../services/popout';
 
 interface AIAssistPanelProps {
   connectionId: string;
@@ -29,6 +41,15 @@ interface SystemEntry {
 
 type PanelEntry = DecisionEntry | SystemEntry;
 
+// 05-08 (D-29): every locked pop-out string lives in exactly one place, so
+// the aria-label/title pair for a button never repeats the literal text
+// (each button references the same constant twice).
+const AI_PLAYER_POPOUT_LABEL = 'Open AI-player in its own window';
+const AI_CHATTER_POPOUT_LABEL = 'Open AI-chatter in its own window';
+const AI_PLAYER_BRING_BACK_LABEL = 'Bring AI-player back to this panel';
+const AI_CHATTER_BRING_BACK_LABEL = 'Bring AI-chatter back to this panel';
+const POPUP_BLOCKED_NOTICE = 'Your browser blocked the new window. Allow pop-ups for this site and try again.';
+
 /**
  * AIAssistPanel — the floating, minimizable AI Assist panel (D-06 to D-08).
  *
@@ -43,6 +64,14 @@ type PanelEntry = DecisionEntry | SystemEntry;
  * to "no input element" (D-08): a single text input, saved on blur/Enter
  * with no Save button, kept deliberately minimal. Phase 5 adds the
  * coaching input to this same panel.
+ *
+ * 05-08 (D-29): the panel holds two "views" — AIPlayerView (the goal box,
+ * status line, Session Memory, Pause/Resume, Coaching in effect and the
+ * thinking stream) and AIChatterView (the conversation strip). Each can
+ * render inline here or, via a React portal, into a same-origin child
+ * window opened by services/popout.ts. All state stays in this component
+ * either way — popping a view out moves where it paints, never what it
+ * reads or writes.
  */
 export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
   const { wsManager, autopilotState, pausedByOwner, connectionLost } = useSession();
@@ -207,6 +236,10 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
   // savingGoalRef is the one-save-in-flight guard (code review WR-08).
   const goalRef = useRef('');
   const savingGoalRef = useRef(false);
+  const handleGoalChange = useCallback((value: string) => {
+    goalRef.current = value;
+    setGoal(value);
+  }, []);
 
   // 04-08: the read-only, collapsible Session Memory section (D-10).
   // memoryOpen defaults to collapsed and is component-only state — it
@@ -216,6 +249,103 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
   // session_memory snapshot (never merged, never diffed).
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [sessionMemory, setSessionMemory] = useState<string[]>([]);
+
+  // 05-08 (D-29): the window title's "{connection name}" suffix. Loaded once
+  // per connection alongside every other per-connection load in this panel;
+  // a load failure just leaves the title without the suffix, the same
+  // silent-fallback shape as the goal/history/memory loads.
+  const [connectionName, setConnectionName] = useState('');
+  useEffect(() => {
+    if (!connectionId) return;
+    let cancelled = false;
+    getConnection(connectionId)
+      .then((conn) => {
+        if (!cancelled) setConnectionName(conn.name);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [connectionId]);
+
+  // 05-08 (D-29): which view, if any, is popped out into its own window, and
+  // whether the browser most recently refused to open one. Component state
+  // only — a fresh page load always starts both views docked (Assumption 5).
+  const [poppedOut, setPoppedOut] = useState<{ aiPlayer: Window | null; aiChatter: Window | null }>({
+    aiPlayer: null,
+    aiChatter: null,
+  });
+  const [popupBlocked, setPopupBlocked] = useState<{ aiPlayer: boolean; aiChatter: boolean }>({
+    aiPlayer: false,
+    aiChatter: false,
+  });
+  // Cleanup effects below run on unmount/connectionId-change and must close
+  // whatever is CURRENTLY popped out, not whatever was popped out when the
+  // effect was created — a ref mirrors the latest state for that purpose.
+  const poppedOutRef = useRef(poppedOut);
+  useEffect(() => {
+    poppedOutRef.current = poppedOut;
+  }, [poppedOut]);
+
+  const handlePopOut = useCallback(
+    (key: 'aiPlayer' | 'aiChatter') => {
+      const win = openPopout(
+        key === 'aiPlayer' ? 'ai-player' : 'ai-chatter',
+        `${key === 'aiPlayer' ? 'AI-player' : 'AI-chatter'} — ${connectionName}`,
+        420,
+        key === 'aiPlayer' ? 800 : 480,
+      );
+      if (!win) {
+        setPopupBlocked((prev) => ({ ...prev, [key]: true }));
+        return;
+      }
+      setPopupBlocked((prev) => ({ ...prev, [key]: false }));
+      setPoppedOut((prev) => ({ ...prev, [key]: win }));
+    },
+    [connectionName],
+  );
+
+  const bringBack = useCallback((key: 'aiPlayer' | 'aiChatter') => {
+    setPoppedOut((prev) => {
+      closePopout(prev[key]);
+      return { ...prev, [key]: null };
+    });
+  }, []);
+
+  // The owner closing a pop-out by hand (its native close button) must
+  // return that view to the panel on its own, the same as the docked
+  // placeholder's own button below — detected via beforeunload on the
+  // child window.
+  useEffect(() => {
+    const win = poppedOut.aiPlayer;
+    if (!win) return;
+    const handleUnload = () => setPoppedOut((prev) => ({ ...prev, aiPlayer: null }));
+    win.addEventListener('beforeunload', handleUnload);
+    return () => {
+      win.removeEventListener('beforeunload', handleUnload);
+    };
+  }, [poppedOut.aiPlayer]);
+
+  useEffect(() => {
+    const win = poppedOut.aiChatter;
+    if (!win) return;
+    const handleUnload = () => setPoppedOut((prev) => ({ ...prev, aiChatter: null }));
+    win.addEventListener('beforeunload', handleUnload);
+    return () => {
+      win.removeEventListener('beforeunload', handleUnload);
+    };
+  }, [poppedOut.aiChatter]);
+
+  // Leaving the play screen (unmount) or switching connections closes both
+  // pop-outs — a stale window must never outlive the session it was fed by.
+  // Minimizing the docked panel does NOT run this cleanup (it changes only
+  // `collapsed`, not `connectionId`, and the component stays mounted).
+  useEffect(() => {
+    return () => {
+      closePopout(poppedOutRef.current.aiPlayer);
+      closePopout(poppedOutRef.current.aiChatter);
+    };
+  }, [connectionId]);
 
   // The counts are meaningless before an engage and reset to zero on every
   // new stint (D-14/D-15/D-17); the status line itself is hidden entirely
@@ -433,10 +563,54 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
     );
   }
 
+  const aiPlayerViewProps: AIPlayerViewProps = {
+    goal,
+    onGoalChange: handleGoalChange,
+    onGoalBlur: commitGoal,
+    localPausedByOwner,
+    togglePause,
+    autopilotState,
+    pausedReasonText,
+    callCap,
+    callCount,
+    failureCount,
+    blockCount,
+    disengageThreshold,
+    memoryOpen,
+    onToggleMemory: () => setMemoryOpen((v) => !v),
+    sessionMemory,
+    coachingOpen,
+    onToggleCoaching: () => setCoachingOpen((v) => !v),
+    coaching,
+    entries,
+    isLoading,
+    bodyRef,
+    popupBlocked: popupBlocked.aiPlayer,
+  };
+
+  const aiChatterViewProps: AIChatterViewProps = {
+    chatEntries,
+    chatDraft,
+    onDraftChange: setChatDraft,
+    onSend: sendChatMessage,
+    chatLogRef,
+    popupBlocked: popupBlocked.aiChatter,
+  };
+
   return (
     <div className="ai-assist-panel">
       <div className="ai-assist-panel-header">
         <span className="ai-assist-panel-title">AI Assist</span>
+        {!poppedOut.aiPlayer && (
+          <button
+            className="btn btn-sm"
+            onClick={() => handlePopOut('aiPlayer')}
+            aria-label={AI_PLAYER_POPOUT_LABEL}
+            title={AI_PLAYER_POPOUT_LABEL}
+          >
+            Pop out
+          </button>
+        )}
         <button
           className="ai-assist-panel-minimize"
           onClick={() => setCollapsed(true)}
@@ -446,19 +620,90 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
           –
         </button>
       </div>
+      {poppedOut.aiPlayer ? (
+        <>
+          {createPortal(<AIPlayerView {...aiPlayerViewProps} />, poppedOut.aiPlayer.document.body)}
+          <div className="ai-assist-popout-placeholder">
+            <span>AI-player is open in its own window.</span>
+            <button
+              className="btn btn-sm btn-secondary"
+              onClick={() => bringBack('aiPlayer')}
+              aria-label={AI_PLAYER_BRING_BACK_LABEL}
+              title={AI_PLAYER_BRING_BACK_LABEL}
+            >
+              Bring back
+            </button>
+          </div>
+        </>
+      ) : (
+        <AIPlayerView {...aiPlayerViewProps} />
+      )}
+      {poppedOut.aiChatter ? (
+        <>
+          {createPortal(<AIChatterView {...aiChatterViewProps} />, poppedOut.aiChatter.document.body)}
+          <div className="ai-assist-popout-placeholder">
+            <span>AI-chatter is open in its own window.</span>
+            <button
+              className="btn btn-sm btn-secondary"
+              onClick={() => bringBack('aiChatter')}
+              aria-label={AI_CHATTER_BRING_BACK_LABEL}
+              title={AI_CHATTER_BRING_BACK_LABEL}
+            >
+              Bring back
+            </button>
+          </div>
+        </>
+      ) : (
+        <AIChatterView {...aiChatterViewProps} onPopOut={() => handlePopOut('aiChatter')} />
+      )}
+    </div>
+  );
+}
+
+// 05-08 (D-29): the AI-player view — the goal box, Pause/Resume, the status
+// line, Session Memory, Coaching in effect and the thinking stream — taken
+// together as one unit, moved here unchanged from the panel's own JSX so it
+// can render either inline or through a portal (05-UI-SPEC.md §7, §1). No
+// markup, class or string below was rewritten in the move.
+interface AIPlayerViewProps {
+  goal: string;
+  onGoalChange: (value: string) => void;
+  onGoalBlur: () => void;
+  localPausedByOwner: boolean;
+  togglePause: () => void;
+  autopilotState: 'on' | 'waiting' | 'off';
+  pausedReasonText: string;
+  callCap: number | null;
+  callCount: number;
+  failureCount: number;
+  blockCount: number;
+  disengageThreshold: number;
+  memoryOpen: boolean;
+  onToggleMemory: () => void;
+  sessionMemory: string[];
+  coachingOpen: boolean;
+  onToggleCoaching: () => void;
+  coaching: string[];
+  entries: PanelEntry[];
+  isLoading: boolean;
+  bodyRef: RefObject<HTMLDivElement>;
+  popupBlocked: boolean;
+}
+
+function AIPlayerView(props: AIPlayerViewProps) {
+  return (
+    <>
       <div className="ai-assist-panel-top">
+        {props.popupBlocked && <div className="form-error">{POPUP_BLOCKED_NOTICE}</div>}
         <div className="form-group">
           <label className="form-label">Session Goal</label>
           <input
             type="text"
             className="form-input"
             placeholder="No session goal set"
-            value={goal}
-            onChange={(e) => {
-              goalRef.current = e.target.value;
-              setGoal(e.target.value);
-            }}
-            onBlur={commitGoal}
+            value={props.goal}
+            onChange={(e) => props.onGoalChange(e.target.value)}
+            onBlur={props.onGoalBlur}
             onKeyDown={(e) => {
               if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
             }}
@@ -470,35 +715,35 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
         <div className="ai-assist-pause-row">
           <button
             className="btn btn-sm btn-secondary"
-            onClick={togglePause}
-            disabled={autopilotState === 'off'}
-            aria-label={localPausedByOwner ? 'Resume AI-player' : 'Pause AI-player'}
-            title={localPausedByOwner ? 'Resume AI-player' : 'Pause AI-player'}
+            onClick={props.togglePause}
+            disabled={props.autopilotState === 'off'}
+            aria-label={props.localPausedByOwner ? 'Resume AI-player' : 'Pause AI-player'}
+            title={props.localPausedByOwner ? 'Resume AI-player' : 'Pause AI-player'}
           >
-            {localPausedByOwner ? 'Resume' : 'Pause'}
+            {props.localPausedByOwner ? 'Resume' : 'Pause'}
           </button>
-          {pausedReasonText && <span className="ai-assist-status-line">{pausedReasonText}</span>}
+          {props.pausedReasonText && <span className="ai-assist-status-line">{props.pausedReasonText}</span>}
         </div>
-        {autopilotState !== 'off' && (
+        {props.autopilotState !== 'off' && (
           <div className="ai-assist-status-line">
-            {callCap != null
-              ? `Calls: ${callCount} of ${callCap}`
-              : `Calls: ${callCount}`}
-            {' · '}Consecutive failures: {failureCount} of {disengageThreshold}
-            {' · '}Consecutive blocks: {blockCount} of {disengageThreshold}
+            {props.callCap != null
+              ? `Calls: ${props.callCount} of ${props.callCap}`
+              : `Calls: ${props.callCount}`}
+            {' · '}Consecutive failures: {props.failureCount} of {props.disengageThreshold}
+            {' · '}Consecutive blocks: {props.blockCount} of {props.disengageThreshold}
           </div>
         )}
         <div className="ai-assist-memory">
-          <button className="ai-assist-memory-header" onClick={() => setMemoryOpen((v) => !v)}>
-            <span>{memoryOpen ? '▾' : '▸'}</span>
-            <span>Session Memory ({sessionMemory.length})</span>
+          <button className="ai-assist-memory-header" onClick={props.onToggleMemory}>
+            <span>{props.memoryOpen ? '▾' : '▸'}</span>
+            <span>Session Memory ({props.sessionMemory.length})</span>
           </button>
-          {memoryOpen &&
-            (sessionMemory.length === 0 ? (
+          {props.memoryOpen &&
+            (props.sessionMemory.length === 0 ? (
               <div className="ai-assist-memory-empty">No session memory yet.</div>
             ) : (
               <ul className="ai-assist-memory-list">
-                {sessionMemory.map((item, i) => (
+                {props.sessionMemory.map((item, i) => (
                   <li key={i} className="ai-assist-memory-item">
                     {item}
                   </li>
@@ -507,16 +752,16 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
             ))}
         </div>
         <div className="ai-assist-memory">
-          <button className="ai-assist-memory-header" onClick={() => setCoachingOpen((v) => !v)}>
-            <span>{coachingOpen ? '▾' : '▸'}</span>
-            <span>Coaching in effect ({coaching.length})</span>
+          <button className="ai-assist-memory-header" onClick={props.onToggleCoaching}>
+            <span>{props.coachingOpen ? '▾' : '▸'}</span>
+            <span>Coaching in effect ({props.coaching.length})</span>
           </button>
-          {coachingOpen &&
-            (coaching.length === 0 ? (
+          {props.coachingOpen &&
+            (props.coaching.length === 0 ? (
               <div className="ai-assist-memory-empty">No coaching in effect.</div>
             ) : (
               <ul className="ai-assist-memory-list">
-                {coaching.map((item, i) => (
+                {props.coaching.map((item, i) => (
                   <li key={i} className="ai-assist-memory-item">
                     {item}
                   </li>
@@ -525,14 +770,14 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
             ))}
         </div>
       </div>
-      <div className="ai-assist-panel-body" ref={bodyRef}>
-        {isLoading && <div className="ai-assist-loading">Loading decision history…</div>}
-        {!isLoading && entries.length === 0 && (
+      <div className="ai-assist-panel-body" ref={props.bodyRef}>
+        {props.isLoading && <div className="ai-assist-loading">Loading decision history…</div>}
+        {!props.isLoading && props.entries.length === 0 && (
           <div className="ai-assist-empty">
             No AI decisions yet. Engage autopilot with #AUTO ON to see the AI's reasoning here.
           </div>
         )}
-        {entries.map((entry, index) => {
+        {props.entries.map((entry, index) => {
           // Live-pushed system entries can carry an empty id (Driver.recordFailure
           // sets decisionID = "" when the decision store is nil or the insert
           // fails), and two such entries in the same render would collide on
@@ -557,42 +802,76 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
           );
         })}
       </div>
-      <div className="ai-assist-chat">
-        <div className="ai-assist-chat-log" ref={chatLogRef}>
-          {chatEntries.length === 0 && (
-            <div className="ai-assist-chat-empty">No messages yet. Say something to AI-chatter.</div>
-          )}
-          {chatEntries.map((entry) => (
-            <div
-              key={entry.id}
-              className={`ai-assist-chat-line speaker-${entry.speaker}${entry.state ? ` state-${entry.state}` : ''}`}
-            >
-              {entry.speaker === 'owner' && `You: ${entry.text}`}
-              {entry.speaker === 'chatter' && `AI-chatter: ${entry.text}`}
-              {entry.speaker === 'system' && `[${entry.text}]`}
-            </div>
-          ))}
-        </div>
-        <div className="ai-assist-chat-input-row">
-          <input
-            type="text"
-            className="form-input"
-            placeholder="Message AI-chatter…"
-            value={chatDraft}
-            onChange={(e) => setChatDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') sendChatMessage();
-            }}
-          />
+    </>
+  );
+}
+
+// 05-08 (D-29): the AI-chatter view — the conversation strip, moved here
+// unchanged from the panel's own JSX. Gains its own one-line header row
+// holding the "AI-chatter" label and this view's own pop-out control
+// (05-UI-SPEC.md §7) — onPopOut is only supplied when the view is docked;
+// a popped-out window has nowhere further to pop this view out to.
+interface AIChatterViewProps {
+  chatEntries: ChatLine[];
+  chatDraft: string;
+  onDraftChange: (value: string) => void;
+  onSend: () => void;
+  chatLogRef: RefObject<HTMLDivElement>;
+  popupBlocked: boolean;
+  onPopOut?: () => void;
+}
+
+function AIChatterView(props: AIChatterViewProps) {
+  return (
+    <div className="ai-assist-chat">
+      <div className="ai-assist-chat-header">
+        <span>AI-chatter</span>
+        {props.onPopOut && (
           <button
-            className="btn btn-sm btn-primary"
-            onClick={sendChatMessage}
-            disabled={!chatDraft.trim()}
-            aria-label="Send message to AI-chatter"
+            className="btn btn-sm"
+            onClick={props.onPopOut}
+            aria-label={AI_CHATTER_POPOUT_LABEL}
+            title={AI_CHATTER_POPOUT_LABEL}
           >
-            Send
+            Pop out
           </button>
-        </div>
+        )}
+      </div>
+      {props.popupBlocked && <div className="form-error">{POPUP_BLOCKED_NOTICE}</div>}
+      <div className="ai-assist-chat-log" ref={props.chatLogRef}>
+        {props.chatEntries.length === 0 && (
+          <div className="ai-assist-chat-empty">No messages yet. Say something to AI-chatter.</div>
+        )}
+        {props.chatEntries.map((entry) => (
+          <div
+            key={entry.id}
+            className={`ai-assist-chat-line speaker-${entry.speaker}${entry.state ? ` state-${entry.state}` : ''}`}
+          >
+            {entry.speaker === 'owner' && `You: ${entry.text}`}
+            {entry.speaker === 'chatter' && `AI-chatter: ${entry.text}`}
+            {entry.speaker === 'system' && `[${entry.text}]`}
+          </div>
+        ))}
+      </div>
+      <div className="ai-assist-chat-input-row">
+        <input
+          type="text"
+          className="form-input"
+          placeholder="Message AI-chatter…"
+          value={props.chatDraft}
+          onChange={(e) => props.onDraftChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') props.onSend();
+          }}
+        />
+        <button
+          className="btn btn-sm btn-primary"
+          onClick={props.onSend}
+          disabled={!props.chatDraft.trim()}
+          aria-label="Send message to AI-chatter"
+        >
+          Send
+        </button>
       </div>
     </div>
   );
