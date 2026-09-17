@@ -31,6 +31,13 @@ func (d *Driver) EngageLoop(userID, connectionID string) {
 
 	d.runIteration(userID, connectionID, true)
 
+	// D-06's minimum spacing is never bypassed just because a decision
+	// happened to be the stint's first (synchronous) one rather than a
+	// loop tick.
+	d.mu.Lock()
+	d.lastDecisionAt[userID] = time.Now()
+	d.mu.Unlock()
+
 	if d.sessions.AutopilotStateFor(userID) != session.AutopilotOn {
 		return
 	}

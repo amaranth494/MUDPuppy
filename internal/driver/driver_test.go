@@ -162,6 +162,17 @@ func (f *fakeModels) ReviewCommand(ctx context.Context, endpoint, model, apiKey,
 	return &gemini.ReviewAnswer{Blocked: false, Reason: ""}, nil
 }
 
+// setBlock installs (or clears, with nil) the channel a future
+// GenerateContent call blocks on after recording the call, under the same
+// mutex every other accessor uses. Used by 04-03-03's mid-flight-cancel
+// test to block only a later call, not the first synchronous one, without
+// a data race against GenerateContent's own read of f.block.
+func (f *fakeModels) setBlock(ch chan struct{}) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.block = ch
+}
+
 func (f *fakeModels) callCount() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -287,6 +298,21 @@ type fakeSessions struct {
 
 	state        session.AutopilotState
 	outputSignal chan struct{}
+
+	// sentAt records the wall-clock time of each SendCommandAs call,
+	// parallel to sends, so a loop test (04-03-03) can assert consecutive
+	// sends are never closer together than the configured minimum spacing
+	// without asserting any exact elapsed duration.
+	sentAt []time.Time
+
+	// reconnectCalls counts any call to a reconnect-shaped method on this
+	// double (04-03-03, D-19/DEC-reconnect-is-connection-toggle). Nothing
+	// in the Sessions interface exposes one today -- the driver has no way
+	// to call it -- so this field only exists as a permanent mechanical
+	// guard: TestLoop_NoAIReconnect asserts it stays zero rather than
+	// merely asserting by absence, so a future interface change that adds
+	// a reconnect-shaped method would need a test to notice it firing.
+	reconnectCalls int
 }
 
 func (f *fakeSessions) RecentOutputSnapshot(userID string) string {
@@ -304,6 +330,7 @@ func (f *fakeSessions) setWindow(w string) {
 func (f *fakeSessions) SendCommandAs(userID, command, source string) error {
 	f.mu.Lock()
 	f.sends = append(f.sends, sendCall{userID: userID, command: command, source: source})
+	f.sentAt = append(f.sentAt, time.Now())
 	f.mu.Unlock()
 	if f.order != nil {
 		f.order.record("send")
@@ -440,6 +467,24 @@ func (f *fakeSessions) disengages() []string {
 	return out
 }
 
+// sentAtSnapshot returns the wall-clock time of every SendCommandAs call,
+// in call order, parallel to sendCalls (04-03-03).
+func (f *fakeSessions) sentAtSnapshot() []time.Time {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]time.Time, len(f.sentAt))
+	copy(out, f.sentAt)
+	return out
+}
+
+// reconnectCallCount reports how many times a reconnect-shaped method was
+// called on this double (04-03-03, D-19) -- see the field comment above.
+func (f *fakeSessions) reconnectCallCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.reconnectCalls
+}
+
 // fakeProfiles is a Profiles double returning one canned profile.
 type fakeProfiles struct {
 	profile *store.Profile
@@ -543,6 +588,62 @@ func waitForDisengages(t *testing.T, s *fakeSessions, n int) {
 		time.Sleep(time.Millisecond)
 	}
 	t.Fatalf("timed out waiting for %d disengage call(s), got %d", n, len(s.disengages()))
+}
+
+// assertStableCallCount polls m's call count for dur, failing the instant
+// it differs from want. Used by loop tests (04-03-03) to prove a negative
+// -- "nothing further happened" -- as a bounded, polling assertion rather
+// than a blind sleep-then-check, and so that loop_test.go itself never
+// needs to contain the literal string "time.Sleep" (its own acceptance
+// criterion).
+func assertStableCallCount(t *testing.T, m *fakeModels, want int, dur time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(dur)
+	for time.Now().Before(deadline) {
+		if got := m.callCount(); got != want {
+			t.Fatalf("expected call count to stay at %d, got %d", want, got)
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+// waitForStableCallCount polls m's call count until it stops growing for a
+// short quiet period, or budget elapses, whichever comes first. Used by a
+// loop test (04-03-03) to let a background output-firing goroutine finish
+// landing its last few decisions before the test reads a final count, with
+// no exact-duration assertion.
+func waitForStableCallCount(m *fakeModels, budget time.Duration) {
+	end := time.Now().Add(budget)
+	const quietFor = 30 * time.Millisecond
+	last := m.callCount()
+	lastChanged := time.Now()
+	for time.Now().Before(end) {
+		time.Sleep(time.Millisecond)
+		cur := m.callCount()
+		if cur != last {
+			last = cur
+			lastChanged = time.Now()
+			continue
+		}
+		if time.Since(lastChanged) >= quietFor {
+			return
+		}
+	}
+}
+
+// waitForSendCount polls (never sleeps a fixed assertion) until s has
+// recorded at least n sends, following waitForCalls' exact deadline-polling
+// shape.
+func waitForSendCount(t *testing.T, s *fakeSessions, n int) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if len(s.sendCalls()) >= n {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %d send(s), got %d", n, len(s.sendCalls()))
 }
 
 // assertBlockedDecision asserts the full blocked contract (D-06, D-07,
