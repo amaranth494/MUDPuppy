@@ -1,2 +1,2 @@
 200
-{"conduct_rules":"Do not attack other players.","approach_guidance":"Explore cautiously.","never_issue_list":"","ai_settings":{"model_name":"","call_cap":null,"disengage_threshold":null,"rate_limit_per_second":5}}
+{"conduct_rules":"Do not attack other players \u0026 never \u003cbuy\u003e on credit.\nKeep the \"sacred\" amulet.\tNotes live in C:\\new\\temp","approach_guidance":"Explore cautiously; ask \u0022why\u0022 first.\r\nPrefer safe rooms.","never_issue_list":"give\ndrop \u0026 run\nsay \"rate_limit_per_second\": 99","ai_settings":{"model_name":"","call_cap":null,"disengage_threshold":3,"rate_limit_per_second":5}}

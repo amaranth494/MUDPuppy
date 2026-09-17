@@ -41,10 +41,42 @@
 # status codes, counts and field presence. Where machine instruction and
 # plan text conflict, the machine instruction governs: the two coaching/
 # conversation reads (C2) print status, array-field presence and an item
-# count only, never the coaching or conversation text itself. Every other
-# step (session status, the autopilot switch, the AI settings) carries no
-# game text, coaching text or conversation text at all, and prints its full
-# body exactly as the plan's task text asks.
+# count only, never the coaching or conversation text itself. The session
+# status and the autopilot switch carry no text of any kind and print their
+# full body exactly as the plan's task text asks.
+#
+# The AI SETTINGS bodies are never printed either (code review WR-15 of
+# Phase 5). They were, on the reasoning that they hold no game, coaching or
+# conversation text -- but they hold the profile's conduct rules, approach
+# guidance and Never-issue list: its safety configuration. The report this
+# script writes is committed and pushed, and publishing the exact rules and
+# the exact forbidden-command list is a map for anyone writing game text to
+# get round them. Every ai-settings step prints its status, which fields are
+# present, and the rate-limit value -- nothing else.
+#
+# HOW THE SETTINGS ARE PUT BACK (code review WR-14 of Phase 5). The settings
+# endpoint replaces all four fields on every PUT, so testing the rate limit
+# means re-sending the owner's three text fields each time. This script used
+# to decode them out of the GET with sed and re-encode them for each PUT. That
+# decoder was not escape-aware: Go writes & < > as \u0026 \u003c \u003e, and
+# those -- with \t, \r, every other \uXXXX, and a literal backslash followed
+# by n (C:\new) -- came back changed, while the only check afterwards was that
+# the RATE LIMIT matched. A run could print RESTORED and PASS with the safety
+# text altered; the Never-issue list is matched by prefix, so a changed entry
+# silently stops matching.
+#
+# It now never decodes that text at all. The GET response and the PUT request
+# are the same JSON shape, so:
+#   * the raw body step 11 reads is kept, byte for byte;
+#   * each test PUT is that same raw text with ONLY the rate-limit number
+#     swapped, and the script proves so before sending it;
+#   * the restore (step 17, and the exit trap) sends the raw body back
+#     verbatim;
+#   * step 18 reads the settings again and compares them with step 11's
+#     byte for byte, printing the first 8 characters of each sha256 so the
+#     report shows the comparison without showing the text.
+# If step 11's body is not shaped so that swap is provably safe, C3 FAILS
+# before anything is changed.
 #
 # Criterion labels (05-10-PLAN.md's context table, verbatim):
 #   C1  Pause and resume over the switch endpoint: pausing an engaged switch
@@ -273,8 +305,9 @@ fi
 # _get_field <json> <field>
 # Extracts one flat field's value from a JSON object. Prints "null" for a
 # JSON null, and the empty string when the key is altogether absent. Not
-# escape-aware -- use _get_text_field for a string that may contain quotes,
-# backslashes or newlines.
+# escape-aware: use it only for numbers, booleans, null and short fixed
+# strings (a state, an outcome, an error sentence) -- NEVER for the owner's
+# free text, which this script does not decode at all (code review WR-14).
 _get_field() {
   local json="$1" field="$2"
   printf '%s' "$json" \
@@ -282,20 +315,6 @@ _get_field() {
     | head -n 1 \
     | sed -E "s/^\"$field\"[[:space:]]*:[[:space:]]*//" \
     | sed -E 's/^"(.*)"$/\1/'
-}
-
-# _get_text_field <json> <field>
-# Extracts a flat string field and decodes its JSON string escapes (\n, \"
-# and \\) back to real characters, so a PUT that echoes a GET's value never
-# re-escapes what it read (the Phase 3.1 double-escaping defect, not
-# repeated here).
-_get_text_field() {
-  local json="$1" field="$2"
-  printf '%s' "$json" \
-    | grep -oE "\"$field\"[[:space:]]*:[[:space:]]*\"([^\"\\\\]|\\\\.)*\"" \
-    | head -n 1 \
-    | sed -E "s/^\"$field\"[[:space:]]*:[[:space:]]*\"(.*)\"\$/\\1/" \
-    | sed -E 's/\\n/\n/g; s/\\"/"/g; s/\\\\/\\/g'
 }
 
 # _get_nested_object <json> <field>
@@ -311,11 +330,72 @@ _get_nested_object() {
     | sed -E "s/^\"$field\"[[:space:]]*:[[:space:]]*//"
 }
 
-# _json_escape <text>
-# Escapes backslashes, double quotes and newlines for embedding a raw
-# string as a JSON string literal's contents.
-_json_escape() {
-  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | sed -e ':a;N;$!ba;s/\n/\\n/g'
+# The rate-limit member exactly as it appears on the wire: the key, a colon
+# and a bare null or integer. Inside one of the owner's text fields a double
+# quote is always written \" , so a copy of this key sitting in his conduct
+# rules reads \"rate_limit_per_second\": and can never match this pattern --
+# the backslash before the closing quote breaks it.
+RATE_LIMIT_MEMBER_RE='"rate_limit_per_second"[[:space:]]*:[[:space:]]*(null|-?[0-9]+)'
+
+# _rate_limit_member_count <raw-settings-body>
+# How many times the rate-limit member appears in a raw settings body. The
+# swap below is provably safe only when the answer is exactly 1.
+_rate_limit_member_count() {
+  printf '%s' "$1" | grep -oE "$RATE_LIMIT_MEMBER_RE" | wc -l | tr -d ' '
+}
+
+# _with_rate_limit <raw-settings-body> <null-or-integer>
+# Returns the raw settings body with ONLY the rate-limit number swapped for
+# the given value. Everything else -- every byte of the owner's conduct
+# rules, approach guidance and Never-issue list, with whatever escapes the
+# server wrote -- passes through untouched, because nothing here decodes it
+# (code review WR-14). Call only after _rate_limit_member_count said 1.
+_with_rate_limit() {
+  local body="$1" value="$2"
+  printf '%s' "$body" | sed -E "s/(\"rate_limit_per_second\"[[:space:]]*:[[:space:]]*)(null|-?[0-9]+)/\\1${value}/"
+}
+
+# _sha256 <text>
+# The sha256 of a string, as 64 hex characters, or the empty string when
+# this machine has no tool for it. Used only to SHOW a comparison in the
+# report without showing the text; the comparison itself is a plain string
+# equality and never depends on this.
+_sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    printf '%s' "$1" | sha256sum | cut -c1-64
+  elif command -v shasum >/dev/null 2>&1; then
+    printf '%s' "$1" | shasum -a 256 | cut -c1-64
+  elif command -v openssl >/dev/null 2>&1; then
+    printf '%s' "$1" | openssl dgst -sha256 | sed -E 's/^.*= *//' | cut -c1-64
+  fi
+}
+
+# _sha8 <text>
+# The first 8 hex characters of _sha256, or the word "unavailable".
+_sha8() {
+  local full
+  full=$(_sha256 "$1")
+  if [ -z "$full" ]; then
+    echo "unavailable"
+  else
+    printf '%s\n' "$full" | cut -c1-8
+  fi
+}
+
+# _check_only_rate_limit_differs <label> <desc> <body-to-send>
+# Proves, before a test PUT is sent, that its body is step 11's body with
+# nothing but the rate-limit number changed: swapping the original number
+# back in must give step 11's body again, byte for byte. This is the check
+# that would have caught the old decoder rewriting the owner's text.
+_check_only_rate_limit_differs() {
+  local label="$1" desc="$2" body="$3"
+  local back
+  back=$(_with_rate_limit "$body" "$ORIG_RATE_LIMIT")
+  if [ "$back" = "$ORIG_SETTINGS_BODY" ]; then
+    _check "$label" "$desc (sha256 of the body with the original number back in: $(_sha8 "$back"), step 11's: $ORIG_SETTINGS_SHA8)" 0
+  else
+    _check "$label" "$desc (the body differs from step 11's in MORE than the rate limit -- sha256 $(_sha8 "$back") against $ORIG_SETTINGS_SHA8; it was NOT sent)" 1
+  fi
 }
 
 # _build_autopilot_body <action>
@@ -325,18 +405,6 @@ _json_escape() {
 _build_autopilot_body() {
   local action="$1"
   printf '{"action":"%s","connection_id":"%s"}' "$action" "$CONNECTION_ID"
-}
-
-# _build_ai_settings_body <conduct> <approach> <never-issue> <model> <call-cap> <threshold> <rate-limit>
-# Builds a full AISettingsResponse-shaped PUT body (internal/profiles/
-# handler.go). <call-cap>, <threshold> and <rate-limit> are each either the
-# literal bare word null or a bare integer -- never quoted, matching the
-# *int fields they fill on the wire.
-_build_ai_settings_body() {
-  local conduct="$1" approach="$2" never_issue="$3" model="$4" call_cap="$5" threshold="$6" rate_limit="$7"
-  printf '{"conduct_rules":"%s","approach_guidance":"%s","never_issue_list":"%s","ai_settings":{"model_name":"%s","call_cap":%s,"disengage_threshold":%s,"rate_limit_per_second":%s}}' \
-    "$(_json_escape "$conduct")" "$(_json_escape "$approach")" "$(_json_escape "$never_issue")" \
-    "$(_json_escape "$model")" "$call_cap" "$threshold" "$rate_limit"
 }
 
 # _count_string_array_items <json> <field>
@@ -431,10 +499,12 @@ _http() {
   # bash runs a trap only once the command it is waiting on has returned. A
   # call that times out reads as status 000 and FAILS its check like any
   # other wrong answer.
+  # --data-binary, not -d: the body is sent exactly as built, byte for byte
+  # (code review WR-14 -- the restore replays the owner's settings verbatim).
   local resp
   if [ -n "$body" ]; then
     resp=$(curl -sS --max-time "$HTTP_MAX_TIME" -X "$method" -b "$SESSION_COOKIE" -H 'Content-Type: application/json' \
-      -d "$body" -w '\n%{http_code}' "${BASE_URL}/api/v1/${path}")
+      --data-binary "$body" -w '\n%{http_code}' "${BASE_URL}/api/v1/${path}")
   else
     resp=$(curl -sS --max-time "$HTTP_MAX_TIME" -X "$method" -b "$SESSION_COOKIE" -H 'Content-Type: application/json' \
       -w '\n%{http_code}' "${BASE_URL}/api/v1/${path}")
@@ -533,10 +603,37 @@ _step() {
   echo "---- $* ----"
 }
 
+# _print_settings_response <method> <display-path>
+# Prints an ai-settings response WITHOUT its body (code review WR-15 of
+# Phase 5): the status, whether each expected field is present, and the
+# rate-limit value -- the one thing C3 is about. The body holds the profile's
+# conduct rules, approach guidance and Never-issue list, which never go into
+# a committed report. Field presence is read from the key alone, so none of
+# the text is decoded, measured or echoed.
+_print_settings_response() {
+  local method="$1" path="$2"
+  echo "$method /api/v1/$path -> HTTP $HTTP_STATUS"
+  echo "(response body not printed -- it holds the profile's conduct rules, approach guidance and Never-issue list)"
+  local field present line=""
+  for field in conduct_rules approach_guidance never_issue_list ai_settings error; do
+    if printf '%s' "$HTTP_BODY" | grep -qE "\"$field\"[[:space:]]*:"; then
+      present="yes"
+    else
+      present="no"
+    fi
+    line="$line $field=$present"
+  done
+  echo "fields present:$line"
+  local settings_obj rate
+  settings_obj=$(_get_nested_object "$HTTP_BODY" ai_settings)
+  rate=$(_get_field "$settings_obj" rate_limit_per_second)
+  echo "rate_limit_per_second: ${rate:-<absent>}"
+}
+
 # _print_response <method> <display-path>
-# Prints the raw response body whole. Used only for steps whose body never
-# carries conversation, coaching, decision or memory text (session status,
-# the autopilot switch, the AI settings).
+# Prints the raw response body whole. Used ONLY for the two steps whose body
+# carries no text of any kind: session status and the autopilot switch.
+# Never for the AI settings (see _print_settings_response above).
 _print_response() {
   local method="$1" path="$2"
   echo "$method /api/v1/$path -> HTTP $HTTP_STATUS"
@@ -561,18 +658,18 @@ _print_response_redacted() {
 # harness's own rate-limit value until step 17 restores it (or a failure
 # leaves one of the intermediate values standing); Ctrl-C, a closed
 # terminal or a kill in that window must not leave it there.
-#   ORIG_SETTINGS_READ=1  step 11 answered 200, so ORIG_* below are the
-#                         owner's real settings -- never restore before this;
+#   ORIG_SETTINGS_READ=1  step 11 answered 200 with a body the rate-limit
+#                         swap is provably safe on, so ORIG_SETTINGS_BODY is
+#                         the owner's real settings -- never restore before
+#                         this;
 #   SETTINGS_DIRTY=1      a harness value has been written and step 17 has
 #                         not yet put the original back.
+# The restore sends ORIG_SETTINGS_BODY back VERBATIM -- the raw bytes step 11
+# read, never decoded and never rebuilt (code review WR-14).
 # Does nothing in the two self-test modes (no server) and runs at most once.
 # ---------------------------------------------------------------------------
-ORIG_CONDUCT_RULES=""
-ORIG_APPROACH_GUIDANCE=""
-ORIG_NEVER_ISSUE_LIST=""
-ORIG_MODEL_NAME=""
-ORIG_CALL_CAP="null"
-ORIG_DISENGAGE_THRESHOLD="null"
+ORIG_SETTINGS_BODY=""
+ORIG_SETTINGS_SHA8=""
 ORIG_RATE_LIMIT="null"
 ORIG_SETTINGS_READ=0
 SETTINGS_DIRTY=0
@@ -588,19 +685,20 @@ _restore_settings_on_exit() {
   fi
   echo
   echo "---- exit trap: this run ended before step 17 restored the AI settings -- restoring now ----"
-  local restore_body trap_status
-  restore_body=$(_build_ai_settings_body "$ORIG_CONDUCT_RULES" "$ORIG_APPROACH_GUIDANCE" "$ORIG_NEVER_ISSUE_LIST" \
-    "$ORIG_MODEL_NAME" "$ORIG_CALL_CAP" "$ORIG_DISENGAGE_THRESHOLD" "$ORIG_RATE_LIMIT")
+  local trap_status
   trap_status=$(curl -sS --max-time "$HTTP_MAX_TIME" -o /dev/null -w '%{http_code}' -X PUT -b "$SESSION_COOKIE" \
-    -H 'Content-Type: application/json' -d "$restore_body" \
+    -H 'Content-Type: application/json' --data-binary "$ORIG_SETTINGS_BODY" \
     "${BASE_URL}/api/v1/profiles/${CONNECTION_ID}/ai-settings" 2>/dev/null)
   if [ "$trap_status" = "200" ]; then
     SETTINGS_DIRTY=0
-    echo "RESTORED by the exit trap: the AI settings are back to what step 11 found."
+    echo "RESTORED by the exit trap: step 11's settings were sent back exactly as they were read"
+    echo "(sha256 $ORIG_SETTINGS_SHA8). This run ended before step 18 could read them back to confirm;"
+    echo "run the harness again, or look at AI Player settings, to be sure."
   else
     echo "NOT RESTORED: the exit trap's PUT answered HTTP ${trap_status:-000}. The profile still"
     echo "carries a harness rate-limit value -- restore it by hand in AI Player settings"
-    echo "before relying on the profile's own configured limit."
+    echo "before relying on the profile's own configured limit. The conduct rules, approach"
+    echo "guidance and Never-issue list were only ever re-sent as they were read."
   fi
 }
 trap _restore_settings_on_exit EXIT
@@ -714,7 +812,7 @@ _check_status C2 "ai-conversation DELETE is refused with 405 Method Not Allowed"
 # ---------------------------------------------------------------------------
 _step "Step 11: GET profiles/\$CONNECTION_ID/ai-settings -- record the current settings (C3, restore discipline)"
 _http GET "profiles/${CONNECTION_ID}/ai-settings"
-_print_response GET "profiles/\$CONNECTION_ID/ai-settings"
+_print_settings_response GET "profiles/\$CONNECTION_ID/ai-settings"
 _check_status C3 "ai-settings GET answers HTTP 200 for the owning connection" "200"
 if [ "$HTTP_STATUS" != "200" ]; then
   echo
@@ -723,70 +821,114 @@ if [ "$HTTP_STATUS" != "200" ]; then
   echo "then run again."
   exit 2
 fi
-ORIG_CONDUCT_RULES=$(_get_text_field "$HTTP_BODY" conduct_rules)
-ORIG_APPROACH_GUIDANCE=$(_get_text_field "$HTTP_BODY" approach_guidance)
-ORIG_NEVER_ISSUE_LIST=$(_get_text_field "$HTTP_BODY" never_issue_list)
-ORIG_AI_SETTINGS_OBJ=$(_get_nested_object "$HTTP_BODY" ai_settings)
-ORIG_MODEL_NAME=$(_get_text_field "$ORIG_AI_SETTINGS_OBJ" model_name)
-ORIG_CALL_CAP=$(_get_field "$ORIG_AI_SETTINGS_OBJ" call_cap)
-ORIG_DISENGAGE_THRESHOLD=$(_get_field "$ORIG_AI_SETTINGS_OBJ" disengage_threshold)
+
+# Keep step 11's body exactly as it arrived. It is never decoded: every PUT
+# below is this same text with only the rate-limit number swapped, and the
+# restore is this text sent back verbatim (code review WR-14).
+ORIG_SETTINGS_BODY="$HTTP_BODY"
+ORIG_SETTINGS_SHA8=$(_sha8 "$ORIG_SETTINGS_BODY")
+ORIG_AI_SETTINGS_OBJ=$(_get_nested_object "$ORIG_SETTINGS_BODY" ai_settings)
 ORIG_RATE_LIMIT=$(_get_field "$ORIG_AI_SETTINGS_OBJ" rate_limit_per_second)
-[ -z "$ORIG_CALL_CAP" ] && ORIG_CALL_CAP="null"
-[ -z "$ORIG_DISENGAGE_THRESHOLD" ] && ORIG_DISENGAGE_THRESHOLD="null"
-[ -z "$ORIG_RATE_LIMIT" ] && ORIG_RATE_LIMIT="null"
-ORIG_SETTINGS_READ=1
-echo "rate_limit_per_second found before this run (kept for the restore step): $ORIG_RATE_LIMIT"
+echo "sha256 of the settings found before this run (first 8): $ORIG_SETTINGS_SHA8"
+echo "rate_limit_per_second found before this run: ${ORIG_RATE_LIMIT:-<absent>}"
 
-_step "Step 12: PUT profiles/\$CONNECTION_ID/ai-settings -- set the rate limit to $RATE_LIMIT_IN_BOUNDS, inside 1-20 (C3, D-25)"
-SETTINGS_DIRTY=1   # from here until step 17 succeeds, the exit trap restores the settings
-_http PUT "profiles/${CONNECTION_ID}/ai-settings" "$(_build_ai_settings_body "$ORIG_CONDUCT_RULES" "$ORIG_APPROACH_GUIDANCE" "$ORIG_NEVER_ISSUE_LIST" "$ORIG_MODEL_NAME" "$ORIG_CALL_CAP" "$ORIG_DISENGAGE_THRESHOLD" "$RATE_LIMIT_IN_BOUNDS")"
-_print_response PUT "profiles/\$CONNECTION_ID/ai-settings"
-_check_status C3 "PUT accepts an in-bounds rate limit" "200"
-
-_step "Step 13: GET profiles/\$CONNECTION_ID/ai-settings -- the set value returns (C3, D-25)"
-_http GET "profiles/${CONNECTION_ID}/ai-settings"
-_print_response GET "profiles/\$CONNECTION_ID/ai-settings"
-_check_status C3 "ai-settings GET answers HTTP 200 after the PUT" "200"
-GET_AI_SETTINGS_A=$(_get_nested_object "$HTTP_BODY" ai_settings)
-GET_RATE_LIMIT_A=$(_get_field "$GET_AI_SETTINGS_A" rate_limit_per_second)
-_check_eq C3 "the set rate limit round-trips through PUT and GET" "$GET_RATE_LIMIT_A" "$RATE_LIMIT_IN_BOUNDS"
-
-_step "Step 14: PUT profiles/\$CONNECTION_ID/ai-settings -- set the rate limit to blank (C3, D-25)"
-_http PUT "profiles/${CONNECTION_ID}/ai-settings" "$(_build_ai_settings_body "$ORIG_CONDUCT_RULES" "$ORIG_APPROACH_GUIDANCE" "$ORIG_NEVER_ISSUE_LIST" "$ORIG_MODEL_NAME" "$ORIG_CALL_CAP" "$ORIG_DISENGAGE_THRESHOLD" "null")"
-_print_response PUT "profiles/\$CONNECTION_ID/ai-settings"
-_check_status C3 "PUT accepts a blank rate limit" "200"
-
-_step "Step 15: GET profiles/\$CONNECTION_ID/ai-settings -- a blank value returns blank (C3, D-25)"
-_http GET "profiles/${CONNECTION_ID}/ai-settings"
-_print_response GET "profiles/\$CONNECTION_ID/ai-settings"
-_check_status C3 "ai-settings GET answers HTTP 200 after the blank PUT" "200"
-GET_AI_SETTINGS_B=$(_get_nested_object "$HTTP_BODY" ai_settings)
-GET_RATE_LIMIT_B=$(_get_field "$GET_AI_SETTINGS_B" rate_limit_per_second)
-_check_eq C3 "a blank rate limit round-trips as null, resolved to the server default in Go, not the browser" "$GET_RATE_LIMIT_B" "null"
-
-_step "Step 16: PUT profiles/\$CONNECTION_ID/ai-settings -- an out-of-range rate limit is rejected (C3, D-25)"
-_http PUT "profiles/${CONNECTION_ID}/ai-settings" "$(_build_ai_settings_body "$ORIG_CONDUCT_RULES" "$ORIG_APPROACH_GUIDANCE" "$ORIG_NEVER_ISSUE_LIST" "$ORIG_MODEL_NAME" "$ORIG_CALL_CAP" "$ORIG_DISENGAGE_THRESHOLD" "$RATE_LIMIT_OUT_OF_BOUNDS")"
-_print_response PUT "profiles/\$CONNECTION_ID/ai-settings"
-_check_status C3 "an out-of-range rate limit is rejected with 400" "400"
-OUT_OF_BOUNDS_ERROR=$(_get_field "$HTTP_BODY" error)
-_check_eq C3 "the refusal message matches the exact bounds sentence" "$OUT_OF_BOUNDS_ERROR" "$RATE_LIMIT_BOUNDS_MESSAGE"
-
-_step "Step 17: PUT profiles/\$CONNECTION_ID/ai-settings -- restore the pre-run settings (restore discipline)"
-_http PUT "profiles/${CONNECTION_ID}/ai-settings" "$(_build_ai_settings_body "$ORIG_CONDUCT_RULES" "$ORIG_APPROACH_GUIDANCE" "$ORIG_NEVER_ISSUE_LIST" "$ORIG_MODEL_NAME" "$ORIG_CALL_CAP" "$ORIG_DISENGAGE_THRESHOLD" "$ORIG_RATE_LIMIT")"
-_print_response PUT "profiles/\$CONNECTION_ID/ai-settings"
-_check_status C3 "the profile's AI settings are restored to their pre-run values" "200"
-if [ "$HTTP_STATUS" = "200" ]; then
-  SETTINGS_DIRTY=0
+# The swap is provably safe only when the rate-limit member appears exactly
+# once and swapping its own value back in changes nothing. If not, stop C3
+# here: nothing has been written, and nothing will be.
+RATE_LIMIT_MEMBERS=$(_rate_limit_member_count "$ORIG_SETTINGS_BODY")
+SETTINGS_BODY_SAFE=0
+if [ "$RATE_LIMIT_MEMBERS" = "1" ] && [ -n "$ORIG_RATE_LIMIT" ] \
+  && [ "$(_with_rate_limit "$ORIG_SETTINGS_BODY" "$ORIG_RATE_LIMIT")" = "$ORIG_SETTINGS_BODY" ]; then
+  SETTINGS_BODY_SAFE=1
 fi
 
-_step "Step 18: GET profiles/\$CONNECTION_ID/ai-settings -- the restore matches what step 11 found (restore discipline)"
-_http GET "profiles/${CONNECTION_ID}/ai-settings"
-_print_response GET "profiles/\$CONNECTION_ID/ai-settings"
-_check_status C3 "ai-settings GET answers HTTP 200 after the restore" "200"
-RESTORED_AI_SETTINGS=$(_get_nested_object "$HTTP_BODY" ai_settings)
-RESTORED_RATE_LIMIT=$(_get_field "$RESTORED_AI_SETTINGS" rate_limit_per_second)
-_check_eq C3 "the restored rate limit matches what step 11 found" "$RESTORED_RATE_LIMIT" "$ORIG_RATE_LIMIT"
-echo "RESTORED: AI settings set back to what step 11 found. (The captured game text, decisions, coaching and conversation this run touched, if any, are untouched: this run wrote nothing to any of them.)"
+if [ "$SETTINGS_BODY_SAFE" -ne 1 ]; then
+  _check C3 "step 11's settings can be re-sent with only the rate limit changed (rate-limit members found: $RATE_LIMIT_MEMBERS, expected exactly 1) -- C3 stopped BEFORE any write; the profile is unchanged" 1
+  # Steps 12 to 18 are not run. In the two self-test modes the fixtures are
+  # read in call order, so step past their seven files; otherwise C4 below
+  # would be handed C3's fixtures and FAIL for no reason of its own. A live
+  # run makes no use of this counter.
+  _HTTP_CALL_NO=$((_HTTP_CALL_NO + 7))
+else
+  _check C3 "step 11's settings can be re-sent with only the rate limit changed (exactly one rate-limit member; swapping its own value back in changes nothing)" 0
+  ORIG_SETTINGS_READ=1
+
+  # The in-bounds test value must differ from what the profile already holds,
+  # or step 13 would prove nothing.
+  if [ "$ORIG_RATE_LIMIT" = "$RATE_LIMIT_IN_BOUNDS" ]; then
+    RATE_LIMIT_IN_BOUNDS=$((RATE_LIMIT_IN_BOUNDS + 1))
+  fi
+
+  _step "Step 12: PUT profiles/\$CONNECTION_ID/ai-settings -- set the rate limit to $RATE_LIMIT_IN_BOUNDS, inside 1-20 (C3, D-25)"
+  BODY_IN_BOUNDS=$(_with_rate_limit "$ORIG_SETTINGS_BODY" "$RATE_LIMIT_IN_BOUNDS")
+  _check_only_rate_limit_differs C3 "the body about to be sent is step 11's with only the rate limit changed" "$BODY_IN_BOUNDS"
+  SETTINGS_DIRTY=1   # from here until step 17 succeeds, the exit trap restores the settings
+  _http PUT "profiles/${CONNECTION_ID}/ai-settings" "$BODY_IN_BOUNDS"
+  _print_settings_response PUT "profiles/\$CONNECTION_ID/ai-settings"
+  _check_status C3 "PUT accepts an in-bounds rate limit" "200"
+
+  _step "Step 13: GET profiles/\$CONNECTION_ID/ai-settings -- the set value returns (C3, D-25)"
+  _http GET "profiles/${CONNECTION_ID}/ai-settings"
+  _print_settings_response GET "profiles/\$CONNECTION_ID/ai-settings"
+  _check_status C3 "ai-settings GET answers HTTP 200 after the PUT" "200"
+  GET_AI_SETTINGS_A=$(_get_nested_object "$HTTP_BODY" ai_settings)
+  GET_RATE_LIMIT_A=$(_get_field "$GET_AI_SETTINGS_A" rate_limit_per_second)
+  _check_eq C3 "the set rate limit round-trips through PUT and GET" "$GET_RATE_LIMIT_A" "$RATE_LIMIT_IN_BOUNDS"
+
+  _step "Step 14: PUT profiles/\$CONNECTION_ID/ai-settings -- set the rate limit to blank (C3, D-25)"
+  BODY_BLANK=$(_with_rate_limit "$ORIG_SETTINGS_BODY" "null")
+  _check_only_rate_limit_differs C3 "the body about to be sent is step 11's with only the rate limit changed" "$BODY_BLANK"
+  _http PUT "profiles/${CONNECTION_ID}/ai-settings" "$BODY_BLANK"
+  _print_settings_response PUT "profiles/\$CONNECTION_ID/ai-settings"
+  _check_status C3 "PUT accepts a blank rate limit" "200"
+
+  _step "Step 15: GET profiles/\$CONNECTION_ID/ai-settings -- a blank value returns blank (C3, D-25)"
+  _http GET "profiles/${CONNECTION_ID}/ai-settings"
+  _print_settings_response GET "profiles/\$CONNECTION_ID/ai-settings"
+  _check_status C3 "ai-settings GET answers HTTP 200 after the blank PUT" "200"
+  GET_AI_SETTINGS_B=$(_get_nested_object "$HTTP_BODY" ai_settings)
+  GET_RATE_LIMIT_B=$(_get_field "$GET_AI_SETTINGS_B" rate_limit_per_second)
+  _check_eq C3 "a blank rate limit round-trips as null, resolved to the server default in Go, not the browser" "$GET_RATE_LIMIT_B" "null"
+
+  _step "Step 16: PUT profiles/\$CONNECTION_ID/ai-settings -- an out-of-range rate limit is rejected (C3, D-25)"
+  BODY_OUT_OF_BOUNDS=$(_with_rate_limit "$ORIG_SETTINGS_BODY" "$RATE_LIMIT_OUT_OF_BOUNDS")
+  _check_only_rate_limit_differs C3 "the body about to be sent is step 11's with only the rate limit changed" "$BODY_OUT_OF_BOUNDS"
+  _http PUT "profiles/${CONNECTION_ID}/ai-settings" "$BODY_OUT_OF_BOUNDS"
+  _print_settings_response PUT "profiles/\$CONNECTION_ID/ai-settings"
+  _check_status C3 "an out-of-range rate limit is rejected with 400" "400"
+  OUT_OF_BOUNDS_ERROR=$(_get_field "$HTTP_BODY" error)
+  _check_eq C3 "the refusal message matches the exact bounds sentence" "$OUT_OF_BOUNDS_ERROR" "$RATE_LIMIT_BOUNDS_MESSAGE"
+
+  _step "Step 17: PUT profiles/\$CONNECTION_ID/ai-settings -- send step 11's settings back exactly as they were read (restore discipline)"
+  echo "sha256 of the body being sent (first 8): $(_sha8 "$ORIG_SETTINGS_BODY") -- step 11's was $ORIG_SETTINGS_SHA8"
+  _http PUT "profiles/${CONNECTION_ID}/ai-settings" "$ORIG_SETTINGS_BODY"
+  _print_settings_response PUT "profiles/\$CONNECTION_ID/ai-settings"
+  _check_status C3 "the restore PUT is accepted" "200"
+  if [ "$HTTP_STATUS" = "200" ]; then
+    SETTINGS_DIRTY=0
+  fi
+
+  _step "Step 18: GET profiles/\$CONNECTION_ID/ai-settings -- the settings are byte for byte what step 11 found (restore discipline)"
+  _http GET "profiles/${CONNECTION_ID}/ai-settings"
+  _print_settings_response GET "profiles/\$CONNECTION_ID/ai-settings"
+  _check_status C3 "ai-settings GET answers HTTP 200 after the restore" "200"
+  RESTORED_AI_SETTINGS=$(_get_nested_object "$HTTP_BODY" ai_settings)
+  RESTORED_RATE_LIMIT=$(_get_field "$RESTORED_AI_SETTINGS" rate_limit_per_second)
+  _check_eq C3 "the restored rate limit matches what step 11 found" "$RESTORED_RATE_LIMIT" "$ORIG_RATE_LIMIT"
+  # The whole body, not just the rate limit: the conduct rules, approach
+  # guidance and Never-issue list must be exactly what they were. Decided by
+  # a plain byte-for-byte comparison; the sha256 prefixes only SHOW it.
+  RESTORED_SETTINGS_SHA8=$(_sha8 "$HTTP_BODY")
+  if [ "$HTTP_BODY" = "$ORIG_SETTINGS_BODY" ]; then
+    _check C3 "the restored settings are byte for byte what step 11 found -- conduct rules, approach guidance and Never-issue list included (sha256 before: $ORIG_SETTINGS_SHA8, after: $RESTORED_SETTINGS_SHA8)" 0
+    echo "RESTORED: the AI settings are exactly what step 11 found. (The captured game text, decisions, coaching and conversation this run touched, if any, are untouched: this run wrote nothing to any of them.)"
+  else
+    _check C3 "the restored settings are byte for byte what step 11 found -- conduct rules, approach guidance and Never-issue list included (sha256 before: $ORIG_SETTINGS_SHA8, after: $RESTORED_SETTINGS_SHA8)" 1
+    echo "NOT RESTORED EXACTLY: the settings read back after the restore differ from what step 11"
+    echo "found. Open AI Player settings and check the conduct rules, approach guidance and"
+    echo "Never-issue list by eye before relying on them."
+  fi
+fi
 
 # ---------------------------------------------------------------------------
 # C4 -- ownership: a connection the caller does not own is refused
