@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -128,6 +129,40 @@ func (s *TranscriptStore) CloseGameSession(gameSessionID uuid.UUID) error {
 		gameSessionID,
 	)
 	return err
+}
+
+// SessionMemoryFor reads back a game session's curated Session Memory
+// bullets (D-10), returning an empty slice rather than nil when the
+// column holds an empty JSON array, when it holds SQL NULL, or when no
+// row matches gameSessionID at all -- a read failure here is never fatal
+// to the caller (internal/driver's prompt assembly), it just means no
+// Session Memory reaches the prompt this iteration. Unused by any real
+// writer before plan 04-08 curates Session Memory during play; plan 04-07
+// reads it into the prompt so the column's shape is proven correct before
+// anything writes to it.
+func (s *TranscriptStore) SessionMemoryFor(gameSessionID uuid.UUID) ([]string, error) {
+	var memoryJSON []byte
+	err := s.db.QueryRow(
+		`SELECT session_memory FROM game_sessions WHERE id = $1`,
+		gameSessionID,
+	).Scan(&memoryJSON)
+	if err == sql.ErrNoRows {
+		return []string{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if len(memoryJSON) == 0 {
+		return []string{}, nil
+	}
+	var bullets []string
+	if err := json.Unmarshal(memoryJSON, &bullets); err != nil {
+		return nil, err
+	}
+	if bullets == nil {
+		bullets = []string{}
+	}
+	return bullets, nil
 }
 
 // ListSessionsForConnection lists a connection's sessions newest-first.

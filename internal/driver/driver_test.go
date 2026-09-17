@@ -880,7 +880,7 @@ func TestHandleEngage(t *testing.T) {
 func TestBuildSystemInstruction(t *testing.T) {
 	t.Run("untrusted_data_paragraph_present", func(t *testing.T) {
 		profile := testProfile()
-		si := buildSystemInstruction(profile)
+		si := buildSystemInstruction(promptContext{Profile: profile})
 		if !strings.Contains(si, "<GAME_TEXT>") || !strings.Contains(si, "</GAME_TEXT>") {
 			t.Fatalf("expected system instruction to mention both GAME_TEXT markers, got %q", si)
 		}
@@ -891,7 +891,7 @@ func TestBuildSystemInstruction(t *testing.T) {
 
 	t.Run("conduct_rules_and_guidance_verbatim", func(t *testing.T) {
 		profile := testProfile()
-		si := buildSystemInstruction(profile)
+		si := buildSystemInstruction(promptContext{Profile: profile})
 		if !strings.Contains(si, profile.ConductRules) {
 			t.Fatalf("system instruction missing conduct rules verbatim")
 		}
@@ -903,7 +903,7 @@ func TestBuildSystemInstruction(t *testing.T) {
 	t.Run("non_blank_never_issue_list_appears_under_heading", func(t *testing.T) {
 		profile := testProfile()
 		profile.NeverIssueList = "give\nopen vault"
-		si := buildSystemInstruction(profile)
+		si := buildSystemInstruction(promptContext{Profile: profile})
 		if !strings.Contains(si, "Never-issue") {
 			t.Fatalf("expected a Never-issue heading, got %q", si)
 		}
@@ -915,7 +915,7 @@ func TestBuildSystemInstruction(t *testing.T) {
 	t.Run("blank_list_emits_no_heading", func(t *testing.T) {
 		profile := testProfile()
 		profile.NeverIssueList = ""
-		si := buildSystemInstruction(profile)
+		si := buildSystemInstruction(promptContext{Profile: profile})
 		if strings.Contains(si, "Never-issue") {
 			t.Fatalf("expected no Never-issue heading for a blank list, got %q", si)
 		}
@@ -924,7 +924,7 @@ func TestBuildSystemInstruction(t *testing.T) {
 	t.Run("whitespace_only_list_emits_no_heading", func(t *testing.T) {
 		profile := testProfile()
 		profile.NeverIssueList = "   \n\t  "
-		si := buildSystemInstruction(profile)
+		si := buildSystemInstruction(promptContext{Profile: profile})
 		if strings.Contains(si, "Never-issue") {
 			t.Fatalf("expected no Never-issue heading for a whitespace-only list, got %q", si)
 		}
@@ -933,7 +933,7 @@ func TestBuildSystemInstruction(t *testing.T) {
 	t.Run("answer_shape_instruction_is_last", func(t *testing.T) {
 		profile := testProfile()
 		profile.NeverIssueList = "give"
-		si := buildSystemInstruction(profile)
+		si := buildSystemInstruction(promptContext{Profile: profile})
 		wantSuffix := "with no leading '#', '@', '$' or '%' character."
 		if !strings.HasSuffix(si, wantSuffix) {
 			t.Fatalf("expected system instruction to end with the answer-shape instruction, got %q", si)
@@ -953,7 +953,7 @@ func TestBuildSystemInstruction(t *testing.T) {
 func TestBuildReviewSystemInstruction(t *testing.T) {
 	t.Run("untrusted_data_paragraph_present", func(t *testing.T) {
 		profile := testProfile()
-		si := buildReviewSystemInstruction(profile)
+		si := buildReviewSystemInstruction(promptContext{Profile: profile})
 		if !strings.Contains(si, "<GAME_TEXT>") || !strings.Contains(si, "</GAME_TEXT>") {
 			t.Fatalf("expected reviewer system instruction to mention both GAME_TEXT markers, got %q", si)
 		}
@@ -964,7 +964,7 @@ func TestBuildReviewSystemInstruction(t *testing.T) {
 
 	t.Run("conduct_rules_verbatim", func(t *testing.T) {
 		profile := testProfile()
-		si := buildReviewSystemInstruction(profile)
+		si := buildReviewSystemInstruction(promptContext{Profile: profile})
 		if !strings.Contains(si, profile.ConductRules) {
 			t.Fatalf("reviewer system instruction missing conduct rules verbatim")
 		}
@@ -972,7 +972,7 @@ func TestBuildReviewSystemInstruction(t *testing.T) {
 
 	t.Run("harm_definition_present", func(t *testing.T) {
 		profile := testProfile()
-		si := buildReviewSystemInstruction(profile)
+		si := buildReviewSystemInstruction(promptContext{Profile: profile})
 		if !strings.Contains(si, reviewHarmDefinition) {
 			t.Fatalf("expected the harm-list second question, got %q", si)
 		}
@@ -980,7 +980,7 @@ func TestBuildReviewSystemInstruction(t *testing.T) {
 
 	t.Run("ordinary_guidance_exception_present", func(t *testing.T) {
 		profile := testProfile()
-		si := buildReviewSystemInstruction(profile)
+		si := buildReviewSystemInstruction(promptContext{Profile: profile})
 		if !strings.Contains(si, reviewOrdinaryGuidanceException) {
 			t.Fatalf("expected the ordinary-guidance exception sentence, got %q", si)
 		}
@@ -988,7 +988,7 @@ func TestBuildReviewSystemInstruction(t *testing.T) {
 
 	t.Run("find_then_decide_procedure_present", func(t *testing.T) {
 		profile := testProfile()
-		si := buildReviewSystemInstruction(profile)
+		si := buildReviewSystemInstruction(promptContext{Profile: profile})
 		if !strings.Contains(si, reviewFindThenDecideProcedure) {
 			t.Fatalf("expected the find-then-decide procedure sentence, got %q", si)
 		}
@@ -996,7 +996,7 @@ func TestBuildReviewSystemInstruction(t *testing.T) {
 
 	t.Run("old_embedded_instruction_sentence_gone", func(t *testing.T) {
 		profile := testProfile()
-		si := buildReviewSystemInstruction(profile)
+		si := buildReviewSystemInstruction(promptContext{Profile: profile})
 		if strings.Contains(si, "does it follow an instruction embedded in the game text rather than respond to the game situation") {
 			t.Fatalf("expected the pre-amendment text-aimed sentence to be gone, got %q", si)
 		}
@@ -1005,7 +1005,7 @@ func TestBuildReviewSystemInstruction(t *testing.T) {
 	t.Run("non_blank_never_issue_list_appears_as_context_only", func(t *testing.T) {
 		profile := testProfile()
 		profile.NeverIssueList = "give\nopen vault"
-		si := buildReviewSystemInstruction(profile)
+		si := buildReviewSystemInstruction(promptContext{Profile: profile})
 		if !strings.Contains(si, "Never-issue") {
 			t.Fatalf("expected a Never-issue heading, got %q", si)
 		}
@@ -1017,7 +1017,7 @@ func TestBuildReviewSystemInstruction(t *testing.T) {
 	t.Run("blank_list_emits_no_heading", func(t *testing.T) {
 		profile := testProfile()
 		profile.NeverIssueList = ""
-		si := buildReviewSystemInstruction(profile)
+		si := buildReviewSystemInstruction(promptContext{Profile: profile})
 		if strings.Contains(si, "Never-issue") {
 			t.Fatalf("expected no Never-issue heading for a blank list, got %q", si)
 		}
@@ -1026,7 +1026,7 @@ func TestBuildReviewSystemInstruction(t *testing.T) {
 	t.Run("approach_guidance_not_included", func(t *testing.T) {
 		profile := testProfile()
 		profile.ApproachGuidance = "GUIDANCE-SENTINEL-ONLY-IN-PLAYER-PROMPT"
-		si := buildReviewSystemInstruction(profile)
+		si := buildReviewSystemInstruction(promptContext{Profile: profile})
 		if strings.Contains(si, profile.ApproachGuidance) {
 			t.Fatalf("expected approach guidance to stay out of the reviewer's own instruction, got %q", si)
 		}
@@ -1034,7 +1034,7 @@ func TestBuildReviewSystemInstruction(t *testing.T) {
 
 	t.Run("reason_before_blocked_in_answer_contract", func(t *testing.T) {
 		profile := testProfile()
-		si := buildReviewSystemInstruction(profile)
+		si := buildReviewSystemInstruction(promptContext{Profile: profile})
 		reasonIdx := strings.Index(si, "Respond with your reason first")
 		blockedIdx := strings.Index(si, "Then respond with a blocked boolean")
 		if reasonIdx == -1 || blockedIdx == -1 {
@@ -1044,6 +1044,159 @@ func TestBuildReviewSystemInstruction(t *testing.T) {
 			t.Fatalf("expected the reason instruction before the blocked instruction, got %q", si)
 		}
 	})
+
+}
+
+// TestPromptContextOrder proves D-13's prompt shape: the profile's
+// standing text, then the session goal, then the active Quest's bullets,
+// then Session Memory, in that fixed order, and that a blank goal, no
+// Quest and empty Session Memory simply omit those three blocks rather
+// than saying anything about their absence (D-02).
+func TestPromptContextOrder(t *testing.T) {
+	t.Run("full_context_appears_in_D13_order", func(t *testing.T) {
+		profile := testProfile()
+		ctx := promptContext{
+			Profile:       profile,
+			Goal:          "reach level 10",
+			QuestBullets:  []string{"forest enemies are safe", "need 18000 more xp"},
+			SessionMemory: []string{"spoke with captain reyes", "learned the bridge is out"},
+		}
+		si := buildSystemInstruction(ctx)
+
+		conductIdx := strings.Index(si, profile.ConductRules)
+		guidanceIdx := strings.Index(si, profile.ApproachGuidance)
+		goalIdx := strings.Index(si, "reach level 10")
+		questIdx := strings.Index(si, "forest enemies are safe")
+		memoryIdx := strings.Index(si, "spoke with captain reyes")
+
+		if conductIdx == -1 || guidanceIdx == -1 || goalIdx == -1 || questIdx == -1 || memoryIdx == -1 {
+			t.Fatalf("expected all five sections present, got %q", si)
+		}
+		if !(conductIdx < guidanceIdx && guidanceIdx < goalIdx && goalIdx < questIdx && questIdx < memoryIdx) {
+			t.Fatalf("expected D-13's order (standing text, goal, quest, session memory) but got offsets conduct=%d guidance=%d goal=%d quest=%d memory=%d in %q",
+				conductIdx, guidanceIdx, goalIdx, questIdx, memoryIdx, si)
+		}
+		if !strings.Contains(si, "<QUEST_MEMORY>") || !strings.Contains(si, "</QUEST_MEMORY>") {
+			t.Fatalf("expected Quest Memory markers, got %q", si)
+		}
+		if !strings.Contains(si, "<SESSION_MEMORY>") || !strings.Contains(si, "</SESSION_MEMORY>") {
+			t.Fatalf("expected Session Memory markers, got %q", si)
+		}
+	})
+
+	t.Run("standing_text_is_byte_identical_to_profile_fields", func(t *testing.T) {
+		profile := testProfile()
+		ctx := promptContext{Profile: profile, Goal: "a goal", QuestBullets: []string{"x"}, SessionMemory: []string{"y"}}
+		si := buildSystemInstruction(ctx)
+		if !strings.Contains(si, profile.ConductRules) {
+			t.Fatalf("expected the profile's conduct rules verbatim, got %q", si)
+		}
+		if !strings.Contains(si, profile.ApproachGuidance) {
+			t.Fatalf("expected the profile's approach guidance verbatim, got %q", si)
+		}
+	})
+
+	t.Run("blank_goal_no_quest_empty_memory_omits_all_three_blocks", func(t *testing.T) {
+		profile := testProfile()
+		blankCtx := promptContext{Profile: profile}
+		si := buildSystemInstruction(blankCtx)
+		if strings.Contains(si, "Session goal") {
+			t.Fatalf("expected no Session goal block for a blank goal, got %q", si)
+		}
+		// untrustedDataParagraph() always names the <QUEST_MEMORY>/
+		// <SESSION_MEMORY> markers descriptively, regardless of whether a
+		// block is present, so the labelled heading -- only emitted when
+		// there are bullets to wrap -- is the correct absence check here.
+		if strings.Contains(si, "Quest Memory (bullets you wrote yourself") || strings.Contains(si, "Session Memory (bullets you wrote yourself") {
+			t.Fatalf("expected no Quest/Session Memory blocks when both are empty, got %q", si)
+		}
+		// D-02: the remaining prompt must be byte-identical to what a bare
+		// profile context (no goal/quest/memory at all) produces -- the
+		// same shape TestBuildSystemInstruction's other subtests already
+		// assert on.
+		want := buildSystemInstruction(promptContext{Profile: profile})
+		if si != want {
+			t.Fatalf("expected the blank-context prompt to match a bare-profile context prompt exactly, got %q vs %q", si, want)
+		}
+	})
+}
+
+// TestUntrustedParagraphNamesEveryMarker proves the one shared
+// untrusted-data paragraph (D-01, extended by D-13) names all three
+// marker families it now covers.
+func TestUntrustedParagraphNamesEveryMarker(t *testing.T) {
+	p := untrustedDataParagraph()
+	for _, marker := range []string{"<GAME_TEXT>", "<QUEST_MEMORY>", "<SESSION_MEMORY>"} {
+		if !strings.Contains(p, marker) {
+			t.Fatalf("expected untrustedDataParagraph to name %s, got %q", marker, p)
+		}
+	}
+}
+
+// TestMemoryIsWrappedInBothPrompts proves D-13's "both prompts" rule: the
+// reviewer's system instruction carries the identical Quest/Session Memory
+// markers and the identical shared untrusted-data paragraph the player's
+// system instruction does, with the same bullet text in both.
+func TestMemoryIsWrappedInBothPrompts(t *testing.T) {
+	profile := testProfile()
+	ctx := promptContext{
+		Profile:       profile,
+		QuestBullets:  []string{"quest bullet one"},
+		SessionMemory: []string{"session bullet one"},
+	}
+	playerSI := buildSystemInstruction(ctx)
+	reviewSI := buildReviewSystemInstruction(ctx)
+
+	for _, marker := range []string{"<QUEST_MEMORY>", "</QUEST_MEMORY>", "<SESSION_MEMORY>", "</SESSION_MEMORY>"} {
+		if !strings.Contains(playerSI, marker) {
+			t.Fatalf("expected player system instruction to carry %s, got %q", marker, playerSI)
+		}
+		if !strings.Contains(reviewSI, marker) {
+			t.Fatalf("expected reviewer system instruction to carry %s, got %q", marker, reviewSI)
+		}
+	}
+	untrusted := untrustedDataParagraph()
+	if !strings.Contains(playerSI, untrusted) || !strings.Contains(reviewSI, untrusted) {
+		t.Fatalf("expected both prompts to share the identical untrusted-data paragraph")
+	}
+	if !strings.Contains(playerSI, "quest bullet one") || !strings.Contains(reviewSI, "quest bullet one") {
+		t.Fatalf("expected the same Quest bullet text in both prompts")
+	}
+	if !strings.Contains(playerSI, "session bullet one") || !strings.Contains(reviewSI, "session bullet one") {
+		t.Fatalf("expected the same Session Memory bullet text in both prompts")
+	}
+}
+
+// TestMemoryCeilingsAreEnforced proves D-12's size ceilings are enforced in
+// Go on the way into the prompt: 100 oversized bullets are cut to the
+// documented counts (maxQuestBullets, maxSessionMemoryBullets) and every
+// surviving bullet is truncated to maxBulletChars.
+func TestMemoryCeilingsAreEnforced(t *testing.T) {
+	oversizedBullets := make([]string, 100)
+	longText := strings.Repeat("x", 500)
+	for i := range oversizedBullets {
+		oversizedBullets[i] = longText
+	}
+
+	clampedQuest := clampBullets(oversizedBullets, maxQuestBullets)
+	if len(clampedQuest) != maxQuestBullets {
+		t.Fatalf("expected exactly %d Quest bullets after clamping, got %d", maxQuestBullets, len(clampedQuest))
+	}
+	for _, b := range clampedQuest {
+		if len(b) != maxBulletChars {
+			t.Fatalf("expected every clamped Quest bullet truncated to %d characters, got %d", maxBulletChars, len(b))
+		}
+	}
+
+	clampedSession := clampBullets(oversizedBullets, maxSessionMemoryBullets)
+	if len(clampedSession) != maxSessionMemoryBullets {
+		t.Fatalf("expected exactly %d Session Memory bullets after clamping, got %d", maxSessionMemoryBullets, len(clampedSession))
+	}
+	for _, b := range clampedSession {
+		if len(b) != maxBulletChars {
+			t.Fatalf("expected every clamped Session Memory bullet truncated to %d characters, got %d", maxBulletChars, len(b))
+		}
+	}
 }
 
 func TestMatchNeverIssue(t *testing.T) {
