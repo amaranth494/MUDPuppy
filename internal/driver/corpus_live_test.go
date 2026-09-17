@@ -692,6 +692,13 @@ func (c *corpusSessions) AutopilotStateFor(userID string) session.AutopilotState
 	return session.AutopilotOff
 }
 
+// OutputSignal satisfies the Sessions interface widened by 04-03-02. The
+// corpus harness calls HandleEngage directly, never the loop, so a fresh
+// never-fired channel is sufficient here.
+func (c *corpusSessions) OutputSignal(userID string) <-chan struct{} {
+	return make(chan struct{})
+}
+
 func (c *corpusSessions) sendCalls() []corpusSendCall {
 	c.mu.Lock()
 	defer c.mu.Unlock()

@@ -259,20 +259,24 @@ func main() {
 		},
 	})
 
-	// Build the Phase 3 AI driver (03-08): one instance shares
+	// Build the Phase 3/4 AI driver (03-08, 04-03): one instance shares
 	// icmEngine's dispatcher with the HTTP ICM routes above (T-3-20), and
-	// is triggered by exactly two callers — a real #AUTO ON engage
-	// (sessionHandler.SetEngageHook, fired only on a real state change)
-	// and a WAITING-to-ON reconnect resume (sessionManager.SetEngageHook,
-	// D-02). The notifier is nil at construction and wired below once
-	// wsHandler exists (plan 03-09).
+	// is started as a continuous, paced loop by exactly two callers — a
+	// real #AUTO ON engage (sessionHandler.SetEngageHook, fired only on a
+	// real state change) and a WAITING-to-ON reconnect resume
+	// (sessionManager.SetEngageHook, D-02) — and stopped by the switch
+	// leaving on, in either direction, from any cause (the owner's #AUTO
+	// OFF, a wheel-grab, or a disconnect), via
+	// sessionManager.SetDisengageHook. The notifier is nil at construction
+	// and wired below once wsHandler exists (plan 03-09).
 	decisionStore := store.NewDecisionStore(db)
 	// 120s: current Gemini flash models take well over the 30s default to return a
 	// structured answer (seen on staging 2026-09-16: transport timeout at exactly 30s).
 	geminiClient := gemini.NewClient(120 * time.Second)
 	aiDriver := aidriver.New(sessionManager, profileStore, decisionStore, geminiClient, icmEngine.GetDispatcher(), nil, cfg)
-	sessionManager.SetEngageHook(aiDriver.HandleEngage)
-	sessionHandler.SetEngageHook(aiDriver.HandleEngage)
+	sessionManager.SetEngageHook(aiDriver.EngageLoop)
+	sessionHandler.SetEngageHook(aiDriver.EngageLoop)
+	sessionManager.SetDisengageHook(aiDriver.StopLoop)
 
 	// Wire the same decisionStore instance to the decisions-read endpoint
 	// (plan 03-09) so a reloaded play screen reads back exactly what the
