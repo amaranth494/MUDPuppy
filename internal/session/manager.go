@@ -72,6 +72,15 @@ type Manager struct {
 	// is cleared only by a process restart. Do not "tidy" this away.
 	outputWindow map[string]*ringBuffer // userID -> recent game text for the AI
 
+	// outputSignals holds each user's output-arrived wakeup channel
+	// (04-03-01, D-06). Created lazily under m.mu exactly like
+	// outputWindow's ring buffer above. Buffered size 1: appendOutputWindow
+	// performs a non-blocking send so a burst of game output coalesces into
+	// one pending wakeup rather than blocking the hot MUD read path or
+	// piling up sends no one is reading. Never cleared on Disconnect, for
+	// the same "must outlive the session" reason as outputWindow.
+	outputSignals map[string]chan struct{}
+
 	// transcripts holds each user's open session transcript tap (D-14),
 	// keyed by userID exactly like autopilot and outputWindow above — never
 	// a field on Session, for the same "must not be destroyed by
@@ -93,6 +102,18 @@ type Manager struct {
 	// file: after a WAITING-to-ON resume actually changes state (D-02). A
 	// nil hook is a no-op.
 	engageHook EngageHook
+
+	// disengageHook is the AI driver's symmetric stop signal (04-03-01,
+	// D-27/Pattern 2): fired the instant autopilot leaves ON for any
+	// reason, so a loop asleep in its pacing wait — or waiting on a model
+	// call that can take up to two minutes — is cancelled at once rather
+	// than only being noticed after its next decision completes. Fired
+	// from exactly two places in this file: the changed-true path of
+	// DisengageAutopilot (a wheel-grab or #AUTO OFF) and the changed-true
+	// path of parkAutopilotLocked (a disconnect). A nil hook is a silent
+	// no-op, and it is safe to call even when no loop is running for
+	// userID — the driver's StopLoop target treats a miss as a no-op.
+	disengageHook DisengageHook
 }
 
 // EngageHook is called once per real engagement: a WAITING-to-ON resume in
@@ -107,6 +128,25 @@ func (m *Manager) SetEngageHook(h EngageHook) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.engageHook = h
+}
+
+// DisengageHook is called once per real disengagement of any cause — a
+// wheel-grab, #AUTO OFF, or a disconnect parking the switch at waiting —
+// so a driver loop asleep in its pacing wait can be cancelled immediately
+// rather than after its next decision completes (04-03-01, D-27). userID
+// is always a valid id already used elsewhere in this Manager. It is safe
+// to call when no loop is running for userID (a silent no-op) and safe to
+// call from inside the very goroutine it targets, since cancelling a
+// context only marks it Done and never blocks.
+type DisengageHook func(userID string)
+
+// SetDisengageHook wires the AI driver's stop signal, mirroring
+// SetEngageHook exactly. A nil hook (the zero-value default) makes every
+// fire site below a no-op.
+func (m *Manager) SetDisengageHook(h DisengageHook) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.disengageHook = h
 }
 
 // NewManager creates a new session manager
@@ -172,6 +212,7 @@ func NewManager(portWhitelist string, portDenylist string, portAllowlistOverride
 		cleanups:              make(map[string]context.CancelFunc),
 		autopilot:             make(map[string]*AutopilotRecord),
 		outputWindow:          make(map[string]*ringBuffer),
+		outputSignals:         make(map[string]chan struct{}),
 		transcripts:           make(map[string]*transcriptSession),
 	}
 }
@@ -499,6 +540,37 @@ func (m *Manager) appendOutputWindow(userID string, p []byte) {
 		m.outputWindow[userID] = ring
 	}
 	ring.append(p)
+
+	// Wake a driver loop asleep in its pacing wait (04-03-01, D-06). A
+	// non-blocking send with a default case: a burst of game output
+	// coalesces into one pending wakeup rather than blocking this hot MUD
+	// read path or piling up sends no one is reading.
+	sig, ok := m.outputSignals[userID]
+	if !ok {
+		sig = make(chan struct{}, 1)
+		m.outputSignals[userID] = sig
+	}
+	select {
+	case sig <- struct{}{}:
+	default:
+	}
+}
+
+// OutputSignal returns userID's output-arrived wakeup channel, creating it
+// lazily on first ask under m.mu, exactly as outputWindow's ring buffer is
+// (04-03-01, D-06). A receive on the returned channel means new game bytes
+// landed in appendOutputWindow since the last receive; the channel is never
+// closed. A user with no output yet has an empty, non-nil channel.
+func (m *Manager) OutputSignal(userID string) <-chan struct{} {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	sig, ok := m.outputSignals[userID]
+	if !ok {
+		sig = make(chan struct{}, 1)
+		m.outputSignals[userID] = sig
+	}
+	return sig
 }
 
 // RecentOutputSnapshot returns the current contents of the user's
@@ -686,7 +758,6 @@ func (m *Manager) EngageAutopilot(userID, connectionID string) (AutopilotState, 
 		m.logAutopilotTransition(userID, connectionID, cur, cur, "refused-wrong-connection")
 		return cur, false, ErrWrongConnection
 	}
-	_ = curConnID
 
 	newState, changed := Engage(cur)
 	if !changed {
@@ -732,6 +803,15 @@ func (m *Manager) DisengageAutopilot(userID, cause string) (AutopilotState, bool
 	}
 	m.logAutopilotTransition(userID, curConnID, cur, newState, cause)
 	m.enqueueTranscriptLineLocked(userID, "marker", fmt.Sprintf("[AI-ASSIST disengaged: %s]", cause))
+
+	// 04-03-01/D-27: fire the symmetric stop signal so a driver loop
+	// asleep in its pacing wait is cancelled at once. Started with `go`,
+	// matching resumeAutopilotLocked's existing discipline below — the
+	// caller holds m.mu here, so a synchronous call could deadlock the
+	// moment the driver reads anything back from this Manager.
+	if m.disengageHook != nil {
+		go m.disengageHook(userID)
+	}
 	return newState, true
 }
 
@@ -756,6 +836,13 @@ func (m *Manager) parkAutopilotLocked(userID string) {
 	rec.WaitingSince = &now
 	m.logAutopilotTransition(userID, rec.ConnectionID, old, newState, "disconnect")
 	m.enqueueTranscriptLineLocked(userID, "marker", "[AI-ASSIST waiting]")
+
+	// 04-03-01/D-27: same stop signal as DisengageAutopilot's changed-true
+	// path — a disconnect must cancel a sleeping loop immediately too
+	// (D-19), not only be noticed the next time it wakes.
+	if m.disengageHook != nil {
+		go m.disengageHook(userID)
+	}
 }
 
 // resumeAutopilotLocked applies the waiting->on transition for a connect.
