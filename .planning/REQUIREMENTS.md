@@ -62,7 +62,7 @@ Delivery ordering (from the source): D1 -> D2 -> D3 -> D4 strictly sequential; D
 - [x] **REQ-doc-wheel-grab-and-reengage** (item 3): "Typing any game command instantly disengages autopilot and the command goes through. Re-engaging picks up cleanly from the current game situation." Maps to REQ-wheel-grab, REQ-reengage-reassess.
 - [ ] **REQ-doc-coaching** (item 4): "The owner can coach the AI from a chat pane while it plays, see the guidance take effect on the next decision, and promote a piece of guidance into the profile permanently." Maps to REQ-coaching-chat, REQ-promote-guidance.
 - [ ] **REQ-improvement-trend** (item 5): "Every session ends with a recorded debrief and updated progression tally, and across at least three consecutive goal sessions the tally shows improvement while required coaching declines." Maps to REQ-session-debrief, REQ-progression-tally; adds the three-session trend as its own measurable criterion.
-- [ ] **REQ-safety-limits-hold** (item 6, amended 2026-09-15): "All mechanical safety limits hold under test: call cap when one is set, no AI-initiated reconnect, disengage on repeated errors, no commands issued while disconnected (autopilot waits and resumes only once the connection returns), and safe behaviour when profile settings are blank (no cap, informative failure, no crash, regular play unaffected)." Maps to REQ-call-cap-and-error-disengage, REQ-no-auto-reconnect, REQ-profile-ai-fields.
+- [x] **REQ-safety-limits-hold** (item 6, amended 2026-09-15): "All mechanical safety limits hold under test: call cap when one is set, no AI-initiated reconnect, disengage on repeated errors, no commands issued while disconnected (autopilot waits and resumes only once the connection returns), and safe behaviour when profile settings are blank (no cap, informative failure, no crash, regular play unaffected)." Maps to REQ-call-cap-and-error-disengage, REQ-no-auto-reconnect, REQ-profile-ai-fields.
 
 ## v2 Requirements
 
@@ -105,7 +105,7 @@ Deferred; tracked but not in the current roadmap.
 | REQ-reengage-reassess | Phase 4 | Complete |
 | REQ-doc-continuous-visible-play | Phase 4 | Complete |
 | REQ-doc-wheel-grab-and-reengage | Phase 4 | Complete |
-| REQ-safety-limits-hold | Phase 4 | Pending |
+| REQ-safety-limits-hold | Phase 4 | Complete |
 | REQ-coaching-chat | Phase 5 | Pending |
 | REQ-pause-resume | Phase 5 | Pending |
 | REQ-promote-guidance | Phase 5 | Pending |
