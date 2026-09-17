@@ -238,7 +238,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 04-06-PLAN.md — The owner sets a session goal, and it names the active Quest
+- [x] 04-06-PLAN.md — The owner sets a session goal, and it names the active Quest
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
@@ -349,7 +349,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 1. Profile Foundation and Policy Gate | 6/6 | Complete    | 2026-09-15 |
 | 2. Autopilot Switch | 7/7 | Complete    | 2026-09-15 |
 | 3. One AI Decision | 13/13 | Complete    | 2026-09-16 |
-| 4. Continuous Play | 5/11 | In Progress|  |
+| 4. Continuous Play | 6/11 | In Progress|  |
 | 5. Coaching Channel | 0/TBD | Not started | - |
 | 6. Measurement and Memory | 0/TBD | Not started | - |
 | 7. Study Loader | 0/TBD | Not started | - |
