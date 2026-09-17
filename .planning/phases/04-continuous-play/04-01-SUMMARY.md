@@ -124,3 +124,11 @@ None - no external service configuration required.
 ---
 *Phase: 04-continuous-play*
 *Completed: 2026-09-16*
+
+## Self-Check: PASSED
+
+- FOUND: internal/driver/loop_test.go
+- FOUND: .planning/phases/04-continuous-play/04-01-SUMMARY.md
+- FOUND: commit 97d6e82 (Task 04-01-01)
+- FOUND: commit 9fa3903 (Task 04-01-02)
+- FOUND: commit a309b85 (docs: plan summary)
