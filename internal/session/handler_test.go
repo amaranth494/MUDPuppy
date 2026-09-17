@@ -572,6 +572,124 @@ func TestAutopilotHandler_AIConfigRefusal(t *testing.T) {
 	})
 }
 
+// TestAutopilotHandler_PauseAndResumeActions drives the endpoint with
+// "pause" then "resume" for the four sequences plan 05-01-02 names: pause
+// from on, resume from paused, resume while the connection is also lost,
+// and pause while off.
+func TestAutopilotHandler_PauseAndResumeActions(t *testing.T) {
+	t.Run("pause_from_on", func(t *testing.T) {
+		m := newTestManager()
+		userID := uuid.New()
+		connID := uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
+		h := newAutopilotHandler(m, alwaysAllow(""))
+
+		onReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: connID}))
+		h.Autopilot(httptest.NewRecorder(), onReq)
+
+		req := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "pause"}))
+		rec := httptest.NewRecorder()
+		h.Autopilot(rec, req)
+
+		resp := decodeAutopilotResponse(t, rec)
+		if resp.State != string(AutopilotWaiting) {
+			t.Errorf("state = %q, want %q", resp.State, AutopilotWaiting)
+		}
+		if resp.Outcome != "paused" {
+			t.Errorf("outcome = %q, want %q", resp.Outcome, "paused")
+		}
+		if !resp.PausedByOwner {
+			t.Errorf("paused_by_owner = false, want true")
+		}
+		if resp.ConnectionLost {
+			t.Errorf("connection_lost = true, want false")
+		}
+	})
+
+	t.Run("resume_from_paused", func(t *testing.T) {
+		m := newTestManager()
+		userID := uuid.New()
+		connID := uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
+		h := newAutopilotHandler(m, alwaysAllow(""))
+
+		onReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: connID}))
+		h.Autopilot(httptest.NewRecorder(), onReq)
+		pauseReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "pause"}))
+		h.Autopilot(httptest.NewRecorder(), pauseReq)
+
+		req := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "resume"}))
+		rec := httptest.NewRecorder()
+		h.Autopilot(rec, req)
+
+		resp := decodeAutopilotResponse(t, rec)
+		if resp.State != string(AutopilotOn) {
+			t.Errorf("state = %q, want %q", resp.State, AutopilotOn)
+		}
+		if resp.Outcome != "resumed" {
+			t.Errorf("outcome = %q, want %q", resp.Outcome, "resumed")
+		}
+		if resp.PausedByOwner || resp.ConnectionLost {
+			t.Errorf("(paused_by_owner, connection_lost) = (%v, %v), want (false, false)", resp.PausedByOwner, resp.ConnectionLost)
+		}
+	})
+
+	t.Run("resume_while_connection_also_lost", func(t *testing.T) {
+		m := newTestManager()
+		userID := uuid.New()
+		connID := uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
+		h := newAutopilotHandler(m, alwaysAllow(""))
+
+		onReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: connID}))
+		h.Autopilot(httptest.NewRecorder(), onReq)
+		pauseReq := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "pause"}))
+		h.Autopilot(httptest.NewRecorder(), pauseReq)
+		if err := m.Disconnect(userID.String(), ReasonRemote); err != nil {
+			t.Fatalf("Disconnect: %v", err)
+		}
+
+		req := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "resume"}))
+		rec := httptest.NewRecorder()
+		h.Autopilot(rec, req)
+
+		resp := decodeAutopilotResponse(t, rec)
+		if resp.State != string(AutopilotWaiting) {
+			t.Errorf("state = %q, want %q", resp.State, AutopilotWaiting)
+		}
+		if resp.Outcome != "still-waiting" {
+			t.Errorf("outcome = %q, want %q", resp.Outcome, "still-waiting")
+		}
+		if !resp.ConnectionLost {
+			t.Errorf("connection_lost = false, want true")
+		}
+		if resp.PausedByOwner {
+			t.Errorf("paused_by_owner = true, want false (the owner resume already cleared its own reason)")
+		}
+	})
+
+	t.Run("pause_while_off", func(t *testing.T) {
+		m := newTestManager()
+		userID := uuid.New()
+		h := newAutopilotHandler(m, alwaysAllow(""))
+
+		req := newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "pause"}))
+		rec := httptest.NewRecorder()
+		h.Autopilot(rec, req)
+
+		resp := decodeAutopilotResponse(t, rec)
+		if resp.State != string(AutopilotOff) {
+			t.Errorf("state = %q, want %q", resp.State, AutopilotOff)
+		}
+		if resp.Outcome != "already-off" {
+			t.Errorf("outcome = %q, want %q", resp.Outcome, "already-off")
+		}
+		if resp.PausedByOwner || resp.ConnectionLost {
+			t.Errorf("(paused_by_owner, connection_lost) = (%v, %v), want (false, false)", resp.PausedByOwner, resp.ConnectionLost)
+		}
+	})
+}
+
 // TestStatusCarriesAutopilotConnectionID proves code review C3: while the
 // switch is on or waiting, the status poll names the profile it is bound
 // to, and it is omitted once the switch is off.

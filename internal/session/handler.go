@@ -111,7 +111,8 @@ type AutopilotRequest struct {
 
 // AutopilotResponse is the response body for POST /api/v1/session/autopilot.
 // Outcome is exactly one of engaged, disengaged, already-on, already-off,
-// refused-gate, refused-no-session, refused-not-configured, status.
+// refused-gate, refused-no-session, refused-not-configured, status, paused,
+// already-waiting, resumed, still-waiting, not-waiting (Phase 5, D-13/D-15).
 // GateMessage, when set, is Phase 1's store.EngageGateRefusalMessage passed
 // through verbatim for refused-gate, or the fixed D-20 sentence for
 // refused-not-configured — this package never composes its own refusal
@@ -122,6 +123,12 @@ type AutopilotResponse struct {
 	GateAllowed   bool   `json:"gate_allowed"`
 	GateMessage   string `json:"gate_message,omitempty"`
 	PolicyVersion string `json:"policy_version,omitempty"`
+	// PausedByOwner and ConnectionLost are D-15's two independent waiting
+	// reasons, read fresh from AutopilotWaitingReasons on every response
+	// this handler sends (including "on" and "off"), no omitempty, so the
+	// browser can always tell the false case from an absent field.
+	PausedByOwner  bool `json:"paused_by_owner"`
+	ConnectionLost bool `json:"connection_lost"`
 }
 
 // Connect handles POST /api/v1/session/connect
@@ -338,7 +345,7 @@ func (h *Handler) Autopilot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	action := strings.ToLower(req.Action)
-	if action != "on" && action != "off" && action != "status" {
+	if action != "on" && action != "off" && action != "status" && action != "pause" && action != "resume" {
 		http.Error(w, "Invalid action", http.StatusBadRequest)
 		return
 	}
@@ -368,6 +375,7 @@ func (h *Handler) Autopilot(w http.ResponseWriter, r *http.Request) {
 			resp.Outcome = "refused-gate"
 			log.Printf("[AI-PLAYER] autopilot user_id=%s connection_id=%s old=%s new=%s cause=%s",
 				userIDStr, req.ConnectionID.String(), cur, cur, "refused-gate")
+			resp.PausedByOwner, resp.ConnectionLost = h.manager.AutopilotWaitingReasons(userIDStr)
 			h.sendJSON(w, resp)
 			return
 		}
@@ -388,6 +396,7 @@ func (h *Handler) Autopilot(w http.ResponseWriter, r *http.Request) {
 			resp.GateMessage = "Autopilot refused: AI is not configured on this server"
 			log.Printf("[AI-PLAYER] autopilot user_id=%s connection_id=%s old=%s new=%s cause=refused-not-configured",
 				userIDStr, req.ConnectionID.String(), cur, cur)
+			resp.PausedByOwner, resp.ConnectionLost = h.manager.AutopilotWaitingReasons(userIDStr)
 			h.sendJSON(w, resp)
 			return
 		}
@@ -411,6 +420,7 @@ func (h *Handler) Autopilot(w http.ResponseWriter, r *http.Request) {
 		default:
 			resp.Outcome = "already-on"
 		}
+		resp.PausedByOwner, resp.ConnectionLost = h.manager.AutopilotWaitingReasons(userIDStr)
 		h.sendJSON(w, resp)
 		return
 
@@ -424,12 +434,53 @@ func (h *Handler) Autopilot(w http.ResponseWriter, r *http.Request) {
 		} else {
 			resp.Outcome = "already-off"
 		}
+		resp.PausedByOwner, resp.ConnectionLost = h.manager.AutopilotWaitingReasons(userIDStr)
 		h.sendJSON(w, resp)
 		return
 
 	case "status":
 		resp.State = string(h.manager.AutopilotStateFor(userIDStr))
 		resp.Outcome = "status"
+		resp.PausedByOwner, resp.ConnectionLost = h.manager.AutopilotWaitingReasons(userIDStr)
+		h.sendJSON(w, resp)
+		return
+
+	case "pause":
+		// D-13: pausing is instant, makes no model call and can never start
+		// anything, so there is no policy-gate check here — unlike "on",
+		// this arm runs unconditionally. PauseAutopilot is defensive on its
+		// own when the switch is already off (D-13's button is disabled
+		// client-side in that case anyway).
+		newState, changed := h.manager.PauseAutopilot(userIDStr)
+		resp.State = string(newState)
+		if changed {
+			resp.Outcome = "paused"
+		} else if newState == AutopilotOff {
+			resp.Outcome = "already-off"
+		} else {
+			resp.Outcome = "already-waiting"
+		}
+		resp.PausedByOwner, resp.ConnectionLost = h.manager.AutopilotWaitingReasons(userIDStr)
+		h.sendJSON(w, resp)
+		return
+
+	case "resume":
+		// D-13: the engage hook is never called from this handler directly —
+		// only ResumeAutopilotByOwner's own changed-true path fires it, so
+		// "one code path fires each real engage" holds for the owner-resume
+		// case exactly as it does for a reconnect resume.
+		newState, changed := h.manager.ResumeAutopilotByOwner(userIDStr)
+		resp.State = string(newState)
+		switch {
+		case changed:
+			resp.Outcome = "resumed"
+		case newState == AutopilotWaiting:
+			// Another reason (a lost connection) is still standing (D-15).
+			resp.Outcome = "still-waiting"
+		default:
+			resp.Outcome = "not-waiting"
+		}
+		resp.PausedByOwner, resp.ConnectionLost = h.manager.AutopilotWaitingReasons(userIDStr)
 		h.sendJSON(w, resp)
 		return
 	}
