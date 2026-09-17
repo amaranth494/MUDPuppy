@@ -84,23 +84,45 @@ func (f *fakeProfileStore) AcceptPolicy(userID, profileID uuid.UUID, version str
 
 // fakeQuestStore is a hand-written fake satisfying questStorage, used so
 // TestGoalRoundTrip exercises PutGoal's Quest-reactivation call without a
-// live Postgres connection.
+// live Postgres connection. It mirrors the real store's ON CONFLICT
+// reactivate-or-create behavior closely enough for PutGoal's
+// CreatedAt.Equal(UpdatedAt) create-vs-reactivate check to exercise both
+// branches: seen tracks the first-seen CreatedAt per normalized goal text,
+// so a repeated (post-NormalizeGoal) goal comes back with an older
+// CreatedAt than UpdatedAt. tick is a monotonically increasing counter
+// rather than time.Now(), because two calls made back-to-back in a fast
+// test can land on the same wall-clock instant on a coarse-resolution
+// clock, which would make CreatedAt.Equal(UpdatedAt) spuriously true on a
+// genuine reactivation and flake the test.
 type fakeQuestStore struct {
 	calls []string // goal text passed to each EnsureActiveQuest call, in order
+	seen  map[string]time.Time
+	tick  int64
 }
 
 func (f *fakeQuestStore) EnsureActiveQuest(userID, connectionID uuid.UUID, goalText string) (store.Quest, error) {
 	f.calls = append(f.calls, goalText)
-	now := time.Now().UTC()
+	if f.seen == nil {
+		f.seen = make(map[string]time.Time)
+	}
+	normalized := store.NormalizeGoal(goalText)
+	f.tick++
+	now := time.Unix(f.tick, 0).UTC()
+	created := now
+	if existing, ok := f.seen[normalized]; ok {
+		created = existing
+	} else {
+		f.seen[normalized] = now
+	}
 	return store.Quest{
 		ID:                 uuid.New(),
 		UserID:             userID,
 		ConnectionID:       connectionID,
 		GoalText:           goalText,
-		GoalTextNormalized: store.NormalizeGoal(goalText),
+		GoalTextNormalized: normalized,
 		Status:             "active",
 		Bullets:            []string{},
-		CreatedAt:          now,
+		CreatedAt:          created,
 		UpdatedAt:          now,
 	}, nil
 }
@@ -607,6 +629,55 @@ func TestGoalRoundTrip(t *testing.T) {
 	}
 	if len(quests.calls) != 1 {
 		t.Errorf("quests.calls after blank PUT = %v, want still exactly one call (blank creates nothing)", quests.calls)
+	}
+
+	// The response's "quest" field (added for the 04-10 harness, T-4-32-
+	// adjacent) reports create-vs-reactivate over HTTP, not just in the
+	// "[AI-PLAYER] goal" log line: a fresh goal names "created" ...
+	firstReq := newTestRequest(http.MethodPut, path, userID, GoalResponse{Goal: "hunt the wyrm"})
+	firstRec := httptest.NewRecorder()
+	h.PutGoal(firstRec, firstReq)
+	var firstGot GoalResponse
+	if err := json.NewDecoder(firstRec.Body).Decode(&firstGot); err != nil {
+		t.Fatalf("decode first PUT response: %v", err)
+	}
+	if firstGot.Quest != "created" {
+		t.Errorf("first PUT quest = %q, want %q", firstGot.Quest, "created")
+	}
+
+	// ... the same goal repeated in a different case with surrounding
+	// whitespace names "reactivated" (D-04's matching is trim-and-case-fold)
+	// and the goal text itself is stored and echoed back verbatim, unfolded.
+	reactivateReq := newTestRequest(http.MethodPut, path, userID, GoalResponse{Goal: "  Hunt The Wyrm  "})
+	reactivateRec := httptest.NewRecorder()
+	h.PutGoal(reactivateRec, reactivateReq)
+	var reactivateGot GoalResponse
+	if err := json.NewDecoder(reactivateRec.Body).Decode(&reactivateGot); err != nil {
+		t.Fatalf("decode reactivate PUT response: %v", err)
+	}
+	if reactivateGot.Quest != "reactivated" {
+		t.Errorf("case/whitespace-variant PUT quest = %q, want %q", reactivateGot.Quest, "reactivated")
+	}
+	if reactivateGot.Goal != "  Hunt The Wyrm  " {
+		t.Errorf("reactivate PUT goal = %q, want the raw text sent, unmodified", reactivateGot.Goal)
+	}
+
+	// ... and a blank goal names "none" (creates nothing, D-04).
+	blankQuestReq := newTestRequest(http.MethodPut, path, userID, GoalResponse{Goal: ""})
+	blankQuestRec := httptest.NewRecorder()
+	h.PutGoal(blankQuestRec, blankQuestReq)
+	var blankQuestGot GoalResponse
+	if err := json.NewDecoder(blankQuestRec.Body).Decode(&blankQuestGot); err != nil {
+		t.Fatalf("decode blank PUT response: %v", err)
+	}
+	if blankQuestGot.Quest != "none" {
+		t.Errorf("blank PUT quest = %q, want %q", blankQuestGot.Quest, "none")
+	}
+
+	// GetGoal never sets Quest at all (omitted via omitempty) -- a plain
+	// read has no create-vs-reactivate event to report.
+	if strings.Contains(getRec.Body.String(), `"quest"`) {
+		t.Errorf("GetGoal response unexpectedly carries a \"quest\" field: %s", getRec.Body.String())
 	}
 }
 

@@ -226,8 +226,18 @@ type AISettingsResponse struct {
 // sub-resource (D-01). It carries exactly the session goal text — Quest
 // bullets are not shown on the panel this phase (D-11) and have no field
 // here.
+//
+// Quest is set only on a PUT response, to one of "created", "reactivated"
+// or "none" — the same create-vs-reactivate word the "[AI-PLAYER] goal"
+// log line already carries (04-06-SUMMARY.md), now also on the wire so a
+// caller (the 04-10 harness) can prove D-04's reactivate-rather-than-
+// duplicate behavior over HTTP instead of by a database query (the
+// project's evidence rule forbids the latter). GetGoal never sets it
+// (omitted via omitempty), since a plain read has no create-vs-reactivate
+// event to report.
 type GoalResponse struct {
-	Goal string `json:"goal"`
+	Goal  string `json:"goal"`
+	Quest string `json:"quest,omitempty"`
 }
 
 // SessionMemoryResponse is the GET response for the ai-memory sub-resource
@@ -849,7 +859,7 @@ func (h *Handler) PutGoal(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	h.sendJSON(w, GoalResponse{Goal: updatedProfile.SessionGoal})
+	h.sendJSON(w, GoalResponse{Goal: updatedProfile.SessionGoal, Quest: questWord})
 }
 
 // GetSessionMemory handles GET /api/v1/profiles/:connection_id/ai-memory
