@@ -217,23 +217,32 @@ func (s *TranscriptStore) UpdateSessionMemory(gameSessionID uuid.UUID, memory []
 	return err
 }
 
-// SessionMemoryForConnection reads back the Session Memory bullets stored
-// against connectionID's most recent open game session -- which now live
-// for the MUDPuppy login, not the game connection (D-31, amending D-10) --
-// for the owner's read-only memory endpoint (plan 04-08). Returns an empty, never
-// nil, slice and a nil error when the connection has no currently open
-// game session — the same "nothing yet" shape SessionMemoryFor already
+// sessionMemoryForConnectionSQL reads connectionID's newest game session
+// within the owner's current MUDPuppy login (D-31): the same boundary
+// openGameSessionSQL seeds from, so what the panel reads back is exactly
+// what the next decision will be given. It deliberately does not filter on
+// ended_at: a server restart leaves the interrupted game session's row
+// without an end time, and "the newest open row" then picked a stale one
+// (seen on staging 2026-09-17, RUN B read four bullets from an orphaned
+// session instead of the two from the session that had just closed).
+const sessionMemoryForConnectionSQL = `SELECT gs.session_memory
+	FROM game_sessions gs
+	JOIN users u ON u.id = gs.user_id
+	WHERE gs.connection_id = $1
+	  AND gs.started_at >= u.login_started_at
+	ORDER BY gs.started_at DESC
+	LIMIT 1`
+
+// SessionMemoryForConnection reads back the Session Memory bullets for
+// connectionID within the current MUDPuppy login (D-31, amending D-10) for
+// the owner's read-only memory endpoint (plan 04-08). Returns an empty,
+// never nil, slice and a nil error when this login has no game session for
+// the connection yet — the same "nothing yet" shape SessionMemoryFor already
 // returns for a missing row, so a profile that has never engaged autopilot
 // reads back an empty list rather than an error.
 func (s *TranscriptStore) SessionMemoryForConnection(connectionID uuid.UUID) ([]string, error) {
 	var memoryJSON []byte
-	err := s.db.QueryRow(
-		`SELECT session_memory FROM game_sessions
-		 WHERE connection_id = $1 AND ended_at IS NULL
-		 ORDER BY started_at DESC
-		 LIMIT 1`,
-		connectionID,
-	).Scan(&memoryJSON)
+	err := s.db.QueryRow(sessionMemoryForConnectionSQL, connectionID).Scan(&memoryJSON)
 	if err == sql.ErrNoRows {
 		return []string{}, nil
 	}

@@ -75,3 +75,28 @@ func TestOpenGameSession_FallsBackToEmptyArray(t *testing.T) {
 		}
 	}
 }
+
+// TestSessionMemoryForConnection_ReadsThisLoginsNewestSession pins the
+// read-back the panel and the harness use to the same boundary
+// openGameSessionSQL seeds from (D-31). It must not pick "the newest row
+// without an end time": a server restart leaves the interrupted session's
+// row open forever, and on staging that stale row was read back instead of
+// the session that had just closed.
+func TestSessionMemoryForConnection_ReadsThisLoginsNewestSession(t *testing.T) {
+	stmt := sqlWithoutComments(sessionMemoryForConnectionSQL)
+
+	if strings.Contains(stmt, "ended_at") {
+		t.Errorf("the read-back must not filter on ended_at (orphaned open rows survive a restart):\n%s", stmt)
+	}
+	for _, want := range []string{
+		"gs.connection_id = $1",
+		"JOIN users u ON u.id = gs.user_id",
+		"gs.started_at >= u.login_started_at",
+		"ORDER BY gs.started_at DESC",
+		"LIMIT 1",
+	} {
+		if !strings.Contains(stmt, want) {
+			t.Errorf("expected sessionMemoryForConnectionSQL to contain %q:\n%s", want, stmt)
+		}
+	}
+}
