@@ -312,7 +312,11 @@ type Driver struct {
 	// tests can inject millisecond values with no fake-clock library. D-06
 	// calls settle/floor/minSpacing tunable starting points: 1.5s settle,
 	// 20s floor, 3s minimum spacing, tuned against Alter Aeon during the
-	// staging walkthrough. retryDelay is D-16's fixed 503 retry delay (2
+	// staging walkthrough. The walkthrough raised minimum spacing to 8s:
+	// each decision costs two model calls (player, then reviewer), and at 3s
+	// the loop made 18 calls in about 50 seconds and ran into the model's
+	// per-minute rate limit twice in a row, one short of the disengage
+	// threshold. retryDelay is D-16's fixed 503 retry delay (2
 	// seconds, fixed per 04-CONTEXT Claude's Discretion).
 	settleDelay   time.Duration
 	floorInterval time.Duration
@@ -339,7 +343,7 @@ func New(sessions Sessions, profiles Profiles, decisions Decisions, models Model
 		blockCounts:    make(map[string]int),
 		settleDelay:    1500 * time.Millisecond,
 		floorInterval:  20 * time.Second,
-		minSpacing:     3 * time.Second,
+		minSpacing:     8 * time.Second,
 		retryDelay:     2 * time.Second,
 	}
 }
