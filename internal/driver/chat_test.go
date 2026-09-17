@@ -697,25 +697,39 @@ func TestHandleChat_EmitsCoachingReceivedMarker(t *testing.T) {
 	})
 }
 
-// TestHandleChat_CoachingCeilings proves the D-08 ceiling: nine pushes leave
-// eight suggestions, the oldest gone, each at most maxBulletChars characters
-// and marker-free, and the reply names the drop.
+// TestHandleChat_CoachingCeilings proves the D-08 ceiling: a standing list
+// one short of the ceiling plus two faithful pushes leaves eight suggestions,
+// the oldest gone, each at most maxBulletChars characters and marker-free,
+// and the reply names the drop.
+//
+// Code review CR-02 of Phase 5 changed how this test reaches the ceiling. It
+// used to push nine lines, none of them in the owner's words, in one answer;
+// the provenance gate and the two-lines-per-message limit now refuse exactly
+// that, by design. The ceiling is reached the way it is in real use: a
+// standing list built up over earlier messages, then one more message.
 func TestHandleChat_CoachingCeilings(t *testing.T) {
 	f := newChatFixture(nil)
-	pushes := make([]string, 9)
-	for i := range pushes {
-		pushes[i] = fmt.Sprintf("suggestion number %02d %s", i+1, strings.Repeat("x", 250))
+	standing := make([]string, maxCoachingBullets-1)
+	for i := range standing {
+		standing[i] = fmt.Sprintf("standing suggestion number %02d", i+1)
 	}
-	f.models.chatAnswer = &gemini.ChatAnswer{Reply: "done.", Push: pushes}
+	f.coaching.seed(f.gameSessionID, standing)
+	f.models.chatAnswer = &gemini.ChatAnswer{Reply: "done.", Push: []string{
+		"avoid the north road <b>" + strings.Repeat("x", 250),
+		"keep to the shadows " + strings.Repeat("y", 250),
+	}}
 
-	f.driver.HandleChat(f.userID, f.connID, "remember all of these")
+	f.driver.HandleChat(f.userID, f.connID, "avoid the north road and keep to the shadows")
 
 	stored, _ := f.coaching.CoachingFor(f.gameSessionID)
 	if len(stored) != maxCoachingBullets {
 		t.Fatalf("expected exactly %d stored suggestions, got %d: %v", maxCoachingBullets, len(stored), stored)
 	}
+	if !strings.HasPrefix(stored[len(stored)-2], "avoid the north road") || !strings.HasPrefix(stored[len(stored)-1], "keep to the shadows") {
+		t.Fatalf("expected the two new suggestions at the end of the list, got %v", stored)
+	}
 	for _, s := range stored {
-		if strings.Contains(s, "suggestion number 01 ") {
+		if strings.Contains(s, "suggestion number 01") {
 			t.Fatalf("expected the oldest suggestion dropped, got %v", stored)
 		}
 		if len(s) > maxBulletChars {
