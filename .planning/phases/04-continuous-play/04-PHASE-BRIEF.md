@@ -1,6 +1,6 @@
 # Phase 4 Brief — Continuous Play
 
-**Status:** Pending owner approval for execution (artifact https://claude.ai/artifact/Su5CixwfRAJMNC1AkEts7t).
+**Status:** Approved by the owner for execution, 2026-09-16 (artifact https://claude.ai/artifact/Su5CixwfRAJMNC1AkEts7t).
 
 **Purpose:** Owner review before execution. Everything here is lifted from `.planning/ROADMAP.md` §Phase 4, `04-CONTEXT.md` and the eleven PLAN.md files; nothing is new. Approve this, and Phase 4 goes to `/gsd-execute-phase 4`.
 
@@ -70,4 +70,4 @@ Coaching, chat pause/resume and Quest Memory recall (Phase 5); hand-editing Sess
 
 ## Approval
 
-Pending. The owner approves in chat against the published brief artifact; this section is then updated and committed before `/gsd-execute-phase 4`.
+Approved 2026-09-16. The owner approved the brief as published, with no changes, in chat at the start of `/gsd-execute-phase 4` ("Approved — execute").
