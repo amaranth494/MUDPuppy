@@ -75,6 +75,10 @@ type ringBuffer struct {
 	// chunks records one marker per append call, oldest first, trimmed as
 	// soon as every byte it refers to has been overwritten in buf.
 	chunks []chunkMarker
+
+	// lastDecisionSnapshotAt is when snapshotForDecision last ran, or the
+	// zero time before the first one (code review WR-06 of Phase 4).
+	lastDecisionSnapshotAt time.Time
 }
 
 // newRingBuffer allocates a ring sized to RecentOutputWindowBytes.
@@ -144,6 +148,32 @@ func (r *ringBuffer) snapshotBytes() []byte {
 // the caller holds m.mu.
 func (r *ringBuffer) snapshot() string {
 	return string(r.snapshotBytes())
+}
+
+// snapshotForDecision is the snapshot a decision is made from (code review
+// WR-06 of Phase 4). It is snapshotRecent with an age bound that reaches
+// back at least to the PREVIOUS decision's snapshot: max(maxAge, time since
+// that snapshot). A fixed 10 seconds was shorter than the gap between
+// snapshots -- 8 s minimum spacing after the previous decision FINISHES,
+// plus two model calls, typically 11 to 15 s and up to minutes -- so the
+// text that arrived in the first seconds after a snapshot (the game's answer
+// to the AI's own last command, or an attack that landed while the model was
+// thinking) was already too old at the next one and, in a busy scene where
+// the never-empty floor did not cover it, was never seen by any decision.
+// Still bounded by the ring's byte ceiling and by the never-empty floor;
+// the first decision ever (no previous snapshot) uses maxAge alone. It
+// records its own time, so the caller must hold m.mu for WRITING, and it
+// must be called exactly once per decision: a second call in between would
+// shrink the next window back to maxAge.
+func (r *ringBuffer) snapshotForDecision(maxAge time.Duration, minBytes int) string {
+	now := r.now()
+	if !r.lastDecisionSnapshotAt.IsZero() {
+		if gap := now.Sub(r.lastDecisionSnapshotAt); gap > maxAge {
+			maxAge = gap
+		}
+	}
+	r.lastDecisionSnapshotAt = now
+	return r.snapshotRecent(maxAge, minBytes)
 }
 
 // snapshotRecent returns the ring's contents in chronological order,

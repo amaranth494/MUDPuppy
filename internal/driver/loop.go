@@ -252,8 +252,13 @@ func (d *Driver) runLoop(ctx context.Context, userID, connectionID string, epoch
 
 		// One [AI-PLAYER] line per tick, ids/stage/lengths only -- never
 		// the window, a command, a goal or any reasoning text (T-4-05).
-		window := d.sessions.RecentOutputSnapshot(userID)
-		d.logDecision(userID, connectionID, "", "loop-tick", "", "", "", len(window), 0)
+		// The tick line no longer takes a window snapshot of its own just to
+		// log its length (code review WR-06 of Phase 4): the manager now
+		// remembers when the window was last snapshotted so the next
+		// decision's window reaches back to it, and a log-only snapshot here
+		// would reset that memory an instant before the real one. The
+		// iteration's own stage=request line, next, carries snapshot_bytes.
+		d.logDecision(userID, connectionID, "", "loop-tick", "", "", "", 0, 0)
 
 		d.runIteration(ctx, userID, connectionID, false, epoch)
 

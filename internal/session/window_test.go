@@ -297,3 +297,92 @@ func TestWindowSurvivesDisconnect(t *testing.T) {
 		t.Fatalf("RecentOutputSnapshot after Disconnect = %q, want it to still contain the pre-drop text", got)
 	}
 }
+
+// TestWindow_CoversTheGapSinceThePreviousDecision is code review WR-06 of
+// Phase 4, on the injectable clock. Decisions are 15 s apart here (8 s
+// spacing plus two model calls is typically 11 to 15 s); the game's answer to
+// the first decision's command arrives 1 s after that decision's snapshot,
+// and the scene is busy enough afterwards (more than the 2 KB never-empty
+// floor) that the floor does not rescue it. With a fixed 10 s window that
+// answer was too old by the next snapshot and no decision ever saw it.
+func TestWindow_CoversTheGapSinceThePreviousDecision(t *testing.T) {
+	busy := strings.Repeat("A crowd mills about the square. ", 90) // > windowMinRetainedBytes
+	if len(busy) <= windowMinRetainedBytes {
+		t.Fatalf("test setup: the busy text (%d bytes) must exceed the never-empty floor (%d)", len(busy), windowMinRetainedBytes)
+	}
+
+	build := func() (*ringBuffer, *windowTestClock) {
+		r := newRingBuffer()
+		clock := &windowTestClock{t: time.Now()}
+		r.now = clock.now
+		r.append([]byte("OLD-ALREADY-SEEN the first decision read this. "))
+		clock.advance(1 * time.Second)
+		return r, clock
+	}
+	afterFirstDecision := func(r *ringBuffer, clock *windowTestClock) {
+		clock.advance(1 * time.Second)
+		r.append([]byte("EARLY-ANSWER the guard blocks your way north. "))
+		clock.advance(13 * time.Second)
+		r.append([]byte(busy))
+		clock.advance(1 * time.Second) // 15 s after the first decision's snapshot
+	}
+
+	t.Run("the_decision_snapshot_reaches_back_to_the_previous_one", func(t *testing.T) {
+		r, clock := build()
+		first := r.snapshotForDecision(windowMaxAge, windowMinRetainedBytes)
+		if !strings.Contains(first, "OLD-ALREADY-SEEN") {
+			t.Fatalf("test setup: the first decision should see the opening text, got %q", first)
+		}
+		afterFirstDecision(r, clock)
+
+		second := r.snapshotForDecision(windowMaxAge, windowMinRetainedBytes)
+		if !strings.Contains(second, "EARLY-ANSWER") {
+			t.Fatalf("text that arrived 1 s after the previous decision's snapshot fell between the two decisions")
+		}
+		if strings.Contains(second, "OLD-ALREADY-SEEN") {
+			t.Fatalf("expected the window to reach back to the previous snapshot, not past it")
+		}
+		if len(second) > RecentOutputWindowBytes {
+			t.Fatalf("window = %d bytes, want at most the ring's %d", len(second), RecentOutputWindowBytes)
+		}
+	})
+
+	t.Run("the_fixed_age_bound_alone_loses_it", func(t *testing.T) {
+		// The same timeline through the plain age-bounded snapshot: this is
+		// the hole, pinned so the test above cannot pass by accident.
+		r, clock := build()
+		_ = r.snapshotRecent(windowMaxAge, windowMinRetainedBytes)
+		afterFirstDecision(r, clock)
+		if got := r.snapshotRecent(windowMaxAge, windowMinRetainedBytes); strings.Contains(got, "EARLY-ANSWER") {
+			t.Fatalf("test setup: expected a fixed %v window to have lost the early text", windowMaxAge)
+		}
+	})
+
+	t.Run("a_short_gap_still_gets_the_full_age_bound", func(t *testing.T) {
+		r := newRingBuffer()
+		clock := &windowTestClock{t: time.Now()}
+		r.now = clock.now
+		r.append([]byte("SIX-SECONDS-BEFORE " + busy))
+		clock.advance(4 * time.Second)
+		_ = r.snapshotForDecision(windowMaxAge, windowMinRetainedBytes)
+		clock.advance(2 * time.Second)
+		r.append([]byte(busy))
+		if got := r.snapshotForDecision(windowMaxAge, windowMinRetainedBytes); !strings.Contains(got, "SIX-SECONDS-BEFORE") {
+			t.Fatalf("expected the window never to be shorter than windowMaxAge (%v)", windowMaxAge)
+		}
+	})
+
+	t.Run("a_very_long_gap_is_still_bounded_by_the_ring", func(t *testing.T) {
+		r := newRingBuffer()
+		clock := &windowTestClock{t: time.Now()}
+		r.now = clock.now
+		_ = r.snapshotForDecision(windowMaxAge, windowMinRetainedBytes)
+		for i := 0; i < 40; i++ {
+			clock.advance(1 * time.Minute)
+			r.append([]byte(busy))
+		}
+		if got := r.snapshotForDecision(windowMaxAge, windowMinRetainedBytes); len(got) > RecentOutputWindowBytes {
+			t.Fatalf("window = %d bytes after a 40-minute gap, want at most %d", len(got), RecentOutputWindowBytes)
+		}
+	})
+}

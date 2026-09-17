@@ -668,15 +668,22 @@ func (m *Manager) OutputSignal(userID string) <-chan struct{} {
 // through this single call site, so every decision from now on is made
 // against what just happened, and a decision taken after a long-quiet
 // game still sees the most recent screenful rather than an empty window.
+//
+// The age bound reaches back at least to this user's previous snapshot
+// (ringBuffer.snapshotForDecision, code review WR-06 of Phase 4), so text
+// that arrived just after one decision's snapshot is seen by the next
+// decision instead of falling between the two. Because the ring records
+// when it was last snapshotted, this takes the write lock, and the driver
+// calls it exactly once per decision.
 func (m *Manager) RecentOutputSnapshot(userID string) string {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	ring, ok := m.outputWindow[userID]
 	if !ok {
 		return ""
 	}
-	return ring.snapshotRecent(windowMaxAge, windowMinRetainedBytes)
+	return ring.snapshotForDecision(windowMaxAge, windowMinRetainedBytes)
 }
 
 // SetTranscriptSink wires the store-backed side of the session transcript
