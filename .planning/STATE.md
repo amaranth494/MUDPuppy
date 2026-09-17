@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-09-PLAN.md
-last_updated: "2026-09-17T06:23:19.568Z"
+stopped_at: Completed 04-10-PLAN.md
+last_updated: "2026-09-17T06:42:28.859Z"
 last_activity: 2026-09-17
 progress:
   total_phases: 9
   completed_phases: 4
   total_plans: 44
-  completed_plans: 42
+  completed_plans: 43
   percent: 44
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-09-14)
 ## Current Position
 
 Phase: 4 (continuous-play) — EXECUTING
-Plan: 10 of 11 (04-09 complete; 04-10 next)
+Plan: 11 of 11 (04-09 complete; 04-10 next)
 Status: Ready to execute
 Last activity: 2026-09-17
 
@@ -63,6 +63,7 @@ Progress: [█████████░] 95%
 | Phase 04 P07 | 3min | 3 tasks | 5 files |
 | Phase 04 P08 | 15min | 3 tasks | 18 files |
 | Phase 04 P09 | 15min | 3 tasks | 14 files |
+| Phase 04 P10 | 55min | 2 tasks | 37 files |
 
 ## Accumulated Context
 
@@ -96,6 +97,7 @@ Recent decisions affecting current work:
 - [Phase 4]: 04-07: D-24/DR-3.1-01 closed in code -- the reviewer's user text wraps the first model's stated reasoning in <MODEL_REASONING> markers with its own untrusted-account sentence beside the shared paragraph; corpus item reviewer-channel-01 added to the unmodified red-team corpus (category reviewer-channel, hostile-count floor raised to 25); no live model call made, AFTER rerun belongs to plan 04-11
 - [Phase 04]: 04-08: memory rides the same answer JSON as the command (flat string[], no extra model call); ceilings 30 Session Memory / 20 Quest bullets at 200 chars enforced again on the way out via truncateBullets; the ai-memory read endpoint is GET-only, no PUT (Phase 5 edits)
 - [Phase 4]: 04-09: retention SQL declared as package-level constants for no-database tests; window_text cleared in place; nightly ticker is one server-scope goroutine; DELETE /api/v1/profiles/{connection_id}/captured-text mirrors ai-goal's route shape
+- [Phase 04]: 04-10: Added a PUT-only quest field to GoalResponse (created/reactivated/none) so D-04's Quest reactivate-vs-create is provable over HTTP without a database query, per the harness's own evidence rule — The shipped PutGoal only recorded this word in the AI-PLAYER log line
 
 ### Pending Todos
 
@@ -126,6 +128,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-09-17T06:23:19.561Z
-Stopped at: Completed 04-09-PLAN.md
+Last session: 2026-09-17T06:42:28.850Z
+Stopped at: Completed 04-10-PLAN.md
 Resume file: None
