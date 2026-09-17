@@ -85,9 +85,21 @@ export default function AIPlayerPanel({ connectionId }: AIPlayerPanelProps) {
 
   const handleSave = async () => {
     if (!connectionId) return;
-    setIsSaving(true);
     setError(null);
     setSuccessMessage(null);
+    // Code review IN-05 of Phase 5: a decimal such as 2.5 used to be sent as
+    // it was; the server could not read it as a whole number and answered
+    // "Invalid request body", which says nothing about what to fix. Catch it
+    // here, in words that do. The server still checks 1 to 20 for itself.
+    const rateLimitText = rateLimitStr.trim();
+    if (rateLimitText !== '') {
+      const rateLimit = Number(rateLimitText);
+      if (!Number.isInteger(rateLimit) || rateLimit < 1 || rateLimit > 20) {
+        setError('AI command rate limit must be a whole number between 1 and 20 commands per second, or blank for the server default');
+        return;
+      }
+    }
+    setIsSaving(true);
     try {
       const body: AISettingsResponse = {
         conduct_rules: conductRules,
@@ -316,6 +328,9 @@ export default function AIPlayerPanel({ connectionId }: AIPlayerPanelProps) {
               type="number"
               className="form-input"
               placeholder="Server default"
+              min={1}
+              max={20}
+              step={1}
               value={rateLimitStr}
               onChange={(e) => setRateLimitStr(e.target.value)}
             />
