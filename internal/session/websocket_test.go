@@ -1,6 +1,7 @@
 package session
 
 import (
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -80,7 +81,7 @@ func TestPushAI(t *testing.T) {
 		if got[0].Type != MsgTypeAI {
 			t.Errorf("Type = %q, want %q", got[0].Type, MsgTypeAI)
 		}
-		if got[0].Decision == nil || *got[0].Decision != payload {
+		if got[0].Decision == nil || !reflect.DeepEqual(*got[0].Decision, payload) {
 			t.Errorf("Decision = %+v, want %+v", got[0].Decision, payload)
 		}
 	})

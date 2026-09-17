@@ -81,6 +81,14 @@ type AIDecisionPayload struct {
 	Failures   int    `json:"failures,omitempty"`
 	Blocks     int    `json:"blocks,omitempty"`
 	Threshold  int    `json:"threshold,omitempty"`
+
+	// SessionMemory carries the current game session's full curated Session
+	// Memory list (D-10, plan 04-08) on every ai message — the whole list,
+	// not a diff — so the panel's collapsible section replaces its
+	// displayed list wholesale from whichever message arrives. Omitted (not
+	// merely empty) when there is nothing to report, matching every other
+	// omitempty field on this payload.
+	SessionMemory []string `json:"session_memory,omitempty"`
 }
 
 // IsHumanSource is the wheel-grab's classification rule. Absent or

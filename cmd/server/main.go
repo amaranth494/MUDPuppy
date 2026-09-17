@@ -281,6 +281,12 @@ func main() {
 	sessionManager.SetEngageHook(aiDriver.EngageLoop)
 	sessionHandler.SetEngageHook(aiDriver.EngageLoop)
 	sessionManager.SetDisengageHook(aiDriver.StopLoop)
+	// Wire the real Quest and Session Memory stores (D-10, D-11, plan
+	// 04-08) so the driver's prompt-context reads (plan 04-07) and its own
+	// curation writes (this plan) land against the same questStore and
+	// transcriptStore every other AI Player surface already uses.
+	aiDriver.SetQuests(questStore)
+	aiDriver.SetMemory(transcriptStore)
 
 	// Wire the same decisionStore instance to the decisions-read endpoint
 	// (plan 03-09) so a reloaded play screen reads back exactly what the
@@ -301,20 +307,21 @@ func main() {
 	// tab was closed at the moment the decision happened.
 	aiDriver.SetNotifier(aidriver.NotifierFunc(func(userID string, ev aidriver.Event) {
 		_ = wsHandler.PushAI(userID, session.AIDecisionPayload{
-			ID:         ev.ID,
-			Kind:       ev.Kind,
-			Reasoning:  ev.Reasoning,
-			Command:    ev.Command,
-			Outcome:    ev.Outcome,
-			Message:    ev.Message,
-			Timestamp:  ev.Timestamp,
-			State:      ev.State,
-			Calls:      ev.Calls,
-			CallCap:    ev.CallCap,
-			CallCapSet: ev.CallCapSet,
-			Failures:   ev.Failures,
-			Blocks:     ev.Blocks,
-			Threshold:  ev.Threshold,
+			ID:            ev.ID,
+			Kind:          ev.Kind,
+			Reasoning:     ev.Reasoning,
+			Command:       ev.Command,
+			Outcome:       ev.Outcome,
+			Message:       ev.Message,
+			Timestamp:     ev.Timestamp,
+			State:         ev.State,
+			Calls:         ev.Calls,
+			CallCap:       ev.CallCap,
+			CallCapSet:    ev.CallCapSet,
+			Failures:      ev.Failures,
+			Blocks:        ev.Blocks,
+			Threshold:     ev.Threshold,
+			SessionMemory: ev.SessionMemory,
 		})
 	}))
 
