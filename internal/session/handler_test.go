@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -876,6 +877,142 @@ func TestAutopilotHandler_ResumeConsultsTheEngageGate(t *testing.T) {
 		if resp := decodeAutopilotResponse(t, rec); resp.Outcome != "not-waiting" {
 			t.Fatalf("outcome = %q, want %q", resp.Outcome, "not-waiting")
 		}
+	})
+}
+
+// TestAutopilotHandler_PushesTheSwitchStateOnPauseAndResume proves code
+// review WR-11 of Phase 5: Pause and Resume tell every open screen what the
+// switch now reads, with both waiting reasons, instead of leaving the badge
+// to the fifteen-second poll; and nothing is pushed when nothing changed.
+func TestAutopilotHandler_PushesTheSwitchStateOnPauseAndResume(t *testing.T) {
+	type push struct {
+		userID         string
+		state          AutopilotState
+		cause          string
+		pausedByOwner  bool
+		connectionLost bool
+	}
+	engaged := func(t *testing.T) (*Handler, *Manager, uuid.UUID, *[]push) {
+		t.Helper()
+		m := newTestManager()
+		userID, connID := uuid.New(), uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
+		h := newAutopilotHandler(m, alwaysAllow(""))
+		var pushes []push
+		h.SetAutopilotNotifier(func(uid string, state AutopilotState, cause string, paused, lost bool) {
+			pushes = append(pushes, push{uid, state, cause, paused, lost})
+		})
+		h.Autopilot(httptest.NewRecorder(), newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: connID})))
+		return h, m, userID, &pushes
+	}
+	act := func(t *testing.T, h *Handler, userID uuid.UUID, action string) {
+		t.Helper()
+		h.Autopilot(httptest.NewRecorder(), newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: action})))
+	}
+
+	t.Run("pause_pushes_waiting_with_the_owners_reason", func(t *testing.T) {
+		h, _, userID, pushes := engaged(t)
+
+		act(t, h, userID, "pause")
+
+		want := []push{{userID.String(), AutopilotWaiting, "pause", true, false}}
+		if !reflect.DeepEqual(*pushes, want) {
+			t.Fatalf("pushes = %+v, want %+v", *pushes, want)
+		}
+	})
+
+	t.Run("resume_pushes_on_with_both_reasons_cleared", func(t *testing.T) {
+		h, _, userID, pushes := engaged(t)
+		act(t, h, userID, "pause")
+		*pushes = nil
+
+		act(t, h, userID, "resume")
+
+		want := []push{{userID.String(), AutopilotOn, "resume", false, false}}
+		if !reflect.DeepEqual(*pushes, want) {
+			t.Fatalf("pushes = %+v, want %+v", *pushes, want)
+		}
+	})
+
+	t.Run("resume_with_the_connection_still_lost_pushes_the_reason_that_remains", func(t *testing.T) {
+		h, m, userID, pushes := engaged(t)
+		act(t, h, userID, "pause")
+		if err := m.Disconnect(userID.String(), ReasonRemote); err != nil {
+			t.Fatalf("Disconnect: %v", err)
+		}
+		*pushes = nil
+
+		act(t, h, userID, "resume")
+
+		want := []push{{userID.String(), AutopilotWaiting, "resume", false, true}}
+		if !reflect.DeepEqual(*pushes, want) {
+			t.Fatalf("pushes = %+v, want %+v (still waiting, but the owner's pause is gone)", *pushes, want)
+		}
+	})
+
+	t.Run("pause_on_top_of_a_lost_connection_pushes_both_reasons", func(t *testing.T) {
+		h, m, userID, pushes := engaged(t)
+		if err := m.Disconnect(userID.String(), ReasonRemote); err != nil {
+			t.Fatalf("Disconnect: %v", err)
+		}
+
+		act(t, h, userID, "pause")
+
+		want := []push{{userID.String(), AutopilotWaiting, "pause", true, true}}
+		if !reflect.DeepEqual(*pushes, want) {
+			t.Fatalf("pushes = %+v, want %+v", *pushes, want)
+		}
+	})
+
+	t.Run("nothing_is_pushed_when_nothing_changed", func(t *testing.T) {
+		m := newTestManager()
+		userID := uuid.New()
+		h := newAutopilotHandler(m, alwaysAllow(""))
+		pushed := 0
+		h.SetAutopilotNotifier(func(string, AutopilotState, string, bool, bool) { pushed++ })
+
+		act(t, h, userID, "pause")  // switch is off: already-off
+		act(t, h, userID, "resume") // nothing to resume: not-waiting
+		act(t, h, userID, "status")
+
+		if pushed != 0 {
+			t.Fatalf("pushed %d time(s) for actions that changed nothing, want 0", pushed)
+		}
+	})
+
+	t.Run("a_refused_resume_pushes_nothing", func(t *testing.T) {
+		m := newTestManager()
+		userID, connID := uuid.New(), uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
+		allow := true
+		h := NewHandlerWithCallbacks(m, configuredConfig(), &HandlerCallbacks{EngageGate: func(uuid.UUID, uuid.UUID) (bool, string, string) {
+			if allow {
+				return true, "", ""
+			}
+			return false, store.EngageGateRefusalMessage, ""
+		}})
+		h.Autopilot(httptest.NewRecorder(), newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: connID})))
+		act(t, h, userID, "pause")
+		pushed := 0
+		h.SetAutopilotNotifier(func(string, AutopilotState, string, bool, bool) { pushed++ })
+		allow = false
+
+		act(t, h, userID, "resume")
+
+		if pushed != 0 {
+			t.Fatalf("pushed %d time(s) for a refused resume, want 0 (the switch did not move)", pushed)
+		}
+	})
+
+	t.Run("no_notifier_wired_is_a_no_op", func(t *testing.T) {
+		m := newTestManager()
+		userID, connID := uuid.New(), uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
+		h := newAutopilotHandler(m, alwaysAllow(""))
+		h.Autopilot(httptest.NewRecorder(), newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: connID})))
+
+		act(t, h, userID, "pause") // must not panic
+		act(t, h, userID, "resume")
 	})
 }
 

@@ -22,6 +22,7 @@ export default function PlayScreen() {
   const {
     connectionState,
     autopilotState,
+    connectionLost,
     wsManager,
     isInputLocked,
     profile,
@@ -383,25 +384,42 @@ export default function PlayScreen() {
   // 02-06-03: the two lifecycle sequences (D-11) -- on-to-waiting and waiting-to-on -- fire
   // only for those two transitions. On-to-off and waiting-to-off are already announced by
   // the directive response or the wheel-grab push; printing here too would double the line.
+  //
+  // Code review WR-11 of Phase 5: both sequences are about a LOST CONNECTION,
+  // and WAITING now has a second cause, the owner's Pause (D-15). Without the
+  // connectionLost checks below a pause printed "waiting for reconnect" and a
+  // resume printed "Reconnected" -- up to fifteen seconds late before the
+  // server pushed the state, instantly after. A pause and a resume are
+  // announced by their own server-sent lines instead. The reason arrives in
+  // the same update as the state (the push carries both; the poll sets both
+  // together), so connectionLost here belongs to this very transition.
   const previousAutopilotStateRef = useRef<'on' | 'waiting' | 'off' | undefined>(undefined);
+  const waitedOnLostConnectionRef = useRef(false);
   useEffect(() => {
     const previous = previousAutopilotStateRef.current;
     previousAutopilotStateRef.current = autopilotState;
+    // Remember whether the wait was, at its last update, on a lost
+    // connection: by the time the switch reads 'on' again the reason has
+    // already been cleared. Not sticky on purpose -- a paused wait whose
+    // connection dropped and came back is ended by the owner's Resume, not
+    // by a reconnect, and must not announce one.
+    const waitedOnLostConnection = waitedOnLostConnectionRef.current;
+    waitedOnLostConnectionRef.current = autopilotState === 'waiting' && connectionLost;
 
     // First render: previous is undefined, so nothing is printed on mount.
     if (previous === undefined || !automationEngine) {
       return;
     }
 
-    if (previous === 'on' && autopilotState === 'waiting') {
+    if (previous === 'on' && autopilotState === 'waiting' && connectionLost) {
       automationEngine.echoLocal('[Autopilot waiting for reconnect]', { color: 'brightyellow' });
-    } else if (previous === 'waiting' && autopilotState === 'on') {
+    } else if (previous === 'waiting' && autopilotState === 'on' && waitedOnLostConnection) {
       (async () => {
         await automationEngine.echoLocal('[Reconnected]', { color: 'white' });
         await automationEngine.echoLocal('[Autopilot resuming]', { color: 'brightgreen' });
       })();
     }
-  }, [autopilotState, automationEngine]);
+  }, [autopilotState, connectionLost, automationEngine]);
 
   // 03-10 (D-09, D-13): the terminal's half of the 'ai' websocket message. A sent
   // decision's command never went through the browser's own local echo -- it was

@@ -275,6 +275,14 @@ type WebSocketHandler struct {
 	// actual writes, a distinct concern (T-3-08).
 	clients   map[string]wsWriter
 	clientsMu sync.RWMutex
+
+	// allClients holds EVERY open play-screen socket of each user, guarded
+	// by the same clientsMu (code review WR-11 of Phase 5). clients above
+	// keeps only the newest tab, which is what PushAI and PushChat have
+	// always written to and still do. The autopilot switch is different: it
+	// is one switch per user, and a tab left showing the wrong state offers
+	// the wrong button, so PushAutopilot writes to all of them.
+	allClients map[string]map[wsWriter]struct{}
 }
 
 // NewWebSocketHandler creates a new WebSocket handler
@@ -292,6 +300,7 @@ func NewWebSocketHandler(manager *Manager, cfg *config.Config) *WebSocketHandler
 		},
 		rateLimiters: make(map[string]*RateLimiter),
 		clients:      make(map[string]wsWriter),
+		allClients:   make(map[string]map[wsWriter]struct{}),
 	}
 }
 
@@ -299,21 +308,69 @@ func NewWebSocketHandler(manager *Manager, cfg *config.Config) *WebSocketHandler
 // can find it later. Keyed only by the authenticated user id taken from
 // the upgraded connection's own request context — never a client-supplied
 // field (T-3-11).
-func (h *WebSocketHandler) registerClient(userID string, conn *websocket.Conn) {
+//
+// conn is typed wsWriter (the real *websocket.Conn satisfies it) so a test
+// can register a fake through this same function.
+func (h *WebSocketHandler) registerClient(userID string, conn wsWriter) {
 	h.clientsMu.Lock()
 	defer h.clientsMu.Unlock()
 	h.clients[userID] = conn
+	set, ok := h.allClients[userID]
+	if !ok {
+		set = make(map[wsWriter]struct{})
+		h.allClients[userID] = set
+	}
+	set[conn] = struct{}{}
 }
 
 // unregisterClient removes userID's registration only if it still points
 // at conn. A new tab registers its own connection before the old tab's
 // deferred teardown runs; without this comparison the old tab's
 // unregister would delete the new tab's entry (T-3-11).
-func (h *WebSocketHandler) unregisterClient(userID string, conn *websocket.Conn) {
+func (h *WebSocketHandler) unregisterClient(userID string, conn wsWriter) {
 	h.clientsMu.Lock()
 	defer h.clientsMu.Unlock()
-	if stored, ok := h.clients[userID]; ok && stored == wsWriter(conn) {
+	if stored, ok := h.clients[userID]; ok && stored == conn {
 		delete(h.clients, userID)
+	}
+	if set, ok := h.allClients[userID]; ok {
+		delete(set, conn)
+		if len(set) == 0 {
+			delete(h.allClients, userID)
+		}
+	}
+}
+
+// PushAutopilot tells EVERY open play screen of userID what the autopilot
+// switch now reads, with both waiting reasons (D-15, code review WR-11 of
+// Phase 5). cause names what moved it ("pause", "resume"); the browser
+// treats an unknown cause as a plain state update. Until this existed the
+// wheel-grab was the only autopilot push in the package, so after Pause the
+// badge went on reading ON -- and a second tab went on offering Pause -- for
+// up to fifteen seconds, until the next poll.
+//
+// A user with no open screen is a silent no-op. One tab's failed write never
+// stops the others being told. Nothing but the state, the cause and the two
+// flags is sent, and a failure logs an error class only.
+func (h *WebSocketHandler) PushAutopilot(userID string, state AutopilotState, cause string, pausedByOwner, connectionLost bool) {
+	h.clientsMu.RLock()
+	conns := make([]wsWriter, 0, len(h.allClients[userID]))
+	for conn := range h.allClients[userID] {
+		conns = append(conns, conn)
+	}
+	h.clientsMu.RUnlock()
+
+	msg := WSMessage{
+		Type:           MsgTypeAutopilot,
+		Status:         string(state),
+		Data:           cause,
+		PausedByOwner:  pausedByOwner,
+		ConnectionLost: connectionLost,
+	}
+	for _, conn := range conns {
+		if err := h.writeJSON(conn, msg); err != nil {
+			log.Printf("[AI-PLAYER] autopilot-push user_id=%s cause=%s outcome=failed error_class=%T", userID, cause, err)
+		}
 	}
 }
 

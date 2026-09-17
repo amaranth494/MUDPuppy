@@ -2,6 +2,7 @@ package session
 
 import (
 	"encoding/json"
+	"errors"
 	"reflect"
 	"sync"
 	"testing"
@@ -145,6 +146,125 @@ func TestPushAI(t *testing.T) {
 		}
 		if len(newFake.recorded()) != 1 {
 			t.Fatalf("new tab's connection did not receive the push; old tab's teardown deleted the new registration")
+		}
+	})
+}
+
+// TestPushAutopilot proves code review WR-11 of Phase 5 at the socket layer:
+// the switch state, with both waiting reasons, reaches EVERY open play
+// screen of the user -- not only the newest tab, which is all PushAI and
+// PushChat write to.
+func TestPushAutopilot(t *testing.T) {
+	t.Run("every_open_screen_of_the_user_is_told", func(t *testing.T) {
+		h := NewWebSocketHandler(newTestManager(), &config.Config{})
+		tabOne, tabTwo, stranger := &fakeWSConn{}, &fakeWSConn{}, &fakeWSConn{}
+		h.registerClient("user-1", tabOne)
+		h.registerClient("user-1", tabTwo)
+		h.registerClient("user-2", stranger)
+
+		h.PushAutopilot("user-1", AutopilotWaiting, "pause", true, false)
+
+		for name, tab := range map[string]*fakeWSConn{"first tab": tabOne, "second tab": tabTwo} {
+			got := tab.recorded()
+			if len(got) != 1 {
+				t.Fatalf("%s: recorded %d message(s), want 1", name, len(got))
+			}
+			want := WSMessage{Type: MsgTypeAutopilot, Status: "waiting", Data: "pause", PausedByOwner: true}
+			if !reflect.DeepEqual(got[0], want) {
+				t.Errorf("%s: message = %+v, want %+v", name, got[0], want)
+			}
+		}
+		if got := stranger.recorded(); len(got) != 0 {
+			t.Fatalf("another user's screen was told: %+v", got)
+		}
+	})
+
+	t.Run("the_wire_message_carries_the_state_and_both_reasons", func(t *testing.T) {
+		h := NewWebSocketHandler(newTestManager(), &config.Config{})
+		tab := &fakeWSConn{}
+		h.registerClient("user-1", tab)
+
+		h.PushAutopilot("user-1", AutopilotWaiting, "resume", false, true)
+
+		raw, err := json.Marshal(tab.recorded()[0])
+		if err != nil {
+			t.Fatalf("marshal: %v", err)
+		}
+		var wire map[string]interface{}
+		if err := json.Unmarshal(raw, &wire); err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		if wire["type"] != "autopilot" || wire["status"] != "waiting" || wire["data"] != "resume" || wire["connection_lost"] != true {
+			t.Errorf("wire message = %s", raw)
+		}
+		if _, present := wire["paused_by_owner"]; present {
+			t.Errorf("paused_by_owner should be left out when false (the browser reads absent as false): %s", raw)
+		}
+	})
+
+	t.Run("one_tabs_failed_write_does_not_stop_the_others", func(t *testing.T) {
+		h := NewWebSocketHandler(newTestManager(), &config.Config{})
+		dead := &fakeWSConn{writeErr: errors.New("broken pipe")}
+		alive := &fakeWSConn{}
+		h.registerClient("user-1", dead)
+		h.registerClient("user-1", alive)
+
+		h.PushAutopilot("user-1", AutopilotOn, "resume", false, false)
+
+		if got := alive.recorded(); len(got) != 1 || got[0].Status != "on" {
+			t.Fatalf("the healthy tab was not told: %+v", got)
+		}
+	})
+
+	t.Run("a_closed_tab_is_forgotten_and_the_rest_still_hear", func(t *testing.T) {
+		h := NewWebSocketHandler(newTestManager(), &config.Config{})
+		closed, open := &fakeWSConn{}, &fakeWSConn{}
+		h.registerClient("user-1", closed)
+		h.registerClient("user-1", open)
+		h.unregisterClient("user-1", closed)
+
+		h.PushAutopilot("user-1", AutopilotWaiting, "pause", true, false)
+
+		if len(closed.recorded()) != 0 || len(open.recorded()) != 1 {
+			t.Fatalf("closed tab got %d, open tab got %d; want 0 and 1", len(closed.recorded()), len(open.recorded()))
+		}
+
+		h.unregisterClient("user-1", open)
+		h.clientsMu.RLock()
+		_, left := h.allClients["user-1"]
+		h.clientsMu.RUnlock()
+		if left {
+			t.Fatal("expected no entry left once the user's last tab closed")
+		}
+	})
+
+	t.Run("no_open_screen_is_a_no_op", func(t *testing.T) {
+		h := NewWebSocketHandler(newTestManager(), &config.Config{})
+		h.PushAutopilot("nobody", AutopilotOff, "pause", false, false) // must not panic
+	})
+
+	t.Run("the_ai_and_chat_pushes_still_go_to_the_newest_tab_only", func(t *testing.T) {
+		h := NewWebSocketHandler(newTestManager(), &config.Config{})
+		older, newer := &fakeWSConn{}, &fakeWSConn{}
+		h.registerClient("user-1", older)
+		h.registerClient("user-1", newer)
+
+		if err := h.PushAI("user-1", AIDecisionPayload{Kind: "system"}); err != nil {
+			t.Fatalf("PushAI = %v", err)
+		}
+		if len(older.recorded()) != 0 || len(newer.recorded()) != 1 {
+			t.Fatalf("PushAI reached older=%d newer=%d; want 0 and 1 (unchanged behaviour)", len(older.recorded()), len(newer.recorded()))
+		}
+
+		// The newer tab closing must not strand the registration it replaced
+		// the older one in: the older tab's own teardown still only removes
+		// itself.
+		h.unregisterClient("user-1", older)
+		if err := h.PushAI("user-1", AIDecisionPayload{Kind: "system"}); err != nil {
+			t.Fatalf("PushAI = %v", err)
+		}
+		if len(newer.recorded()) != 2 {
+			t.Fatalf("the newest tab lost its registration when an older tab closed")
 		}
 	})
 }

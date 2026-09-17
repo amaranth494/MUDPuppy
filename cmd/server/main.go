@@ -420,6 +420,10 @@ func main() {
 	sessionHandler.SetAINotifier(func(userID string, payload session.AIDecisionPayload) {
 		_ = wsHandler.PushAI(userID, payload)
 	})
+	// Pause and Resume tell every open play screen of the user what the
+	// switch now reads, with both waiting reasons (code review WR-11 of
+	// Phase 5), instead of leaving the badge to the fifteen-second poll.
+	sessionHandler.SetAutopilotNotifier(wsHandler.PushAutopilot)
 
 	// Initialize metrics (SP02PH04T03)
 	metrics.Init()

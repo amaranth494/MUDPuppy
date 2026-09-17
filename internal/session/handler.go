@@ -27,6 +27,11 @@ type Handler struct {
 	// resume system-line notices a silent no-op — a missing notifier never
 	// blocks a pause or resume itself.
 	aiNotifier func(userID string, payload AIDecisionPayload)
+	// autopilotNotifier tells every open play screen of a user what the
+	// switch now reads, with both waiting reasons (D-15, code review WR-11
+	// of Phase 5). nil until SetAutopilotNotifier is called, which makes the
+	// push a silent no-op: a missing notifier never blocks a pause or resume.
+	autopilotNotifier func(userID string, state AutopilotState, cause string, pausedByOwner, connectionLost bool)
 }
 
 // HandlerCallbacks provides callbacks for session events
@@ -70,6 +75,27 @@ func (h *Handler) SetEngageHook(h2 EngageHook) {
 // makes notifyAutopilotSystemLine below a no-op.
 func (h *Handler) SetAINotifier(fn func(userID string, payload AIDecisionPayload)) {
 	h.aiNotifier = fn
+}
+
+// SetAutopilotNotifier wires the switch-state push (code review WR-11 of
+// Phase 5), following SetAINotifier's injection precedent. cmd/server/main.go
+// passes the websocket handler's PushAutopilot.
+func (h *Handler) SetAutopilotNotifier(fn func(userID string, state AutopilotState, cause string, pausedByOwner, connectionLost bool)) {
+	h.autopilotNotifier = fn
+}
+
+// pushAutopilotState reads the switch and its two waiting reasons and pushes
+// them to every open play screen of userID. Called only after a transition
+// that really happened (code review WR-11 of Phase 5): Pause and Resume used
+// to send only a system line, which carries no state, so the badge and any
+// other tab stayed wrong until the next fifteen-second poll.
+func (h *Handler) pushAutopilotState(userID, cause string) {
+	if h.autopilotNotifier == nil {
+		return
+	}
+	state := h.manager.AutopilotStateFor(userID)
+	pausedByOwner, connectionLost := h.manager.AutopilotWaitingReasons(userID)
+	h.autopilotNotifier(userID, state, cause, pausedByOwner, connectionLost)
 }
 
 // notifyAutopilotSystemLine builds the fixed-shape AIDecisionPayload every
@@ -490,10 +516,15 @@ func (h *Handler) Autopilot(w http.ResponseWriter, r *http.Request) {
 			// a pause that returned already-waiting or already-off never
 			// claims a transition that did not happen.
 			h.notifyAutopilotSystemLine(userIDStr, "paused", "Autopilot paused")
+			h.pushAutopilotState(userIDStr, "pause")
 		} else if newState == AutopilotOff {
 			resp.Outcome = "already-off"
 		} else {
+			// Already Waiting (a lost connection): no transition, but the
+			// owner's pause is now recorded as a second reason (D-15), so the
+			// screens are told. Telling them twice is harmless.
 			resp.Outcome = "already-waiting"
+			h.pushAutopilotState(userIDStr, "pause")
 		}
 		resp.PausedByOwner, resp.ConnectionLost = h.manager.AutopilotWaitingReasons(userIDStr)
 		h.sendJSON(w, resp)
@@ -565,9 +596,13 @@ func (h *Handler) Autopilot(w http.ResponseWriter, r *http.Request) {
 			// changed alone is automatically "only after every waiting
 			// reason has cleared" — no reason condition is re-derived here.
 			h.notifyAutopilotSystemLine(userIDStr, "resumed", "Autopilot resumed")
+			h.pushAutopilotState(userIDStr, "resume")
 		case newState == AutopilotWaiting:
 			// Another reason (a lost connection) is still standing (D-15).
+			// The state did not change but a REASON did -- the owner's pause
+			// is gone -- so every screen is told that too.
 			resp.Outcome = "still-waiting"
+			h.pushAutopilotState(userIDStr, "resume")
 		default:
 			resp.Outcome = "not-waiting"
 		}

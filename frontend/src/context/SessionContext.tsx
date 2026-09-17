@@ -250,25 +250,39 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       // 02-06-01: the badge's whole refresh-correctness mechanism (D-10) — SessionBadge.tsx
       // already calls refreshStatus on mount, on visibility change and on a 15s interval
       const nextAutopilotState = status.autopilot_state || 'off';
-      setAutopilotState(nextAutopilotState);
       // 05-07: GET /session/status carries no waiting-reason fields (only the
       // POST .../autopilot response and the websocket push do), so a 'status'
       // action call is the best-effort way to hydrate D-15's two reasons on
       // this same poll when there is something to hydrate — 'status' makes
       // no state transition, matching every other read-only call this poll
       // already makes.
+      //
+      // Code review WR-11 of Phase 5: the reasons are fetched BEFORE the
+      // state is applied, and all three are set together. The state used to
+      // be set first, so for the length of the second request the app held
+      // "waiting" with no reason at all, and the play screen announced a
+      // pause as a lost connection.
+      let nextPausedByOwner = false;
+      let nextConnectionLost = false;
+      // Only a lookup that FAILED leaves the reasons as they were; every
+      // other case (not waiting, or nothing to ask about) resets them.
+      let reasonsKnown = true;
       if (nextAutopilotState === 'waiting' && status.autopilot_connection_id) {
+        reasonsKnown = false;
         try {
           const answer = await setAutopilot(status.autopilot_connection_id, 'status');
-          setPausedByOwner(answer.paused_by_owner);
-          setConnectionLost(answer.connection_lost);
+          nextPausedByOwner = answer.paused_by_owner;
+          nextConnectionLost = answer.connection_lost;
+          reasonsKnown = true;
         } catch {
           // Best-effort only — the websocket push and the pause/resume
           // actions themselves stay the authoritative sources.
         }
-      } else {
-        setPausedByOwner(false);
-        setConnectionLost(false);
+      }
+      setAutopilotState(nextAutopilotState);
+      if (reasonsKnown) {
+        setPausedByOwner(nextPausedByOwner);
+        setConnectionLost(nextConnectionLost);
       }
       if (status.last_error) {
         setError(mapBackendError(status.last_error));
