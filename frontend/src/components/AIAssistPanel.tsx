@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AIDecisionPayload } from '../types';
-import { getDecisions } from '../services/api';
+import { getDecisions, getGoal, putGoal } from '../services/api';
 import { useSession } from '../context/SessionContext';
 
 interface AIAssistPanelProps {
@@ -39,8 +39,10 @@ type PanelEntry = DecisionEntry | SystemEntry;
  * AutopilotBadge.tsx uses — this component never polls and never becomes a second
  * opinion about the switch's position.
  *
- * No input element of any kind exists here (D-08) — Phase 5 adds the coaching
- * input to this same panel.
+ * The goal box (D-01 to D-04, plan 04-06) is the panel's first exception
+ * to "no input element" (D-08): a single text input, saved on blur/Enter
+ * with no Save button, kept deliberately minimal. Phase 5 adds the
+ * coaching input to this same panel.
  */
 export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
   const { wsManager, autopilotState } = useSession();
@@ -59,6 +61,16 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
   const [failureCount, setFailureCount] = useState(0);
   const [blockCount, setBlockCount] = useState(0);
   const [disengageThreshold, setDisengageThreshold] = useState(3);
+
+  // 04-06: the goal box (D-01 to D-04). goalLoadedRef guards
+  // commitGoal against firing before the initial getGoal load completes
+  // (a stray blur before load must never overwrite the stored goal with an
+  // empty string). lastCommittedGoalRef holds the last value actually
+  // saved, so committing the same text twice (e.g. blur without an edit)
+  // is a no-op — no wasted PUT, no spurious system line.
+  const [goal, setGoal] = useState('');
+  const goalLoadedRef = useRef(false);
+  const lastCommittedGoalRef = useRef('');
 
   // The counts are meaningless before an engage and reset to zero on every
   // new stint (D-14/D-15/D-17); the status line itself is hidden entirely
@@ -101,6 +113,58 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
   useEffect(() => {
     loadHistory();
   }, [loadHistory]);
+
+  // Load the current goal on mount and whenever the connection changes
+  // (D-01: it survives a refresh and a reconnect). A load failure leaves
+  // the box at its default empty value (the empty-goal placeholder is the
+  // only empty-state rendering — D-02) rather than blocking the rest of
+  // the panel.
+  useEffect(() => {
+    if (!connectionId) return;
+    let cancelled = false;
+    goalLoadedRef.current = false;
+    getGoal(connectionId)
+      .then((resp) => {
+        if (cancelled) return;
+        setGoal(resp.goal);
+        lastCommittedGoalRef.current = resp.goal;
+      })
+      .catch(() => {
+        // No panel-wide error surface exists for a load failure elsewhere
+        // in this component either (loadHistory above has the same
+        // silent-fallback shape); the box simply stays at its default.
+      })
+      .finally(() => {
+        if (!cancelled) goalLoadedRef.current = true;
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [connectionId]);
+
+  // Commits on blur and on Enter (which blurs the input) — no Save button
+  // (04-UI-SPEC.md Layout §1). A failed save never reverts or clears the
+  // owner's typing; it is surfaced through the same system-line mechanism
+  // every other failure in this panel already uses.
+  const commitGoal = useCallback(async () => {
+    if (!connectionId || !goalLoadedRef.current) return;
+    if (goal === lastCommittedGoalRef.current) return;
+    const toSave = goal;
+    try {
+      const resp = await putGoal(connectionId, { goal: toSave });
+      lastCommittedGoalRef.current = resp.goal;
+    } catch {
+      setEntries((prev) => [
+        ...prev,
+        {
+          kind: 'system',
+          id: `goal-save-failed-${Date.now()}`,
+          message: '[Failed to save session goal — try again]',
+          outcome: 'failed',
+        },
+      ]);
+    }
+  }, [connectionId, goal]);
 
   useEffect(() => {
     if (!wsManager) return;
@@ -181,6 +245,23 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
         </button>
       </div>
       <div className="ai-assist-panel-top">
+        <div className="form-group">
+          <label className="form-label">Session Goal</label>
+          <input
+            type="text"
+            className="form-input"
+            placeholder="No session goal set"
+            value={goal}
+            onChange={(e) => setGoal(e.target.value)}
+            onBlur={commitGoal}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+            }}
+          />
+          <p className="form-hint">
+            Editable anytime, even while the AI plays. The next decision picks up the new goal.
+          </p>
+        </div>
         {autopilotState !== 'off' && (
           <div className="ai-assist-status-line">
             {callCap != null

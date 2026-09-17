@@ -316,6 +316,13 @@ export interface AISettingsResponse {
   ai_settings: AISettings;
 }
 
+// GoalResponse is the GET response and PUT request body for the ai-goal
+// sub-resource (D-01), matching internal/profiles/handler.go's GoalResponse
+// field for field.
+export interface GoalResponse {
+  goal: string;
+}
+
 export interface PolicyResponse {
   text: string;
   version: string;

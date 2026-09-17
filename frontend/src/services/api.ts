@@ -1,4 +1,4 @@
-import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, AutomationCredentials, Profile, UpdateProfileRequest, Alias, Trigger, Variable, Timer, AliasesResponse, TriggersResponse, VariablesResponse, TimersResponse, HelpSection, HelpSummary, AISettingsResponse, PolicyResponse, EngageGateResponse, AIDecisionPayload, StoredDecision, GameSessionSummary, TranscriptLine } from '../types';
+import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, AutomationCredentials, Profile, UpdateProfileRequest, Alias, Trigger, Variable, Timer, AliasesResponse, TriggersResponse, VariablesResponse, TimersResponse, HelpSection, HelpSummary, AISettingsResponse, GoalResponse, PolicyResponse, EngageGateResponse, AIDecisionPayload, StoredDecision, GameSessionSummary, TranscriptLine } from '../types';
 import { logErrorToConsole } from './log';
 import { CommandSource } from './automation';
 import { AutopilotAnswer } from './automation/evaluator';
@@ -672,6 +672,37 @@ export async function putAISettings(connectionId: string, body: AISettingsRespon
   if (!response.ok) {
     const data = await response.json();
     throw new Error(data.error || 'Failed to save AI settings');
+  }
+  return await response.json();
+}
+
+// Get the session goal for a connection (D-01)
+export async function getGoal(connectionId: string): Promise<GoalResponse> {
+  const response = await fetch(`${API_BASE}/profiles/${connectionId}/ai-goal`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to load session goal');
+  }
+  return await response.json();
+}
+
+// Save the session goal for a connection (D-01, D-03); commits on blur/Enter
+export async function putGoal(connectionId: string, body: GoalResponse): Promise<GoalResponse> {
+  const response = await fetch(`${API_BASE}/profiles/${connectionId}/ai-goal`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to save session goal');
   }
   return await response.json();
 }
