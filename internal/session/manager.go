@@ -914,6 +914,11 @@ func (m *Manager) DisengageAutopilot(userID, cause string) (AutopilotState, bool
 	if rec, ok := m.autopilot[userID]; ok {
 		rec.State = newState
 		rec.WaitingSince = nil
+		// D-15/D-16: landing Off clears both waiting reasons, by any cause
+		// including a wheel-grab while paused -- the rule is the same in
+		// every engaged state.
+		rec.PausedByOwner = false
+		rec.ConnectionLost = false
 	} else {
 		m.autopilot[userID] = &AutopilotRecord{State: newState}
 	}
@@ -941,6 +946,14 @@ func (m *Manager) parkAutopilotLocked(userID string) {
 	rec, ok := m.autopilot[userID]
 	if !ok {
 		return
+	}
+
+	// D-15: a disconnect records its own reason even when the switch is
+	// already Waiting from an owner pause, so the panel can show both
+	// reasons standing at once. Set before the changed-false early-out below
+	// so this still happens on that path.
+	if rec.State != AutopilotOff {
+		rec.ConnectionLost = true
 	}
 
 	newState, changed := EnterWaiting(rec.State)
@@ -981,8 +994,19 @@ func (m *Manager) resumeAutopilotLocked(userID, connectionID string) {
 	if connectionID == "" || connectionID != rec.ConnectionID {
 		rec.State = AutopilotOff
 		rec.WaitingSince = nil
+		// D-15/D-16: landing Off clears both waiting reasons, by any cause.
+		rec.PausedByOwner = false
+		rec.ConnectionLost = false
 		m.logAutopilotTransition(userID, rec.ConnectionID, old, AutopilotOff, "connection-changed")
 		m.enqueueTranscriptLineLocked(userID, "marker", "[AI-ASSIST disengaged: connection-changed]")
+		return
+	}
+
+	// D-15: a reconnect clears only its own reason. If the owner's own pause
+	// still stands, the switch stays Waiting until the owner resumes it --
+	// a reconnect alone must never un-pause.
+	rec.ConnectionLost = false
+	if rec.PausedByOwner {
 		return
 	}
 
@@ -1010,6 +1034,124 @@ func (m *Manager) resumeAutopilotLocked(userID, connectionID string) {
 	if m.engageHook != nil {
 		go m.engageHook(userID, rec.ConnectionID, rec.Epoch)
 	}
+}
+
+// PauseAutopilot handles the owner's Pause button (D-13). Same lock
+// discipline and same shape as DisengageAutopilot: read the record, decide,
+// write, log, fire the hook. Pausing is instant and makes no model call. A
+// record with no entry, or one already Off, is a defensive no-op logged as
+// "already-off" (D-13's button is disabled client-side when the switch is
+// off; the server is defensive anyway).
+//
+// Otherwise PausedByOwner is set unconditionally, even when the record is
+// already Waiting from a disconnect (D-15: the reason is recorded even when
+// state does not change), and EnterWaiting decides whether the transition
+// itself changes anything. When it does, the disengage hook fires exactly
+// as it does from DisengageAutopilot's own changed-true path -- pausing an
+// engaged AI-player stops its loop the same way a wheel-grab does.
+func (m *Manager) PauseAutopilot(userID string) (AutopilotState, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	rec, ok := m.autopilot[userID]
+	if !ok || rec.State == AutopilotOff {
+		cur := AutopilotOff
+		connID := ""
+		if ok {
+			cur = rec.State
+			connID = rec.ConnectionID
+		}
+		m.logAutopilotTransition(userID, connID, cur, cur, "already-off")
+		return AutopilotOff, false
+	}
+
+	old := rec.State
+	rec.PausedByOwner = true
+
+	newState, changed := EnterWaiting(rec.State)
+	if !changed {
+		// Already Waiting (from a disconnect): the reason above is recorded,
+		// but there is no second transition, no second hook fire and no
+		// second transcript marker.
+		return newState, false
+	}
+
+	rec.State = newState
+	now := time.Now()
+	rec.WaitingSince = &now
+	m.logAutopilotTransition(userID, rec.ConnectionID, old, newState, "pause")
+	m.enqueueTranscriptLineLocked(userID, "marker", "[AI-ASSIST waiting]")
+
+	// Same discipline as DisengageAutopilot's changed-true path: started
+	// with `go` because m.mu is held here.
+	if m.disengageHook != nil {
+		go m.disengageHook(userID, rec.Epoch)
+	}
+	return newState, true
+}
+
+// ResumeAutopilotByOwner handles the owner's Resume button (D-13), the
+// owner-driven mirror of resumeAutopilotLocked's reconnect path. A record
+// with no entry, or one not currently Waiting, is a no-op returning the
+// current state and false.
+//
+// PausedByOwner is cleared unconditionally. If ConnectionLost is still
+// true, that is D-15's "resumes only when every reason has cleared": the
+// switch stays Waiting, no state change, no hook, no transcript marker.
+// Only when ConnectionLost is also false does this go on to call Resume,
+// bump the epoch and fire the engage hook -- the same single code path
+// that fires each real engage (resumeAutopilotLocked's own comment), never
+// called from the HTTP handler directly.
+func (m *Manager) ResumeAutopilotByOwner(userID string) (AutopilotState, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	rec, ok := m.autopilot[userID]
+	if !ok || rec.State != AutopilotWaiting {
+		cur := AutopilotOff
+		if ok {
+			cur = rec.State
+		}
+		return cur, false
+	}
+
+	old := rec.State
+	rec.PausedByOwner = false
+	if rec.ConnectionLost {
+		return AutopilotWaiting, false
+	}
+
+	newState, changed := Resume(rec.State)
+	if !changed {
+		return newState, false
+	}
+	rec.State = newState
+	rec.WaitingSince = nil
+	// A resume is an engagement (D-02), the same as the reconnect path.
+	rec.Epoch++
+	m.logAutopilotTransition(userID, rec.ConnectionID, old, newState, "resume-owner")
+	m.enqueueTranscriptLineLocked(userID, "marker", "[AI-ASSIST resumed]")
+
+	if m.engageHook != nil {
+		go m.engageHook(userID, rec.ConnectionID, rec.Epoch)
+	}
+	return newState, true
+}
+
+// AutopilotWaitingReasons returns userID's two independent waiting reasons
+// (D-15), read under the same mutex every other autopilot accessor uses.
+// A user with no autopilot record at all reads as (false, false); the
+// handler and the websocket push (plan 05-01-02) read through this
+// accessor rather than reaching into the map themselves.
+func (m *Manager) AutopilotWaitingReasons(userID string) (pausedByOwner bool, connectionLost bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	rec, ok := m.autopilot[userID]
+	if !ok {
+		return false, false
+	}
+	return rec.PausedByOwner, rec.ConnectionLost
 }
 
 // ErrAutopilotNotOn is what SendCommandAs and SendAICommand return for an
