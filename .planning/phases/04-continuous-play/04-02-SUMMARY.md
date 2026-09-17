@@ -108,3 +108,7 @@ None - no external service configuration required by this plan. If, at deploy ti
 ---
 *Phase: 04-continuous-play*
 *Completed: 2026-09-17*
+
+## Self-Check: PASSED
+
+All claimed files found on disk (internal/config/config.go, internal/config/config_test.go, migrations/012_add_never_issue_and_blocked_outcome.down.sql, internal/store/migrations_test.go, .specify/ENVIRONMENT-VARIABLES.md, this SUMMARY.md). All claimed commit hashes found in git log (2954960, d8ae8a3, 998b432).
