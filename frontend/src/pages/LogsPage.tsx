@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { GameSessionSummary, TranscriptLine } from '../types';
-import { getGameSessions, getGameSessionTranscript, getConnection } from '../services/api';
+import { GameSessionSummary, TranscriptLine, ChatLine } from '../types';
+import { getGameSessions, getGameSessionTranscript, getConnection, getSessionConversation } from '../services/api';
 import Header from '../components/Header';
 
 /**
@@ -31,6 +31,13 @@ export default function LogsPage() {
   const [transcript, setTranscript] = useState<TranscriptLine[] | null>(null);
   const [transcriptLoading, setTranscriptLoading] = useState(false);
   const [transcriptError, setTranscriptError] = useState(false);
+
+  // The coaching conversation section (D-04, D-27): its own read, its own
+  // loading/error state, kept entirely separate from the transcript above —
+  // never merged and never interleaved by time (05-UI-SPEC.md §6).
+  const [conversation, setConversation] = useState<ChatLine[] | null>(null);
+  const [conversationLoading, setConversationLoading] = useState(false);
+  const [conversationError, setConversationError] = useState(false);
 
   // Load the profile's display name for the page heading and browser tab
   // title. getConnection(id) is the existing per-connection lookup every
@@ -85,6 +92,35 @@ export default function LogsPage() {
     [connectionId]
   );
 
+  // The conversation section's own fetch-on-select (D-04, D-27), in the same
+  // shape as the transcript's own fetch-on-select above, but as its own
+  // effect keyed on the selected session so it never blocks or is blocked by
+  // the transcript's own load state.
+  useEffect(() => {
+    if (!connectionId || !selectedSessionId) {
+      setConversation(null);
+      setConversationError(false);
+      return;
+    }
+    let cancelled = false;
+    setConversationLoading(true);
+    setConversationError(false);
+    setConversation(null);
+    getSessionConversation(connectionId, selectedSessionId)
+      .then((lines) => {
+        if (!cancelled) setConversation(lines);
+      })
+      .catch(() => {
+        if (!cancelled) setConversationError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setConversationLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [connectionId, selectedSessionId]);
+
   return (
     <>
       <Header />
@@ -119,6 +155,14 @@ export default function LogsPage() {
                 </div>
               ))}
           </div>
+          {/* The right-hand column (05-UI-SPEC.md §6): a plain wrapper
+              carrying only layout properties inline, so .logs-transcript
+              itself is untouched (byte-identical to before this plan,
+              per this plan's own acceptance criteria) and index.css --
+              owned by a parallel plan's own work this phase -- is never
+              reopened. The conversation section becomes a true sibling of
+              .logs-transcript, below it, never inside it. */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <div className="logs-transcript">
             {!selectedSessionId && !transcriptLoading && (
               <div className="logs-transcript-empty">
@@ -142,6 +186,42 @@ export default function LogsPage() {
                   {renderTranscriptLine(line)}
                 </div>
               ))}
+          </div>
+          {/* The coaching conversation section (D-04, D-27, 05-UI-SPEC.md
+              §6): its own labelled block below the transcript pane, never
+              woven into it. Only rendered once a session is selected --
+              the transcript's own "select a session" empty state above
+              already covers the nothing-selected case for this pane. */}
+          {selectedSessionId && (
+            <div className="logs-conversation" style={{ overflowY: 'auto' }}>
+              <h3>Coaching Conversation</h3>
+              {conversationLoading && (
+                <div className="logs-conversation-empty">Loading conversation…</div>
+              )}
+              {!conversationLoading && conversationError && (
+                <div className="logs-conversation-empty">
+                  Failed to load conversation — refresh the page to try again
+                </div>
+              )}
+              {!conversationLoading &&
+                !conversationError &&
+                conversation &&
+                (conversation.length === 0 ? (
+                  <div className="logs-conversation-empty">
+                    No coaching conversation recorded for this session.
+                  </div>
+                ) : (
+                  conversation.map((line) => (
+                    <div
+                      key={line.id}
+                      className={`logs-conversation-line ${line.speaker === 'owner' ? 'human' : 'chatter'}`}
+                    >
+                      {line.speaker === 'owner' ? `You: ${line.text}` : `AI-chatter: ${line.text}`}
+                    </div>
+                  ))
+                ))}
+            </div>
+          )}
           </div>
         </div>
       </div>

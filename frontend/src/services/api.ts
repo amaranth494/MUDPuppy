@@ -1,4 +1,4 @@
-import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, AutomationCredentials, Profile, UpdateProfileRequest, Alias, Trigger, Variable, Timer, AliasesResponse, TriggersResponse, VariablesResponse, TimersResponse, HelpSection, HelpSummary, AISettingsResponse, GoalResponse, SessionMemoryResponse, DeleteCapturedTextResponse, PolicyResponse, EngageGateResponse, AIDecisionPayload, StoredDecision, GameSessionSummary, TranscriptLine, ChatLine, CoachingResponse, ConversationResponse } from '../types';
+import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, AutomationCredentials, Profile, UpdateProfileRequest, Alias, Trigger, Variable, Timer, AliasesResponse, TriggersResponse, VariablesResponse, TimersResponse, HelpSection, HelpSummary, AISettingsResponse, GoalResponse, SessionMemoryResponse, DeleteCapturedTextResponse, PolicyResponse, EngageGateResponse, AIDecisionPayload, StoredDecision, GameSessionSummary, TranscriptLine, ChatLine, CoachingResponse, ConversationResponse, ConversationLineResponse } from '../types';
 import { logErrorToConsole } from './log';
 import { CommandSource } from './automation';
 import { AutopilotAnswer } from './automation/evaluator';
@@ -904,6 +904,30 @@ export async function getGameSessionTranscript(connectionId: string, sessionId: 
     throw new Error(data.error || 'Failed to load transcript');
   }
   return data.lines ?? [];
+}
+
+// 05-09: Load one session's coaching conversation (D-04, D-27) — the Logs
+// page's own section, below the transcript pane, following the transcript's
+// exact per-session fetch shape above. The numeric ConversationLineResponse
+// id is converted to a string so the result shares ChatLine's one shape with
+// the live panel's reload (per ChatLine's own doc comment); state is always
+// undefined here — a reload never carries a live line's transient state.
+export async function getSessionConversation(connectionId: string, sessionId: string): Promise<ChatLine[]> {
+  const response = await fetch(`${API_BASE}/profiles/${connectionId}/sessions/${sessionId}/conversation`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to load conversation');
+  }
+  const lines: ConversationLineResponse[] = data.lines ?? [];
+  return lines.map((line) => ({
+    id: String(line.id),
+    speaker: line.speaker as ChatLine['speaker'],
+    text: line.text,
+    timestamp: line.timestamp,
+  }));
 }
 
 // 05-07: the same wire shape as AutopilotAnswer, widened with the two D-15

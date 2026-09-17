@@ -13,6 +13,7 @@ const SECTION_ORDER = [
   'triggers',
   'variables',
   'safety',
+  'ai-coaching',
   'troubleshooting',
   'examples',
 ];

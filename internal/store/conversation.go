@@ -108,18 +108,24 @@ func (s *ConversationStore) ConversationFor(connectionID uuid.UUID) ([]Conversat
 }
 
 // conversationForSessionSQL is the Logs page's per-session read, oldest
-// first -- one specific game session's conversation, not login-scoped,
-// mirroring GetSessionLines' own per-session shape (ownership of
-// gameSessionID is resolved by the caller before this is ever reached).
-const conversationForSessionSQL = `SELECT id, seq, speaker, text, created_at
-	FROM conversation_lines
-	WHERE game_session_id = $1
-	ORDER BY seq ASC`
+// first -- one specific game session's conversation. connectionID is joined
+// through game_sessions in the WHERE clause as defence in depth behind the
+// handler's own ownership check (T-3-04, mirroring GetSessionLines' exact
+// precedent in transcripts.go): a session id belonging to another
+// connection returns an empty result even if the caller guessed the
+// session id correctly.
+const conversationForSessionSQL = `SELECT cl.id, cl.seq, cl.speaker, cl.text, cl.created_at
+	FROM conversation_lines cl
+	JOIN game_sessions gs ON gs.id = cl.game_session_id
+	WHERE cl.game_session_id = $1 AND gs.connection_id = $2
+	ORDER BY cl.seq ASC`
 
 // ConversationForSession reads back one game session's conversation, oldest
-// first, for the Logs page.
-func (s *ConversationStore) ConversationForSession(gameSessionID uuid.UUID) ([]ConversationLine, error) {
-	return s.queryLines(conversationForSessionSQL, gameSessionID)
+// first, for the Logs page. connectionID scopes the read the same way
+// GetSessionLines does, so a session id from another connection returns an
+// empty slice rather than that connection's own text.
+func (s *ConversationStore) ConversationForSession(gameSessionID, connectionID uuid.UUID) ([]ConversationLine, error) {
+	return s.queryLines(conversationForSessionSQL, gameSessionID, connectionID)
 }
 
 // recentConversationSQL is the bounded tail the chat prompt reads. Unlike

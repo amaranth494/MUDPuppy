@@ -137,8 +137,64 @@ func (h *Handler) GetSessionTranscript(w http.ResponseWriter, r *http.Request) {
 	h.sendJSON(w, resp)
 }
 
+// GetSessionConversation handles
+// GET /api/v1/profiles/{connection_id}/sessions/{session_id}/conversation
+// (D-04, D-27, plan 05-09). The Logs page's own section, requested
+// separately from the transcript so the two stay visually and structurally
+// separate (D-04: "one panel, two views" carried into the read-only
+// record). Ownership resolution mirrors GetSessionTranscript exactly: the
+// same getProfileByConnectionID check runs first, then
+// ConversationForSession also filters on connection_id, so a session id
+// belonging to another connection returns an empty lines array (T-3-04,
+// T-5-42).
+func (h *Handler) GetSessionConversation(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if h.conversation == nil {
+		http.Error(w, "Conversation unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	_, profile, err := h.getProfileByConnectionID(r)
+	if err != nil {
+		h.sendError(w, err.Error())
+		return
+	}
+
+	sessionID, err := h.getSessionIDFromPath(r)
+	if err != nil {
+		h.sendError(w, err.Error())
+		return
+	}
+
+	lines, err := h.conversation.ConversationForSession(sessionID, profile.ConnectionID)
+	if err != nil {
+		log.Printf("[SP05PH09] Get session conversation failed: %v", err)
+		h.sendError(w, "Failed to get session conversation")
+		return
+	}
+
+	resp := ConversationResponse{Lines: make([]ConversationLineResponse, len(lines))}
+	for i, l := range lines {
+		resp.Lines[i] = ConversationLineResponse{
+			ID:        l.ID,
+			Speaker:   l.Speaker,
+			Text:      l.Text,
+			Timestamp: l.CreatedAt.UTC().Format(time.RFC3339),
+		}
+	}
+
+	h.sendJSON(w, resp)
+}
+
 // getSessionIDFromPath extracts the session id from
-// /api/v1/profiles/{connection_id}/sessions/{session_id}.
+// /api/v1/profiles/{connection_id}/sessions/{session_id} — and, since it
+// only ever reads parts[6], this same helper also works unmodified for
+// /api/v1/profiles/{connection_id}/sessions/{session_id}/conversation
+// (one more path segment after session_id changes nothing at index 6).
 func (h *Handler) getSessionIDFromPath(r *http.Request) (uuid.UUID, error) {
 	path := r.URL.Path
 	parts := strings.Split(path, "/")
