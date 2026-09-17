@@ -219,7 +219,47 @@ Implementation notes for planning: the two new stages slot into `HandleEngage` i
   3. Typing any game command instantly disengages autopilot and the command goes through; re-engagement after manual driving demonstrably reassesses the situation rather than resuming a stale plan.
   4. All mechanical safety limits hold under automated test: call cap when one is set, no AI-initiated reconnect, disengage on repeated errors, no commands issued while disconnected (autopilot waits and resumes only once the connection returns), and safe behaviour with blank settings (no cap, informative failure, no crash, regular play unaffected).
 
-**Plans**: TBD
+**Plans**: 11 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 04-01-PLAN.md — A multi-decision stint can be driven and observed in tests, with no network
+- [ ] 04-02-PLAN.md — The server refuses to start without the credential-vault key, and migration 012 rolls back cleanly
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 04-03-PLAN.md — The AI keeps playing on its own, paced to the game's output, and stops the instant the wheel is grabbed
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 04-04-PLAN.md — The mechanical limits stop the loop and the owner sees why
+- [ ] 04-05-PLAN.md — The AI reads only what just happened, and never an empty screen
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 04-06-PLAN.md — The owner sets a session goal, and it names the active Quest
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 04-07-PLAN.md — Every prompt carries the goal, the Quest's bullets and Session Memory, all framed as untrusted
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 04-08-PLAN.md — The AI curates its Session Memory and Quest Memory as it plays, and the owner can watch it
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [ ] 04-09-PLAN.md — Captured game text ages out on a schedule, and the owner can delete it now
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [ ] 04-10-PLAN.md — One command turns the Phase 4 HTTP surface into a canned PASS/FAIL report per criterion
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
+- [ ] 04-11-PLAN.md — The phase is demonstrated on staging and every criterion points at a filed piece of evidence
+
 **UI hint**: yes
 
 **Phase Validation** (how the success criteria are demonstrated): Diagnostic: `go test ./internal/...` passes a suite that exercises all four mechanical limits (call cap halt when a cap is set, error disengage with an informative notice, no commands while disconnected with resume on return, and blank-settings behaviour: no cap, no crash). Player-observable on staging: set a goal and watch the loop issue decisions paced to game output; set a small call cap and see the loop halt with the notice; take the wheel, re-engage, and confirm from the logged reasoning that the first new decision describes the current situation, not the previous plan.
