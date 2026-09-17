@@ -40,6 +40,20 @@ type Handler struct {
 	emailSender   *email.Sender
 	sessionSecret string
 	logOTPCode    bool
+
+	// loginBoundaryHook, when set, is told every time a user's login
+	// boundary moves -- a sign-in or a sign-out, the same moment
+	// markLoginStart records (code review WR-08 of Phase 5). The AI driver
+	// uses it to start AI-chatter's per-login call count afresh. This
+	// package declares the hook type and never imports the driver.
+	loginBoundaryHook func(userID string)
+}
+
+// SetLoginBoundaryHook wires the hook markLoginStart calls. A nil hook (the
+// zero-value default) is a no-op. Set once at start-up, before the handler
+// serves its first request.
+func (h *Handler) SetLoginBoundaryHook(hook func(userID string)) {
+	h.loginBoundaryHook = hook
 }
 
 // NewHandler creates a new auth handler
@@ -326,6 +340,11 @@ func (h *Handler) SendOTP(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) markLoginStart(userID uuid.UUID, stage string) {
 	if err := h.userStore.MarkLoginStarted(userID); err != nil {
 		log.Printf("[AUTH] stage=%s user_id=%s failed to mark login start", stage, userID)
+	}
+	// Told whether or not the store call worked: the boundary is the owner
+	// signing in or out, not the row update (code review WR-08 of Phase 5).
+	if h.loginBoundaryHook != nil {
+		h.loginBoundaryHook(userID.String())
 	}
 }
 

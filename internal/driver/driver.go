@@ -461,6 +461,11 @@ type Driver struct {
 	failureCounts map[string]int
 	blockCounts   map[string]int
 
+	// chatCallCounts is AI-chatter's OWN call count (D-11, code review WR-08
+	// of Phase 5), guarded by this same d.mu. It is deliberately not
+	// callCounts: see tryReserveChatCall.
+	chatCallCounts map[string]int
+
 	// aiSendLimiters is D-25/DR-4-03's per-user token bucket (internal/
 	// driver/ratelimit.go), guarded by this same d.mu. It is lazily
 	// populated on first send and rebuilt whenever the resolved limit for
@@ -511,6 +516,7 @@ func New(sessions Sessions, profiles Profiles, decisions Decisions, models Model
 		callCounts:     make(map[string]int),
 		failureCounts:  make(map[string]int),
 		blockCounts:    make(map[string]int),
+		chatCallCounts: make(map[string]int),
 		aiSendLimiters: make(map[string]*aiSendLimiter),
 		settleDelay:    1500 * time.Millisecond,
 		floorInterval:  20 * time.Second,
@@ -1109,6 +1115,53 @@ func (d *Driver) tryReserveCall(userID string, resolved store.ResolvedAISettings
 	}
 	d.callCounts[userID]++
 	return true
+}
+
+// defaultChatCallCap is how many replies AI-chatter may give on one count
+// when the profile's Call Cap is blank (code review WR-08 of Phase 5). A
+// blank cap means "no limit" for a stint, which the owner watches and can
+// stop; chat has no such watcher, so it is never left unlimited. 100 is
+// far more than a real conversation needs between resets and small enough
+// to stay an honest cost limit (D-11, D-14). Fixed here on purpose: it is
+// plumbing, not a setting.
+const defaultChatCallCap = 100
+
+// tryReserveChatCall reserves one model call against AI-chatter's OWN count
+// (D-11: "replies are held to the same cap number on their own count").
+//
+// Code review WR-08 of Phase 5: chat used to reserve against callCounts, the
+// stint's counter, which is zeroed only when a stint begins. After a cap
+// halt that counter equals the cap, so AI-chatter could not answer "why did
+// you stop?" -- locked out at exactly the moment the owner needs it -- and
+// with autopilot never engaged the count never reset for the life of the
+// process. Now the two never share a count: a call-cap halt of AI-player
+// cannot lock AI-chatter out, and chat cannot spend AI-player's stint.
+//
+// The cap NUMBER is the profile's Call Cap when it is set (D-11), and
+// defaultChatCallCap when it is blank. The count resets at each sign-in and
+// sign-out (ResetChatCalls) and whenever a new stint begins (beginStint).
+func (d *Driver) tryReserveChatCall(userID string, resolved store.ResolvedAISettings) bool {
+	chatCap := defaultChatCallCap
+	if resolved.CallCapSet {
+		chatCap = resolved.CallCap
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.chatCallCounts[userID] >= chatCap {
+		return false
+	}
+	d.chatCallCounts[userID]++
+	return true
+}
+
+// ResetChatCalls zeroes userID's AI-chatter call count. cmd/server/main.go
+// wires it to the sign-in / sign-out boundary (the same moment Session
+// Memory and coaching start clean, D-08, D-31), so the count is per login
+// (D-11's Claude's Discretion: "per login is fine").
+func (d *Driver) ResetChatCalls(userID string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	delete(d.chatCallCounts, userID)
 }
 
 // is503 reports whether err is a *gemini.Error carrying HTTP 503, the one

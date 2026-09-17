@@ -105,6 +105,9 @@ func (d *Driver) beginStint(userID string, epoch uint64) bool {
 	d.callCounts[userID] = 0
 	d.failureCounts[userID] = 0
 	d.blockCounts[userID] = 0
+	// AI-chatter's own count starts afresh with the stint too (code review
+	// WR-08 of Phase 5); it is otherwise reset at sign-in and sign-out.
+	d.chatCallCounts[userID] = 0
 	return true
 }
 

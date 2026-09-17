@@ -173,4 +173,42 @@ func TestMarkLoginStart(t *testing.T) {
 			t.Errorf("the failure log line must carry ids and stage only, not the underlying error text, got %q", out)
 		}
 	})
+
+	// Code review WR-08 of Phase 5: AI-chatter's call count is per login, so
+	// the driver is told at the same boundary -- sign-in and sign-out alike,
+	// and even when the store call failed.
+	t.Run("the_login_boundary_hook_is_told_at_sign_in_and_sign_out", func(t *testing.T) {
+		var told []string
+		h := &Handler{userStore: &fakeUserStore{}}
+		h.SetLoginBoundaryHook(func(userID string) { told = append(told, userID) })
+		userID := uuid.New()
+
+		h.markLoginStart(userID, "login")
+		h.markLoginStart(userID, "logout")
+
+		if len(told) != 2 || told[0] != userID.String() || told[1] != userID.String() {
+			t.Fatalf("hook told %v, want the user id twice", told)
+		}
+	})
+
+	t.Run("the_hook_is_told_even_when_the_store_call_fails", func(t *testing.T) {
+		var buf bytes.Buffer
+		log.SetOutput(&buf)
+		defer log.SetOutput(os.Stderr)
+
+		told := 0
+		h := &Handler{userStore: &fakeUserStore{markLoginStartErr: errors.New("boom")}}
+		h.SetLoginBoundaryHook(func(string) { told++ })
+
+		h.markLoginStart(uuid.New(), "login")
+
+		if told != 1 {
+			t.Fatalf("hook told %d time(s), want 1", told)
+		}
+	})
+
+	t.Run("no_hook_is_a_no_op", func(t *testing.T) {
+		h := &Handler{userStore: &fakeUserStore{}}
+		h.markLoginStart(uuid.New(), "login") // must not panic
+	})
 }

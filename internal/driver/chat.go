@@ -198,9 +198,10 @@ func (d *Driver) HandleChat(userID, connectionID, message string) {
 	}
 	log.Printf("[AI-CHATTER] chat user_id=%s connection_id=%s stage=received message_len=%d", userID, connectionID, len(trimmed))
 
-	// D-11: a chat reply reserves against the same per-user call cap a
-	// decision reserves against, so the cap stays one honest cost limit.
-	if !d.tryReserveCall(userID, resolved) {
+	// D-11: every reply is one model call held to the cap number, on
+	// AI-chatter's OWN count (code review WR-08 of Phase 5) -- never the
+	// stint's, so a cap halt of AI-player cannot lock AI-chatter out.
+	if !d.tryReserveChatCall(userID, resolved) {
 		// The locked cap notice says the message was saved; it is used only
 		// when it was (code review WR-01 of Phase 5).
 		capNotice := chatCapReachedNotice

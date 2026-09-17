@@ -306,6 +306,10 @@ func main() {
 	// convention the two hooks above already use -- it has no autopilot
 	// state transition to fire from, unlike EngageHook/DisengageHook.
 	sessionManager.SetChatHook(aiDriver.HandleChat)
+	// AI-chatter's own call count is per login (D-11, code review WR-08 of
+	// Phase 5): start it afresh at every sign-in and sign-out, the same
+	// boundary Session Memory and coaching start clean at.
+	authHandler.SetLoginBoundaryHook(aiDriver.ResetChatCalls)
 	// Wire the real Quest and Session Memory stores (D-10, D-11, plan
 	// 04-08) so the driver's prompt-context reads (plan 04-07) and its own
 	// curation writes (this plan) land against the same questStore and

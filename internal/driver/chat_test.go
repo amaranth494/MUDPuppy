@@ -824,6 +824,144 @@ func TestHandleChat_ReplyIsShownEvenWhenItCannotBeSaved(t *testing.T) {
 	})
 }
 
+// TestHandleChat_HasItsOwnCallCount proves code review WR-08 of Phase 5
+// (D-11): AI-chatter's replies are held to the cap number on their OWN
+// count, so a call-cap halt of AI-player never locks AI-chatter out, chat
+// never spends AI-player's stint, and the count is per login.
+func TestHandleChat_HasItsOwnCallCount(t *testing.T) {
+	cappedProfile := func(n int) *store.Profile {
+		p := testProfile()
+		p.AISettings.CallCap = &n
+		return p
+	}
+	stintCalls := func(f *chatTestFixture) int {
+		f.driver.mu.Lock()
+		defer f.driver.mu.Unlock()
+		return f.driver.callCounts[f.userID]
+	}
+	lastSystemNotice := func(f *chatTestFixture) (ChatEvent, bool) {
+		events := f.notifier.chatEventsSnapshot()
+		for i := len(events) - 1; i >= 0; i-- {
+			if events[i].Speaker == "system" {
+				return events[i], true
+			}
+		}
+		return ChatEvent{}, false
+	}
+
+	t.Run("after_a_cap_halt_of_ai_player_ai_chatter_still_answers", func(t *testing.T) {
+		f := newChatFixture(cappedProfile(10))
+		// The stint has spent its whole cap: this is the state a
+		// "Session call cap reached" halt leaves behind.
+		f.driver.mu.Lock()
+		f.driver.callCounts[f.userID] = 10
+		f.driver.mu.Unlock()
+
+		f.driver.HandleChat(f.userID, f.connID, "why did you stop?")
+
+		if got := f.models.chatCallCount(); got != 1 {
+			t.Fatalf("expected AI-chatter to answer after a cap halt, got %d Chat call(s)", got)
+		}
+		if ev, ok := lastSystemNotice(f); ok {
+			t.Fatalf("expected no cap notice, got %+v", ev)
+		}
+	})
+
+	t.Run("chat_never_spends_the_stints_count", func(t *testing.T) {
+		f := newChatFixture(cappedProfile(10))
+		f.driver.mu.Lock()
+		f.driver.callCounts[f.userID] = 3
+		f.driver.mu.Unlock()
+
+		for i := 0; i < 4; i++ {
+			f.driver.HandleChat(f.userID, f.connID, "hello")
+		}
+
+		if got := stintCalls(f); got != 3 {
+			t.Fatalf("stint call count = %d after four chat replies, want it left at 3", got)
+		}
+	})
+
+	t.Run("chat_is_held_to_the_cap_number_on_its_own_count", func(t *testing.T) {
+		f := newChatFixture(cappedProfile(2))
+
+		for i := 0; i < 3; i++ {
+			f.driver.HandleChat(f.userID, f.connID, "hello")
+		}
+
+		if got := f.models.chatCallCount(); got != 2 {
+			t.Fatalf("expected exactly 2 replies under a cap of 2, got %d", got)
+		}
+		ev, ok := lastSystemNotice(f)
+		if !ok || ev.State != chatStateCap || ev.Text != chatCapReachedNotice {
+			t.Fatalf("expected the locked cap notice for the third message, got %+v (found=%v)", ev, ok)
+		}
+	})
+
+	t.Run("a_new_sign_in_starts_the_count_afresh", func(t *testing.T) {
+		f := newChatFixture(cappedProfile(1))
+		f.driver.HandleChat(f.userID, f.connID, "hello")
+		f.driver.HandleChat(f.userID, f.connID, "hello again")
+		if got := f.models.chatCallCount(); got != 1 {
+			t.Fatalf("precondition: expected the second message refused, got %d calls", got)
+		}
+
+		f.driver.ResetChatCalls(f.userID) // what the sign-in / sign-out hook does
+
+		f.driver.HandleChat(f.userID, f.connID, "hello after signing in")
+		if got := f.models.chatCallCount(); got != 2 {
+			t.Fatalf("expected AI-chatter to answer again after the login boundary, got %d calls", got)
+		}
+	})
+
+	t.Run("a_new_stint_starts_the_count_afresh_too", func(t *testing.T) {
+		f := newChatFixture(cappedProfile(1))
+		f.driver.HandleChat(f.userID, f.connID, "hello")
+		f.driver.HandleChat(f.userID, f.connID, "hello again")
+		if got := f.models.chatCallCount(); got != 1 {
+			t.Fatalf("precondition: expected the second message refused, got %d calls", got)
+		}
+
+		if !f.driver.beginStint(f.userID, 1) {
+			t.Fatal("beginStint returned false for a first stint")
+		}
+
+		f.driver.HandleChat(f.userID, f.connID, "hello after #AUTO ON")
+		if got := f.models.chatCallCount(); got != 2 {
+			t.Fatalf("expected AI-chatter to answer again once a new stint began, got %d calls", got)
+		}
+	})
+
+	t.Run("one_users_count_never_touches_anothers", func(t *testing.T) {
+		f := newChatFixture(cappedProfile(1))
+		f.driver.HandleChat(f.userID, f.connID, "hello")
+
+		other := uuid.NewString()
+		f.driver.HandleChat(other, f.connID, "hello from someone else")
+
+		if got := f.models.chatCallCount(); got != 2 {
+			t.Fatalf("expected the second user answered on his own count, got %d calls", got)
+		}
+	})
+
+	t.Run("a_blank_cap_is_not_unlimited_for_chat", func(t *testing.T) {
+		f := newChatFixture(nil) // testProfile leaves the Call Cap blank
+		f.driver.mu.Lock()
+		f.driver.chatCallCounts[f.userID] = defaultChatCallCap - 1
+		f.driver.mu.Unlock()
+
+		f.driver.HandleChat(f.userID, f.connID, "the last one under the default")
+		f.driver.HandleChat(f.userID, f.connID, "one too many")
+
+		if got := f.models.chatCallCount(); got != 1 {
+			t.Fatalf("expected exactly one more reply under the default cap of %d, got %d", defaultChatCallCap, got)
+		}
+		if ev, ok := lastSystemNotice(f); !ok || ev.State != chatStateCap {
+			t.Fatalf("expected the cap notice at the default cap, got %+v (found=%v)", ev, ok)
+		}
+	})
+}
+
 // TestHandleChat_ReadsTheNewestDecisions proves code review WR-02 of Phase 5.
 // The earlier test of this read used fewer rows than one store page, so it
 // could not see the bug: past a page, AI-chatter was shown the same five
