@@ -2,3 +2,7 @@
 ### captured with: railway logs -d <deployment-id> -e staging -s MudPuppy, filtered to migration and startup lines
 2026/09/17 21:27:00 Migrations completed successfully (version=15, dirty=false)
 2026/09/17 21:27:00 Server starting on port 8080
+
+### STARTUP after the code review fixes (deployment 6ad77beb-5247-432f-912b-7c77b29aea89, railway up, local HEAD 235816d; staging model name switched to gemini-3.1-flash-lite by the owner's instruction on 2026-09-17 because the day's quota for gemini-3.5-flash-lite was spent)
+2026/09/17 22:47:05 Migrations completed successfully (version=15, dirty=false)
+2026/09/17 22:47:05 Server starting on port 8080
