@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 5 UI-SPEC approved (incl. D-29 pop-out windows)
-last_updated: "2026-09-17T18:23:59.203Z"
+stopped_at: Phase 5 planned (11 plans, 7 waves); Phase Brief published, awaiting owner approval
+last_updated: "2026-09-17T18:39:33.557Z"
 last_activity: 2026-09-17 -- Phase 5 planning complete
 progress:
   total_phases: 9
@@ -140,6 +140,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-09-17T16:52:21.994Z
-Stopped at: Phase 5 UI-SPEC approved (incl. D-29 pop-out windows)
-Resume file: .planning/phases/05-coaching-channel/05-UI-SPEC.md
+Last session: 2026-09-17T18:39:33.548Z
+Stopped at: Phase 5 planned (11 plans, 7 waves); Phase Brief published, awaiting owner approval
+Resume file: .planning/phases/05-coaching-channel/05-PHASE-BRIEF.md
