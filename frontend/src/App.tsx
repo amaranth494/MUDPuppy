@@ -185,6 +185,13 @@ function AppRoutes() {
           terminal, a sidebar, or a session at all. Do not "tidy" this route
           into the app shell later; that would start/disturb a game session
           just by opening a log page.
+
+          05-03 (AR-4-08): this route must stay inside AuthGuard, above,
+          because a log transcript is the owner's own game text, not a
+          public page, and this placement is the owner's recorded
+          condition from the Phase 4 security review. Moving this route
+          outside AuthGuard so it renders standalone before the sign-in
+          check is a security regression, not a refactor — do not do it.
         */}
         <Route path="/logs/:connectionId" element={<LogsPage />} />
         <Route path="*" element={<AppContent />} />

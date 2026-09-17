@@ -73,6 +73,19 @@ type Config struct {
 	AuthLogOTP bool
 }
 
+// isLocalDevOptOut reports whether MUDPUPPY_LOCAL_DEV's value turns on the
+// local-development opt-out from the vault-key requirement (D-26). Only "1"
+// and "true" (any letter case) are on; every other value, including unset,
+// is off.
+func isLocalDevOptOut(value string) bool {
+	switch strings.ToLower(value) {
+	case "1", "true":
+		return true
+	default:
+		return false
+	}
+}
+
 // Load loads configuration from environment variables
 func Load() (*Config, error) {
 	cfg := &Config{}
@@ -189,15 +202,17 @@ func Load() (*Config, error) {
 	cfg.EncryptionKeyV2 = os.Getenv("ENCRYPTION_KEY_V2")
 	cfg.EncryptionKeyV3 = os.Getenv("ENCRYPTION_KEY_V3")
 
-	// D-25, DR-3.1-04: outside local development, a missing vault key must
-	// stop the server rather than let internal/crypto.DefaultKeyStore
-	// silently generate a fresh random key on every process start, which
-	// makes every previously stored credential undecryptable after a
-	// restart. RAILWAY_ENVIRONMENT (the same signal already used by
-	// internal/driver/corpus_live_test.go) distinguishes Railway from the
-	// owner's own machine; DefaultKeyStore's generated-key fallback stays
-	// in place for local development, unchanged. Never log the key, its
-	// length, or any other environment value here.
+	// D-26, DR-4-04: the vault key is required on every host, not only on
+	// Railway. Without this, internal/crypto.DefaultKeyStore silently
+	// generates a fresh random key on every process start on any
+	// non-Railway host, making every previously stored credential
+	// undecryptable after a restart -- the exact failure that already hit
+	// staging once (DR-3.1-04, when the Railway-only hosting signal was the
+	// only thing checked). That hosting signal is no longer consulted here
+	// at all: the only opt-out is the explicitly named MUDPUPPY_LOCAL_DEV
+	// flag, read once below, which the operator must set on purpose. Never
+	// log the key, its length, MUDPUPPY_LOCAL_DEV's value, or any other
+	// environment value here.
 	//
 	// Code review WR-07 of Phase 4: "missing" was the only case checked, and
 	// DefaultKeyStore ignores a key it cannot use exactly as it ignores one
@@ -205,27 +220,30 @@ func Load() (*Config, error) {
 	// URL-safe base64, or of the wrong length started the server on a fresh
 	// random key all the same. (A trailing line break is fine: Go's base64
 	// decoder ignores it, the key store loads the key, and so this gate
-	// accepts it too.) The gate now asks the key store's own
-	// parser (crypto.ParseKey) whether each key that is set is usable. V1 is
-	// required; V2 and V3 are optional but, when set, must be usable too,
-	// because a rotation key that is silently dropped makes everything
-	// encrypted under it unreadable in the same way. The message names the
-	// variable and never the value.
-	if os.Getenv("RAILWAY_ENVIRONMENT") != "" {
-		if cfg.EncryptionKeyV1 == "" {
-			return nil, errors.New("ENCRYPTION_KEY_V1 environment variable is required outside local development")
+	// accepts it too.) The gate asks the key store's own parser
+	// (crypto.ParseKey) whether each key that is set is usable. V1 is
+	// required (unless the local-development flag is on and V1 is blank);
+	// V2 and V3 are optional but, when set, must be usable too -- flag on
+	// or off -- because a rotation key that is silently dropped makes
+	// everything encrypted under it unreadable in the same way. The
+	// message names the variable and never the value.
+	localDev := isLocalDevOptOut(os.Getenv("MUDPUPPY_LOCAL_DEV"))
+	if cfg.EncryptionKeyV1 == "" {
+		if !localDev {
+			return nil, errors.New("ENCRYPTION_KEY_V1 environment variable is required; a local development machine can opt out by setting MUDPUPPY_LOCAL_DEV=true")
 		}
-		for _, k := range []struct{ name, value string }{
-			{"ENCRYPTION_KEY_V1", cfg.EncryptionKeyV1},
-			{"ENCRYPTION_KEY_V2", cfg.EncryptionKeyV2},
-			{"ENCRYPTION_KEY_V3", cfg.EncryptionKeyV3},
-		} {
-			if k.value == "" {
-				continue
-			}
-			if _, err := crypto.ParseKey(k.value); err != nil {
-				return nil, fmt.Errorf("%s environment variable is set but unusable outside local development: it must be the standard base64 encoding of exactly 32 bytes, with no quotes or spaces", k.name)
-			}
+		log.Print("Warning: starting without a password vault key because MUDPUPPY_LOCAL_DEV is set; saved MUD passwords will not survive a restart")
+	}
+	for _, k := range []struct{ name, value string }{
+		{"ENCRYPTION_KEY_V1", cfg.EncryptionKeyV1},
+		{"ENCRYPTION_KEY_V2", cfg.EncryptionKeyV2},
+		{"ENCRYPTION_KEY_V3", cfg.EncryptionKeyV3},
+	} {
+		if k.value == "" {
+			continue
+		}
+		if _, err := crypto.ParseKey(k.value); err != nil {
+			return nil, fmt.Errorf("%s environment variable is set but unusable: it must be the standard base64 encoding of exactly 32 bytes, with no quotes or spaces", k.name)
 		}
 	}
 
