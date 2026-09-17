@@ -101,6 +101,39 @@ func TestCloseOrphanedGameSessions_OnlyEndsOpenRows(t *testing.T) {
 	}
 }
 
+// TestLatestGameSessionForConnection_IsTheSameRowMemoryAndCoachingRead pins
+// code review WR-01 of Phase 5: the game session AI-chatter attaches a chat
+// exchange to is selected by exactly the rule Session Memory and coaching
+// are read by -- this login's newest game session for the connection,
+// whether or not it has ended -- so chat works while the game connection is
+// down and writes where the panel reads.
+func TestLatestGameSessionForConnection_IsTheSameRowMemoryAndCoachingRead(t *testing.T) {
+	stmt := sqlWithoutComments(latestGameSessionForConnectionSQL)
+
+	if !strings.HasPrefix(strings.TrimSpace(stmt), "SELECT gs.id") {
+		t.Errorf("expected the statement to select the game session id:\n%s", stmt)
+	}
+	if strings.Contains(stmt, "ended_at") {
+		t.Errorf("the lookup must not filter on ended_at (chat must work while disconnected):\n%s", stmt)
+	}
+
+	// Everything after the select list is the same selection rule, word for
+	// word, as the two reads it has to agree with.
+	tail := func(s string) string {
+		s = sqlWithoutComments(s)
+		return strings.Join(strings.Fields(s[strings.Index(s, "FROM game_sessions gs"):]), " ")
+	}
+	want := tail(latestGameSessionForConnectionSQL)
+	for name, other := range map[string]string{
+		"sessionMemoryForConnectionSQL": sessionMemoryForConnectionSQL,
+		"coachingForConnectionSQL":      coachingForConnectionSQL,
+	} {
+		if got := tail(other); got != want {
+			t.Errorf("%s selects a different row:\n got %q\nwant %q", name, got, want)
+		}
+	}
+}
+
 // TestSessionMemoryForConnection_ReadsThisLoginsNewestSession pins the
 // read-back the panel and the harness use to the same boundary
 // openGameSessionSQL seeds from (D-31). It must not pick "the newest row

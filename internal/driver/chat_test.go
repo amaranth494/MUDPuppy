@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/amaranth494/MudPuppy/internal/config"
 	"github.com/amaranth494/MudPuppy/internal/gemini"
 	"github.com/amaranth494/MudPuppy/internal/session"
 	"github.com/amaranth494/MudPuppy/internal/store"
@@ -819,6 +820,179 @@ func TestHandleChat_ReplyIsShownEvenWhenItCannotBeSaved(t *testing.T) {
 			if strings.HasPrefix(ev.ID, unsavedChatIDPrefix) || ev.ID == "" {
 				t.Errorf("expected a stored line to carry its row id, got %q", ev.ID)
 			}
+		}
+	})
+}
+
+// TestHandleChat_WorksWhileTheGameConnectionIsDown proves code review WR-01
+// of Phase 5 (D-06): with no live game session -- the manager forgets it the
+// moment the socket drops -- AI-chatter still answers, from stored state,
+// and the exchange is kept under this login's newest game session for the
+// connection.
+func TestHandleChat_WorksWhileTheGameConnectionIsDown(t *testing.T) {
+	t.Run("disconnected_the_exchange_attaches_to_this_logins_latest_game_session", func(t *testing.T) {
+		f := newChatFixture(nil)
+		f.sessions.hasGameSession = false
+		f.sessions.setState(session.AutopilotWaiting)
+		f.memory.setLatestGameSession(f.connUUID, f.gameSessionID)
+		f.memory.bullets[f.gameSessionID] = []string{"the connection dropped near the bridge"}
+		f.coaching.seed(f.gameSessionID, []string{"keep to the shadows"})
+		f.models.chatAnswer = &gemini.ChatAnswer{Reply: "The connection dropped; AI-player is waiting.", Push: []string{"avoid the north road"}}
+
+		f.driver.HandleChat(f.userID, f.connID, "what happened? also avoid the north road")
+
+		if got := f.models.chatCallCount(); got != 1 {
+			t.Fatalf("expected AI-chatter to answer while disconnected, got %d Chat call(s)", got)
+		}
+		instruction := f.models.lastChatSystemInstructionText()
+		for _, want := range []string{"the connection dropped near the bridge", "keep to the shadows"} {
+			if !strings.Contains(instruction, want) {
+				t.Errorf("expected the answer to draw on stored state (%q)", want)
+			}
+		}
+		lines := f.conversation.linesFor(f.gameSessionID)
+		if len(lines) != 2 || lines[0].Speaker != "owner" || lines[1].Speaker != "chatter" {
+			t.Fatalf("expected the exchange stored under the latest game session, got %+v", lines)
+		}
+		stored, _ := f.coaching.CoachingFor(f.gameSessionID)
+		if len(stored) != 2 || stored[1] != "avoid the north road" {
+			t.Fatalf("expected coaching sent while disconnected to be standing for the next engage (D-06), got %v", stored)
+		}
+		for _, ev := range f.notifier.chatEventsSnapshot() {
+			if ev.Speaker == "system" {
+				t.Fatalf("expected no failure notice, got %+v", ev)
+			}
+		}
+	})
+
+	t.Run("the_game_session_comes_from_the_connection_not_from_whatever_is_live", func(t *testing.T) {
+		// Code review WR-10's driver half: even if a different game session
+		// were live for this user, the exchange goes to the row found FROM
+		// the connection whose profile was read.
+		f := newChatFixture(nil)
+		own := uuid.New()
+		f.memory.setLatestGameSession(f.connUUID, own)
+
+		f.driver.HandleChat(f.userID, f.connID, "hello")
+
+		if got := f.conversation.linesFor(own); len(got) != 2 {
+			t.Fatalf("expected the exchange under the connection's own game session, got %+v", got)
+		}
+		if got := f.conversation.linesFor(f.gameSessionID); len(got) != 0 {
+			t.Fatalf("expected nothing written under the other live game session, got %+v", got)
+		}
+	})
+
+	t.Run("a_store_error_falls_back_to_the_live_session", func(t *testing.T) {
+		f := newChatFixture(nil)
+		f.memory.latestErr = fmt.Errorf("connection reset")
+
+		f.driver.HandleChat(f.userID, f.connID, "hello")
+
+		if got := f.conversation.linesFor(f.gameSessionID); len(got) != 2 {
+			t.Fatalf("expected the exchange under the live game session, got %+v", got)
+		}
+	})
+}
+
+// TestHandleChat_NeverSaysSavedWhenItWasNot proves the other half of WR-01:
+// the four paths that return before the owner's message is stored used to
+// tell him "Your message was saved." Nothing had been. Each now says what
+// happened, makes no model call and stores nothing.
+func TestHandleChat_NeverSaysSavedWhenItWasNot(t *testing.T) {
+	assertHonest := func(t *testing.T, f *chatTestFixture, wantNotice string) {
+		t.Helper()
+		if got := f.models.chatCallCount(); got != 0 {
+			t.Fatalf("expected no model call, got %d", got)
+		}
+		if got := f.conversation.linesFor(f.gameSessionID); len(got) != 0 {
+			t.Fatalf("expected nothing stored, got %+v", got)
+		}
+		events := f.notifier.chatEventsSnapshot()
+		if len(events) != 1 || events[0].Speaker != "system" || events[0].State != chatStateFailed {
+			t.Fatalf("expected exactly one system/failed notice, got %+v", events)
+		}
+		if events[0].Text != wantNotice {
+			t.Fatalf("notice = %q, want %q", events[0].Text, wantNotice)
+		}
+		if strings.Contains(events[0].Text, "was saved") {
+			t.Fatalf("the notice claims the message was saved; nothing was stored: %q", events[0].Text)
+		}
+	}
+
+	t.Run("bad_ids", func(t *testing.T) {
+		f := newChatFixture(nil)
+		f.driver.HandleChat(f.userID, "", "hello")
+		assertHonest(t, f, chatFailedBeforeSaveNotice)
+	})
+
+	t.Run("missing_profile", func(t *testing.T) {
+		f := newChatFixture(nil)
+		f.driver = New(f.sessions, &fakeProfiles{err: fmt.Errorf("no such profile")}, f.decisions, f.models, f.commands, f.notifier, testConfig())
+		f.driver.SetConversation(f.conversation)
+		f.driver.HandleChat(f.userID, f.connID, "hello")
+		assertHonest(t, f, chatFailedBeforeSaveNotice)
+	})
+
+	t.Run("missing_model", func(t *testing.T) {
+		f := newChatFixture(nil)
+		f.driver = New(f.sessions, &fakeProfiles{profile: testProfile()}, f.decisions, f.models, f.commands, f.notifier, &config.Config{})
+		f.driver.SetConversation(f.conversation)
+		f.driver.HandleChat(f.userID, f.connID, "hello")
+		assertHonest(t, f, chatFailedBeforeSaveNotice)
+	})
+
+	t.Run("no_game_session_this_login", func(t *testing.T) {
+		f := newChatFixture(nil)
+		f.sessions.hasGameSession = false
+		f.driver.HandleChat(f.userID, f.connID, "hello")
+		assertHonest(t, f, chatNoGameSessionNotice)
+	})
+
+	t.Run("after_a_failed_save_neither_the_cap_nor_the_failure_notice_claims_saved", func(t *testing.T) {
+		profile := testProfile()
+		zero := 0
+		profile.AISettings.CallCap = &zero
+		capped := newChatFixture(profile)
+		capped.conversation.appendErr = fmt.Errorf("disk full")
+		capped.driver.HandleChat(capped.userID, capped.connID, "hello")
+
+		failed := newChatFixture(nil)
+		failed.conversation.appendErr = fmt.Errorf("disk full")
+		failed.models.chatErr = &gemini.Error{Kind: gemini.KindTransport, Message: "boom"}
+		failed.driver.HandleChat(failed.userID, failed.connID, "hello")
+
+		for name, f := range map[string]*chatTestFixture{"cap": capped, "model failure": failed} {
+			sawNotSaved := false
+			for _, ev := range f.notifier.chatEventsSnapshot() {
+				if ev.Speaker != "system" {
+					continue
+				}
+				if strings.Contains(ev.Text, "was saved") {
+					t.Errorf("%s: a notice claims the message was saved when it was not: %q", name, ev.Text)
+				}
+				if ev.Text == chatNotSavedNotice {
+					sawNotSaved = true
+				}
+			}
+			if !sawNotSaved {
+				t.Errorf("%s: expected the owner to be told the message was not saved, got %+v", name, f.notifier.chatEventsSnapshot())
+			}
+		}
+	})
+
+	t.Run("when_it_was_saved_the_locked_notices_still_say_so", func(t *testing.T) {
+		f := newChatFixture(nil)
+		f.models.chatErr = &gemini.Error{Kind: gemini.KindTransport, Message: "boom"}
+		f.driver.HandleChat(f.userID, f.connID, "hello")
+
+		events := f.notifier.chatEventsSnapshot()
+		last := events[len(events)-1]
+		if last.Text != chatFailedNotice {
+			t.Fatalf("notice = %q, want the locked %q", last.Text, chatFailedNotice)
+		}
+		if got := f.conversation.linesFor(f.gameSessionID); len(got) != 1 || got[0].Speaker != "owner" {
+			t.Fatalf("expected the owner's message really stored, got %+v", got)
 		}
 	})
 }

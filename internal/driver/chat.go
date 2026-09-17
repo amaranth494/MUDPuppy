@@ -63,8 +63,31 @@ const chatInFlightNotice = "AI-chatter is still answering your last message. Wai
 
 // chatFailedNotice is shown when the model call itself could not be
 // completed -- a network problem or a malformed answer -- in the voice of
-// this project's other locked failure notices.
+// this project's other locked failure notices. It says the message was
+// saved, so it is used ONLY after the owner's line really was stored.
 const chatFailedNotice = "AI-chatter could not answer just now. Your message was saved."
+
+// Code review WR-01 of Phase 5: four paths that return BEFORE the owner's
+// message is stored used to show chatFailedNotice, telling him it was saved
+// when it was in no table. Each notice below says plainly what happened.
+//
+// chatFailedBeforeSaveNotice: something went wrong before the message could
+// be stored (bad ids, a profile or model that could not be found).
+const chatFailedBeforeSaveNotice = "AI-chatter could not answer just now. Your message was not saved, so please send it again in a moment."
+
+// chatNoGameSessionNotice: this sign-in has never connected this profile to
+// the game, so there is nothing for AI-chatter to read and nowhere to keep
+// the conversation yet.
+const chatNoGameSessionNotice = "AI-chatter has nothing to go on yet. Connect to the game once, then send your message again. It was not saved."
+
+// chatFailedNotSavedNotice and chatCapReachedNotSavedNotice replace
+// chatFailedNotice and chatCapReachedNotice when the owner's line could NOT
+// be stored (code review WR-05): they make no claim about saving, and
+// chatNotSavedNotice follows them to say so.
+const (
+	chatFailedNotSavedNotice     = "AI-chatter could not answer just now."
+	chatCapReachedNotSavedNotice = "AI-chatter has reached the session's call cap and can't reply right now."
+)
 
 // chatUpdateSettingsSentence is the locked pointer sentence AI-chatter uses
 // when a rule or filter is in the way of what the owner asked for (D-12):
@@ -115,14 +138,14 @@ func (d *Driver) HandleChat(userID, connectionID, message string) {
 		// Defensive only: both ids are already-parsed strings the caller
 		// (the chat hook) always supplies as valid ids, mirroring decide's
 		// own defensive first check.
-		d.notifyChatSystem(userID, chatFailedNotice, chatStateFailed)
+		d.notifyChatSystem(userID, chatFailedBeforeSaveNotice, chatStateFailed)
 		log.Printf("[AI-CHATTER] chat user_id=%s connection_id=%s stage=failed reason=bad-ids", userID, connectionID)
 		return
 	}
 
 	profile, err := d.profiles.GetProfileByConnection(userUUID, connUUID)
 	if err != nil || profile == nil {
-		d.notifyChatSystem(userID, chatFailedNotice, chatStateFailed)
+		d.notifyChatSystem(userID, chatFailedBeforeSaveNotice, chatStateFailed)
 		log.Printf("[AI-CHATTER] chat user_id=%s connection_id=%s stage=failed reason=missing-profile", userID, connectionID)
 		return
 	}
@@ -136,16 +159,21 @@ func (d *Driver) HandleChat(userID, connectionID, message string) {
 	resolved := store.ResolveAISettings(profile.AISettings, defaultModelName)
 	entry, ok := d.cfg.ResolveModelEntry(resolved.ModelName)
 	if !ok {
-		d.notifyChatSystem(userID, chatFailedNotice, chatStateFailed)
+		d.notifyChatSystem(userID, chatFailedBeforeSaveNotice, chatStateFailed)
 		log.Printf("[AI-CHATTER] chat user_id=%s connection_id=%s stage=failed reason=missing-model", userID, connectionID)
 		return
 	}
 
-	gsID, hasSession := d.sessions.CurrentGameSessionID(userID)
+	// Code review WR-01 of Phase 5 (D-06): the game session is found FROM
+	// the connection, so chat works while the game connection is down.
+	gsID, hasSession, live := d.chatGameSession(userID, connUUID)
 	if !hasSession {
-		d.notifyChatSystem(userID, chatFailedNotice, chatStateFailed)
+		d.notifyChatSystem(userID, chatNoGameSessionNotice, chatStateFailed)
 		log.Printf("[AI-CHATTER] chat user_id=%s connection_id=%s stage=failed reason=no-game-session", userID, connectionID)
 		return
+	}
+	if !live {
+		log.Printf("[AI-CHATTER] chat user_id=%s connection_id=%s stage=offline-session", userID, connectionID)
 	}
 
 	// Read the conversation tail FIRST, before the owner's message is
@@ -173,7 +201,13 @@ func (d *Driver) HandleChat(userID, connectionID, message string) {
 	// D-11: a chat reply reserves against the same per-user call cap a
 	// decision reserves against, so the cap stays one honest cost limit.
 	if !d.tryReserveCall(userID, resolved) {
-		d.notifyChatSystem(userID, chatCapReachedNotice, chatStateCap)
+		// The locked cap notice says the message was saved; it is used only
+		// when it was (code review WR-01 of Phase 5).
+		capNotice := chatCapReachedNotice
+		if unsaved {
+			capNotice = chatCapReachedNotSavedNotice
+		}
+		d.notifyChatSystem(userID, capNotice, chatStateCap)
 		log.Printf("[AI-CHATTER] chat user_id=%s connection_id=%s stage=cap", userID, connectionID)
 		return
 	}
@@ -183,7 +217,11 @@ func (d *Driver) HandleChat(userID, connectionID, message string) {
 
 	answer, chatErr := d.models.Chat(context.Background(), entry.Endpoint, entry.ModelName, entry.APIKey, systemInstruction, trimmed)
 	if chatErr != nil {
-		d.notifyChatSystem(userID, chatFailedNotice, chatStateFailed)
+		failedNotice := chatFailedNotice
+		if unsaved {
+			failedNotice = chatFailedNotSavedNotice
+		}
+		d.notifyChatSystem(userID, failedNotice, chatStateFailed)
 		log.Printf("[AI-CHATTER] chat user_id=%s connection_id=%s stage=failed reason=%s", userID, connectionID, gemini.ErrorKind(chatErr))
 		return
 	}
@@ -229,6 +267,31 @@ func (d *Driver) HandleChat(userID, connectionID, message string) {
 		// (finalReply, already stored and notified above).
 		d.notifyCoachingReceived(userID, resolved)
 	}
+}
+
+// chatGameSession finds the game session a chat exchange belongs to (code
+// review WR-01 and WR-10 of Phase 5).
+//
+// It asks the store first: this login's newest game session FOR THE
+// CONNECTION, whether or not the game connection is still up. That is what
+// lets chat work while disconnected (D-06) -- the manager forgets the live
+// session the moment the socket drops -- and it guarantees the conversation
+// and coaching are written under the same connection whose profile was just
+// read. live reports whether that row is also the session the manager has
+// open right now.
+//
+// When the store cannot say (no Memory collaborator wired, a read error, or
+// no row yet because the transcript is still being opened) it falls back to
+// the manager's live session. The websocket layer has already refused a
+// message aimed at any connection but that one.
+func (d *Driver) chatGameSession(userID string, connUUID uuid.UUID) (gsID uuid.UUID, ok bool, live bool) {
+	liveID, hasLive := d.sessions.CurrentGameSessionID(userID)
+	if d.memory != nil {
+		if id, found, err := d.memory.LatestGameSessionForConnection(connUUID); err == nil && found {
+			return id, true, hasLive && id == liveID
+		}
+	}
+	return liveID, hasLive, hasLive
 }
 
 // coachingApplyResult is applyCoaching's own bundle of what actually

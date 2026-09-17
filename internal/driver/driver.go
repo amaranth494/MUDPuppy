@@ -258,6 +258,10 @@ type Memory interface {
 	// bullets (D-10, plan 04-08). The real *store.TranscriptStore's method
 	// of this name satisfies this interface with no adapter.
 	UpdateSessionMemory(gameSessionID uuid.UUID, memory []string) error
+	// LatestGameSessionForConnection names this login's newest game session
+	// for a connection, whether or not the game connection is still up (code
+	// review WR-01 of Phase 5). AI-chatter attaches a chat exchange to it.
+	LatestGameSessionForConnection(connectionID uuid.UUID) (uuid.UUID, bool, error)
 }
 
 // Conversation is the slice of *store.ConversationStore the driver depends

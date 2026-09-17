@@ -927,6 +927,33 @@ type fakeMemoryStore struct {
 	bullets   map[uuid.UUID][]string
 	updateErr error
 	calls     []updateSessionMemoryCall
+
+	// latestByConnection and latestErr drive LatestGameSessionForConnection
+	// (code review WR-01 of Phase 5). An unset connection reads as "this
+	// login has no game session for it yet".
+	latestByConnection map[uuid.UUID]uuid.UUID
+	latestErr          error
+}
+
+func (f *fakeMemoryStore) LatestGameSessionForConnection(connectionID uuid.UUID) (uuid.UUID, bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.latestErr != nil {
+		return uuid.UUID{}, false, f.latestErr
+	}
+	id, ok := f.latestByConnection[connectionID]
+	return id, ok, nil
+}
+
+// setLatestGameSession records gameSessionID as connectionID's newest game
+// session of this login.
+func (f *fakeMemoryStore) setLatestGameSession(connectionID, gameSessionID uuid.UUID) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.latestByConnection == nil {
+		f.latestByConnection = make(map[uuid.UUID]uuid.UUID)
+	}
+	f.latestByConnection[connectionID] = gameSessionID
 }
 
 func newFakeMemoryStore() *fakeMemoryStore {

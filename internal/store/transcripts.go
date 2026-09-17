@@ -306,6 +306,39 @@ func (s *TranscriptStore) SessionMemoryForConnection(connectionID uuid.UUID) ([]
 	return bullets, nil
 }
 
+// latestGameSessionForConnectionSQL names connectionID's newest game session
+// within the owner's current MUDPuppy login: the SAME row
+// sessionMemoryForConnectionSQL and coachingForConnectionSQL read, selected
+// by id (code review WR-01 of Phase 5). It deliberately does not filter on
+// ended_at, for the same reason they do not: the row is wanted whether the
+// game connection is up or down.
+const latestGameSessionForConnectionSQL = `SELECT gs.id
+	FROM game_sessions gs
+	JOIN users u ON u.id = gs.user_id
+	WHERE gs.connection_id = $1
+	  AND gs.started_at >= u.login_started_at
+	ORDER BY gs.started_at DESC
+	LIMIT 1`
+
+// LatestGameSessionForConnection returns the id of connectionID's newest
+// game session within the current MUDPuppy login, and false when this login
+// has none yet (code review WR-01 of Phase 5). AI-chatter attaches a chat
+// exchange to this row, so chat keeps working while the game connection is
+// down (D-06), and -- because the row is found FROM the connection -- the
+// conversation and coaching it writes always belong to the same connection
+// whose profile it read (code review WR-10 of Phase 5).
+func (s *TranscriptStore) LatestGameSessionForConnection(connectionID uuid.UUID) (uuid.UUID, bool, error) {
+	var id uuid.UUID
+	err := s.db.QueryRow(latestGameSessionForConnectionSQL, connectionID).Scan(&id)
+	if err == sql.ErrNoRows {
+		return uuid.UUID{}, false, nil
+	}
+	if err != nil {
+		return uuid.UUID{}, false, err
+	}
+	return id, true, nil
+}
+
 // ListSessionsForConnection lists a connection's sessions newest-first.
 // Ownership of connectionID is resolved by the caller (internal/profiles,
 // via ProfileStore.GetProfileByConnection) before this is ever reached
