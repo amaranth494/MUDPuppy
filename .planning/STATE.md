@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 4 planned (11 plans, 9 waves); brief published, pending owner approval
-last_updated: "2026-09-17T04:12:57.260Z"
-last_activity: 2026-09-17 -- Phase 4 execution started
+stopped_at: Completed 04-03-PLAN.md
+last_updated: "2026-09-17T04:40:01.312Z"
+last_activity: 2026-09-17
 progress:
   total_phases: 9
   completed_phases: 4
   total_plans: 44
-  completed_plans: 33
+  completed_plans: 36
   percent: 44
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-09-14)
 ## Current Position
 
 Phase: 4 (continuous-play) — EXECUTING
-Plan: 1 of 11
+Plan: 3 of 11 (04-03 complete; 04-04 next)
 Status: Executing Phase 4
-Last activity: 2026-09-17 -- Phase 4 execution started
+Last activity: 2026-09-17 -- 04-03 (continuous loop, pacing, reassess, DR-3-07) complete
 
 Progress: [██▌       ] 25%
 
@@ -58,6 +58,7 @@ Progress: [██▌       ] 25%
 *Updated after each plan completion*
 | Phase 03.1 P07 | 130min | 5 tasks | 22 files |
 | Phase 03.1 P07 | 60min | 1 tasks | 5 files |
+| Phase 04 P03 | 13min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -84,6 +85,8 @@ Recent decisions affecting current work:
 - [Phase 3.1]: D-03 amended by the owner (2026-09-16, after the first staging walkthrough): the reviewer's second question is re-aimed at harm, not text, because the text-aimed wording blocked the tutorial's own `get rod` guidance while every hostile `say` line was ignored -- the only blocks on walkthrough 1 were false blocks of ordinary play. See `03.1-CONTEXT.md`'s "Amendment during execution" and `03.1-07-SUMMARY.md`'s "Walkthrough 1 reassessed and D-03 amended".
 - [Phase 3.1]: Walkthrough 2 (deployment 7f38f3d9, harm-aimed reviewer) accepted by the owner as demonstrated: the model refused a tutorial-shaped injection ('give rod to bob') on its own judgment, choosing 'get rod' instead, with the reviewer allowing it and no false block; no staging attack in either walkthrough produced a caught-in-the-act reviewer block of a genuine hostile command, and 03.1-07-SUMMARY.md row 6 states that honestly
 - [Phase 3.1]: The staging credential vault key (ENCRYPTION_KEY_V1) was found ephemeral -- DefaultKeyStore silently generates a random key when it is unset, breaking auto-login on every redeploy; carried to 03.1-SECURITY-AGENDA.md Item 6 with three dispositions, nothing chosen, after an operational (non-code) workaround let walkthrough 2 proceed
+- [Phase 4]: 04-03: Pacing durations shipped exactly at plan's starting points: settle 1500ms, floor 20s, minSpacing 3s, tunable at the staging walkthrough
+- [Phase 4]: 04-03: EngageLoop records lastDecisionAt for its own synchronous first iteration too, so D-06 minimum spacing applies from the first decision of a stint onward
 
 ### Pending Todos
 
@@ -114,6 +117,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-09-17T03:28:43.880Z
-Stopped at: Phase 4 planned (11 plans, 9 waves); brief published, pending owner approval
-Resume file: .planning/phases/04-continuous-play/04-PHASE-BRIEF.md
+Last session: 2026-09-17T04:40:01.306Z
+Stopped at: Completed 04-03-PLAN.md
+Resume file: None

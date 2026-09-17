@@ -229,7 +229,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 04-03-PLAN.md — The AI keeps playing on its own, paced to the game's output, and stops the instant the wheel is grabbed
+- [x] 04-03-PLAN.md — The AI keeps playing on its own, paced to the game's output, and stops the instant the wheel is grabbed
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -349,7 +349,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 1. Profile Foundation and Policy Gate | 6/6 | Complete    | 2026-09-15 |
 | 2. Autopilot Switch | 7/7 | Complete    | 2026-09-15 |
 | 3. One AI Decision | 13/13 | Complete    | 2026-09-16 |
-| 4. Continuous Play | 2/11 | In Progress|  |
+| 4. Continuous Play | 3/11 | In Progress|  |
 | 5. Coaching Channel | 0/TBD | Not started | - |
 | 6. Measurement and Memory | 0/TBD | Not started | - |
 | 7. Study Loader | 0/TBD | Not started | - |
