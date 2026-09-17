@@ -92,13 +92,22 @@ func (s *ConversationStore) AppendChatLine(gameSessionID uuid.UUID, speaker, tex
 // login_started_at boundary Session Memory and coaching share), oldest
 // first, across every game session opened during that login -- the
 // reload-on-attach read.
+//
+// Code review WR-03 of Phase 5: this read SPANS game sessions, and seq
+// restarts at 1 in every one of them (nextConversationSeqSQL is scoped to a
+// single game session). Ordering by seq alone therefore interleaved them:
+// after one page refresh the panel showed question 1, question 3, answer 1,
+// answer 3. The order is now by when the line was written, with the row id
+// -- one sequence for the whole table, always increasing -- to settle two
+// lines written in the same instant. seq stays the right key inside a
+// single game session (conversationForSessionSQL, recentConversationSQL).
 const conversationForConnectionSQL = `SELECT cl.id, cl.seq, cl.speaker, cl.text, cl.created_at
 	FROM conversation_lines cl
 	JOIN game_sessions gs ON gs.id = cl.game_session_id
 	JOIN users u ON u.id = gs.user_id
 	WHERE gs.connection_id = $1
 	  AND gs.started_at >= u.login_started_at
-	ORDER BY cl.seq ASC`
+	ORDER BY cl.created_at ASC, cl.id ASC`
 
 // ConversationFor reads back the login-scoped conversation for
 // connectionID, oldest first. Returns an empty, never nil, slice when this

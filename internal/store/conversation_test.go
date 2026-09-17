@@ -48,6 +48,32 @@ func TestConversationStoreSQL(t *testing.T) {
 		}
 	})
 
+	// Code review WR-03 of Phase 5: seq restarts at 1 in every game session,
+	// so the one read that spans game sessions must not order by it.
+	t.Run("the_read_that_spans_game_sessions_orders_by_a_key_that_never_restarts", func(t *testing.T) {
+		stmt := strings.Join(strings.Fields(conversationForConnectionSQL), " ")
+		if !strings.HasSuffix(stmt, "ORDER BY cl.created_at ASC, cl.id ASC") {
+			t.Errorf("conversationForConnectionSQL must order by created_at then id: %q", stmt)
+		}
+		orderBy := stmt[strings.Index(stmt, "ORDER BY"):]
+		if strings.Contains(orderBy, "seq") {
+			t.Errorf("conversationForConnectionSQL orders by seq, which restarts in every game session: %q", orderBy)
+		}
+		// The sequence number really is per game session -- the reason above.
+		if !strings.Contains(nextConversationSeqSQL, "WHERE game_session_id = $1") {
+			t.Errorf("nextConversationSeqSQL is no longer scoped to one game session; revisit the ordering: %q", nextConversationSeqSQL)
+		}
+	})
+
+	t.Run("the_reads_inside_one_game_session_keep_ordering_by_seq", func(t *testing.T) {
+		if !strings.Contains(conversationForSessionSQL, "WHERE cl.game_session_id = $1") || !strings.Contains(conversationForSessionSQL, "ORDER BY cl.seq ASC") {
+			t.Errorf("conversationForSessionSQL should read one game session ordered by seq: %q", conversationForSessionSQL)
+		}
+		if !strings.Contains(recentConversationSQL, "WHERE game_session_id = $1") || !strings.Contains(recentConversationSQL, "ORDER BY seq DESC") {
+			t.Errorf("recentConversationSQL should read one game session ordered by seq: %q", recentConversationSQL)
+		}
+	})
+
 	t.Run("recent_conversation_orders_descending_with_a_limit", func(t *testing.T) {
 		if !strings.Contains(recentConversationSQL, "DESC") {
 			t.Errorf("recentConversationSQL does not order descending: %q", recentConversationSQL)
