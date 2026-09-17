@@ -295,6 +295,18 @@ func main() {
 	// Wire questStore to the goal endpoint (plan 04-06, D-04).
 	profilesHandler.SetQuestStore(questStore)
 
+	// Retention job (D-21, plan 04-09): captured game text is pruned on a
+	// schedule (store.DecisionSnapshotRetentionDays for decision snapshots,
+	// store.TranscriptRetentionDays for transcript lines) by one goroutine
+	// started once at server scope, mirroring sessionManager.startTimers'
+	// own ticker-in-goroutine shape (internal/session/manager.go) -- the
+	// only background-timer idiom in this codebase. The same job also backs
+	// the owner's immediate per-profile delete, wired into the profiles
+	// handler beside decisionStore/questStore above.
+	retentionJob := store.NewRetentionJob(db)
+	profilesHandler.SetRetention(retentionJob)
+	go runRetentionLoop(retentionJob)
+
 	// Initialize WebSocket handler (SP02PH02)
 	wsHandler := session.NewWebSocketHandler(sessionManager, cfg)
 
@@ -529,6 +541,17 @@ func main() {
 		}
 	})
 
+	// The owner's immediate "delete captured game text now" action (D-21),
+	// a sibling of the other profile sub-resources, DELETE only.
+	mux.HandleFunc("/api/v1/profiles/{connection_id}/captured-text", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodDelete:
+			profilesHandler.DeleteCapturedText(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
 	mux.HandleFunc("/api/v1/profiles/{connection_id}/policy", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
@@ -630,6 +653,38 @@ func main() {
 	log.Printf("Server starting on port %s", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, handler); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
+	}
+}
+
+// runRetentionLoop runs retentionJob.Run() once shortly after startup (so a
+// fresh deploy proves the path immediately) and then every 24 hours,
+// logging exactly one [AI-PLAYER] line per run with the two counts, the
+// two window lengths in days, and the run's duration in milliseconds -- no
+// ids of individual rows, no text of any kind (D-21, T-4-05). A run that
+// errors logs the same line with error=true and the loop continues;
+// retention failing must never stop the server or affect play (T-4-31).
+func runRetentionLoop(job *store.RetentionJob) {
+	runOnce := func() {
+		start := time.Now()
+		counts, err := job.Run()
+		durationMs := time.Since(start).Milliseconds()
+		if err != nil {
+			log.Printf("[AI-PLAYER] stage=retention error=true duration_ms=%d", durationMs)
+			return
+		}
+		log.Printf("[AI-PLAYER] stage=retention snapshots_cleared=%d transcript_lines_deleted=%d snapshot_window_days=%d transcript_window_days=%d duration_ms=%d",
+			counts.SnapshotsCleared, counts.TranscriptLinesDeleted, store.DecisionSnapshotRetentionDays, store.TranscriptRetentionDays, durationMs)
+	}
+
+	// A short delay, not zero, so this does not race the rest of main's own
+	// startup sequence for the very first request.
+	time.Sleep(10 * time.Second)
+	runOnce()
+
+	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
+	for range ticker.C {
+		runOnce()
 	}
 }
 

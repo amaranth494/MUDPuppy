@@ -53,6 +53,15 @@ type questStorage interface {
 	EnsureActiveQuest(userID, connectionID uuid.UUID, goalText string) (store.Quest, error)
 }
 
+// retentionStorage is the subset of *store.RetentionJob the owner's
+// immediate "delete captured text now" action calls (task 04-09-02, D-21).
+// Same discipline as questStorage above: an interface lets handler tests
+// exercise DeleteCapturedText with a hand-written fake instead of a live
+// Postgres connection.
+type retentionStorage interface {
+	DeleteCapturedTextForConnection(connectionID uuid.UUID) (store.RetentionCounts, error)
+}
+
 // AIEvent is the payload PutGoal pushes through the goal-changed/
 // goal-cleared notifier hook (D-03). It carries exactly what a "system" AI
 // message needs to render the locked line -- no State/Calls/Failures/...
@@ -88,6 +97,10 @@ type Handler struct {
 	// goal text with a nil quests store (the goal box itself never depends
 	// on Quest bookkeeping succeeding) but skips EnsureActiveQuest.
 	quests questStorage
+	// retention is nil until SetRetention is called, making
+	// DeleteCapturedText answer 503 rather than panic -- a missing
+	// dependency fails closed, same discipline as transcripts above.
+	retention retentionStorage
 	// aiNotifier is nil until SetAINotifier is called, making the
 	// goal-changed/goal-cleared system line a silent no-op — a missing
 	// notifier never blocks the goal save itself, same discipline as
@@ -113,6 +126,15 @@ func (h *Handler) SetDecisionStore(s *store.DecisionStore) {
 func (h *Handler) SetQuestStore(s *store.QuestStore) {
 	if s != nil {
 		h.quests = s
+	}
+}
+
+// SetRetention wires the owner's immediate "delete captured text now"
+// action (D-21) to j. Same nil-underlying-pointer guard as SetDecisionStore
+// above.
+func (h *Handler) SetRetention(j *store.RetentionJob) {
+	if j != nil {
+		h.retention = j
 	}
 }
 
@@ -214,6 +236,14 @@ type GoalResponse struct {
 // editing Session Memory by hand is Phase 5.
 type SessionMemoryResponse struct {
 	SessionMemory []string `json:"session_memory"`
+}
+
+// DeleteCapturedTextResponse is the response for the owner's immediate
+// "delete captured text now" action (D-21): the two counts the harness and
+// the panel's result line rely on. Never row text (T-4-05).
+type DeleteCapturedTextResponse struct {
+	SnapshotsCleared       int64 `json:"snapshots_cleared"`
+	TranscriptLinesDeleted int64 `json:"transcript_lines_deleted"`
 }
 
 // maxGoalLength is the session goal's length cap (T-4-10), following the
@@ -863,6 +893,53 @@ func (h *Handler) GetSessionMemory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.sendJSON(w, SessionMemoryResponse{SessionMemory: bullets})
+}
+
+// DeleteCapturedText handles DELETE
+// /api/v1/profiles/:connection_id/captured-text (D-21). Ownership is
+// resolved through getProfileByConnectionID before anything is deleted
+// (T-4-09) -- the same check every other profile sub-resource uses. A nil
+// retention store fails closed with 503 rather than panicking, the same
+// discipline GetSessionMemory already uses for a nil transcripts store. A
+// failure returns the existing error shape; it never partially reports
+// success.
+func (h *Handler) DeleteCapturedText(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userUUID, _, err := h.getProfileByConnectionID(r)
+	if err != nil {
+		h.sendError(w, err.Error())
+		return
+	}
+
+	if h.retention == nil {
+		http.Error(w, "Delete captured text unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	connectionID, err := h.getConnectionIDFromPath(r)
+	if err != nil {
+		h.sendError(w, err.Error())
+		return
+	}
+
+	counts, err := h.retention.DeleteCapturedTextForConnection(connectionID)
+	if err != nil {
+		log.Printf("[PH0109] Delete captured text failed: %v", err)
+		h.sendError(w, "Failed to delete captured text")
+		return
+	}
+
+	log.Printf("[AI-PLAYER] stage=retention-manual user_id=%s connection_id=%s snapshots_cleared=%d transcript_lines_deleted=%d",
+		userUUID, connectionID, counts.SnapshotsCleared, counts.TranscriptLinesDeleted)
+
+	h.sendJSON(w, DeleteCapturedTextResponse{
+		SnapshotsCleared:       counts.SnapshotsCleared,
+		TranscriptLinesDeleted: counts.TranscriptLinesDeleted,
+	})
 }
 
 // GetPolicy handles GET /api/v1/profiles/:connection_id/policy
