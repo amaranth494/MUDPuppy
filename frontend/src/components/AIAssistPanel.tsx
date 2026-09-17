@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { AIDecisionPayload } from '../types';
-import { getDecisions, getGoal, putGoal, getSessionMemory, GoalQuestError } from '../services/api';
+import { AIDecisionPayload, ChatLine } from '../types';
+import { getDecisions, getGoal, putGoal, getSessionMemory, GoalQuestError, getCoaching, getConversation, setAutopilot } from '../services/api';
 import { useSession } from '../context/SessionContext';
 
 interface AIAssistPanelProps {
@@ -45,11 +45,142 @@ type PanelEntry = DecisionEntry | SystemEntry;
  * coaching input to this same panel.
  */
 export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
-  const { wsManager, autopilotState } = useSession();
+  const { wsManager, autopilotState, pausedByOwner, connectionLost } = useSession();
   const [collapsed, setCollapsed] = useState(false);
   const [entries, setEntries] = useState<PanelEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const bodyRef = useRef<HTMLDivElement>(null);
+
+  // 05-07 (D-13, D-15): the Pause/Resume button's own local echo of
+  // pausedByOwner/connectionLost, kept in sync with the context's values
+  // (the poll and the websocket push) but updated instantly on click,
+  // before either of those sources has a chance to catch up (D-13: "no
+  // confirmation step").
+  const [localPausedByOwner, setLocalPausedByOwner] = useState(false);
+  const [localConnectionLost, setLocalConnectionLost] = useState(false);
+  useEffect(() => {
+    setLocalPausedByOwner(pausedByOwner);
+    setLocalConnectionLost(connectionLost);
+  }, [pausedByOwner, connectionLost]);
+  const pausedReasonText = localPausedByOwner && localConnectionLost ? 'Paused by owner · Connection lost' : localPausedByOwner ? 'Paused by owner' : localConnectionLost ? 'Connection lost' : '';
+  const togglePause = useCallback(async () => {
+    if (!connectionId) return;
+    try {
+      const response = await setAutopilot(connectionId, localPausedByOwner ? 'resume' : 'pause');
+      setLocalPausedByOwner(response.paused_by_owner);
+      setLocalConnectionLost(response.connection_lost);
+    } catch {
+      // No locked notice exists for a failed pause/resume call in the UI
+      // contract; leave the button's own state alone so it keeps reflecting
+      // reality rather than guessing at a transition that may not have
+      // happened.
+    }
+  }, [connectionId, localPausedByOwner]);
+
+  // 05-07 (D-09): the read-only, collapsible Coaching in effect list — a
+  // byte-for-byte sibling of the Session Memory section below, loaded on
+  // attach and on connection change, and refreshed whenever AI-chatter
+  // speaks (a push or withdraw always produces a chatter reply, so this is
+  // the live-update signal — no per-outcome branch on the marker itself is
+  // needed or added).
+  const [coachingOpen, setCoachingOpen] = useState(false);
+  const [coaching, setCoaching] = useState<string[]>([]);
+  useEffect(() => {
+    if (!connectionId) return;
+    let cancelled = false;
+    getCoaching(connectionId)
+      .then((resp) => {
+        if (!cancelled) setCoaching(resp.coaching);
+      })
+      .catch(() => {
+        // Same silent-fallback shape as the goal/history/memory loads below.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [connectionId]);
+
+  // 05-07 (D-06, D-07): the conversation area. Loaded once on attach via
+  // getConversation, then kept live via the wsManager's onChat/offChat pair
+  // — mirroring the onAI/offAI effect below exactly. Lives entirely in this
+  // component, never in SessionContext (the conversation belongs beside the
+  // thinking stream it sits under, not in shared session state).
+  const [chatEntries, setChatEntries] = useState<ChatLine[]>([]);
+  const [chatDraft, setChatDraft] = useState('');
+  const chatLogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!connectionId) return;
+    let cancelled = false;
+    getConversation(connectionId)
+      .then((resp) => {
+        if (cancelled) return;
+        const mapped: ChatLine[] = resp.lines.map((line) => ({
+          id: String(line.id),
+          speaker: line.speaker === 'owner' || line.speaker === 'chatter' ? line.speaker : 'system',
+          text: line.text,
+          timestamp: line.timestamp,
+        }));
+        setChatEntries(mapped);
+      })
+      .catch(() => {
+        // Same silent-fallback shape as every other load in this component.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [connectionId]);
+
+  useEffect(() => {
+    if (!wsManager) return;
+    const handleChat = (entry: ChatLine) => {
+      setChatEntries((prev) => [...prev, entry]);
+      // A reply from AI-chatter is the signal that its own coaching list may
+      // have just changed (a push or a withdraw always produces one) — reload
+      // it rather than trying to parse the reply text for what changed.
+      if (entry.speaker === 'chatter' && connectionId) {
+        getCoaching(connectionId)
+          .then((resp) => setCoaching(resp.coaching))
+          .catch(() => {});
+      }
+    };
+    wsManager.onChat(handleChat);
+    return () => {
+      wsManager.offChat(handleChat);
+    };
+  }, [wsManager, connectionId]);
+
+  useEffect(() => {
+    if (chatLogRef.current) {
+      chatLogRef.current.scrollTop = chatLogRef.current.scrollHeight;
+    }
+  }, [chatEntries]);
+
+  // 05-07 (05-UI-SPEC.md's locked "Chat — send failed" notice): the Send
+  // button is disabled only by an empty draft, never by autopilotState
+  // (D-06) — the message box works in every autopilot state.
+  const sendChatMessage = useCallback(() => {
+    const text = chatDraft.trim();
+    if (!text) return;
+    const sent = wsManager ? wsManager.sendChat(text) : false;
+    if (sent) {
+      setChatDraft('');
+    } else {
+      // The socket was not open, or the write threw — keep the draft (never
+      // silently lose it, T-5-57) and append one locked, unbracketed system
+      // entry; the render below supplies the brackets.
+      setChatEntries((prev) => [
+        ...prev,
+        {
+          id: `chat-send-failed-${Date.now()}`,
+          speaker: 'system',
+          state: 'failed',
+          text: 'Message failed to send — try again',
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+    }
+  }, [chatDraft, wsManager]);
 
   // 04-04: the standing status line's counts (D-14, D-15, D-17), held in
   // component state and updated from whichever fields the latest 'ai'
@@ -336,6 +467,18 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
             Editable anytime, even while the AI plays. The next decision picks up the new goal.
           </p>
         </div>
+        <div className="ai-assist-pause-row">
+          <button
+            className="btn btn-sm btn-secondary"
+            onClick={togglePause}
+            disabled={autopilotState === 'off'}
+            aria-label={localPausedByOwner ? 'Resume AI-player' : 'Pause AI-player'}
+            title={localPausedByOwner ? 'Resume AI-player' : 'Pause AI-player'}
+          >
+            {localPausedByOwner ? 'Resume' : 'Pause'}
+          </button>
+          {pausedReasonText && <span className="ai-assist-status-line">{pausedReasonText}</span>}
+        </div>
         {autopilotState !== 'off' && (
           <div className="ai-assist-status-line">
             {callCap != null
@@ -356,6 +499,24 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
             ) : (
               <ul className="ai-assist-memory-list">
                 {sessionMemory.map((item, i) => (
+                  <li key={i} className="ai-assist-memory-item">
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            ))}
+        </div>
+        <div className="ai-assist-memory">
+          <button className="ai-assist-memory-header" onClick={() => setCoachingOpen((v) => !v)}>
+            <span>{coachingOpen ? '▾' : '▸'}</span>
+            <span>Coaching in effect ({coaching.length})</span>
+          </button>
+          {coachingOpen &&
+            (coaching.length === 0 ? (
+              <div className="ai-assist-memory-empty">No coaching in effect.</div>
+            ) : (
+              <ul className="ai-assist-memory-list">
+                {coaching.map((item, i) => (
                   <li key={i} className="ai-assist-memory-item">
                     {item}
                   </li>
@@ -395,6 +556,43 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
             </div>
           );
         })}
+      </div>
+      <div className="ai-assist-chat">
+        <div className="ai-assist-chat-log" ref={chatLogRef}>
+          {chatEntries.length === 0 && (
+            <div className="ai-assist-chat-empty">No messages yet. Say something to AI-chatter.</div>
+          )}
+          {chatEntries.map((entry) => (
+            <div
+              key={entry.id}
+              className={`ai-assist-chat-line speaker-${entry.speaker}${entry.state ? ` state-${entry.state}` : ''}`}
+            >
+              {entry.speaker === 'owner' && `You: ${entry.text}`}
+              {entry.speaker === 'chatter' && `AI-chatter: ${entry.text}`}
+              {entry.speaker === 'system' && `[${entry.text}]`}
+            </div>
+          ))}
+        </div>
+        <div className="ai-assist-chat-input-row">
+          <input
+            type="text"
+            className="form-input"
+            placeholder="Message AI-chatter…"
+            value={chatDraft}
+            onChange={(e) => setChatDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') sendChatMessage();
+            }}
+          />
+          <button
+            className="btn btn-sm btn-primary"
+            onClick={sendChatMessage}
+            disabled={!chatDraft.trim()}
+            aria-label="Send message to AI-chatter"
+          >
+            Send
+          </button>
+        </div>
       </div>
     </div>
   );

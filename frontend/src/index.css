@@ -423,6 +423,120 @@ body {
 .ai-system-line.state-retrying { color: var(--color-warning); }
 .ai-system-line.state-goal { color: #888; }
 
+/* Phase 5 (05-coaching-channel), plan 05-07 — verbatim from 05-UI-SPEC.md
+   Layout & Component Reuse §1 (chat strip), §3 (pause row), §7 (chat header
+   and pop-out placeholder, landed here so index.css is opened once this
+   phase, ahead of plan 05-08's own pop-out wiring) and §6 (Logs page
+   conversation section, ahead of plan 05-09). No new custom property, no
+   animation, no filled background and no accent-coloured border anywhere in
+   the chat region (05-UI-SPEC.md §Color, §Regression Invariant). The
+   Coaching in effect list (05-UI-SPEC.md §2) needs no CSS block of its own
+   here — it reuses .ai-assist-memory* verbatim, exactly as the spec
+   permits. */
+
+.ai-assist-pause-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding-bottom: var(--spacing-sm);
+}
+
+/* The pause notice is a WAITING state, the same bucket the existing
+   state-waiting rule above already uses; the resume notice is the owner's
+   own action, the same neutral bucket state-goal and state-disengaged above
+   already use (D-15, 05-UI-SPEC.md §Color rules 4/5). Outcome strings
+   confirmed against 05-01-SUMMARY.md's wire contract: "paused" and
+   "resumed". */
+.ai-system-line.state-paused { color: var(--color-warning); }
+.ai-system-line.state-resumed { color: #888; }
+
+.ai-assist-chat {
+  flex-shrink: 0;
+  height: 240px;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.ai-assist-chat-log {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-sm) var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.ai-assist-chat-empty {
+  padding: var(--spacing-lg);
+  text-align: center;
+  color: var(--color-text-dim);
+  font-style: italic;
+}
+
+.ai-assist-chat-line {
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+.ai-assist-chat-line.speaker-owner { color: var(--color-human-command); }
+.ai-assist-chat-line.speaker-chatter { color: var(--color-text-dim); }
+.ai-assist-chat-line.speaker-system.state-cap,
+.ai-assist-chat-line.speaker-system.state-failed { color: var(--color-error); }
+
+.ai-assist-chat-input-row {
+  flex-shrink: 0;
+  display: flex;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-top: 1px solid var(--color-border);
+}
+.ai-assist-chat-input-row .form-input { flex: 1; }
+
+/* §7 — plan 05-08's pop-out header row and docked placeholder; landed here
+   so this phase's whole stylesheet change lands in one reviewable diff. */
+.ai-assist-chat-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-top: 1px solid var(--color-border);
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+}
+
+.ai-assist-popout-placeholder {
+  padding: var(--spacing-md);
+  color: var(--color-text-dim);
+  font-style: italic;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+/* §6 — plan 05-09's Logs page conversation section; landed here for the
+   same one-diff reason as §7 above. */
+.logs-conversation {
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-border);
+}
+.logs-conversation h3 {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  margin-bottom: var(--spacing-sm);
+}
+.logs-conversation-line { font-size: var(--font-size-sm); line-height: 1.5; margin-bottom: var(--spacing-xs); }
+.logs-conversation-line.human { color: var(--color-human-command); }
+.logs-conversation-line.chatter { color: var(--color-text-dim); }
+.logs-conversation-empty {
+  color: var(--color-text-dim);
+  font-style: italic;
+  padding: var(--spacing-md) 0;
+}
+
 /* 03-10: minimized AI Assist tab — mirrors .autopilot-badge's dot+pill pattern */
 .ai-assist-tab {
   position: fixed;

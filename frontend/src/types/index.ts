@@ -49,7 +49,9 @@ export interface DisconnectResponse {
 // WebSocket message types
 // 02-04-02: 'autopilot' added — best-effort live push of state changes (D-10)
 // 03-10: 'ai' added — the AI decision/system-notice push (plan 03-09, D-08)
-export type WSMessageType = 'connect' | 'disconnect' | 'data' | 'error' | 'status' | 'autopilot' | 'ai';
+// 05-07: 'chat' added — inbound owner text and outbound conversation-line
+// pushes (plan 05-05's MsgTypeChat, internal/session/websocket.go)
+export type WSMessageType = 'connect' | 'disconnect' | 'data' | 'error' | 'status' | 'autopilot' | 'ai' | 'chat';
 
 export interface WSMessage {
   type: WSMessageType;
@@ -64,6 +66,32 @@ export interface WSMessage {
   // 03-10: inbound-only, present on MsgTypeAI messages (plan 03-09's AIDecisionPayload,
   // matched field for field with internal/session/websocket.go)
   decision?: AIDecisionPayload;
+  // 05-07: outbound-only, present on MsgTypeChat pushes (ChatPayload,
+  // internal/session/websocket.go) — an inbound chat message travels in
+  // `data` instead, mirroring MsgTypeData's own convention.
+  chat?: ChatLine;
+  // 05-07: present only on a MsgTypeAutopilot push (Phase 5, D-15) — the two
+  // independent waiting reasons, mirroring AutopilotResponse's fields
+  // (internal/session/handler.go). Omitted (undefined) when false, per the
+  // server's own `omitempty` tag.
+  paused_by_owner?: boolean;
+  connection_lost?: boolean;
+}
+
+// 05-07: one line of the owner/AI-chatter conversation, matching
+// internal/session/websocket.go's ChatPayload field for field on the wire,
+// and reconstructed from GET .../ai-conversation on reload (the numeric
+// ConversationLineResponse.id is converted to string so both sources share
+// one shape). State is set only on a system line ("cap" or "failed"),
+// matching 05-UI-SPEC.md's .ai-assist-chat-line.speaker-system.state-*
+// classes; undefined on every other line, and undefined on a line rebuilt
+// from a reload (the reload does not carry a live line's transient state).
+export interface ChatLine {
+  id: string;
+  speaker: 'owner' | 'chatter' | 'system';
+  text: string;
+  state?: 'cap' | 'failed';
+  timestamp: string;
 }
 
 // 03-10: the websocket payload of an "ai" message (plan 03-09, D-08). Kind is
@@ -337,6 +365,30 @@ export interface GoalResponse {
 // field for field. Read-only — there is no PUT counterpart this phase.
 export interface SessionMemoryResponse {
   session_memory: string[];
+}
+
+// CoachingResponse is the GET response for the ai-coaching sub-resource
+// (D-09, plan 05-06), matching internal/profiles/handler.go's
+// CoachingResponse field for field. Read-only — there is no PUT counterpart;
+// the coaching list is AI-chatter's own working list (D-10, D-18).
+export interface CoachingResponse {
+  coaching: string[];
+}
+
+// ConversationLineResponse/ConversationResponse are the GET response for the
+// ai-conversation sub-resource (D-09, plan 05-06), matching
+// internal/profiles/handler.go's types field for field. Read-only — the
+// panel's message box writes through the websocket chat channel
+// (MsgTypeChat) instead, never this endpoint (D-18).
+export interface ConversationLineResponse {
+  id: number;
+  speaker: string;
+  text: string;
+  timestamp: string;
+}
+
+export interface ConversationResponse {
+  lines: ConversationLineResponse[];
 }
 
 // DeleteCapturedTextResponse is the response for the owner's immediate
