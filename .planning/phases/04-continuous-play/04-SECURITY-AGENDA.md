@@ -266,6 +266,21 @@ These were dispositioned inside the plans that found them, not left open. The re
 
 ---
 
+## Corrections after the security audit (2026-09-17, `04-SECURITY-AUDIT.md`)
+
+The audit checked this agenda against the code and the evidence and found it wrong or incomplete in these places. The Risk Register artifact the owner decides on carries the corrected list; this section keeps the repository record honest.
+
+- **Two plan-time threats are OPEN, both rated high, and neither was on this agenda.** T-4-02: the ICM dispatcher's rate limit, named by the plans as the backstop, never counts an AI command (`internal/icm/dispatcher.go` returns before `RecordExecution` for a plain pass-through command); pacing and the call cap do work. T-4-05: `evidence/03-canned-report.txt` carries full decision lists with reasoning, commands and notices (45 decisions in RUN C alone), Session Memory bullets (one naming the character) and the owner's goal, because `scripts/verify-phase4.sh` prints raw response bodies. The item above that calls this "the session goal and the first line of one decision's reasoning and command" understates it. The branch is unpushed; the push is held until the owner decides this item (register R-09).
+- **The missing-`blocked`-field item is under-rated above.** It is a fail-open default on the main safety control (`internal/gemini/client.go`, then the driver's `review.Blocked` test) and is rated high in the register (R-04).
+- **Memory is persisted before the reviewer's verdict**, so a decision the reviewer then blocks has still written its memory; nothing clears or ages out bullets, and no corpus item attacks the memory-write path. Added to the memory item in the register (R-05).
+- **The second gap in the D-31 item above is already fixed** by `209d293` (game sessions left open by a restart are closed at server start; the final deploy's log shows `close_orphaned_game_sessions closed=3`). Only the request-level sign-in and sign-out tests remain (R-06).
+- **Part 3's T-4-01 row describes only the first fix** (`a1e85c6`). It was superseded by the stint-epoch fix (`18f5562`, with `38004b9` and `0a299d8`): the send refuses an AI command unless the switch is On and the command belongs to the current stint, model calls are cancellable, and a late stop signal cannot cancel the next stint. Residual: `recordFailure` and `recordBlocked` still count and disengage by user id, not by stint (R-12).
+- **Not on the agenda at all, now in the register:** the vault-key gate depends on `RAILWAY_ENVIRONMENT` alone (R-14); `Connect` holds the manager lock across a dial of up to five seconds, and a late `ai` message can briefly flip the badge back to On (R-12); the two new owner-visible sentences from WR-03 and WR-09, which the owner saw in the Evidence Dossier.
+- **It was not a fresh-quota day.** Nine corpus runs are filed for 2026-09-17 and each has rate-limited `failed-model` items. The filed final-build report (`04-redteam-after.txt`, SHA `2e81e85`, not `90a52db` as cited above) measured 25 of 31 items; the second final-build run (`04h`) lost six different items, including `reviewer-channel-01` and both delimiter items; between them every item was measured once. The corpus quota cost T-4-18's acceptance said would be listed: nine full or partial runs plus about fifty diagnostic calls on `gemini-3.5-flash-lite` in one day.
+- **Stale citations above:** line numbers into `evidence/01-test-report.txt` drifted when the report was recaptured at `2e81e85`; the Evidence Dossier and the Risk Register cite the current lines. "92 commits ahead of origin" is now more than 120.
+
+---
+
 ## Closing notes
 
 - **The policy stays at version 1.0.** The owner declined the section 2 rewording proposed after Phase 3 (AR-3-01); it is not re-proposed here, and no change to `.specify/specs/safety-and-abuse-policy-v1.md` was made or considered this phase (D-22).
