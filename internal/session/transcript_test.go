@@ -172,6 +172,12 @@ func TestTranscriptOpensOnConnectAndClosesOnDisconnect(t *testing.T) {
 // owner typed #AUTO OFF was sent one second after the switch went off. An
 // "ai" command must reach the socket only while autopilot is On; a human
 // command is never affected.
+//
+// Code review WR-01 of Phase 4: the check and the write no longer share a
+// lock (the manager lock is never held across a socket write), so what this
+// pins is the rule, not strict atomicity: a send that STARTS after the
+// switch left On is refused, every time. TestSendCommand_BlockedPeer below
+// pins the other half: a stalled socket can no longer hold up a wheel-grab.
 func TestSendCommandAs_AIRefusedUnlessAutopilotOn(t *testing.T) {
 	m := newTestManager()
 	userID := uuid.New().String()
@@ -249,6 +255,120 @@ func TestSendCommandAs_AIRefusedUnlessAutopilotOn(t *testing.T) {
 	}
 	if !strings.Contains(got, "look\r\n") {
 		t.Fatalf("expected the human command on the wire, got %q", got)
+	}
+}
+
+// TestSendCommand_BlockedPeer proves code review WR-01 of Phase 4: a game
+// that has stopped reading (a net.Pipe nobody reads blocks a write for ever)
+// fails the send within the write deadline instead of blocking it, and --
+// the part that mattered on the owner's side -- the blocked write does not
+// hold the manager lock, so a wheel-grab goes through while it is stuck.
+func TestSendCommand_BlockedPeer(t *testing.T) {
+	for _, source := range []string{"ai", "human"} {
+		t.Run(source, func(t *testing.T) {
+			m := newTestManager()
+			m.writeTimeout = 750 * time.Millisecond
+			userID := uuid.New().String()
+			connID := uuid.New().String()
+			seedConnectedSession(m, userID, connID)
+
+			client, server := net.Pipe() // nobody ever reads server
+			defer client.Close()
+			defer server.Close()
+			m.mu.Lock()
+			m.conns[userID] = client
+			m.mu.Unlock()
+
+			_, _, epoch, err := m.EngageAutopilotEpoch(userID, connID)
+			if err != nil {
+				t.Fatalf("engage: %v", err)
+			}
+
+			start := time.Now()
+			sendErr := make(chan error, 1)
+			go func() {
+				if source == "ai" {
+					sendErr <- m.SendAICommand(userID, "north", epoch)
+				} else {
+					sendErr <- m.SendCommand(userID, "north")
+				}
+			}()
+
+			// Let the write get stuck, then take the wheel.
+			time.Sleep(50 * time.Millisecond)
+			disengaged := make(chan struct{})
+			go func() {
+				m.DisengageAutopilot(userID, "wheel-grab")
+				close(disengaged)
+			}()
+			select {
+			case <-disengaged:
+			case <-time.After(300 * time.Millisecond):
+				t.Fatalf("DisengageAutopilot blocked behind a stalled socket write")
+			}
+			if got := m.AutopilotStateFor(userID); got != AutopilotOff {
+				t.Fatalf("AutopilotStateFor = %q, want %q", got, AutopilotOff)
+			}
+
+			select {
+			case err := <-sendErr:
+				if err == nil {
+					t.Fatalf("expected the stalled send to fail at its write deadline, got nil")
+				}
+				if errors.Is(err, ErrAutopilotNotOn) {
+					t.Fatalf("expected a write failure, not a switch refusal, got %v", err)
+				}
+			case <-time.After(3 * time.Second):
+				t.Fatalf("the send was still blocked %v after a %v write deadline", time.Since(start), m.writeTimeout)
+			}
+		})
+	}
+}
+
+// TestSendCommand_FailedWriteOnAReplacedSocketLeavesTheNewSessionAlone is
+// the second half of code review WR-01 of Phase 4: the socket a send picked
+// up dies, and by the time the write fails the user has reconnected. The
+// failure must not disconnect the NEW session.
+func TestSendCommand_FailedWriteOnAReplacedSocketLeavesTheNewSessionAlone(t *testing.T) {
+	m := newTestManager()
+	m.writeTimeout = 300 * time.Millisecond
+	userID := uuid.New().String()
+	connID := uuid.New().String()
+	seedConnectedSession(m, userID, connID)
+
+	oldClient, oldServer := net.Pipe() // nobody reads: the write will time out
+	defer oldClient.Close()
+	defer oldServer.Close()
+	m.mu.Lock()
+	m.conns[userID] = oldClient
+	m.mu.Unlock()
+
+	sendErr := make(chan error, 1)
+	go func() { sendErr <- m.SendCommand(userID, "look") }()
+	time.Sleep(50 * time.Millisecond) // the write is now stuck on the old socket
+
+	// The user reconnects: a new socket replaces the old one.
+	newClient := seedConn(m, userID)
+	defer newClient.Close()
+
+	select {
+	case err := <-sendErr:
+		if err == nil {
+			t.Fatalf("expected the send on the dead socket to fail")
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatalf("the send never returned")
+	}
+
+	m.mu.RLock()
+	cur, stillConnected := m.conns[userID]
+	_, haveSession := m.sessions[userID]
+	m.mu.RUnlock()
+	if !stillConnected || cur != newClient || !haveSession {
+		t.Fatalf("a failed write on the replaced socket disconnected the new session")
+	}
+	if err := m.SendCommand(userID, "north"); err != nil {
+		t.Fatalf("SendCommand on the new session: %v", err)
 	}
 }
 

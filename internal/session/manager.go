@@ -59,6 +59,12 @@ type Manager struct {
 	idleTimeoutMinutes    int
 	hardCapHours          int
 
+	// writeTimeout bounds every command write to the game socket (code
+	// review WR-01 of Phase 4), so a peer that has stopped reading fails the
+	// send instead of blocking it for ever. Set once by NewManager; tests
+	// shorten it before any send.
+	writeTimeout time.Duration
+
 	mu        sync.RWMutex
 	sessions  map[string]*Session // userID -> session
 	conns     map[string]net.Conn
@@ -153,6 +159,10 @@ func (m *Manager) SetDisengageHook(h DisengageHook) {
 	m.disengageHook = h
 }
 
+// defaultWriteTimeout is how long a command write to the game socket may
+// take before it fails (code review WR-01 of Phase 4).
+const defaultWriteTimeout = 5 * time.Second
+
 // NewManager creates a new session manager
 func NewManager(portWhitelist string, portDenylist string, portAllowlistOverride string, idleTimeoutMinutes, hardCapHours int) *Manager {
 	// Parse port whitelist
@@ -211,6 +221,7 @@ func NewManager(portWhitelist string, portDenylist string, portAllowlistOverride
 		portAllowlistOverride: allowlistOverride,
 		idleTimeoutMinutes:    idleTimeoutMinutes,
 		hardCapHours:          hardCapHours,
+		writeTimeout:          defaultWriteTimeout,
 		sessions:              make(map[string]*Session),
 		conns:                 make(map[string]net.Conn),
 		cleanups:              make(map[string]context.CancelFunc),
@@ -414,8 +425,21 @@ func (m *Manager) ResetIdleTimerOnOutbound(userID string) {
 
 // Disconnect terminates a user's MUD connection
 func (m *Manager) Disconnect(userID, reason string) error {
+	return m.disconnect(userID, reason, nil)
+}
+
+// disconnect is Disconnect's body. When only is non-nil the disconnect
+// happens only if only is still userID's current socket, decided under the
+// same lock that does the teardown (code review WR-01 of Phase 4): a send
+// that failed on a socket the user has since replaced by reconnecting must
+// not tear down the new session.
+func (m *Manager) disconnect(userID, reason string, only net.Conn) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	if only != nil && m.conns[userID] != only {
+		return nil
+	}
 
 	session, ok := m.sessions[userID]
 	if !ok {
@@ -960,12 +984,11 @@ func (m *Manager) SendCommand(userID, command string) error {
 // after the write to the socket succeeds, so a failed send is never
 // recorded as sent.
 //
-// An "ai" command is written only while autopilot is On, and the check and
-// the write happen under one read lock: DisengageAutopilot takes the write
-// lock, so a decision that was already in flight when the owner took the
-// wheel (or typed #AUTO OFF) can never reach the game after the switch has
-// gone off. It returns ErrAutopilotNotOn instead. The staging walkthrough
-// of 2026-09-17 found exactly that: a command sent one second after off.
+// An "ai" command is written only while autopilot is On: a decision that was
+// already in flight when the owner took the wheel (or typed #AUTO OFF) is
+// refused with ErrAutopilotNotOn instead of being sent. The staging
+// walkthrough of 2026-09-17 found exactly that: a command sent one second
+// after off. See sendCommand for what "while" means precisely.
 func (m *Manager) SendCommandAs(userID, command, source string) error {
 	return m.sendCommand(userID, command, source, false, 0)
 }
@@ -986,13 +1009,41 @@ func (m *Manager) SendAICommand(userID, command string, epoch uint64) error {
 
 // sendCommand is the one body behind SendCommandAs and SendAICommand.
 // checkEpoch is true only for SendAICommand.
+//
+// Locking (code review WR-01 of Phase 4). The connection AND the autopilot
+// record are read under ONE read lock, so the socket that is written to and
+// the switch that allowed the write are the same moment's pair -- and then
+// the lock is RELEASED before the write. m.mu is never held across
+// conn.Write: the write used to run under the read lock with no deadline, so
+// a game that stopped reading blocked it for ever, DisengageAutopilot (which
+// needs the write lock) blocked behind it -- the owner's wheel-grab and
+// #AUTO OFF, and with them the owner's own typed command -- and, because a
+// queued writer makes new readers wait, so did every other user's session.
+// The write is now bounded by writeTimeout for human and AI sends alike.
+//
+// What this gives up is strict atomicity between the switch check and the
+// write. The remaining window is the few nanoseconds between releasing the
+// lock and the write system call; a switch that flips inside it means the AI
+// command was issued just BEFORE the wheel-grab took effect, not after it.
+// The case the rule exists for -- a decision that comes back from a model
+// call seconds after the switch went off, or after it went off and on again
+// (SendAICommand's epoch) -- is still refused, every time.
+//
+// A write that fails disconnects only the session it belonged to: if the
+// user has reconnected in the meantime, m.conns holds a different socket and
+// the new session is left alone.
 func (m *Manager) sendCommand(userID, command, source string, checkEpoch bool, epoch uint64) error {
 	m.mu.RLock()
 	conn, ok := m.conns[userID]
+	rec, recOK := m.autopilot[userID]
+	aiAllowed := recOK && rec.State == AutopilotOn && (!checkEpoch || rec.Epoch == epoch)
 	m.mu.RUnlock()
 
 	if !ok {
 		return fmt.Errorf("no active connection")
+	}
+	if source == "ai" && !aiAllowed {
+		return ErrAutopilotNotOn
 	}
 
 	// Reset idle timer
@@ -1002,22 +1053,12 @@ func (m *Manager) sendCommand(userID, command, source string, checkEpoch bool, e
 	// Frontend may already include \n, and we add \r\n, so we need to prevent \n\r\n
 	command = strings.TrimRight(command, "\n")
 
-	// Send command with CRLF (standard for MUD servers)
-	var err error
-	if source == "ai" {
-		m.mu.RLock()
-		rec, recOK := m.autopilot[userID]
-		if !recOK || rec.State != AutopilotOn || (checkEpoch && rec.Epoch != epoch) {
-			m.mu.RUnlock()
-			return ErrAutopilotNotOn
-		}
-		_, err = conn.Write([]byte(command + "\r\n"))
-		m.mu.RUnlock()
-	} else {
-		_, err = conn.Write([]byte(command + "\r\n"))
-	}
+	// Send command with CRLF (standard for MUD servers). No lock is held.
+	_ = conn.SetWriteDeadline(time.Now().Add(m.writeTimeout))
+	_, err := conn.Write([]byte(command + "\r\n"))
+	_ = conn.SetWriteDeadline(time.Time{})
 	if err != nil {
-		m.Disconnect(userID, ReasonError)
+		m.disconnect(userID, ReasonError, conn)
 		return fmt.Errorf("failed to send command: %v", err)
 	}
 

@@ -736,8 +736,10 @@ func (d *Driver) decide(userID, connectionID string, first bool, epoch uint64) {
 
 	d.logDecision(userID, connectionID, "", "dispatch", entry.ModelName, "", "", len(window), len(cmd))
 
-	// Third stint check, the one that cannot be raced: the manager compares
-	// the switch's state and epoch and writes under one lock.
+	// Third stint check: the manager reads the socket, the switch's state and
+	// its epoch under one lock and writes immediately after releasing it
+	// (it never holds its lock across a socket write), so what is left
+	// between check and write is nanoseconds, not a model call.
 	if err := d.sessions.SendAICommand(userID, cmd, epoch); err != nil {
 		if errors.Is(err, session.ErrAutopilotNotOn) {
 			stage := d.staleStage(userID, epoch)
