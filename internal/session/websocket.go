@@ -31,6 +31,13 @@ const (
 	// cramming several variable-length text fields into Data/Status, which
 	// an autopilot transition's two short values do not need.
 	MsgTypeAI = "ai"
+	// MsgTypeChat carries owner-to-AI-chatter text inbound (Data holds the
+	// owner's raw message, matching MsgTypeData's own use of Data for free
+	// text) and AI-chatter, owner-echo and system lines outbound (via the
+	// Chat payload, PushChat). It is never game input: the read loop never
+	// treats it as a wheel-grab and never requires a live game connection
+	// (plan 05-05, D-06, D-16).
+	MsgTypeChat = "chat"
 )
 
 // WebSocket message structure
@@ -51,6 +58,11 @@ type WSMessage struct {
 	// Decision carries an AI decision or system notice (MsgTypeAI only,
 	// plan 03-09, D-08); nil on every other message type.
 	Decision *AIDecisionPayload `json:"decision,omitempty"`
+	// Chat carries one conversation line, meaningful on MsgTypeChat only
+	// (plan 05-05, D-01): populated on every outbound push (PushChat); nil
+	// on an inbound message, whose text travels in Data instead, mirroring
+	// MsgTypeData's own convention.
+	Chat *ChatPayload `json:"chat,omitempty"`
 	// PausedByOwner and ConnectionLost are meaningful only on a
 	// MsgTypeAutopilot push (Phase 5, D-15): the same two independent
 	// waiting reasons AutopilotResponse carries over REST, read through
@@ -126,6 +138,21 @@ func (p AIDecisionPayload) WithStint(state string, calls, callCap int, callCapSe
 	p.Threshold = &threshold
 	p.SessionMemory = &sessionMemory
 	return p
+}
+
+// ChatPayload is one line of the owner/AI-chatter conversation, carried on
+// an outbound MsgTypeChat push (plan 05-05, D-01). Speaker is "owner"
+// (echoing the owner's own message back so every open tab shows it),
+// "chatter" (AI-chatter's reply) or "system" (a locked notice). State is
+// set only on a system line ("cap" or "failed", matching 05-UI-SPEC.md's
+// .ai-assist-chat-line.speaker-system.state-* classes) and is empty
+// otherwise. Never logged in full, exactly like AIDecisionPayload above.
+type ChatPayload struct {
+	ID        string `json:"id"`
+	Speaker   string `json:"speaker"`
+	Text      string `json:"text"`
+	State     string `json:"state,omitempty"`
+	Timestamp string `json:"timestamp"`
 }
 
 // IsHumanSource is the wheel-grab's classification rule. Absent or
@@ -287,6 +314,24 @@ func (h *WebSocketHandler) PushAI(userID string, payload AIDecisionPayload) erro
 
 	if err := h.writeJSON(conn, WSMessage{Type: MsgTypeAI, Decision: &payload}); err != nil {
 		log.Printf("[AI-PLAYER] ai-push user_id=%s outcome=failed error_class=%T", userID, err)
+		return err
+	}
+	return nil
+}
+
+// PushChat sends one conversation line to userID's open play screen (plan
+// 05-05, D-01), mirroring PushAI line for line: a user with no open screen
+// is a silent no-op, and the payload is never logged.
+func (h *WebSocketHandler) PushChat(userID string, payload ChatPayload) error {
+	h.clientsMu.RLock()
+	conn, ok := h.clients[userID]
+	h.clientsMu.RUnlock()
+	if !ok {
+		return nil
+	}
+
+	if err := h.writeJSON(conn, WSMessage{Type: MsgTypeChat, Chat: &payload}); err != nil {
+		log.Printf("[AI-CHATTER] chat-push user_id=%s outcome=failed error_class=%T", userID, err)
 		return err
 	}
 	return nil
@@ -590,6 +635,35 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 			default:
 				h.sendError(conn, "Command queue full")
 			}
+
+		case MsgTypeChat:
+			// A chat message is never a game command (D-16): it deliberately
+			// does NOT call applyWheelGrab, does NOT require `connected`
+			// (D-06: the message box works in every autopilot state,
+			// including disconnected) and never writes to clientToMUD. The
+			// same per-user ingress limiter MsgTypeData applies is applied
+			// here too, so the chat box cannot be used to flood the server.
+			rl := h.getRateLimiter(userIDStr)
+			if !rl.Allow() {
+				log.Printf("[SP02PH02T04] Rate limit exceeded for user %s", userIDStr)
+				h.sendError(conn, "Rate limit exceeded")
+				continue
+			}
+
+			if len(wsMsg.Data) > h.config.MaxMessageSizeBytes {
+				log.Printf("[SP02PH02T03] Message too large: %d bytes", len(wsMsg.Data))
+				h.sendError(conn, "Message too large")
+				continue
+			}
+
+			connectionID := wsMsg.ConnectionID
+			if connectionID == "" {
+				if sess, sessErr := h.manager.GetSession(userIDStr); sessErr == nil {
+					connectionID = sess.ConnectionID
+				}
+			}
+
+			go h.manager.FireChatHook(userIDStr, connectionID, wsMsg.Data)
 
 		default:
 			log.Printf("[SP02PH02] Unknown message type: %s", wsMsg.Type)

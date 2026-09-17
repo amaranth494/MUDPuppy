@@ -284,6 +284,11 @@ func main() {
 	// plan 04-06). It is constructed beside decisionStore because both are
 	// per-connection AI Player audit/memory stores sharing the same *sql.DB.
 	questStore := store.NewQuestStore(db)
+	// conversationStore backs AI-chatter's own conversation (plan 05-05,
+	// D-01), constructed beside decisionStore/questStore for the same
+	// reason: another per-connection AI Player store sharing the same
+	// *sql.DB.
+	conversationStore := store.NewConversationStore(db)
 	// 120s: current Gemini flash models take well over the 30s default to return a
 	// structured answer (seen on staging 2026-09-16: transport timeout at exactly 30s).
 	geminiClient := gemini.NewClient(120 * time.Second)
@@ -291,12 +296,21 @@ func main() {
 	sessionManager.SetEngageHook(aiDriver.EngageLoop)
 	sessionHandler.SetEngageHook(aiDriver.EngageLoop)
 	sessionManager.SetDisengageHook(aiDriver.StopLoop)
+	// AI-chatter's own entry point (plan 05-05): fired directly by the
+	// websocket read loop's MsgTypeChat case, one hook, the exact one-line
+	// convention the two hooks above already use -- it has no autopilot
+	// state transition to fire from, unlike EngageHook/DisengageHook.
+	sessionManager.SetChatHook(aiDriver.HandleChat)
 	// Wire the real Quest and Session Memory stores (D-10, D-11, plan
 	// 04-08) so the driver's prompt-context reads (plan 04-07) and its own
 	// curation writes (this plan) land against the same questStore and
 	// transcriptStore every other AI Player surface already uses.
 	aiDriver.SetQuests(questStore)
 	aiDriver.SetMemory(transcriptStore)
+	// Wire the real conversation store (plan 05-05) so HandleChat stores
+	// and recalls against the same conversationStore the Logs page will
+	// read from.
+	aiDriver.SetConversation(conversationStore)
 
 	// Wire the same decisionStore instance to the decisions-read endpoint
 	// (plan 03-09) so a reloaded play screen reads back exactly what the
@@ -330,10 +344,7 @@ func main() {
 	// Notifier is now two methods (plan 05-05 adds NotifyChat beside
 	// NotifyDecision); NotifierFunc and ChatNotifierFunc each satisfy one
 	// half, and embedding both in one anonymous struct promotes both
-	// methods, satisfying the full interface with one concrete value. The
-	// chat half is wired for real in plan 05-05-03, once MsgTypeChat and
-	// PushChat exist on wsHandler; until then it is a documented no-op so
-	// the build stays green.
+	// methods, satisfying the full interface with one concrete value.
 	aiDriver.SetNotifier(struct {
 		aidriver.NotifierFunc
 		aidriver.ChatNotifierFunc
@@ -352,9 +363,19 @@ func main() {
 				Timestamp: ev.Timestamp,
 			}.WithStint(ev.State, ev.Calls, ev.CallCap, ev.CallCapSet, ev.Failures, ev.Blocks, ev.Threshold, ev.SessionMemory))
 		}),
+		// ChatNotifierFunc (plan 05-05-03): translates driver.ChatEvent to
+		// session.ChatPayload field by field and pushes it through the same
+		// wsHandler the decision/system stream above uses, over the
+		// distinct MsgTypeChat channel (D-04: never mixed into the thinking
+		// stream).
 		ChatNotifierFunc: aidriver.ChatNotifierFunc(func(userID string, ev aidriver.ChatEvent) {
-			// Wired for real in plan 05-05-03 (MsgTypeChat/PushChat land in
-			// internal/session/websocket.go in that task).
+			_ = wsHandler.PushChat(userID, session.ChatPayload{
+				ID:        ev.ID,
+				Speaker:   ev.Speaker,
+				Text:      ev.Text,
+				State:     ev.State,
+				Timestamp: ev.Timestamp,
+			})
 		}),
 	})
 
