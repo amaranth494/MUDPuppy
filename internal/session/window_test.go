@@ -4,7 +4,20 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
+
+// windowTestClock is an injectable clock a test can drive directly,
+// standing in for windowMaxAge/windowMinRetainedBytes's ringBuffer.now
+// field so age-bound tests never sleep (04-RESEARCH Don't Hand-Roll: no
+// fake-clock library is added).
+type windowTestClock struct {
+	t time.Time
+}
+
+func (c *windowTestClock) now() time.Time { return c.t }
+
+func (c *windowTestClock) advance(d time.Duration) { c.t = c.t.Add(d) }
 
 // TestWindowSnapshot exercises stripANSI and ringBuffer.snapshot in the
 // table-driven t.Run style of internal/icm/icm_test.go.
@@ -153,6 +166,113 @@ func TestWindowIncludesPreEngageText(t *testing.T) {
 			t.Fatalf("chunk %q is out of order in snapshot %q", c, got)
 		}
 		lastEnd = idx
+	}
+}
+
+// TestWindow_AgeBounded proves D-09's age bound: snapshotRecent returns
+// text that arrived within windowMaxAge of the ring's current time and
+// excludes text from a minute earlier, even though the ring itself still
+// holds both (proven separately via the plain snapshot()). chunk-new is
+// padded past windowMinRetainedBytes so the never-empty floor (proven
+// separately by TestWindow_NeverEmptyAfterQuiet) cannot mask the age
+// exclusion by pulling chunk-old back in to meet the floor.
+func TestWindow_AgeBounded(t *testing.T) {
+	r := newRingBuffer()
+	clock := &windowTestClock{t: time.Now()}
+	r.now = clock.now
+
+	r.append([]byte("chunk-old: a minute ago\n"))
+	clock.advance(40 * time.Second)
+	r.append([]byte("chunk-mid: forty seconds later\n"))
+	clock.advance(15 * time.Second)
+	padding := strings.Repeat("x", windowMinRetainedBytes)
+	r.append([]byte("chunk-new: fifteen seconds after that\n" + padding))
+	// Read a fourth time, a few seconds after the newest chunk landed —
+	// well inside windowMaxAge of chunk-new, well outside it for chunk-old.
+	clock.advance(3 * time.Second)
+
+	got := r.snapshotRecent(windowMaxAge, windowMinRetainedBytes)
+	if !strings.Contains(got, "chunk-new") {
+		t.Fatalf("snapshotRecent missing the within-age chunk: got %q", got)
+	}
+	if strings.Contains(got, "chunk-old") {
+		t.Fatalf("snapshotRecent still contains a minute-old chunk: got %q", got)
+	}
+
+	// The ring itself — the plain, non-age-aware snapshot — still holds
+	// both the old and the new chunk; only the age-aware read trims them.
+	full := r.snapshot()
+	if !strings.Contains(full, "chunk-old") || !strings.Contains(full, "chunk-new") {
+		t.Fatalf("ring's own snapshot() should still hold both chunks: got %q", full)
+	}
+}
+
+// TestWindow_NeverEmptyAfterQuiet proves D-09's never-empty floor: after a
+// quiet spell far longer than windowMaxAge, snapshotRecent still returns
+// the most recent bytes rather than an empty string.
+func TestWindow_NeverEmptyAfterQuiet(t *testing.T) {
+	r := newRingBuffer()
+	clock := &windowTestClock{t: time.Now()}
+	r.now = clock.now
+
+	r.append([]byte("You are standing in the town square.\n"))
+	clock.advance(5 * time.Minute) // far past windowMaxAge; nothing else arrives
+
+	got := r.snapshotRecent(windowMaxAge, windowMinRetainedBytes)
+	if got == "" {
+		t.Fatalf("snapshotRecent = empty string after a quiet spell, want the most recent screenful")
+	}
+	if !strings.Contains(got, "town square") {
+		t.Fatalf("snapshotRecent = %q, want it to still contain the pre-quiet text", got)
+	}
+}
+
+// TestWindow_CeilingStillHolds proves T-4-24: the byte ceiling
+// (RecentOutputWindowBytes) still wins over the age bound when a flood of
+// game text all arrives within windowMaxAge.
+func TestWindow_CeilingStillHolds(t *testing.T) {
+	r := newRingBuffer()
+	clock := &windowTestClock{t: time.Now()}
+	r.now = clock.now
+
+	total := RecentOutputWindowBytes + 4096
+	written := 0
+	chunkSize := 256
+	for written < total {
+		n := chunkSize
+		if written+n > total {
+			n = total - written
+		}
+		chunk := make([]byte, n)
+		for i := range chunk {
+			chunk[i] = byte('a' + (written+i)%26)
+		}
+		r.append(chunk)
+		written += n
+		// All chunks land well within windowMaxAge of each other and of
+		// the eventual read.
+		clock.advance(100 * time.Millisecond)
+	}
+
+	got := r.snapshotRecent(windowMaxAge, windowMinRetainedBytes)
+	if len(got) > RecentOutputWindowBytes {
+		t.Fatalf("snapshotRecent length = %d, want at most %d (the byte ceiling must still win when both bounds apply)", len(got), RecentOutputWindowBytes)
+	}
+}
+
+// TestWindow_RecentSnapshotStripsANSI proves the age-aware read strips
+// ANSI exactly as the existing snapshot does — both build on the same
+// snapshotBytes routine over a ring that already holds stripped bytes.
+func TestWindow_RecentSnapshotStripsANSI(t *testing.T) {
+	r := newRingBuffer()
+	r.append(stripANSI([]byte("\x1b[32mgreen\x1b[0m plain \x1b[1;33mwords\x1b[0m")))
+
+	got := r.snapshotRecent(windowMaxAge, windowMinRetainedBytes)
+	if strings.Contains(got, "\x1b") {
+		t.Fatalf("snapshotRecent contains an escape byte: %q", got)
+	}
+	if !strings.Contains(got, "green") || !strings.Contains(got, "plain") || !strings.Contains(got, "words") {
+		t.Fatalf("snapshotRecent missing expected words: %q", got)
 	}
 }
 

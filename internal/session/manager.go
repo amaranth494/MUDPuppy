@@ -577,6 +577,14 @@ func (m *Manager) OutputSignal(userID string) <-chan struct{} {
 // recent-output window, oldest-first, or "" when there is none. This is
 // the only method the driver (plan 03-08) calls to get the AI's first
 // look at the game. Same RLock/defer shape as AutopilotStateFor.
+// RecentOutputSnapshot returns userID's Immediate Context reaction window
+// (D-09, .specify/specs/ai-memory-model-v1.md §1): game text from roughly
+// the last windowMaxAge, or the most recent windowMinRetainedBytes when a
+// quiet spell would otherwise leave the AI with nothing — never the whole
+// 8 KB ring regardless of age. The driver's per-iteration decision reads
+// through this single call site, so every decision from now on is made
+// against what just happened, and a decision taken after a long-quiet
+// game still sees the most recent screenful rather than an empty window.
 func (m *Manager) RecentOutputSnapshot(userID string) string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -585,7 +593,7 @@ func (m *Manager) RecentOutputSnapshot(userID string) string {
 	if !ok {
 		return ""
 	}
-	return ring.snapshot()
+	return ring.snapshotRecent(windowMaxAge, windowMinRetainedBytes)
 }
 
 // SetTranscriptSink wires the store-backed side of the session transcript
