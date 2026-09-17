@@ -56,7 +56,8 @@ type WSMessage struct {
 // AIDecisionPayload is the payload of an outbound MsgTypeAI message
 // (D-08). Kind is "decision" (Reasoning and Command are set, Outcome is
 // "sent") or "system" (Message carries a locked failure/refusal notice,
-// Outcome is "refused" or "failed"). Never logged in full (T-3-07).
+// Outcome is one of "refused", "failed", "cap", "blocked-repeatedly",
+// "transient" or "retrying" as of Phase 4). Never logged in full (T-3-07).
 type AIDecisionPayload struct {
 	ID        string `json:"id"`
 	Kind      string `json:"kind"`
@@ -65,6 +66,21 @@ type AIDecisionPayload struct {
 	Outcome   string `json:"outcome"`
 	Message   string `json:"message"`
 	Timestamp string `json:"timestamp"`
+
+	// State, Calls, CallCap, CallCapSet, Failures, Blocks and Threshold are
+	// meaningful on any event emitted during a stint (D-18, DR-3-03,
+	// 04-UI-SPEC.md §3): State carries the autopilot switch's position read
+	// after any disengage this message's own event already applied, so the
+	// badge and the panel's status line never lag behind what actually
+	// happened. The other fields are the standing call/failure/block counts
+	// against their resolved cap/threshold.
+	State      string `json:"state,omitempty"`
+	Calls      int    `json:"calls,omitempty"`
+	CallCap    int    `json:"call_cap,omitempty"`
+	CallCapSet bool   `json:"call_cap_set,omitempty"`
+	Failures   int    `json:"failures,omitempty"`
+	Blocks     int    `json:"blocks,omitempty"`
+	Threshold  int    `json:"threshold,omitempty"`
 }
 
 // IsHumanSource is the wheel-grab's classification rule. Absent or

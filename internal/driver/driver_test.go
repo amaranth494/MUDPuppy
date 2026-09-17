@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"net/http"
 	"strings"
 	"sync"
 	"testing"
@@ -1496,6 +1497,211 @@ func TestHandleEngageReviewer(t *testing.T) {
 
 		if got := models.reviewCallCount(); got != 1 {
 			t.Fatalf("expected exactly one reviewer call for one engagement, got %d", got)
+		}
+	})
+}
+
+// TestHandleEngage_RetryOn503 proves D-16/DR-3-04: a 503 followed by a good
+// answer produces one command with exactly one retry notice, counting both
+// the original call and its retry against the cap; two consecutive 503s
+// fall through unchanged to an ordinary transient failure (D-15), and the
+// retry itself still counted against the cap.
+func TestHandleEngage_RetryOn503(t *testing.T) {
+	t.Run("503_then_success_retries_once_and_sends", func(t *testing.T) {
+		sessions := &fakeSessions{window: "a room"}
+		decisions := &fakeDecisionsStore{}
+		notifier := &fakeNotifier{}
+		commands := &fakeCommands{}
+		models := &fakeModels{
+			errs: []error{
+				&gemini.Error{Kind: gemini.KindTransport, Status: http.StatusServiceUnavailable, Message: "unavailable"},
+				nil,
+			},
+			answers: []*gemini.Answer{
+				nil,
+				{Reasoning: "heading out", Command: "look"},
+			},
+			reviewAnswers: []*gemini.ReviewAnswer{
+				{Blocked: false, Reason: "clear"},
+			},
+		}
+		d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, commands, notifier, testConfig())
+		d.retryDelay = time.Millisecond
+
+		userID := uuid.New().String()
+		connID := uuid.New().String()
+
+		d.HandleEngage(userID, connID)
+
+		if got := models.callCount(); got != 2 {
+			t.Fatalf("expected exactly 2 player calls (the 503 and its retry), got %d", got)
+		}
+		if got := len(sessions.sendCalls()); got != 1 {
+			t.Fatalf("expected exactly one sent command, got %d", got)
+		}
+
+		events := notifier.eventsSnapshot()
+		retryEvents := 0
+		for _, ev := range events {
+			if ev.Outcome == "retrying" {
+				retryEvents++
+				if ev.Message != "The model is unavailable, retrying..." {
+					t.Fatalf("expected the locked retrying notice, got %q", ev.Message)
+				}
+			}
+		}
+		if retryEvents != 1 {
+			t.Fatalf("expected exactly one retrying notice, got %d", retryEvents)
+		}
+
+		d.mu.Lock()
+		totalCalls := d.callCounts[userID]
+		d.mu.Unlock()
+		if totalCalls != 3 {
+			t.Fatalf("expected 3 reserved calls (the 503, its retry, and the reviewer), got %d", totalCalls)
+		}
+	})
+
+	t.Run("two_503s_is_an_ordinary_transient_failure", func(t *testing.T) {
+		sessions := &fakeSessions{window: "a room"}
+		decisions := &fakeDecisionsStore{}
+		notifier := &fakeNotifier{}
+		commands := &fakeCommands{}
+		models := &fakeModels{
+			err: &gemini.Error{Kind: gemini.KindTransport, Status: http.StatusServiceUnavailable, Message: "unavailable"},
+		}
+		d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, commands, notifier, testConfig())
+		d.retryDelay = time.Millisecond
+
+		userID := uuid.New().String()
+		connID := uuid.New().String()
+
+		d.HandleEngage(userID, connID)
+
+		if got := len(sessions.sendCalls()); got != 0 {
+			t.Fatalf("expected zero sends, got %d", got)
+		}
+		if got := models.callCount(); got != 2 {
+			t.Fatalf("expected exactly 2 player calls (the original and the one retry), got %d", got)
+		}
+		rows := decisions.rows()
+		if len(rows) != 1 {
+			t.Fatalf("expected exactly one stored decision row, got %d", len(rows))
+		}
+		if rows[0].FailureKind != failureAPIError {
+			t.Fatalf("expected failure kind %q, got %q", failureAPIError, rows[0].FailureKind)
+		}
+		events := notifier.eventsSnapshot()
+		last := events[len(events)-1]
+		if last.Outcome != "transient" {
+			t.Fatalf("expected outcome %q (below the default threshold of 3), got %q", "transient", last.Outcome)
+		}
+		if got := len(sessions.disengages()); got != 0 {
+			t.Fatalf("expected zero disengage calls (one transient failure is below threshold), got %d", got)
+		}
+
+		d.mu.Lock()
+		totalCalls := d.callCounts[userID]
+		d.mu.Unlock()
+		if totalCalls != 2 {
+			t.Fatalf("expected exactly 2 reserved calls (the retry counts against the cap), got %d", totalCalls)
+		}
+	})
+}
+
+// TestAIPayloadCarriesSwitchState proves D-18/DR-3-03: an event carrying a
+// cap halt or a threshold disengage reports State as off, read after the
+// disengage has already been applied, and an ordinary sent decision during
+// a stint reports State as on, with Calls matching the driver's own
+// recorded count.
+func TestAIPayloadCarriesSwitchState(t *testing.T) {
+	t.Run("a_cap_halt_reports_state_off", func(t *testing.T) {
+		sessions := &fakeSessions{window: "a room"}
+		sessions.engageState()
+		decisions := &fakeDecisionsStore{}
+		notifier := &fakeNotifier{}
+		commands := &fakeCommands{}
+		models := &fakeModels{
+			answer:       &gemini.Answer{Reasoning: "heading out", Command: "look"},
+			reviewAnswer: &gemini.ReviewAnswer{Blocked: false, Reason: "clear"},
+		}
+		profile := testProfile()
+		callCap := 1
+		profile.AISettings.CallCap = &callCap
+		d := New(sessions, &fakeProfiles{profile: profile}, decisions, models, commands, notifier, testConfig())
+
+		userID := uuid.New().String()
+		connID := uuid.New().String()
+
+		// A cap of 1 is exceeded by the reviewer call -- the second
+		// reservation of the same iteration -- so this iteration itself
+		// ends in a cap halt with no command sent.
+		d.HandleEngage(userID, connID)
+
+		events := notifier.eventsSnapshot()
+		last := events[len(events)-1]
+		if last.Outcome != "cap" {
+			t.Fatalf("expected outcome %q, got %q", "cap", last.Outcome)
+		}
+		if last.State != "off" {
+			t.Fatalf("expected state %q on the cap-halt event, got %q", "off", last.State)
+		}
+		if last.Calls != 1 {
+			t.Fatalf("expected Calls to match the driver's own count (1), got %d", last.Calls)
+		}
+		if last.CallCap != 1 || !last.CallCapSet {
+			t.Fatalf("expected CallCap=1, CallCapSet=true, got CallCap=%d CallCapSet=%v", last.CallCap, last.CallCapSet)
+		}
+	})
+
+	t.Run("a_threshold_disengage_reports_state_off", func(t *testing.T) {
+		sessions := &fakeSessions{window: "a room"}
+		sessions.engageState()
+		decisions := &fakeDecisionsStore{}
+		notifier := &fakeNotifier{}
+		commands := &fakeCommands{}
+		models := &fakeModels{err: &gemini.Error{Kind: gemini.KindAuth, Message: "invalid key"}}
+		d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, commands, notifier, testConfig())
+
+		userID := uuid.New().String()
+		connID := uuid.New().String()
+
+		d.HandleEngage(userID, connID)
+
+		events := notifier.eventsSnapshot()
+		last := events[len(events)-1]
+		if last.State != "off" {
+			t.Fatalf("expected state %q on the disengage event, got %q", "off", last.State)
+		}
+	})
+
+	t.Run("an_ordinary_sent_decision_reports_state_on_with_matching_counts", func(t *testing.T) {
+		sessions := &fakeSessions{window: "a room"}
+		sessions.engageState()
+		decisions := &fakeDecisionsStore{}
+		notifier := &fakeNotifier{}
+		commands := &fakeCommands{}
+		models := &fakeModels{
+			answer:       &gemini.Answer{Reasoning: "heading out", Command: "look"},
+			reviewAnswer: &gemini.ReviewAnswer{Blocked: false, Reason: "clear"},
+		}
+		d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, commands, notifier, testConfig())
+
+		userID := uuid.New().String()
+		connID := uuid.New().String()
+
+		d.HandleEngage(userID, connID)
+
+		events := notifier.eventsSnapshot()
+		last := events[len(events)-1]
+		if last.State != "on" {
+			t.Fatalf("expected state %q on an ordinary sent decision, got %q", "on", last.State)
+		}
+		d.mu.Lock()
+		wantCalls := d.callCounts[userID]
+		d.mu.Unlock()
+		if last.Calls != wantCalls {
+			t.Fatalf("expected the event's Calls (%d) to match the driver's recorded count (%d)", last.Calls, wantCalls)
 		}
 	})
 }

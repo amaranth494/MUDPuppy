@@ -295,13 +295,20 @@ func main() {
 	// tab was closed at the moment the decision happened.
 	aiDriver.SetNotifier(aidriver.NotifierFunc(func(userID string, ev aidriver.Event) {
 		_ = wsHandler.PushAI(userID, session.AIDecisionPayload{
-			ID:        ev.ID,
-			Kind:      ev.Kind,
-			Reasoning: ev.Reasoning,
-			Command:   ev.Command,
-			Outcome:   ev.Outcome,
-			Message:   ev.Message,
-			Timestamp: ev.Timestamp,
+			ID:         ev.ID,
+			Kind:       ev.Kind,
+			Reasoning:  ev.Reasoning,
+			Command:    ev.Command,
+			Outcome:    ev.Outcome,
+			Message:    ev.Message,
+			Timestamp:  ev.Timestamp,
+			State:      ev.State,
+			Calls:      ev.Calls,
+			CallCap:    ev.CallCap,
+			CallCapSet: ev.CallCapSet,
+			Failures:   ev.Failures,
+			Blocks:     ev.Blocks,
+			Threshold:  ev.Threshold,
 		})
 	}))
 
