@@ -1,0 +1,5 @@
+### DEPLOY (railway up --detach -e staging -s MudPuppy; deployment 05e7ac02-16e5-4396-a6f8-34a6f88a02a7; git bac008b)
+2026/09/17 11:20:14 Running database migrations (golang-migrate)...
+2026/09/17 11:20:14 Migrations completed successfully (version=13, dirty=false)
+2026/09/17 11:20:14 Server starting on port 8080
+2026/09/17 11:20:24 [AI-PLAYER] stage=retention snapshots_cleared=0 transcript_lines_deleted=0 snapshot_window_days=7 transcript_window_days=30 duration_ms=17
