@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -534,6 +535,106 @@ func (f *fakeNotifier) eventsSnapshot() []Event {
 	defer f.mu.Unlock()
 	out := make([]Event, len(f.events))
 	copy(out, f.events)
+	return out
+}
+
+// updateBulletsCall records one fakeQuestStore.UpdateBullets invocation.
+type updateBulletsCall struct {
+	questID uuid.UUID
+	bullets []string
+}
+
+// fakeQuestStore is a Quests double (plan 04-08): ActiveQuestFor returns a
+// canned Quest when active is true (or activeErr when set), and
+// UpdateBullets records each call, in order, optionally failing when
+// updateErr is set — the store error case still records the call so a test
+// can prove the write was attempted even though it failed.
+type fakeQuestStore struct {
+	mu        sync.Mutex
+	active    bool
+	quest     store.Quest
+	activeErr error
+	updateErr error
+	calls     []updateBulletsCall
+}
+
+func (f *fakeQuestStore) ActiveQuestFor(connectionID uuid.UUID, goalText string) (store.Quest, bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.activeErr != nil {
+		return store.Quest{}, false, f.activeErr
+	}
+	return f.quest, f.active, nil
+}
+
+func (f *fakeQuestStore) UpdateBullets(questID uuid.UUID, bullets []string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, updateBulletsCall{questID: questID, bullets: bullets})
+	return f.updateErr
+}
+
+func (f *fakeQuestStore) updateBulletsCallsSnapshot() []updateBulletsCall {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]updateBulletsCall, len(f.calls))
+	copy(out, f.calls)
+	return out
+}
+
+// updateSessionMemoryCall records one fakeMemoryStore.UpdateSessionMemory
+// invocation.
+type updateSessionMemoryCall struct {
+	gameSessionID uuid.UUID
+	bullets       []string
+}
+
+// fakeMemoryStore is a Memory double (plan 04-08): an in-memory
+// game-session-id-to-bullets map so SessionMemoryFor reads back whatever
+// UpdateSessionMemory most recently stored (when updateErr is unset),
+// letting a test prove a pushed event's SessionMemory snapshot reflects a
+// just-written update.
+type fakeMemoryStore struct {
+	mu        sync.Mutex
+	bullets   map[uuid.UUID][]string
+	updateErr error
+	calls     []updateSessionMemoryCall
+}
+
+func newFakeMemoryStore() *fakeMemoryStore {
+	return &fakeMemoryStore{bullets: make(map[uuid.UUID][]string)}
+}
+
+func (f *fakeMemoryStore) SessionMemoryFor(gameSessionID uuid.UUID) ([]string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	b, ok := f.bullets[gameSessionID]
+	if !ok {
+		return []string{}, nil
+	}
+	out := make([]string, len(b))
+	copy(out, b)
+	return out, nil
+}
+
+func (f *fakeMemoryStore) UpdateSessionMemory(gameSessionID uuid.UUID, memory []string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, updateSessionMemoryCall{gameSessionID: gameSessionID, bullets: memory})
+	if f.updateErr != nil {
+		return f.updateErr
+	}
+	stored := make([]string, len(memory))
+	copy(stored, memory)
+	f.bullets[gameSessionID] = stored
+	return nil
+}
+
+func (f *fakeMemoryStore) updateCallsSnapshot() []updateSessionMemoryCall {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]updateSessionMemoryCall, len(f.calls))
+	copy(out, f.calls)
 	return out
 }
 
@@ -1208,6 +1309,191 @@ func TestMemoryCeilingsAreEnforced(t *testing.T) {
 			t.Fatalf("expected every clamped Session Memory bullet truncated to %d characters, got %d", maxBulletChars, len(b))
 		}
 	}
+
+	// The outbound path (plan 04-08, T-4-10): truncateBullets enforces the
+	// same ceilings on what the model proposes on its way out, before
+	// anything is stored.
+	t.Run("truncateBullets_enforces_the_same_ceilings_on_the_way_out", func(t *testing.T) {
+		truncatedQuest := truncateBullets(oversizedBullets, maxQuestBullets, maxBulletChars)
+		if len(truncatedQuest) != maxQuestBullets {
+			t.Fatalf("expected exactly %d Quest bullets after truncateBullets, got %d", maxQuestBullets, len(truncatedQuest))
+		}
+		for _, b := range truncatedQuest {
+			if len(b) != maxBulletChars {
+				t.Fatalf("expected every truncated Quest bullet cut to %d characters, got %d", maxBulletChars, len(b))
+			}
+		}
+
+		truncatedSession := truncateBullets(oversizedBullets, maxSessionMemoryBullets, maxBulletChars)
+		if len(truncatedSession) != maxSessionMemoryBullets {
+			t.Fatalf("expected exactly %d Session Memory bullets after truncateBullets, got %d", maxSessionMemoryBullets, len(truncatedSession))
+		}
+	})
+
+	t.Run("truncateBullets_drops_empty_and_whitespace_only_entries", func(t *testing.T) {
+		in := []string{"a real fact", "", "   ", "\t\n", "another fact"}
+		out := truncateBullets(in, maxSessionMemoryBullets, maxBulletChars)
+		if len(out) != 2 {
+			t.Fatalf("expected empty/whitespace-only entries dropped, got %v", out)
+		}
+		if out[0] != "a real fact" || out[1] != "another fact" {
+			t.Fatalf("expected the two real bullets preserved in order, got %v", out)
+		}
+	})
+
+	t.Run("truncateBullets_returns_non_nil_empty_slice_when_everything_is_dropped", func(t *testing.T) {
+		out := truncateBullets([]string{"", "   "}, maxSessionMemoryBullets, maxBulletChars)
+		if out == nil {
+			t.Fatal("expected a non-nil empty slice, got nil")
+		}
+		if len(out) != 0 {
+			t.Fatalf("expected zero bullets, got %v", out)
+		}
+	})
+}
+
+// TestDriverPersistsCuratedMemory proves D-10/D-11's replace-or-leave-alone
+// rule (plan 04-08): both memory arrays present are truncated to the
+// documented ceilings and stored, and the pushed event carries the stored
+// list; both absent leaves previously stored memory untouched; a Quest
+// array present with a blank goal is skipped without error and the command
+// still sends; and a store error on either write does not stop the command
+// from being sent (T-4-29).
+func TestDriverPersistsCuratedMemory(t *testing.T) {
+	t.Run("both_arrays_present_are_truncated_and_stored_and_pushed", func(t *testing.T) {
+		gameSessionID := uuid.New()
+		questID := uuid.New()
+		sessions := &fakeSessions{window: "a room", gameSessionID: gameSessionID, hasGameSession: true}
+		decisions := &fakeDecisionsStore{}
+		notifier := &fakeNotifier{}
+		mem := newFakeMemoryStore()
+		quests := &fakeQuestStore{active: true, quest: store.Quest{ID: questID}}
+
+		oversizedSession := make([]string, 40)
+		for i := range oversizedSession {
+			oversizedSession[i] = strings.Repeat("s", 500)
+		}
+		oversizedQuest := make([]string, 30)
+		for i := range oversizedQuest {
+			oversizedQuest[i] = strings.Repeat("q", 500)
+		}
+
+		models := &fakeModels{answer: &gemini.Answer{
+			Reasoning:     "heading north",
+			Command:       "north",
+			SessionMemory: oversizedSession,
+			QuestMemory:   oversizedQuest,
+		}}
+
+		profile := testProfile()
+		profile.SessionGoal = "reach level 10"
+		d := New(sessions, &fakeProfiles{profile: profile}, decisions, models, &fakeCommands{}, notifier, testConfig())
+		d.SetMemory(mem)
+		d.SetQuests(quests)
+
+		d.HandleEngage(uuid.New().String(), uuid.New().String())
+
+		updateCalls := mem.updateCallsSnapshot()
+		if len(updateCalls) != 1 {
+			t.Fatalf("expected exactly one UpdateSessionMemory call, got %d", len(updateCalls))
+		}
+		if len(updateCalls[0].bullets) != maxSessionMemoryBullets {
+			t.Fatalf("expected %d stored session bullets, got %d", maxSessionMemoryBullets, len(updateCalls[0].bullets))
+		}
+		for _, b := range updateCalls[0].bullets {
+			if len(b) != maxBulletChars {
+				t.Fatalf("expected every stored session bullet truncated to %d chars, got %d", maxBulletChars, len(b))
+			}
+		}
+
+		questCalls := quests.updateBulletsCallsSnapshot()
+		if len(questCalls) != 1 {
+			t.Fatalf("expected exactly one UpdateBullets call, got %d", len(questCalls))
+		}
+		if questCalls[0].questID != questID {
+			t.Fatalf("expected UpdateBullets called against the active Quest's id")
+		}
+		if len(questCalls[0].bullets) != maxQuestBullets {
+			t.Fatalf("expected %d stored quest bullets, got %d", maxQuestBullets, len(questCalls[0].bullets))
+		}
+
+		events := notifier.eventsSnapshot()
+		if len(events) == 0 {
+			t.Fatal("expected at least one pushed event")
+		}
+		last := events[len(events)-1]
+		if len(last.SessionMemory) != maxSessionMemoryBullets {
+			t.Fatalf("expected the pushed event to carry the stored session memory list (%d bullets), got %d", maxSessionMemoryBullets, len(last.SessionMemory))
+		}
+	})
+
+	t.Run("both_absent_leaves_previously_stored_memory_untouched", func(t *testing.T) {
+		gameSessionID := uuid.New()
+		sessions := &fakeSessions{window: "a room", gameSessionID: gameSessionID, hasGameSession: true}
+		mem := newFakeMemoryStore()
+		mem.bullets[gameSessionID] = []string{"already there"}
+		models := &fakeModels{answer: &gemini.Answer{Reasoning: "heading north", Command: "north"}}
+		d := New(sessions, &fakeProfiles{profile: testProfile()}, &fakeDecisionsStore{}, models, &fakeCommands{}, &fakeNotifier{}, testConfig())
+		d.SetMemory(mem)
+
+		d.HandleEngage(uuid.New().String(), uuid.New().String())
+
+		if len(mem.updateCallsSnapshot()) != 0 {
+			t.Fatalf("expected no UpdateSessionMemory call when the answer carries no session_memory field")
+		}
+		got, err := mem.SessionMemoryFor(gameSessionID)
+		if err != nil {
+			t.Fatalf("SessionMemoryFor() error = %v", err)
+		}
+		if len(got) != 1 || got[0] != "already there" {
+			t.Fatalf("expected previously stored memory untouched, got %v", got)
+		}
+	})
+
+	t.Run("quest_array_present_with_blank_goal_is_skipped_without_error", func(t *testing.T) {
+		sessions := &fakeSessions{window: "a room"}
+		quests := &fakeQuestStore{}
+		models := &fakeModels{answer: &gemini.Answer{Reasoning: "heading north", Command: "north", QuestMemory: []string{"some progress"}}}
+		profile := testProfile()
+		profile.SessionGoal = ""
+		d := New(sessions, &fakeProfiles{profile: profile}, &fakeDecisionsStore{}, models, &fakeCommands{}, &fakeNotifier{}, testConfig())
+		d.SetQuests(quests)
+
+		d.HandleEngage(uuid.New().String(), uuid.New().String())
+
+		if len(quests.updateBulletsCallsSnapshot()) != 0 {
+			t.Fatalf("expected no UpdateBullets call when the goal is blank")
+		}
+		if got := len(sessions.sendCalls()); got != 1 {
+			t.Fatalf("expected the command to still send, got %d sends", got)
+		}
+	})
+
+	t.Run("store_error_on_either_write_does_not_stop_the_command_from_sending", func(t *testing.T) {
+		gameSessionID := uuid.New()
+		questID := uuid.New()
+		sessions := &fakeSessions{window: "a room", gameSessionID: gameSessionID, hasGameSession: true}
+		mem := newFakeMemoryStore()
+		mem.updateErr = fmt.Errorf("boom")
+		quests := &fakeQuestStore{active: true, quest: store.Quest{ID: questID}, updateErr: fmt.Errorf("boom")}
+		models := &fakeModels{answer: &gemini.Answer{
+			Reasoning:     "heading north",
+			Command:       "north",
+			SessionMemory: []string{"a fact"},
+			QuestMemory:   []string{"progress"},
+		}}
+		profile := testProfile()
+		profile.SessionGoal = "reach level 10"
+		d := New(sessions, &fakeProfiles{profile: profile}, &fakeDecisionsStore{}, models, &fakeCommands{}, &fakeNotifier{}, testConfig())
+		d.SetMemory(mem)
+		d.SetQuests(quests)
+
+		d.HandleEngage(uuid.New().String(), uuid.New().String())
+
+		if got := len(sessions.sendCalls()); got != 1 {
+			t.Fatalf("expected the command to still send despite a memory store error, got %d sends", got)
+		}
+	})
 }
 
 // TestReviewPromptWrapsReasoning proves D-24/DR-3.1-01: the first model's

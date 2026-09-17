@@ -198,6 +198,10 @@ type Decisions interface {
 // them.
 type Quests interface {
 	ActiveQuestFor(connectionID uuid.UUID, goalText string) (store.Quest, bool, error)
+	// UpdateBullets stores a Quest's curated bullet list (D-11, plan 04-08).
+	// The real *store.QuestStore's method of this name satisfies this
+	// interface with no adapter.
+	UpdateBullets(questID uuid.UUID, bullets []string) error
 }
 
 // Memory is the slice of *store.TranscriptStore the driver depends on to
@@ -205,6 +209,10 @@ type Quests interface {
 // (D-10, D-13). Nil-safe for the same reason as Quests above.
 type Memory interface {
 	SessionMemoryFor(gameSessionID uuid.UUID) ([]string, error)
+	// UpdateSessionMemory stores a game session's curated Session Memory
+	// bullets (D-10, plan 04-08). The real *store.TranscriptStore's method
+	// of this name satisfies this interface with no adapter.
+	UpdateSessionMemory(gameSessionID uuid.UUID, memory []string) error
 }
 
 // Notifier delivers a decision or system Event to the browser (plan
@@ -250,6 +258,14 @@ type Event struct {
 	Failures   int
 	Blocks     int
 	Threshold  int
+
+	// SessionMemory carries the current game session's full curated Session
+	// Memory list (D-10, plan 04-08) — the whole list, not a diff — on
+	// every event emitted during a stint, so the panel's collapsible
+	// section can replace its displayed list wholesale from whichever
+	// message arrives, decision or system. Nil when no game session is
+	// current or no Memory collaborator is wired.
+	SessionMemory []string
 }
 
 // Driver holds the collaborators the phase's single decision needs and an
@@ -519,6 +535,14 @@ func (d *Driver) runIteration(userID, connectionID string, first bool) {
 
 	d.logDecision(userID, connectionID, "", "answer", entry.ModelName, "", "", len(window), len(answer.Command))
 
+	// D-10/D-11: persist whatever the model chose to remember on this
+	// answer before any downstream branching (shape validation, the
+	// Never-issue check, the reviewer pass, dispatch) — every outcome from
+	// here on (sent, blocked, or a shape failure that still parsed) shares
+	// the same answer, and memory is about what happened this decision, not
+	// about whether the resulting command went through.
+	d.persistMemory(userID, connectionID, connUUID, gameSessionID, profile.SessionGoal, answer)
+
 	cmd, failKind := validateCommand(answer.Command)
 	if failKind != "" {
 		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, answer.Command, failKind, resolved)
@@ -651,6 +675,53 @@ func (d *Driver) sessionMemoryBullets(gameSessionID *uuid.UUID) []string {
 	return clampBullets(bullets, maxSessionMemoryBullets)
 }
 
+// persistMemory applies D-10/D-11's replace-or-leave-alone rule to what the
+// model proposed on this decision's answer (plan 04-08): when
+// answer.SessionMemory is non-nil, it is truncated to D-12's ceiling
+// (truncateBullets) and stored against the current game session
+// (Memory.UpdateSessionMemory); nil leaves Session Memory exactly as it
+// was. The same rule applies to answer.QuestMemory against the active
+// Quest's bullets (Quests.ActiveQuestFor then Quests.UpdateBullets),
+// skipped silently when no Quest is active because the goal is blank — a
+// Quest array proposed against a blank goal costs nothing and is not an
+// error (must_haves truth 6). Both collaborators are nil-safe, matching
+// activeQuestBullets/sessionMemoryBullets above: an unwired collaborator
+// means this call is a no-op for that layer. A storage error is logged and
+// never fatal — the command this decision chose has already been decided
+// by the time this runs (T-4-29). Logs one [AI-PLAYER] memory line, with
+// counts and byte totals only, whenever either field was present.
+func (d *Driver) persistMemory(userID, connectionID string, connUUID uuid.UUID, gameSessionID *uuid.UUID, goal string, answer *gemini.Answer) {
+	if answer.SessionMemory == nil && answer.QuestMemory == nil {
+		return
+	}
+
+	var sessionBullets, questBullets []string
+
+	if answer.SessionMemory != nil {
+		sessionBullets = truncateBullets(answer.SessionMemory, maxSessionMemoryBullets, maxBulletChars)
+		if d.memory != nil && gameSessionID != nil {
+			if err := d.memory.UpdateSessionMemory(*gameSessionID, sessionBullets); err != nil {
+				log.Printf("[AI-PLAYER] memory-store-error user_id=%s connection_id=%s layer=session", userID, connectionID)
+			}
+		}
+	}
+
+	if answer.QuestMemory != nil && strings.TrimSpace(goal) != "" {
+		questBullets = truncateBullets(answer.QuestMemory, maxQuestBullets, maxBulletChars)
+		if d.quests != nil {
+			quest, found, err := d.quests.ActiveQuestFor(connUUID, goal)
+			if err != nil || !found {
+				log.Printf("[AI-PLAYER] memory-store-error user_id=%s connection_id=%s layer=quest reason=lookup", userID, connectionID)
+			} else if err := d.quests.UpdateBullets(quest.ID, questBullets); err != nil {
+				log.Printf("[AI-PLAYER] memory-store-error user_id=%s connection_id=%s layer=quest reason=update", userID, connectionID)
+			}
+		}
+	}
+
+	log.Printf("[AI-PLAYER] memory user_id=%s connection_id=%s decision_id=%s session_bullets=%d quest_bullets=%d session_bytes=%d quest_bytes=%d",
+		userID, connectionID, "", len(sessionBullets), len(questBullets), bulletBytes(sessionBullets), bulletBytes(questBullets))
+}
+
 // tryReserveCall reserves one model call against userID's per-stint call
 // cap (D-14) before the call is made, so a cap halt happens in front of the
 // call rather than after it. A blank cap (CallCapSet false) always
@@ -713,7 +784,29 @@ func (d *Driver) decorateEvent(userID string, ev Event, resolved store.ResolvedA
 	ev.Failures = failures
 	ev.Blocks = blocks
 	ev.Threshold = resolved.DisengageThreshold
+	ev.SessionMemory = d.currentSessionMemory(userID)
 	return ev
+}
+
+// currentSessionMemory reads back userID's current game session's full
+// curated Session Memory list, for decorateEvent to ride on every ai
+// message (D-10). Returns an empty, non-nil slice when there is no current
+// game session, no Memory collaborator wired, or a read error — the panel
+// never needs to tell "nothing yet" apart from "could not be read" and a
+// read failure here must never block a notification.
+func (d *Driver) currentSessionMemory(userID string) []string {
+	if d.memory == nil {
+		return []string{}
+	}
+	gsID, ok := d.sessions.CurrentGameSessionID(userID)
+	if !ok {
+		return []string{}
+	}
+	bullets, err := d.memory.SessionMemoryFor(gsID)
+	if err != nil {
+		return []string{}
+	}
+	return bullets
 }
 
 // recordFailure stores a failed or refused decision, notifies a system

@@ -66,6 +66,44 @@ func clampBullets(bullets []string, maxCount int) []string {
 	return out
 }
 
+// truncateBullets applies D-12's ceilings to a bullet list the model
+// proposed on its way out, before anything is stored or shown (T-4-10): at
+// most maxItems entries, each trimmed and then cut to maxLen characters,
+// with empty and whitespace-only entries dropped entirely. Always returns a
+// non-nil slice, even when every entry is dropped or in itself was empty,
+// so "the model proposed replacing memory with nothing" stays expressible
+// and distinguishable from persistMemory's own "the model proposed no
+// change at all" case (a nil answer field), which is checked before this
+// function is ever called.
+func truncateBullets(in []string, maxItems, maxLen int) []string {
+	out := make([]string, 0, maxItems)
+	for _, bullet := range in {
+		trimmed := strings.TrimSpace(bullet)
+		if trimmed == "" {
+			continue
+		}
+		if len(out) >= maxItems {
+			break
+		}
+		if len(trimmed) > maxLen {
+			trimmed = trimmed[:maxLen]
+		}
+		out = append(out, trimmed)
+	}
+	return out
+}
+
+// bulletBytes sums the byte length of every bullet in bullets, for the
+// memory-update log line (plan 04-08) — the line carries this total, never
+// any bullet's own text.
+func bulletBytes(bullets []string) int {
+	total := 0
+	for _, b := range bullets {
+		total += len(b)
+	}
+	return total
+}
+
 // renderBullets renders bullets as a plain "- " prefixed list, one per
 // line -- the shape wrapQuestMemory and wrapSessionMemory both share.
 func renderBullets(bullets []string) string {

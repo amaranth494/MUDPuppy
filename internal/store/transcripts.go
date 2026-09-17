@@ -165,6 +165,61 @@ func (s *TranscriptStore) SessionMemoryFor(gameSessionID uuid.UUID) ([]string, e
 	return bullets, nil
 }
 
+// UpdateSessionMemory stores gameSessionID's curated Session Memory bullets
+// (D-10, plan 04-08) in one UPDATE, following CloseGameSession's exact
+// single-statement shape. A nil memory is stored as an empty JSON array,
+// mirroring QuestStore.UpdateBullets' own nil-safety, so "replace with
+// nothing" is always a valid array, never a SQL NULL.
+func (s *TranscriptStore) UpdateSessionMemory(gameSessionID uuid.UUID, memory []string) error {
+	if memory == nil {
+		memory = []string{}
+	}
+	memoryJSON, err := json.Marshal(memory)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(
+		`UPDATE game_sessions SET session_memory = $1 WHERE id = $2`,
+		memoryJSON, gameSessionID,
+	)
+	return err
+}
+
+// SessionMemoryForConnection reads back the Session Memory bullets stored
+// against connectionID's most recent open game session (D-10), for the
+// owner's read-only memory endpoint (plan 04-08). Returns an empty, never
+// nil, slice and a nil error when the connection has no currently open
+// game session — the same "nothing yet" shape SessionMemoryFor already
+// returns for a missing row, so a profile that has never engaged autopilot
+// reads back an empty list rather than an error.
+func (s *TranscriptStore) SessionMemoryForConnection(connectionID uuid.UUID) ([]string, error) {
+	var memoryJSON []byte
+	err := s.db.QueryRow(
+		`SELECT session_memory FROM game_sessions
+		 WHERE connection_id = $1 AND ended_at IS NULL
+		 ORDER BY started_at DESC
+		 LIMIT 1`,
+		connectionID,
+	).Scan(&memoryJSON)
+	if err == sql.ErrNoRows {
+		return []string{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if len(memoryJSON) == 0 {
+		return []string{}, nil
+	}
+	var bullets []string
+	if err := json.Unmarshal(memoryJSON, &bullets); err != nil {
+		return nil, err
+	}
+	if bullets == nil {
+		bullets = []string{}
+	}
+	return bullets, nil
+}
+
 // ListSessionsForConnection lists a connection's sessions newest-first.
 // Ownership of connectionID is resolved by the caller (internal/profiles,
 // via ProfileStore.GetProfileByConnection) before this is ever reached
