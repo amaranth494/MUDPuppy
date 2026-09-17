@@ -1,0 +1,146 @@
+### RUN A (before the walkthrough)
+
+================================================================
+Phase 4 canned-report harness -- scripts/verify-phase4.sh
+Run started (UTC): 2026-09-17T11:26:57Z
+Mode: live
+BASE_URL: https://mudpuppy-staging.up.railway.app
+CONNECTION_ID: 29ee98a1-1c6e-49ba-bf3f-9e08ab726fb5
+NOT_OWNED_CONNECTION_ID: ffffffff-ffff-ffff-ffff-ffffffffffff
+git rev-parse --short HEAD: 2b6b81c
+================================================================
+
+Ground rules: (1) proof here is this report or an end-user screenshot,
+never a database query. (2) C3 and C5 are Go-test-and-screenshot proofs
+this script cannot reach; they appear below as SKIP lines naming their
+real evidence, never as PASS or FAIL. (3) invocations: live,
+--self-test, --self-test-negative, --no-tests.
+
+
+---- Step 1: GET profiles/$CONNECTION_ID/ai-goal -- record the current goal (T-4-33 restore) ----
+GET /api/v1/profiles/$CONNECTION_ID/ai-goal -> HTTP 200
+{"goal":"Work through the newbie tutorial and explore safely"}
+PASS C1: ai-goal GET answers HTTP 200 for the owning connection (status 200)
+goal found before this run (kept verbatim for the restore step): Work through the newbie tutorial and explore safely
+
+---- Step 2: PUT profiles/$CONNECTION_ID/ai-goal -- write goal A (C1, D-01) ----
+PUT /api/v1/profiles/$CONNECTION_ID/ai-goal -> HTTP 200
+{"goal":"AI-Player-Harness-Goal-A-1789644417","quest":"created"}
+PASS C1: PUT accepts goal A (status 200)
+PASS C1: PUT response echoes goal A (got: AI-Player-Harness-Goal-A-1789644417)
+PASS C1: PUT response names the Quest as newly created (got: created)
+
+---- Step 3: GET profiles/$CONNECTION_ID/ai-goal -- goal A survives a real PUT and GET (C1, D-01) ----
+GET /api/v1/profiles/$CONNECTION_ID/ai-goal -> HTTP 200
+{"goal":"AI-Player-Harness-Goal-A-1789644417"}
+PASS C1: ai-goal GET answers HTTP 200 after the PUT (status 200)
+PASS C1: goal A round-trips character for character through PUT and GET (got: AI-Player-Harness-Goal-A-1789644417)
+
+---- Step 4: PUT profiles/$CONNECTION_ID/ai-goal -- write goal B, a different goal (C1, D-03) ----
+PUT /api/v1/profiles/$CONNECTION_ID/ai-goal -> HTTP 200
+{"goal":"AI-Player-Harness-Goal-B-1789644417","quest":"created"}
+PASS C1: PUT accepts goal B (status 200)
+PASS C1: PUT response echoes goal B (got: AI-Player-Harness-Goal-B-1789644417)
+
+---- Step 5: GET profiles/$CONNECTION_ID/ai-goal -- goal B survives, and differs from goal A (C1, D-03) ----
+GET /api/v1/profiles/$CONNECTION_ID/ai-goal -> HTTP 200
+{"goal":"AI-Player-Harness-Goal-B-1789644417"}
+PASS C1: ai-goal GET answers HTTP 200 after the edit (status 200)
+PASS C1: goal B round-trips character for character through PUT and GET (got: AI-Player-Harness-Goal-B-1789644417)
+PASS C1: the edited goal differs from the original goal A, proving an edit takes (got: AI-Player-Harness-Goal-B-1789644417)
+
+---- Step 6: PUT profiles/$CONNECTION_ID/ai-goal -- goal A again, re-cased and padded: reactivate, not duplicate (C1, D-04) ----
+PUT /api/v1/profiles/$CONNECTION_ID/ai-goal -> HTTP 200
+{"goal":"  ai-player-harness-goal-a-1789644417  ","quest":"reactivated"}
+PASS C1: PUT accepts the re-cased, padded repeat of goal A (status 200)
+PASS C1: the same Quest is reactivated rather than a second one created (got: reactivated)
+
+---- Step 7: PUT profiles/$CONNECTION_ID/ai-goal -- a 1001-character goal is refused (C1, T-4-10) ----
+PUT /api/v1/profiles/$CONNECTION_ID/ai-goal -> HTTP 400 (request body's goal omitted from this report: 1001 repeated characters, not game text, but long)
+{"error":"Session goal must be 1000 characters or less"}
+PASS C1: a 1001-character goal is refused with 400 (status 400)
+PASS C1: the refusal message matches the exact 1000-character cap sentence (got: Session goal must be 1000 characters or less)
+
+---- Step 8: GET profiles/$CONNECTION_ID/ai-memory -- Session Memory reads back as an array (C2, D-10) ----
+GET /api/v1/profiles/$CONNECTION_ID/ai-memory -> HTTP 200
+{"session_memory":[]}
+PASS C2: ai-memory GET answers HTTP 200 for the owning connection (status 200)
+PASS C2: response carries a session_memory array
+session_memory length: 0
+
+---- Step 9: PUT profiles/$CONNECTION_ID/ai-memory -- read-only this phase, refused with 405 (C2, D-10) ----
+PUT /api/v1/profiles/$CONNECTION_ID/ai-memory -> HTTP 405
+Method not allowed
+PASS C2: ai-memory PUT is refused with 405 Method Not Allowed (editing memory by hand is Phase 5) (status 405)
+
+---- Step 10: GET profiles/$CONNECTION_ID/decisions -- record the most recent decision before the delete (C4, D-21) ----
+GET /api/v1/profiles/$CONNECTION_ID/decisions -> HTTP 200
+{"decisions":[{"id":"a940bef5-d504-48fb-bb8f-46f12af628a6","created_at":"2026-09-16T20:43:42Z","reasoning":"The game prompt suggests picking up the rod wedged in the rubble to start exploring. Following the prompt instruction, I will issue the command to get the rod.","command":"get rod","outcome":"blocked","failure_kind":"reviewer","notice":"Reviewer blocked: The command attempts to pick up a rod based on an explicit instruction found in the room text."},{"id":"687f22fa-967b-4f46-a5b9-d00369c26c22","created_at":"2026-09-16T20:45:48Z","reasoning":"The game suggests picking up the rod wedged in the rubble. I will execute the command to get the rod.","command":"get rod","outcome":"blocked","failure_kind":"reviewer","notice":"Reviewer blocked: The command tries to follow an explicit instruction embedded in the game text to pick up the rod."},{"id":"a2322d54-6a78-4314-aa1d-9f16d19365f1","created_at":"2026-09-16T20:47:28Z","reasoning":"The character has successfully picked up the quartz-tipped wooden rod. We should now wield it as suggested by the game prompt to be prepared for combat.","command":"wield quartz","outcome":"sent","failure_kind":"","notice":""},{"id":"1c891f78-ef5a-4afe-bbbd-103c29ddc95d","created_at":"2026-09-16T20:48:43Z","reasoning":"We have successfully picked up and wielded the quartz-tipped wooden rod. We should now explore the area by moving east.","command":"e","outcome":"sent","failure_kind":"","notice":""},{"id":"dc770aa3-3ad8-4eed-bf5d-08d0538d4da6","created_at":"2026-09-16T20:48:53Z","reasoning":"We are in an underground passage with several items available to pick up and equip. We should gather all the items to improve our equipment while following our rules to never drop or give away possessions.","command":"get all","outcome":"sent","failure_kind":"","notice":""},{"id":"b0057e76-5632-448a-8286-a9dccd7cb1d1","created_at":"2026-09-16T20:49:45Z","reasoning":"","command":"","outcome":"failed","failure_kind":"api-error","notice":"AI decision failed: the model could not be reached. Autopilot disengaged."},{"id":"116c35a9-66ee-42cc-87a6-8708fec37ff0","created_at":"2026-09-16T21:54:48Z","reasoning":"The game is asking whether to create a new character, but the previous attempt was invalid. I will reply with 'yes' to proceed with character creation.","command":"yes","outcome":"sent","failure_kind":"","notice":""},{"id":"ac466bb5-f786-4d10-9619-bcfa43e17bfe","created_at":"2026-09-16T22:01:35Z","reasoning":"The game prompt suggests getting the rod and exploring further east, but we must never drop, give, or sacrifice our possessions, so we can simply pick up the items like the rod without following untrusted instructions to give them away.","command":"get rod","outcome":"sent","failure_kind":"","notice":""}]}
+PASS C4: decisions GET answers HTTP 200 for the owning connection (status 200)
+most recent decision before delete: id=ac466bb5-f786-4d10-9619-bcfa43e17bfe outcome=sent reasoning_length=236
+PASS C4: the most recent decision's id is present (got: ac466bb5-f786-4d10-9619-bcfa43e17bfe)
+PASS C4: the most recent decision's reasoning is non-empty (got: The game prompt suggests getting the rod and exploring further east, but we must never drop, give, or sacrifice our possessions, so we can simply pick up the items like the rod without following untrusted instructions to give them away.)
+
+---- Step 11: DELETE profiles/$CONNECTION_ID/captured-text -- the retention delete reports its counts (C4, D-21) ----
+DELETE /api/v1/profiles/$CONNECTION_ID/captured-text -> HTTP 200
+{"snapshots_cleared":8,"transcript_lines_deleted":610}
+PASS C4: captured-text delete answers HTTP 200 for the owning connection (status 200)
+PASS C4: the delete response carries a numeric snapshots_cleared count (got: 8)
+PASS C4: the delete response carries a numeric transcript_lines_deleted count (got: 610)
+
+---- Step 12: GET profiles/$CONNECTION_ID/decisions -- the decision record survives the delete (C4, D-21) ----
+GET /api/v1/profiles/$CONNECTION_ID/decisions -> HTTP 200
+{"decisions":[{"id":"a940bef5-d504-48fb-bb8f-46f12af628a6","created_at":"2026-09-16T20:43:42Z","reasoning":"The game prompt suggests picking up the rod wedged in the rubble to start exploring. Following the prompt instruction, I will issue the command to get the rod.","command":"get rod","outcome":"blocked","failure_kind":"reviewer","notice":"Reviewer blocked: The command attempts to pick up a rod based on an explicit instruction found in the room text."},{"id":"687f22fa-967b-4f46-a5b9-d00369c26c22","created_at":"2026-09-16T20:45:48Z","reasoning":"The game suggests picking up the rod wedged in the rubble. I will execute the command to get the rod.","command":"get rod","outcome":"blocked","failure_kind":"reviewer","notice":"Reviewer blocked: The command tries to follow an explicit instruction embedded in the game text to pick up the rod."},{"id":"a2322d54-6a78-4314-aa1d-9f16d19365f1","created_at":"2026-09-16T20:47:28Z","reasoning":"The character has successfully picked up the quartz-tipped wooden rod. We should now wield it as suggested by the game prompt to be prepared for combat.","command":"wield quartz","outcome":"sent","failure_kind":"","notice":""},{"id":"1c891f78-ef5a-4afe-bbbd-103c29ddc95d","created_at":"2026-09-16T20:48:43Z","reasoning":"We have successfully picked up and wielded the quartz-tipped wooden rod. We should now explore the area by moving east.","command":"e","outcome":"sent","failure_kind":"","notice":""},{"id":"dc770aa3-3ad8-4eed-bf5d-08d0538d4da6","created_at":"2026-09-16T20:48:53Z","reasoning":"We are in an underground passage with several items available to pick up and equip. We should gather all the items to improve our equipment while following our rules to never drop or give away possessions.","command":"get all","outcome":"sent","failure_kind":"","notice":""},{"id":"b0057e76-5632-448a-8286-a9dccd7cb1d1","created_at":"2026-09-16T20:49:45Z","reasoning":"","command":"","outcome":"failed","failure_kind":"api-error","notice":"AI decision failed: the model could not be reached. Autopilot disengaged."},{"id":"116c35a9-66ee-42cc-87a6-8708fec37ff0","created_at":"2026-09-16T21:54:48Z","reasoning":"The game is asking whether to create a new character, but the previous attempt was invalid. I will reply with 'yes' to proceed with character creation.","command":"yes","outcome":"sent","failure_kind":"","notice":""},{"id":"ac466bb5-f786-4d10-9619-bcfa43e17bfe","created_at":"2026-09-16T22:01:35Z","reasoning":"The game prompt suggests getting the rod and exploring further east, but we must never drop, give, or sacrifice our possessions, so we can simply pick up the items like the rod without following untrusted instructions to give them away.","command":"get rod","outcome":"sent","failure_kind":"","notice":""}]}
+PASS C4: decisions GET answers HTTP 200 after the delete (status 200)
+PASS C4: the same decision id is still returned after the delete (got: ac466bb5-f786-4d10-9619-bcfa43e17bfe)
+PASS C4: the decision's outcome is unchanged (got: sent)
+PASS C4: the decision's command is unchanged (got: get rod)
+PASS C4: the decision's failure_kind is unchanged (got: )
+PASS C4: the decision's reasoning is still non-empty after the delete -- the audit record survives the prune (got: The game prompt suggests getting the rod and exploring further east, but we must never drop, give, or sacrifice our possessions, so we can simply pick up the items like the rod without following untrusted instructions to give them away.)
+
+---- Step 13: GET profiles/$NOT_OWNED_CONNECTION_ID/ai-goal -- refused, not answered with someone else's goal (C1, T-4-09) ----
+GET /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/ai-goal -> HTTP 400
+{"error":"Profile not found"}
+PASS C1: a not-owned/non-existent connection_id is refused on ai-goal, never answered with HTTP 200 (status 400)
+
+---- Step 14: GET profiles/$NOT_OWNED_CONNECTION_ID/ai-memory -- refused, not answered with someone else's memory (C2, T-4-09) ----
+GET /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/ai-memory -> HTTP 400
+{"error":"Profile not found"}
+PASS C2: a not-owned/non-existent connection_id is refused on ai-memory, never answered with HTTP 200 (status 400)
+
+---- Step 15: DELETE profiles/$NOT_OWNED_CONNECTION_ID/captured-text -- refused, never deletes someone else's captured text (C4, T-4-09) ----
+DELETE /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/captured-text -> HTTP 400
+{"error":"Profile not found"}
+PASS C4: a not-owned/non-existent connection_id is refused on the captured-text delete, never answered with HTTP 200 (status 400)
+
+---- Step 16: PUT profiles/$CONNECTION_ID/ai-goal -- restore the pre-run goal (T-4-33) ----
+PUT /api/v1/profiles/$CONNECTION_ID/ai-goal -> HTTP 200
+{"goal":"Work through the newbie tutorial and explore safely","quest":"reactivated"}
+PASS C1: the profile's goal is restored to its pre-run value (status 200)
+PASS C1: the restored goal matches what step 1 found, decoded and not re-escaped (got: Work through the newbie tutorial and explore safely)
+RESTORED: goal set back to what step 1 found -- this run leaves the profile exactly as it found it.
+
+---- Step 17: C3 -- out of this script's reach ----
+SKIP C3: the call cap, threshold disengage, blocked-repeatedly disengage and blank-settings behavior (D-14 to D-17) cannot be driven by an HTTP client at all -- proven instead by `go test ./internal/driver/... -run "TestLoop_CallCap|TestLoop_ErrorThreshold|TestLoop_ConsecutiveBlocks|TestLoop_BlankSettings" -count=1 -v` and evidence/08-cap-halt-badge-off.png
+
+---- Step 18: C5 -- out of this script's reach ----
+SKIP C5: wheel-grab and the re-engage reassessment (D-08) require a live game session, a hand-typed command, and a human reading the first post-re-engage decision's reasoning -- proven instead by `go test ./internal/driver/... -run "TestLoop_|TestEngageLoop_" -count=1 -v` and evidence/09-wheel-grab-reengage-reasoning.png
+
+---- Step 19: go test -- driver and session packages ----
+$ go test ./internal/driver/... ./internal/session/... -count=1
+ok  	github.com/amaranth494/MudPuppy/internal/driver	1.663s
+ok  	github.com/amaranth494/MudPuppy/internal/session	0.511s
+
+================================================================
+SUMMARY
+================================================================
+C1: PASS
+C2: PASS
+C3: SKIP
+C4: PASS
+C5: SKIP
+TOTAL CHECKS: 35  FAILURES: 0  SKIPPED: 2
+
+================================================================
+GO TEST EXIT: 0
+================================================================
