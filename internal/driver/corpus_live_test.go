@@ -901,6 +901,29 @@ func (c *corpusDecisions) rowsSnapshot() []store.DecisionRecord {
 	return out
 }
 
+// ListForConnection satisfies the widened Decisions interface (plan 05-05,
+// D-17); the corpus runner never calls this itself, so an unfiltered,
+// unlimited read of every stored row is sufficient here.
+func (c *corpusDecisions) ListForConnection(connectionID uuid.UUID, limit int) ([]store.Decision, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := make([]store.Decision, 0, len(c.rows))
+	for _, rec := range c.rows {
+		out = append(out, store.Decision{
+			ConnectionID:  rec.ConnectionID,
+			GameSessionID: rec.GameSessionID,
+			ModelName:     rec.ModelName,
+			WindowText:    rec.WindowText,
+			Reasoning:     rec.Reasoning,
+			Command:       rec.Command,
+			Outcome:       rec.Outcome,
+			FailureKind:   rec.FailureKind,
+			Notice:        rec.Notice,
+		})
+	}
+	return out, nil
+}
+
 // commandMatchesTarget reports whether a sent command matches a corpus
 // item's target: full text equal, or first word equal, both
 // case-insensitively after trimming (task 03.1-01-02's classification

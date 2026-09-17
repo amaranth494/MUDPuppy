@@ -81,6 +81,20 @@ type fakeModels struct {
 
 	reviewAnswers []*gemini.ReviewAnswer
 	reviewErrs    []error
+
+	// chatCalls, lastChatSystemInstruction/lastChatUserText, chatAnswer/
+	// chatErr and chatAnswers/chatErrs mirror the plain (non-review) fields
+	// above exactly, for Chat (plan 05-05). A Chat call also honours the
+	// shared block/ignoreCancel fields above, so a test can hold a chat
+	// reply open exactly as it can hold a decision call open.
+	chatCalls                 int
+	lastChatSystemInstruction string
+	lastChatUserText          string
+	chatAnswer                *gemini.ChatAnswer
+	chatErr                   error
+
+	chatAnswers []*gemini.ChatAnswer
+	chatErrs    []error
 }
 
 func (f *fakeModels) GenerateContent(ctx context.Context, endpoint, model, apiKey, systemInstruction, userText string) (*gemini.Answer, error) {
@@ -179,6 +193,85 @@ func (f *fakeModels) ReviewCommand(ctx context.Context, endpoint, model, apiKey,
 		return f.reviewAnswer, nil
 	}
 	return &gemini.ReviewAnswer{Blocked: boolPtr(false), Reason: ""}, nil
+}
+
+// Chat is a Chat double for AI-chatter (plan 05-05), following
+// GenerateContent's exact scripted-queue and mutex discipline above: its own
+// call counter, its own last-system-instruction/last-user-text recording,
+// and an optional scripted queue of answers/errors. It also honours the
+// shared block/ignoreCancel fields, so a test can hold a chat reply open
+// exactly as it can hold a decision call open (TestHandleChat_InFlightGuard).
+func (f *fakeModels) Chat(ctx context.Context, endpoint, model, apiKey, systemInstruction, userText string) (*gemini.ChatAnswer, error) {
+	f.mu.Lock()
+	idx := f.chatCalls
+	f.chatCalls++
+	f.lastChatSystemInstruction = systemInstruction
+	f.lastChatUserText = userText
+	block := f.block
+	ignoreCancel := f.ignoreCancel
+
+	qlen := len(f.chatAnswers)
+	if len(f.chatErrs) > qlen {
+		qlen = len(f.chatErrs)
+	}
+
+	var answer *gemini.ChatAnswer
+	var err error
+	if qlen > 0 {
+		useIdx := idx
+		if useIdx >= qlen {
+			f.overruns++
+			useIdx = qlen - 1
+		}
+		if useIdx < len(f.chatAnswers) {
+			answer = f.chatAnswers[useIdx]
+		}
+		if useIdx < len(f.chatErrs) {
+			err = f.chatErrs[useIdx]
+		}
+	} else {
+		answer, err = f.chatAnswer, f.chatErr
+	}
+	f.mu.Unlock()
+
+	if block != nil {
+		if ignoreCancel {
+			<-block
+		} else {
+			select {
+			case <-block:
+			case <-ctx.Done():
+				return nil, &gemini.Error{Kind: gemini.KindTransport, Message: ctx.Err().Error()}
+			}
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	return answer, nil
+}
+
+// chatCallCount reports how many times Chat has been called.
+func (f *fakeModels) chatCallCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.chatCalls
+}
+
+// lastChatSystemInstructionText returns the system instruction Chat last
+// received.
+func (f *fakeModels) lastChatSystemInstructionText() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.lastChatSystemInstruction
+}
+
+// lastChatUserTextValue returns the user text (the owner's own chat
+// message) Chat last received.
+func (f *fakeModels) lastChatUserTextValue() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.lastChatUserText
 }
 
 // setBlock installs (or clears, with nil) the channel a future
@@ -342,6 +435,12 @@ type fakeSessions struct {
 	// merely asserting by absence, so a future interface change that adds
 	// a reconnect-shaped method would need a test to notice it firing.
 	reconnectCalls int
+
+	// epochForCalls counts every AutopilotEpochFor call (plan 05-05):
+	// TestHandleChat_WorksInEveryAutopilotState asserts this stays zero,
+	// mechanically proving AI-chatter never consults the stint epoch or
+	// staleStage's own machinery (D-06).
+	epochForCalls int
 }
 
 func (f *fakeSessions) RecentOutputSnapshot(userID string) string {
@@ -425,6 +524,7 @@ func (f *fakeSessions) currentEpoch() uint64 {
 func (f *fakeSessions) AutopilotEpochFor(userID string) (session.AutopilotState, uint64) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.epochForCalls++
 	return f.currentStateLocked(), f.epoch
 }
 
@@ -548,6 +648,14 @@ func (f *fakeSessions) sentAtSnapshot() []time.Time {
 	return out
 }
 
+// epochForCallCount reports how many times AutopilotEpochFor was called
+// (plan 05-05) -- see the field comment above.
+func (f *fakeSessions) epochForCallCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.epochForCalls
+}
+
 // reconnectCallCount reports how many times a reconnect-shaped method was
 // called on this double (04-03-03, D-19) -- see the field comment above.
 func (f *fakeSessions) reconnectCallCount() int {
@@ -587,10 +695,49 @@ func (f *fakeDecisionsStore) rows() []store.DecisionRecord {
 	return out
 }
 
+// ListForConnection satisfies the widened Decisions interface (plan 05-05,
+// D-17): a connection-filtered read of the same in-memory rows
+// InsertDecision appended, oldest first with a limit taken from the front --
+// mirroring (*store.DecisionStore).ListForConnection's real ORDER BY
+// created_at ASC ... LIMIT $2 shape exactly, so a chat test exercises the
+// same "oldest N, not newest N" contract the driver's own
+// recentDecisionsForChat compensates for.
+func (f *fakeDecisionsStore) ListForConnection(connectionID uuid.UUID, limit int) ([]store.Decision, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if limit <= 0 {
+		limit = 200
+	}
+	out := make([]store.Decision, 0)
+	for _, rec := range f.rowsStored {
+		if rec.ConnectionID != connectionID {
+			continue
+		}
+		out = append(out, store.Decision{
+			ID:            uuid.New(),
+			ConnectionID:  rec.ConnectionID,
+			GameSessionID: rec.GameSessionID,
+			ModelName:     rec.ModelName,
+			WindowText:    rec.WindowText,
+			Reasoning:     rec.Reasoning,
+			Command:       rec.Command,
+			Outcome:       rec.Outcome,
+			FailureKind:   rec.FailureKind,
+			Notice:        rec.Notice,
+			CreatedAt:     time.Now(),
+		})
+		if len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
+}
+
 // fakeNotifier is an in-memory Notifier double.
 type fakeNotifier struct {
-	mu     sync.Mutex
-	events []Event
+	mu         sync.Mutex
+	events     []Event
+	chatEvents []ChatEvent
 }
 
 func (f *fakeNotifier) NotifyDecision(userID string, ev Event) {
@@ -604,6 +751,88 @@ func (f *fakeNotifier) eventsSnapshot() []Event {
 	defer f.mu.Unlock()
 	out := make([]Event, len(f.events))
 	copy(out, f.events)
+	return out
+}
+
+// NotifyChat satisfies the widened Notifier interface (plan 05-05).
+func (f *fakeNotifier) NotifyChat(userID string, ev ChatEvent) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.chatEvents = append(f.chatEvents, ev)
+}
+
+// chatEventsSnapshot returns every ChatEvent recorded so far, in order.
+func (f *fakeNotifier) chatEventsSnapshot() []ChatEvent {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]ChatEvent, len(f.chatEvents))
+	copy(out, f.chatEvents)
+	return out
+}
+
+// fakeConversation is an in-memory Conversation double (plan 05-05):
+// AppendChatLine stores each line in a per-game-session slice with an
+// incrementing id, and RecentConversation reads the newest limit lines from
+// that same slice, reversed to oldest first -- mirroring the real
+// ConversationStore's own contract exactly, so a chat test can assert on
+// what the driver actually stored and read back.
+type fakeConversation struct {
+	mu        sync.Mutex
+	nextID    int64
+	lines     map[uuid.UUID][]store.ConversationLine
+	appendErr error
+	recentErr error
+}
+
+func newFakeConversation() *fakeConversation {
+	return &fakeConversation{lines: make(map[uuid.UUID][]store.ConversationLine)}
+}
+
+func (f *fakeConversation) AppendChatLine(gameSessionID uuid.UUID, speaker, text string) (store.ConversationLine, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.appendErr != nil {
+		return store.ConversationLine{}, f.appendErr
+	}
+	f.nextID++
+	line := store.ConversationLine{
+		ID:        f.nextID,
+		Seq:       int64(len(f.lines[gameSessionID]) + 1),
+		Speaker:   speaker,
+		Text:      text,
+		CreatedAt: time.Now(),
+	}
+	f.lines[gameSessionID] = append(f.lines[gameSessionID], line)
+	return line, nil
+}
+
+func (f *fakeConversation) RecentConversation(gameSessionID uuid.UUID, limit int) ([]store.ConversationLine, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.recentErr != nil {
+		return nil, f.recentErr
+	}
+	if limit <= 0 {
+		return []store.ConversationLine{}, nil
+	}
+	all := f.lines[gameSessionID]
+	if len(all) <= limit {
+		out := make([]store.ConversationLine, len(all))
+		copy(out, all)
+		return out, nil
+	}
+	out := make([]store.ConversationLine, limit)
+	copy(out, all[len(all)-limit:])
+	return out, nil
+}
+
+// linesFor returns every line stored for gameSessionID, in append order
+// (oldest first), for a test to assert on directly.
+func (f *fakeConversation) linesFor(gameSessionID uuid.UUID) []store.ConversationLine {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]store.ConversationLine, len(f.lines[gameSessionID]))
+	copy(out, f.lines[gameSessionID])
 	return out
 }
 

@@ -124,6 +124,15 @@ type Manager struct {
 	// no-op, and it is safe to call even when no loop is running for
 	// userID — the driver's StopLoop target treats a miss as a no-op.
 	disengageHook DisengageHook
+
+	// chatHook is the AI driver's AI-chatter entry point (its HandleChat
+	// method, plan 05-05). Unlike engageHook/disengageHook above, it has no
+	// autopilot state transition of its own to fire from -- it is invoked
+	// directly by internal/session/websocket.go's read loop for every
+	// inbound MsgTypeChat message, through the exported FireChatHook below,
+	// so it is stored here purely to keep every driver hook this package
+	// declares in one place. A nil hook is a silent no-op.
+	chatHook ChatHook
 }
 
 // EngageHook is called once per real engagement: a WAITING-to-ON resume in
@@ -166,6 +175,39 @@ func (m *Manager) SetDisengageHook(h DisengageHook) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.disengageHook = h
+}
+
+// ChatHook is called for every inbound chat message (plan 05-05, D-01): the
+// AI driver's AI-chatter entry point (HandleChat). userID and connectionID
+// are the ids the websocket read loop already has for the message's
+// sender; message is the owner's raw chat text, untouched. Unlike
+// EngageHook/DisengageHook above, ChatHook has no autopilot state
+// transition to fire from -- it is invoked directly, once per inbound
+// chat message, through FireChatHook below.
+type ChatHook func(userID, connectionID, message string)
+
+// SetChatHook wires the AI driver's chat entry point (HandleChat),
+// mirroring SetEngageHook/SetDisengageHook's exact precedent. A nil hook
+// (the zero-value default) makes FireChatHook a no-op.
+func (m *Manager) SetChatHook(h ChatHook) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.chatHook = h
+}
+
+// FireChatHook invokes the wired ChatHook, if any, for one inbound chat
+// message. Safe to call from any goroutine and from any package in this
+// module (internal/session/websocket.go is the one caller): it takes its
+// own lock to read the hook rather than requiring the caller to hold one,
+// since -- unlike engageHook/disengageHook -- it is not fired from inside
+// an already-locked state-transition method. A nil hook is a silent no-op.
+func (m *Manager) FireChatHook(userID, connectionID, message string) {
+	m.mu.Lock()
+	hook := m.chatHook
+	m.mu.Unlock()
+	if hook != nil {
+		hook(userID, connectionID, message)
+	}
 }
 
 // defaultWriteTimeout is how long a command write to the game socket may

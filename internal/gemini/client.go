@@ -369,6 +369,58 @@ func (c *Client) ReviewCommand(ctx context.Context, endpoint, model, apiKey, sys
 	return &answer, nil
 }
 
+// ChatAnswer is AI-chatter's constrained answer to one owner message: a
+// short plain-text reply, and nothing else yet. Plan 05-06 extends this
+// type with the coaching-suggestion fields once that behaviour ships;
+// shipping those fields now, unread, would be dead wire.
+type ChatAnswer struct {
+	Reply string `json:"reply"`
+}
+
+// Chat asks the model to answer one owner chat message (D-01, D-11), using
+// the same constrained-JSON mechanism GenerateContent and ReviewCommand
+// already use. D-11 says AI-chatter always answers, so an answer whose
+// reply is missing or empty is a *Error{Kind: KindMalformed}, the same
+// failure kind a genuine decode error already returns.
+func (c *Client) Chat(ctx context.Context, endpoint, model, apiKey, systemInstruction, userText string) (*ChatAnswer, error) {
+	schema := responseSchema{
+		Type: "object",
+		Properties: map[string]schemaProperty{
+			"reply": {Type: "string"},
+		},
+		Required:         []string{"reply"},
+		PropertyOrdering: []string{"reply"},
+	}
+	inner, err := c.doGenerate(ctx, endpoint, model, apiKey, systemInstruction, userText, schema)
+	if err != nil {
+		return nil, err
+	}
+	return decodeChatAnswer(inner)
+}
+
+// chatAnswerWire mirrors ChatAnswer for the outer decode, following
+// decodeAnswer's tolerant pattern: a syntactically valid body that is
+// missing or empty on reply is a malformed answer, not a Go zero-value
+// reply an owner could mistake for a real one.
+type chatAnswerWire struct {
+	Reply string `json:"reply"`
+}
+
+// decodeChatAnswer decodes a raw structured-answer payload into a
+// ChatAnswer, failing closed (KindMalformed) when reply is missing or
+// empty -- D-11 says AI-chatter always answers, so a decoded-but-empty
+// reply must never reach the owner as if it were a real one.
+func decodeChatAnswer(data []byte) (*ChatAnswer, error) {
+	var wire chatAnswerWire
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return nil, &Error{Kind: KindMalformed, Message: "could not decode AI-chatter's structured answer"}
+	}
+	if wire.Reply == "" {
+		return nil, &Error{Kind: KindMalformed, Message: "AI-chatter's answer did not carry a reply"}
+	}
+	return &ChatAnswer{Reply: wire.Reply}, nil
+}
+
 // errorFromResponse maps a non-200 Gemini response to a typed *Error,
 // reading at most maxErrorBodyBytes of the body and recording only the
 // vendor's error.message when it parses — never the request body and

@@ -284,6 +284,11 @@ func main() {
 	// plan 04-06). It is constructed beside decisionStore because both are
 	// per-connection AI Player audit/memory stores sharing the same *sql.DB.
 	questStore := store.NewQuestStore(db)
+	// conversationStore backs AI-chatter's own conversation (plan 05-05,
+	// D-01), constructed beside decisionStore/questStore for the same
+	// reason: another per-connection AI Player store sharing the same
+	// *sql.DB.
+	conversationStore := store.NewConversationStore(db)
 	// 120s: current Gemini flash models take well over the 30s default to return a
 	// structured answer (seen on staging 2026-09-16: transport timeout at exactly 30s).
 	geminiClient := gemini.NewClient(120 * time.Second)
@@ -291,12 +296,21 @@ func main() {
 	sessionManager.SetEngageHook(aiDriver.EngageLoop)
 	sessionHandler.SetEngageHook(aiDriver.EngageLoop)
 	sessionManager.SetDisengageHook(aiDriver.StopLoop)
+	// AI-chatter's own entry point (plan 05-05): fired directly by the
+	// websocket read loop's MsgTypeChat case, one hook, the exact one-line
+	// convention the two hooks above already use -- it has no autopilot
+	// state transition to fire from, unlike EngageHook/DisengageHook.
+	sessionManager.SetChatHook(aiDriver.HandleChat)
 	// Wire the real Quest and Session Memory stores (D-10, D-11, plan
 	// 04-08) so the driver's prompt-context reads (plan 04-07) and its own
 	// curation writes (this plan) land against the same questStore and
 	// transcriptStore every other AI Player surface already uses.
 	aiDriver.SetQuests(questStore)
 	aiDriver.SetMemory(transcriptStore)
+	// Wire the real conversation store (plan 05-05) so HandleChat stores
+	// and recalls against the same conversationStore the Logs page will
+	// read from.
+	aiDriver.SetConversation(conversationStore)
 
 	// Wire the same decisionStore instance to the decisions-read endpoint
 	// (plan 03-09) so a reloaded play screen reads back exactly what the
@@ -327,20 +341,43 @@ func main() {
 	// decision row is already stored before this notification runs, so a
 	// refresh recovers it through the decisions-read endpoint even if the
 	// tab was closed at the moment the decision happened.
-	aiDriver.SetNotifier(aidriver.NotifierFunc(func(userID string, ev aidriver.Event) {
-		// WithStint (code review WR-05 of Phase 4): every driver event
-		// carries the stint's counts and memory list even when they are
-		// zero or empty, so the panel can show a streak that has cleared.
-		_ = wsHandler.PushAI(userID, session.AIDecisionPayload{
-			ID:        ev.ID,
-			Kind:      ev.Kind,
-			Reasoning: ev.Reasoning,
-			Command:   ev.Command,
-			Outcome:   ev.Outcome,
-			Message:   ev.Message,
-			Timestamp: ev.Timestamp,
-		}.WithStint(ev.State, ev.Calls, ev.CallCap, ev.CallCapSet, ev.Failures, ev.Blocks, ev.Threshold, ev.SessionMemory))
-	}))
+	// Notifier is now two methods (plan 05-05 adds NotifyChat beside
+	// NotifyDecision); NotifierFunc and ChatNotifierFunc each satisfy one
+	// half, and embedding both in one anonymous struct promotes both
+	// methods, satisfying the full interface with one concrete value.
+	aiDriver.SetNotifier(struct {
+		aidriver.NotifierFunc
+		aidriver.ChatNotifierFunc
+	}{
+		NotifierFunc: aidriver.NotifierFunc(func(userID string, ev aidriver.Event) {
+			// WithStint (code review WR-05 of Phase 4): every driver event
+			// carries the stint's counts and memory list even when they are
+			// zero or empty, so the panel can show a streak that has cleared.
+			_ = wsHandler.PushAI(userID, session.AIDecisionPayload{
+				ID:        ev.ID,
+				Kind:      ev.Kind,
+				Reasoning: ev.Reasoning,
+				Command:   ev.Command,
+				Outcome:   ev.Outcome,
+				Message:   ev.Message,
+				Timestamp: ev.Timestamp,
+			}.WithStint(ev.State, ev.Calls, ev.CallCap, ev.CallCapSet, ev.Failures, ev.Blocks, ev.Threshold, ev.SessionMemory))
+		}),
+		// ChatNotifierFunc (plan 05-05-03): translates driver.ChatEvent to
+		// session.ChatPayload field by field and pushes it through the same
+		// wsHandler the decision/system stream above uses, over the
+		// distinct MsgTypeChat channel (D-04: never mixed into the thinking
+		// stream).
+		ChatNotifierFunc: aidriver.ChatNotifierFunc(func(userID string, ev aidriver.ChatEvent) {
+			_ = wsHandler.PushChat(userID, session.ChatPayload{
+				ID:        ev.ID,
+				Speaker:   ev.Speaker,
+				Text:      ev.Text,
+				State:     ev.State,
+				Timestamp: ev.Timestamp,
+			})
+		}),
+	})
 
 	// Wire the goal endpoint's goal-changed/goal-cleared system line
 	// (plan 04-06, D-03) through the exact same wsHandler.PushAI path the

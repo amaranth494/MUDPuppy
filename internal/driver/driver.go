@@ -174,6 +174,10 @@ const emptyReviewReasonFallback = "no reason was given."
 type Models interface {
 	GenerateContent(ctx context.Context, endpoint, model, apiKey, systemInstruction, userText string) (*gemini.Answer, error)
 	ReviewCommand(ctx context.Context, endpoint, model, apiKey, systemInstruction, userText string) (*gemini.ReviewAnswer, error)
+	// Chat asks the model for AI-chatter's reply to one owner message
+	// (plan 05-05, D-01, D-11). A third sibling of the two methods above,
+	// using the same constrained-JSON mechanism.
+	Chat(ctx context.Context, endpoint, model, apiKey, systemInstruction, userText string) (*gemini.ChatAnswer, error)
 }
 
 // Commands is the one collaborator method the driver calls to put the AI's
@@ -220,6 +224,10 @@ type Profiles interface {
 // Decisions is the slice of *store.DecisionStore the driver depends on.
 type Decisions interface {
 	InsertDecision(rec store.DecisionRecord) (uuid.UUID, time.Time, error)
+	// ListForConnection exists so AI-chatter can answer "why did you do
+	// that" from the same rows the panel shows (plan 05-05, D-17).
+	// Matches (*store.DecisionStore).ListForConnection's signature exactly.
+	ListForConnection(connectionID uuid.UUID, limit int) ([]store.Decision, error)
 }
 
 // Quests is the slice of *store.QuestStore the driver depends on to read
@@ -252,23 +260,69 @@ type Memory interface {
 	UpdateSessionMemory(gameSessionID uuid.UUID, memory []string) error
 }
 
-// Notifier delivers a decision or system Event to the browser (plan
-// 03-09's live push to the owner's open play screen). A nil Notifier
-// passed to New is a silent no-op, so this plan is independently runnable
-// without plan 03-09.
-type Notifier interface {
-	NotifyDecision(userID string, ev Event)
+// Conversation is the slice of *store.ConversationStore the driver depends
+// on for AI-chatter (plan 05-05): appending the owner's message and
+// AI-chatter's reply against the current game session, and reading back a
+// bounded tail of earlier lines. RecentConversation exists because the
+// chat call is stateless -- one shot per owner message, with no memory of
+// its own -- so without this a follow-up message would land on a model
+// that has never seen the owner's first one. Nil-safe for the same reason
+// as Quests and Memory above: an unwired Conversation collaborator means
+// HandleChat cannot store or recall anything, not that it crashes.
+type Conversation interface {
+	AppendChatLine(gameSessionID uuid.UUID, speaker, text string) (store.ConversationLine, error)
+	RecentConversation(gameSessionID uuid.UUID, limit int) ([]store.ConversationLine, error)
 }
 
-// NotifierFunc adapts a plain closure to Notifier, so cmd/server/main.go
-// can wire the browser push surface into the driver without
-// internal/driver ever importing the package that implements it — the
-// one-way dependency direction this package's doc comment describes.
+// Notifier delivers a decision or system Event, or a chat ChatEvent, to the
+// browser (plan 03-09's live push to the owner's open play screen; plan
+// 05-05 adds the chat channel). A nil Notifier passed to New is a silent
+// no-op, so this plan is independently runnable without plan 03-09.
+type Notifier interface {
+	NotifyDecision(userID string, ev Event)
+	// NotifyChat delivers one conversation line to the browser (D-04: the
+	// owner's messages and AI-chatter's replies appear only in the
+	// conversation area, never mixed into the thinking stream NotifyDecision
+	// carries).
+	NotifyChat(userID string, ev ChatEvent)
+}
+
+// NotifierFunc adapts a plain closure to the NotifyDecision half of
+// Notifier, so cmd/server/main.go can wire the browser push surface into
+// the driver without internal/driver ever importing the package that
+// implements it — the one-way dependency direction this package's doc
+// comment describes.
 type NotifierFunc func(userID string, ev Event)
 
-// NotifyDecision satisfies Notifier by calling the wrapped closure.
+// NotifyDecision satisfies half of Notifier by calling the wrapped closure.
 func (f NotifierFunc) NotifyDecision(userID string, ev Event) {
 	f(userID, ev)
+}
+
+// ChatNotifierFunc adapts a plain closure to the NotifyChat half of
+// Notifier, mirroring NotifierFunc's exact precedent. cmd/server/main.go
+// composes both adapters (by embedding, since Notifier is now two methods)
+// into one concrete value passed to SetNotifier.
+type ChatNotifierFunc func(userID string, ev ChatEvent)
+
+// NotifyChat satisfies half of Notifier by calling the wrapped closure.
+func (f ChatNotifierFunc) NotifyChat(userID string, ev ChatEvent) {
+	f(userID, ev)
+}
+
+// ChatEvent is one line of the owner/AI-chatter conversation, pushed live
+// to the browser (plan 05-05, D-01) — a sibling push channel to Event, kept
+// deliberately separate so the two are never mixed on the wire (D-04).
+// Speaker is "owner", "chatter" or "system". State is set only on a system
+// line ("cap" or "failed", matching 05-UI-SPEC.md's
+// .ai-assist-chat-line.speaker-system.state-* classes) and is empty on an
+// owner or chatter line.
+type ChatEvent struct {
+	ID        string
+	Speaker   string
+	Text      string
+	State     string
+	Timestamp string
 }
 
 // Event is the payload plan 03-09 delivers live to the browser and plan
@@ -325,6 +379,13 @@ type Driver struct {
 	quests Quests
 	memory Memory
 
+	// conversation is a nil-safe collaborator (plan 05-05), mirroring quests
+	// and memory above: a nil value means HandleChat cannot store or recall
+	// the conversation, exactly like a nil Quests/Memory means no bullets in
+	// the prompt. Not set by New; wired by SetConversation once
+	// cmd/server/main.go builds the real *store.ConversationStore.
+	conversation Conversation
+
 	mu sync.Mutex
 	// inFlight is keyed by user AND stint epoch (code review CR-01 of Phase
 	// 4). Keyed by user alone, an iteration of a stint that has already
@@ -333,6 +394,12 @@ type Driver struct {
 	// instruction) skip itself. The old iteration is dropped when it
 	// returns; it must not hold the new stint up in the meantime.
 	inFlight map[flightKey]bool
+
+	// chatInFlight is AI-chatter's own in-flight guard (plan 05-05), keyed
+	// by user id alone -- AI-chatter has no stint or epoch (D-06) -- so a
+	// second owner message sent before the first reply lands is refused
+	// rather than racing it. Guarded by this same d.mu.
+	chatInFlight map[string]bool
 
 	// begunEpoch is the highest stint epoch EngageLoop has begun for each
 	// user, so a duplicate or out-of-order engage hook for a stint that has
@@ -398,6 +465,7 @@ func New(sessions Sessions, profiles Profiles, decisions Decisions, models Model
 		notifier:       notifier,
 		cfg:            cfg,
 		inFlight:       make(map[flightKey]bool),
+		chatInFlight:   make(map[string]bool),
 		begunEpoch:     make(map[string]uint64),
 		loops:          make(map[string]*stintLoop),
 		lastDecisionAt: make(map[string]time.Time),
@@ -437,6 +505,15 @@ func (d *Driver) SetQuests(q Quests) {
 // Session Memory until a real *store.TranscriptStore is wired.
 func (d *Driver) SetMemory(m Memory) {
 	d.memory = m
+}
+
+// SetConversation attaches (or replaces) the Driver's Conversation
+// collaborator after construction, mirroring SetQuests/SetMemory's exact
+// precedent (plan 05-05). Unwired (nil) is the default and a supported
+// state — HandleChat still runs, storing and recalling nothing, until a
+// real *store.ConversationStore is wired.
+func (d *Driver) SetConversation(c Conversation) {
+	d.conversation = c
 }
 
 // HandleEngage runs one decision for userID on connectionID as a later

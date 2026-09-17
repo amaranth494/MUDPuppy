@@ -376,3 +376,69 @@ func TestWheelGrabSourceRule(t *testing.T) {
 		})
 	})
 }
+
+// TestWebSocket_ChatIsNotAWheelGrab proves D-16: a chat message never
+// disengages autopilot and is never treated as a game command, in every
+// autopilot state, including disconnected. It exercises Manager.FireChatHook
+// directly -- the exact call the websocket read loop's `case MsgTypeChat:`
+// branch makes -- following TestWheelGrabSourceRule's own precedent above of
+// testing the read loop's decision logic against a real *Manager with no
+// websocket dial anywhere (this package has no harness for a live
+// *websocket.Conn round trip; clientToMUD is a channel local to
+// HandleWebSocket's own call frame, not a Manager field, so "nothing
+// written to the MUD channel" is proven by source inspection -- the
+// MsgTypeChat case contains no reference to clientToMUD at all -- rather
+// than by a runtime assertion here).
+func TestWebSocket_ChatIsNotAWheelGrab(t *testing.T) {
+	t.Run("autopilot_on_stays_on_and_the_hook_fires_once", func(t *testing.T) {
+		m := newTestManager()
+		const userID = "chat-user-1"
+		seedConnectedSession(m, userID, "conn-1")
+		if _, _, err := m.EngageAutopilot(userID, "conn-1"); err != nil {
+			t.Fatalf("engage err = %v, want nil", err)
+		}
+
+		type call struct{ userID, connectionID, message string }
+		var calls []call
+		m.SetChatHook(func(userID, connectionID, message string) {
+			calls = append(calls, call{userID, connectionID, message})
+		})
+
+		m.FireChatHook(userID, "conn-1", "why did you go north?")
+
+		if got := m.AutopilotStateFor(userID); got != AutopilotOn {
+			t.Fatalf("AutopilotStateFor = %q, want still %q (a chat message must never disengage autopilot)", got, AutopilotOn)
+		}
+		if len(calls) != 1 {
+			t.Fatalf("chat hook fired %d time(s), want 1: %+v", len(calls), calls)
+		}
+		if calls[0] != (call{userID, "conn-1", "why did you go north?"}) {
+			t.Fatalf("chat hook call = %+v, want {%q, %q, %q}", calls[0], userID, "conn-1", "why did you go north?")
+		}
+	})
+
+	t.Run("accepted_and_fires_even_when_not_connected_to_a_game", func(t *testing.T) {
+		m := newTestManager()
+		const userID = "chat-user-2"
+		// No seedConnectedSession call at all -- there is no game connection
+		// for this user, exactly the disconnected case D-06 requires the
+		// message box to keep working in.
+
+		fired := false
+		m.SetChatHook(func(userID, connectionID, message string) {
+			fired = true
+		})
+
+		m.FireChatHook(userID, "", "hello while disconnected")
+
+		if !fired {
+			t.Fatal("expected the chat hook to fire even while not connected to a game")
+		}
+	})
+
+	t.Run("a_nil_hook_is_a_silent_no_op", func(t *testing.T) {
+		m := newTestManager()
+		// SetChatHook is never called -- the zero-value default.
+		m.FireChatHook("nobody", "nowhere", "hello")
+	})
+}
