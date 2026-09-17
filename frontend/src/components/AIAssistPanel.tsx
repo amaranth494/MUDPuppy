@@ -15,6 +15,7 @@ import {
 import { useSession } from '../context/SessionContext';
 import { openPopout, closePopout, closePopouts } from '../services/popout';
 import { appendChatLine, chatLineKey, mergeLoadedConversation } from '../services/chatLines';
+import { followIfPinned, isScrolledToBottom } from '../services/stickToBottom';
 
 interface AIAssistPanelProps {
   connectionId: string;
@@ -190,11 +191,17 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
     };
   }, [wsManager, connectionId]);
 
-  useEffect(() => {
-    if (chatLogRef.current) {
-      chatLogRef.current.scrollTop = chatLogRef.current.scrollHeight;
-    }
-  }, [chatEntries]);
+  // Owner-reported fix OW-01: the conversation follows its newest line down
+  // UNLESS the owner has scrolled up to read history, in which case it is
+  // left exactly where he put it. chatPinnedRef holds which of the two it is;
+  // handleChatScroll updates it from the owner's own scrolling. (The effect
+  // that does the following sits below, once poppedOut exists: moving the
+  // view between the panel and its own window re-mounts the list, which
+  // starts it at the top.)
+  const chatPinnedRef = useRef(true);
+  const handleChatScroll = useCallback(() => {
+    if (chatLogRef.current) chatPinnedRef.current = isScrolledToBottom(chatLogRef.current);
+  }, []);
 
   // 05-07 (05-UI-SPEC.md's locked "Chat — send failed" notice): the Send
   // button is disabled only by an empty draft, never by autopilotState
@@ -577,12 +584,44 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
     };
   }, [wsManager]);
 
-  // Keep the list scrolled to the newest entry.
+  // Keep each list on its newest entry -- unless the owner has scrolled up to
+  // read history (owner-reported fix OW-01). The thinking stream used to be
+  // pulled to the bottom on every new entry, whatever the owner was reading.
+  // Both effects also run when their view moves between the panel and its
+  // own window: the list is re-mounted in another document and starts at the
+  // top, so a list that was following is put back on its newest line.
+  const bodyPinnedRef = useRef(true);
+  const handleBodyScroll = useCallback(() => {
+    if (bodyRef.current) bodyPinnedRef.current = isScrolledToBottom(bodyRef.current);
+  }, []);
   useEffect(() => {
-    if (bodyRef.current) {
-      bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
-    }
-  }, [entries]);
+    followIfPinned(bodyRef.current, bodyPinnedRef.current);
+  }, [entries, isLoading, poppedOut.aiPlayer, collapsed]);
+  useEffect(() => {
+    followIfPinned(chatLogRef.current, chatPinnedRef.current);
+  }, [chatEntries, poppedOut.aiChatter, collapsed]);
+
+  // A pop-out window is freely resizable (05-UI-SPEC.md). Growing or
+  // shrinking it changes how much of the list fits, which can leave a list
+  // that was following its newest line a little short of it; put it back.
+  useEffect(() => {
+    const wins = [poppedOut.aiPlayer, poppedOut.aiChatter].filter((w): w is Window => w !== null);
+    if (wins.length === 0) return;
+    const refollow = () => {
+      followIfPinned(bodyRef.current, bodyPinnedRef.current);
+      followIfPinned(chatLogRef.current, chatPinnedRef.current);
+    };
+    wins.forEach((w) => w.addEventListener('resize', refollow));
+    return () => {
+      wins.forEach((w) => {
+        try {
+          w.removeEventListener('resize', refollow);
+        } catch {
+          // The window is already gone; there is nothing left to remove.
+        }
+      });
+    };
+  }, [poppedOut.aiPlayer, poppedOut.aiChatter]);
 
   if (collapsed) {
     return (
@@ -615,6 +654,7 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
     entries,
     isLoading,
     bodyRef,
+    onBodyScroll: handleBodyScroll,
     popupBlocked: popupBlocked.aiPlayer,
   };
 
@@ -624,6 +664,7 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
     onDraftChange: setChatDraft,
     onSend: sendChatMessage,
     chatLogRef,
+    onChatScroll: handleChatScroll,
     popupBlocked: popupBlocked.aiChatter,
   };
 
@@ -717,6 +758,7 @@ interface AIPlayerViewProps {
   entries: PanelEntry[];
   isLoading: boolean;
   bodyRef: RefObject<HTMLDivElement>;
+  onBodyScroll: () => void;
   popupBlocked: boolean;
 }
 
@@ -800,7 +842,7 @@ function AIPlayerView(props: AIPlayerViewProps) {
             ))}
         </div>
       </div>
-      <div className="ai-assist-panel-body" ref={props.bodyRef}>
+      <div className="ai-assist-panel-body" ref={props.bodyRef} onScroll={props.onBodyScroll}>
         {props.isLoading && <div className="ai-assist-loading">Loading decision history…</div>}
         {!props.isLoading && props.entries.length === 0 && (
           <div className="ai-assist-empty">
@@ -847,6 +889,7 @@ interface AIChatterViewProps {
   onDraftChange: (value: string) => void;
   onSend: () => void;
   chatLogRef: RefObject<HTMLDivElement>;
+  onChatScroll: () => void;
   popupBlocked: boolean;
   onPopOut?: () => void;
 }
@@ -868,7 +911,7 @@ function AIChatterView(props: AIChatterViewProps) {
         )}
       </div>
       {props.popupBlocked && <div className="form-error">{POPUP_BLOCKED_NOTICE}</div>}
-      <div className="ai-assist-chat-log" ref={props.chatLogRef}>
+      <div className="ai-assist-chat-log" ref={props.chatLogRef} onScroll={props.onChatScroll}>
         {props.chatEntries.length === 0 && (
           <div className="ai-assist-chat-empty">No messages yet. Say something to AI-chatter.</div>
         )}

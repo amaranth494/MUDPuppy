@@ -461,12 +461,22 @@ body {
 
 .ai-assist-chat-log {
   flex: 1;
+  /* Owner-reported fix OW-01: without min-height 0 a flex child will not
+     shrink below its content, so a long conversation pushed the message box
+     out of the strip instead of scrolling above it. */
+  min-height: 0;
   overflow-y: auto;
   padding: var(--spacing-sm) var(--spacing-md);
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
 }
+/* OW-01: oldest at the top, newest at the bottom directly above the message
+   box. While the conversation is shorter than the list, an auto top margin on
+   its first line pushes it down to sit on the message box; once it is longer
+   the margin is zero and the list scrolls normally. (justify-content:
+   flex-end would do the first half and then make the top unreachable.) */
+.ai-assist-chat-log > .ai-assist-chat-line:first-child { margin-top: auto; }
 
 .ai-assist-chat-empty {
   padding: var(--spacing-lg);
@@ -519,6 +529,59 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: var(--spacing-sm);
+}
+
+/* Owner-reported fix OW-01 — a popped-out view fills its own window.
+   services/popout.ts puts .ai-popout-root on the pop-out's <html> and
+   .ai-popout-body on its <body>; nothing else ever carries them, so none of
+   this reaches the docked panel (380x760 and its split are unchanged).
+
+   What went wrong without it: this stylesheet is cloned into the pop-out, so
+   its <html>/<body> got height 100% and overflow hidden from the app's own
+   rule, but the body was not a flex column. The conversation kept the docked
+   strip's fixed 240px and sat at the top of the window with empty space
+   below it; the thinking stream, which needs a flex parent to scroll, grew
+   past the window edge and was simply cut off.
+
+   No new custom property, no animation, no filled background. */
+html.ai-popout-root,
+body.ai-popout-body {
+  height: 100%;
+  width: 100%;
+}
+body.ai-popout-body {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+/* AI-chatter's window: the conversation takes every pixel above the message
+   box, which the view's own flex column already pins to the bottom. */
+body.ai-popout-body > .ai-assist-chat {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  border-top: none;
+}
+body.ai-popout-body > .ai-assist-chat > .ai-assist-chat-header { border-top: none; }
+
+/* AI-player's window: the goal box, Pause/Resume, status line, Session
+   Memory and Coaching in effect keep their natural height -- capped at half
+   the window, scrolling inside themselves, so opening both lists can never
+   squeeze the thinking stream out -- and the thinking stream takes the rest
+   and scrolls. */
+body.ai-popout-body > .ai-assist-panel-top {
+  flex: 0 1 auto;
+  max-height: 50%;
+  overflow-y: auto;
+}
+body.ai-popout-body > .ai-assist-panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* §6 — plan 05-09's Logs page conversation section; landed here for the

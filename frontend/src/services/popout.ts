@@ -7,6 +7,10 @@
 // the same JavaScript process, subscribed to the exact same wsManager/
 // useSession() instance the docked panel already uses (05-UI-SPEC.md §7).
 
+/** The classes a pop-out document's <html> and <body> carry (OW-01). */
+export const POPOUT_ROOT_CLASS = 'ai-popout-root';
+export const POPOUT_BODY_CLASS = 'ai-popout-body';
+
 /**
  * Opens a same-origin, blank child window for the given view and clones this
  * document's styling into it so it renders with the exact same tokens,
@@ -48,6 +52,12 @@ export function openPopout(key: 'ai-player' | 'ai-chatter', title: string, width
   win.document.title = title;
   win.document.body.style.margin = '0';
   win.document.body.style.background = 'var(--color-bg)';
+  // Owner-reported fix OW-01: mark this document as a pop-out. index.css
+  // (cloned in just below) keys the pop-out layout off these two classes --
+  // the view fills the whole window and its list scrolls -- and because only
+  // a pop-out document ever carries them, the docked panel is untouched.
+  win.document.documentElement.classList.add(POPOUT_ROOT_CLASS);
+  win.document.body.classList.add(POPOUT_BODY_CLASS, `${POPOUT_BODY_CLASS}-${key}`);
   // Copy every stylesheet link and inline <style> tag from this document so the
   // popout renders with the exact same tokens, typography and colour buckets —
   // no separate CSS file, no drift.
