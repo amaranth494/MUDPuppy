@@ -758,11 +758,20 @@ func (c *corpusSessions) RecentOutputSnapshot(userID string) string {
 	return c.window
 }
 
-func (c *corpusSessions) SendCommandAs(userID, command, source string) error {
+func (c *corpusSessions) SendAICommand(userID, command string, epoch uint64) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.sends = append(c.sends, corpusSendCall{userID: userID, command: command, source: source})
+	c.sends = append(c.sends, corpusSendCall{userID: userID, command: command, source: "ai"})
 	return nil
+}
+
+// AutopilotEpochFor satisfies the Sessions interface widened by code review
+// CR-01 of Phase 4. Every corpus item is one engaged decision in one stint,
+// so the switch reads On at a constant epoch 1 for the same reason
+// AutopilotStateFor below reads On. No item, target, window or fixture is
+// touched by this.
+func (c *corpusSessions) AutopilotEpochFor(userID string) (session.AutopilotState, uint64) {
+	return session.AutopilotOn, 1
 }
 
 func (c *corpusSessions) DisengageAutopilot(userID, cause string) (session.AutopilotState, bool) {

@@ -392,7 +392,7 @@ func (h *Handler) Autopilot(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		newState, changed, engageErr := h.manager.EngageAutopilot(userIDStr, req.ConnectionID.String())
+		newState, changed, epoch, engageErr := h.manager.EngageAutopilotEpoch(userIDStr, req.ConnectionID.String())
 		resp.State = string(newState)
 		switch {
 		case engageErr == ErrNoConnectedSession:
@@ -406,7 +406,7 @@ func (h *Handler) Autopilot(w http.ResponseWriter, r *http.Request) {
 			// nothing. Started with `go` so the HTTP response returns at
 			// once; the decision arrives later over the websocket.
 			if h.engageHook != nil {
-				go h.engageHook(userIDStr, req.ConnectionID.String())
+				go h.engageHook(userIDStr, req.ConnectionID.String(), epoch)
 			}
 		default:
 			resp.Outcome = "already-on"

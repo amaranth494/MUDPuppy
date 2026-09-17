@@ -11,8 +11,6 @@ package driver
 import (
 	"context"
 	"time"
-
-	"github.com/amaranth494/MudPuppy/internal/session"
 )
 
 // EngageLoop is the new EngageHook target for both real triggers of a stint
@@ -25,14 +23,43 @@ import (
 // still on afterward does the pacing loop begin. A first decision that
 // already failed, hit a cap, or otherwise disengaged the switch has no
 // loop to start.
-func (d *Driver) EngageLoop(userID, connectionID string) {
+//
+// epoch is the stint this engagement began, as the session manager numbered
+// it (code review CR-01 of Phase 4). Every decision of the stint carries it,
+// and a decision whose epoch is no longer the switch's is dropped -- so an
+// iteration of the PREVIOUS stint that is still waiting on a slow model call
+// when the owner re-engages neither blocks this stint's reassess decision
+// (the in-flight guard is keyed by epoch) nor gets its stale command sent
+// into this stint (runIteration's stint checks and SendAICommand).
+func (d *Driver) EngageLoop(userID, connectionID string, epoch uint64) {
 	// D-14/D-15/D-17: the call, consecutive-failure and consecutive-block
 	// counters all start at zero on every #AUTO ON, including after a
-	// wheel-grab, so this runs as this function's first statement, before
-	// the first iteration runs.
-	d.resetStintCounters(userID)
+	// wheel-grab, so beginStint runs first, before the first iteration
+	// runs. It refuses an epoch that has already begun or been superseded:
+	// hooks are fired with `go`, so they can arrive late or out of order.
+	if !d.beginStint(userID, epoch) {
+		d.logDecision(userID, connectionID, "", "engage-ignored", "", "", "", 0, 0)
+		return
+	}
 
-	d.runIteration(userID, connectionID, true)
+	// The first decision is the only one that carries D-08's reassess
+	// instruction, so the stint must not start pacing until it has actually
+	// run. A skip can now only mean another iteration of this SAME stint is
+	// in flight (a direct HandleEngage racing this call); wait for it and
+	// try again, giving up only if the stint ends while waiting.
+	for !d.runIteration(userID, connectionID, true, epoch) {
+		if d.staleStage(userID, epoch) != "" {
+			return
+		}
+		time.Sleep(firstIterationRetryDelay)
+	}
+
+	// A first decision that failed, hit a cap, or outlived its stint has no
+	// loop to start -- and, when the stint is over, must not stamp the
+	// minimum-spacing clock the NEXT stint paces itself against.
+	if d.staleStage(userID, epoch) != "" {
+		return
+	}
 
 	// D-06's minimum spacing is never bypassed just because a decision
 	// happened to be the stint's first (synchronous) one rather than a
@@ -41,18 +68,35 @@ func (d *Driver) EngageLoop(userID, connectionID string) {
 	d.lastDecisionAt[userID] = time.Now()
 	d.mu.Unlock()
 
-	if d.sessions.AutopilotStateFor(userID) != session.AutopilotOn {
-		return
-	}
+	d.startLoop(userID, connectionID, epoch)
+}
 
-	d.startLoop(userID, connectionID)
+// firstIterationRetryDelay is how long EngageLoop waits before retrying a
+// first decision that was skipped because the same stint already had an
+// iteration in flight.
+const firstIterationRetryDelay = 25 * time.Millisecond
+
+// beginStint records epoch as userID's newest begun stint and zeroes the
+// stint counters, reporting false -- and changing nothing -- when that
+// epoch, or a later one, has already begun.
+func (d *Driver) beginStint(userID string, epoch uint64) bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if begun, ok := d.begunEpoch[userID]; ok && epoch <= begun {
+		return false
+	}
+	d.begunEpoch[userID] = epoch
+	d.callCounts[userID] = 0
+	d.failureCounts[userID] = 0
+	d.blockCounts[userID] = 0
+	return true
 }
 
 // startLoop replaces (or creates) userID's pacing goroutine. Cancelling and
 // replacing any loop already running for this user first means a resume
 // racing an engage can never leave two loops alive for the same user.
 // Guarded by the same d.mu that already guards inFlight and lastDecisionAt.
-func (d *Driver) startLoop(userID, connectionID string) {
+func (d *Driver) startLoop(userID, connectionID string, epoch uint64) {
 	d.mu.Lock()
 	if cancel, ok := d.loops[userID]; ok {
 		cancel()
@@ -61,7 +105,7 @@ func (d *Driver) startLoop(userID, connectionID string) {
 	d.loops[userID] = cancel
 	d.mu.Unlock()
 
-	go d.runLoop(ctx, userID, connectionID)
+	go d.runLoop(ctx, userID, connectionID, epoch)
 }
 
 // StopLoop is the DisengageHook target (04-03-01, Pattern 2): it cancels
@@ -108,7 +152,7 @@ func cancellableWait(ctx context.Context, dur time.Duration) bool {
 // loop immediately even mid-wait rather than after one more decision. After
 // waking, it enforces the minimum spacing against the previous decision's
 // finish time -- also cancellably -- before running the next iteration.
-func (d *Driver) runLoop(ctx context.Context, userID, connectionID string) {
+func (d *Driver) runLoop(ctx context.Context, userID, connectionID string, epoch uint64) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -124,7 +168,10 @@ func (d *Driver) runLoop(ctx context.Context, userID, connectionID string) {
 		if ctx.Err() != nil {
 			return
 		}
-		if d.sessions.AutopilotStateFor(userID) != session.AutopilotOn {
+		// The switch must still be On AND still in this loop's own stint: a
+		// loop that outlived its stint stops itself here even if a later
+		// stint has the switch On again.
+		if d.staleStage(userID, epoch) != "" {
 			return
 		}
 
@@ -144,7 +191,13 @@ func (d *Driver) runLoop(ctx context.Context, userID, connectionID string) {
 		window := d.sessions.RecentOutputSnapshot(userID)
 		d.logDecision(userID, connectionID, "", "loop-tick", "", "", "", len(window), 0)
 
-		d.runIteration(userID, connectionID, false)
+		d.runIteration(userID, connectionID, false, epoch)
+
+		// An iteration that outlived its stint must not stamp the clock the
+		// next stint paces itself against.
+		if d.staleStage(userID, epoch) != "" {
+			return
+		}
 
 		d.mu.Lock()
 		d.lastDecisionAt[userID] = time.Now()

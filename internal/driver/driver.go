@@ -166,7 +166,16 @@ type Commands interface {
 // Sessions is the slice of *session.Manager the driver depends on.
 type Sessions interface {
 	RecentOutputSnapshot(userID string) string
-	SendCommandAs(userID, command, source string) error
+	// SendAICommand writes an AI command to the game only while autopilot
+	// is On AND the switch is still in the stint (epoch) the command was
+	// decided in; otherwise it returns session.ErrAutopilotNotOn and
+	// nothing is written (code review CR-01 of Phase 4).
+	SendAICommand(userID, command string, epoch uint64) error
+	// AutopilotEpochFor reports the switch's state together with the stint
+	// epoch it belongs to, read as one consistent pair. An iteration
+	// captures its epoch when it starts and compares against this before
+	// every step that costs a model call or reaches the game.
+	AutopilotEpochFor(userID string) (session.AutopilotState, uint64)
 	DisengageAutopilot(userID, cause string) (session.AutopilotState, bool)
 	CurrentGameSessionID(userID string) (uuid.UUID, bool)
 	// AutopilotStateFor reports the current autopilot state for userID, so
@@ -289,8 +298,19 @@ type Driver struct {
 	quests Quests
 	memory Memory
 
-	mu       sync.Mutex
-	inFlight map[string]bool
+	mu sync.Mutex
+	// inFlight is keyed by user AND stint epoch (code review CR-01 of Phase
+	// 4). Keyed by user alone, an iteration of a stint that has already
+	// ended -- still waiting on a slow model call -- made the next stint's
+	// first decision (the only one that carries D-08's reassess
+	// instruction) skip itself. The old iteration is dropped when it
+	// returns; it must not hold the new stint up in the meantime.
+	inFlight map[flightKey]bool
+
+	// begunEpoch is the highest stint epoch EngageLoop has begun for each
+	// user, so a duplicate or out-of-order engage hook for a stint that has
+	// already begun (or already been superseded) starts nothing.
+	begunEpoch map[string]uint64
 
 	// loops holds the per-user pacing goroutine's cancel func (04-03-02),
 	// guarded by the same d.mu that already guards inFlight. lastDecisionAt
@@ -303,7 +323,7 @@ type Driver struct {
 	// counters D-14, D-15 and D-17 need, guarded by the same d.mu — one
 	// mechanism reused three times, not three mechanisms (04-CONTEXT
 	// Claude's Discretion). All three reset to zero on every EngageLoop
-	// (resetStintCounters), including after a wheel-grab.
+	// (beginStint, internal/driver/loop.go), including after a wheel-grab.
 	callCounts    map[string]int
 	failureCounts map[string]int
 	blockCounts   map[string]int
@@ -325,6 +345,12 @@ type Driver struct {
 	retryDelay    time.Duration
 }
 
+// flightKey identifies one stint of one user for the in-flight guard.
+type flightKey struct {
+	userID string
+	epoch  uint64
+}
+
 // New builds a Driver. notifier may be nil (plan 03-09 supplies the real
 // implementation); every notify call becomes a silent no-op until then.
 func New(sessions Sessions, profiles Profiles, decisions Decisions, models Models, commands Commands, notifier Notifier, cfg *config.Config) *Driver {
@@ -336,7 +362,8 @@ func New(sessions Sessions, profiles Profiles, decisions Decisions, models Model
 		commands:       commands,
 		notifier:       notifier,
 		cfg:            cfg,
-		inFlight:       make(map[string]bool),
+		inFlight:       make(map[flightKey]bool),
+		begunEpoch:     make(map[string]uint64),
 		loops:          make(map[string]context.CancelFunc),
 		lastDecisionAt: make(map[string]time.Time),
 		callCounts:     make(map[string]int),
@@ -384,8 +411,33 @@ func (d *Driver) SetMemory(m Memory) {
 // entry point real engages and resumes use; it calls runIteration with
 // first=true for the stint's opening decision, then starts the pacing loop
 // that calls this same iteration body for every decision after it.
+//
+// It has no stint of its own to be told about, so it takes the switch's
+// current epoch as the stint this decision belongs to; the decision is
+// still dropped if the stint ends before it is sent.
 func (d *Driver) HandleEngage(userID, connectionID string) {
-	d.runIteration(userID, connectionID, false)
+	_, epoch := d.sessions.AutopilotEpochFor(userID)
+	d.runIteration(userID, connectionID, false, epoch)
+}
+
+// staleStage reports whether an iteration that began in stint epoch has
+// outlived it, as the log stage to drop it under, or "" while it is still
+// current (code review CR-01 of Phase 4). "dropped-stale" means the switch
+// has moved on to a later stint -- it may well read On again, which is
+// exactly the case a check on the switch position alone let through;
+// "dropped-disengaged" means the stint ended and nothing has replaced it.
+// A dropped iteration sends nothing, dispatches nothing, makes no further
+// model call, changes no counter, prints no failure or block notice, and
+// writes no memory: it is not a failure, it is simply no longer wanted.
+func (d *Driver) staleStage(userID string, epoch uint64) string {
+	state, current := d.sessions.AutopilotEpochFor(userID)
+	if current != epoch {
+		return "dropped-stale"
+	}
+	if state != session.AutopilotOn {
+		return "dropped-disengaged"
+	}
+	return ""
 }
 
 // runIteration runs the phase's one decision for userID on connectionID:
@@ -401,20 +453,38 @@ func (d *Driver) HandleEngage(userID, connectionID string) {
 // system instruction carries an explicit instruction to re-check the
 // current situation against the goal before acting, so a re-engage never
 // silently carries a stale plan forward.
-func (d *Driver) runIteration(userID, connectionID string, first bool) {
+//
+// epoch is the stint this decision belongs to (code review CR-01 of Phase
+// 4). It is re-checked after each model call returns -- which is before the
+// reviewer call, before the ICM dispatch, and again atomically inside the
+// send -- and an iteration whose stint is over is dropped quietly (see
+// staleStage). The return value is false only when the iteration did not
+// run at all because another iteration of the SAME stint was in flight;
+// EngageLoop uses it so a stint never starts pacing on top of a first
+// decision that never ran.
+func (d *Driver) runIteration(userID, connectionID string, first bool, epoch uint64) bool {
+	key := flightKey{userID: userID, epoch: epoch}
 	d.mu.Lock()
-	if d.inFlight[userID] {
+	if d.inFlight[key] {
 		d.mu.Unlock()
 		d.logDecision(userID, connectionID, "", "skipped", "", "", "", 0, 0)
-		return
+		return false
 	}
-	d.inFlight[userID] = true
+	d.inFlight[key] = true
 	d.mu.Unlock()
 	defer func() {
 		d.mu.Lock()
-		delete(d.inFlight, userID)
+		delete(d.inFlight, key)
 		d.mu.Unlock()
 	}()
+
+	d.decide(userID, connectionID, first, epoch)
+	return true
+}
+
+// decide is the body of one iteration, split from runIteration so the
+// in-flight guard above wraps every return path below exactly once.
+func (d *Driver) decide(userID, connectionID string, first bool, epoch uint64) {
 
 	window := d.sessions.RecentOutputSnapshot(userID)
 	d.logDecision(userID, connectionID, "", "request", "", "", "", len(window), 0)
@@ -501,6 +571,12 @@ func (d *Driver) runIteration(userID, connectionID string, first bool) {
 
 	answer, genErr := d.models.GenerateContent(context.Background(), entry.Endpoint, entry.ModelName, entry.APIKey, systemInstruction, wrapped)
 	if genErr != nil && is503(genErr) {
+		// A retry is a further model call and a visible notice: neither is
+		// wanted for a stint that has ended (code review CR-01 of Phase 4).
+		if stage := d.staleStage(userID, epoch); stage != "" {
+			d.logDecision(userID, connectionID, "", stage, entry.ModelName, "", "", len(window), 0)
+			return
+		}
 		// D-16: one automatic retry on a vendor 503, with a visible notice
 		// while the retry is in flight. The retry itself counts against the
 		// cap (D-14) — a failed reservation here goes straight to the
@@ -514,6 +590,21 @@ func (d *Driver) runIteration(userID, connectionID string, first bool) {
 		log.Printf("[AI-PLAYER] user_id=%s connection_id=%s stage=retry http=%d", userID, connectionID, http.StatusServiceUnavailable)
 		answer, genErr = d.models.GenerateContent(context.Background(), entry.Endpoint, entry.ModelName, entry.APIKey, systemInstruction, wrapped)
 	}
+
+	// The model call above takes seconds (up to the client's two-minute
+	// timeout), and the owner may have taken the wheel, typed #AUTO OFF,
+	// lost the connection -- or done any of those AND engaged again -- in
+	// the meantime. This is the first of the three stint checks (code
+	// review CR-01 of Phase 4), placed before the answer or its error is
+	// looked at so that a decision that outlived its stint is not a failure
+	// (no counter, no notice), writes no memory, and never reaches the
+	// reviewer call, whose cost would otherwise be charged to the NEXT
+	// stint's freshly zeroed call count.
+	if stage := d.staleStage(userID, epoch); stage != "" {
+		d.logDecision(userID, connectionID, "", stage, entry.ModelName, "", "", len(window), 0)
+		return
+	}
+
 	if genErr != nil {
 		// Diagnostic surface (CLAUDE.md rule 7): the vendor's error kind and
 		// HTTP status, never its message (which may carry a URL), so a
@@ -577,6 +668,10 @@ func (d *Driver) runIteration(userID, connectionID string, first bool) {
 
 	review, revErr := d.models.ReviewCommand(context.Background(), entry.Endpoint, entry.ModelName, entry.APIKey, reviewSystemInstruction, reviewUserText)
 	if revErr != nil && is503(revErr) {
+		if stage := d.staleStage(userID, epoch); stage != "" {
+			d.logDecision(userID, connectionID, "", stage, entry.ModelName, "", "", len(window), len(cmd))
+			return
+		}
 		d.notifyRetrying(userID, resolved)
 		time.Sleep(d.retryDelay)
 		if !d.tryReserveCall(userID, resolved) {
@@ -586,6 +681,19 @@ func (d *Driver) runIteration(userID, connectionID string, first bool) {
 		log.Printf("[AI-PLAYER] user_id=%s connection_id=%s stage=retry http=%d", userID, connectionID, http.StatusServiceUnavailable)
 		review, revErr = d.models.ReviewCommand(context.Background(), entry.Endpoint, entry.ModelName, entry.APIKey, reviewSystemInstruction, reviewUserText)
 	}
+
+	// Second stint check, after the reviewer call and before its verdict or
+	// its error is looked at: a decision that outlived its stint is dropped
+	// here, so a reviewer failure or a block in that tail is neither counted
+	// nor shown to an owner who has already taken over, and nothing is
+	// dispatched. SendAICommand enforces the same rule atomically below;
+	// this check also avoids spending an ICM dispatch on a command that
+	// would be refused.
+	if stage := d.staleStage(userID, epoch); stage != "" {
+		d.logDecision(userID, connectionID, "", stage, entry.ModelName, "", "", len(window), len(cmd))
+		return
+	}
+
 	if revErr != nil {
 		// D-09: an unreviewed command never reaches the game. Map the
 		// reviewer's error the same way the player call's error is mapped
@@ -615,17 +723,6 @@ func (d *Driver) runIteration(userID, connectionID string, first bool) {
 		return
 	}
 
-	// The model calls above take seconds, and the owner may have taken the
-	// wheel or typed #AUTO OFF in the meantime. A decision that outlived its
-	// stint is dropped: nothing is dispatched, nothing is sent, and it is not
-	// a failure (it must not feed D-15's counter or print a failure notice).
-	// SendCommandAs enforces the same rule atomically below; this check just
-	// avoids spending an ICM dispatch on a command that will be refused.
-	if d.sessions.AutopilotStateFor(userID) != session.AutopilotOn {
-		d.logDecision(userID, connectionID, "", "dropped-disengaged", entry.ModelName, "", "", len(window), len(cmd))
-		return
-	}
-
 	ctx := icm.ContextAutomation
 	normalized := &icm.NormalizedCommand{
 		Command:           cmd,
@@ -639,9 +736,15 @@ func (d *Driver) runIteration(userID, connectionID string, first bool) {
 
 	d.logDecision(userID, connectionID, "", "dispatch", entry.ModelName, "", "", len(window), len(cmd))
 
-	if err := d.sessions.SendCommandAs(userID, cmd, "ai"); err != nil {
+	// Third stint check, the one that cannot be raced: the manager compares
+	// the switch's state and epoch and writes under one lock.
+	if err := d.sessions.SendAICommand(userID, cmd, epoch); err != nil {
 		if errors.Is(err, session.ErrAutopilotNotOn) {
-			d.logDecision(userID, connectionID, "", "dropped-disengaged", entry.ModelName, "", "", len(window), len(cmd))
+			stage := d.staleStage(userID, epoch)
+			if stage == "" {
+				stage = "dropped-disengaged"
+			}
+			d.logDecision(userID, connectionID, "", stage, entry.ModelName, "", "", len(window), len(cmd))
 			return
 		}
 		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, failureAPIError, resolved)
@@ -649,19 +752,6 @@ func (d *Driver) runIteration(userID, connectionID string, first bool) {
 	}
 
 	d.recordSuccess(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, resolved)
-}
-
-// resetStintCounters zeroes userID's call, consecutive-failure and
-// consecutive-block counters (D-14, D-15, D-17: "starts at zero on every
-// #AUTO ON, including after a wheel-grab"). EngageLoop
-// (internal/driver/loop.go) calls this as its first statement, before the
-// stint's opening decision runs.
-func (d *Driver) resetStintCounters(userID string) {
-	d.mu.Lock()
-	d.callCounts[userID] = 0
-	d.failureCounts[userID] = 0
-	d.blockCounts[userID] = 0
-	d.mu.Unlock()
 }
 
 // activeQuestBullets reads the active Quest's bullets for connectionID

@@ -301,6 +301,16 @@ type fakeSessions struct {
 	state        session.AutopilotState
 	outputSignal chan struct{}
 
+	// epoch mirrors session.AutopilotRecord.Epoch (code review CR-01 of
+	// Phase 4): it goes up by one every time the stored state becomes On,
+	// through any of the transition helpers below, and never otherwise.
+	epoch uint64
+
+	// sendErr, when set, is what SendAICommand returns for a command that
+	// passed the state-and-epoch check: a socket failure, as opposed to a
+	// refusal (code review WR-03 of Phase 4).
+	sendErr error
+
 	// sentAt records the wall-clock time of each SendCommandAs call,
 	// parallel to sends, so a loop test (04-03-03) can assert consecutive
 	// sends are never closer together than the configured minimum spacing
@@ -329,15 +339,21 @@ func (f *fakeSessions) setWindow(w string) {
 	f.window = w
 }
 
-func (f *fakeSessions) SendCommandAs(userID, command, source string) error {
+func (f *fakeSessions) SendAICommand(userID, command string, epoch uint64) error {
 	f.mu.Lock()
-	// Mirrors the real Manager: an "ai" command is refused unless the
-	// switch reads On at the moment of the send.
-	if source == "ai" && f.currentStateLocked() != session.AutopilotOn {
+	// Mirrors the real Manager: an AI command is refused unless the switch
+	// reads On AND is still in the stint (epoch) the command was decided
+	// in, at the moment of the send (code review CR-01 of Phase 4).
+	if f.currentStateLocked() != session.AutopilotOn || f.epoch != epoch {
 		f.mu.Unlock()
 		return session.ErrAutopilotNotOn
 	}
-	f.sends = append(f.sends, sendCall{userID: userID, command: command, source: source})
+	if f.sendErr != nil {
+		err := f.sendErr
+		f.mu.Unlock()
+		return err
+	}
+	f.sends = append(f.sends, sendCall{userID: userID, command: command, source: "ai"})
 	f.sentAt = append(f.sentAt, time.Now())
 	f.mu.Unlock()
 	if f.order != nil {
@@ -361,8 +377,34 @@ func (f *fakeSessions) engageState() (session.AutopilotState, bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	newState, changed := session.Engage(f.currentStateLocked())
-	f.state = newState
+	f.storeStateLocked(newState)
 	return newState, changed
+}
+
+// storeStateLocked stores newState and, exactly as the real Manager does,
+// begins a new stint epoch whenever the state BECOMES On. Callers must hold
+// f.mu.
+func (f *fakeSessions) storeStateLocked(newState session.AutopilotState) {
+	if newState == session.AutopilotOn && f.currentStateLocked() != session.AutopilotOn {
+		f.epoch++
+	}
+	f.state = newState
+}
+
+// currentEpoch returns the double's current stint epoch, for a test to pass
+// to EngageLoop and StopLoop as the real hooks would.
+func (f *fakeSessions) currentEpoch() uint64 {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.epoch
+}
+
+// AutopilotEpochFor returns the stored state and epoch as one consistent
+// pair, satisfying the Sessions interface (code review CR-01 of Phase 4).
+func (f *fakeSessions) AutopilotEpochFor(userID string) (session.AutopilotState, uint64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.currentStateLocked(), f.epoch
 }
 
 // disengageState runs the real Disengage transition (session.Disengage)
@@ -370,7 +412,7 @@ func (f *fakeSessions) engageState() (session.AutopilotState, bool) {
 // this so the method interface tests exercise is never a copy of the rule.
 func (f *fakeSessions) disengageState() (session.AutopilotState, bool) {
 	newState, changed := session.Disengage(f.currentStateLocked())
-	f.state = newState
+	f.storeStateLocked(newState)
 	return newState, changed
 }
 
@@ -391,7 +433,7 @@ func (f *fakeSessions) DisengageAutopilot(userID, cause string) (session.Autopil
 func (f *fakeSessions) setState(s session.AutopilotState) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.state = s
+	f.storeStateLocked(s)
 }
 
 // enterWaiting runs the real EnterWaiting transition (a dropped connection),
@@ -400,7 +442,7 @@ func (f *fakeSessions) enterWaiting() (session.AutopilotState, bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	newState, changed := session.EnterWaiting(f.currentStateLocked())
-	f.state = newState
+	f.storeStateLocked(newState)
 	return newState, changed
 }
 
@@ -410,7 +452,7 @@ func (f *fakeSessions) resume() (session.AutopilotState, bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	newState, changed := session.Resume(f.currentStateLocked())
-	f.state = newState
+	f.storeStateLocked(newState)
 	return newState, changed
 }
 

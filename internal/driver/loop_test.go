@@ -267,7 +267,7 @@ func TestLoop_Pacing(t *testing.T) {
 		userID := uuid.New().String()
 		connID := uuid.New().String()
 
-		d.EngageLoop(userID, connID)
+		d.EngageLoop(userID, connID, sessions.currentEpoch())
 		waitForCalls(t, models, 1)
 
 		fireTime := time.Now()
@@ -322,7 +322,7 @@ func TestLoop_Pacing(t *testing.T) {
 		userID := uuid.New().String()
 		connID := uuid.New().String()
 
-		d.EngageLoop(userID, connID)
+		d.EngageLoop(userID, connID, sessions.currentEpoch())
 		waitForCalls(t, models, 1)
 
 		// No output signal is ever fired in this sub-case; the second
@@ -353,7 +353,7 @@ func TestLoop_Pacing(t *testing.T) {
 		userID := uuid.New().String()
 		connID := uuid.New().String()
 
-		d.EngageLoop(userID, connID)
+		d.EngageLoop(userID, connID, sessions.currentEpoch())
 		waitForCalls(t, models, 1)
 
 		// Fire the output signal continuously for a fixed window -- far
@@ -420,7 +420,7 @@ func TestEngageLoop_Reassess(t *testing.T) {
 	userID := uuid.New().String()
 	connID := uuid.New().String()
 
-	d.EngageLoop(userID, connID)
+	d.EngageLoop(userID, connID, sessions.currentEpoch())
 	waitForCalls(t, models, 1)
 
 	sessions.setWindow("second window: a very different, brightly lit hall")
@@ -475,7 +475,7 @@ func TestLoop_StopsWhenWheelGrabbed(t *testing.T) {
 		userID := uuid.New().String()
 		connID := uuid.New().String()
 
-		d.EngageLoop(userID, connID)
+		d.EngageLoop(userID, connID, sessions.currentEpoch())
 		waitForCalls(t, models, 1)
 
 		// Let the loop settle into its pacing select (asleep, waiting for
@@ -516,7 +516,7 @@ func TestLoop_StopsWhenWheelGrabbed(t *testing.T) {
 		userID := uuid.New().String()
 		connID := uuid.New().String()
 
-		d.EngageLoop(userID, connID)
+		d.EngageLoop(userID, connID, sessions.currentEpoch())
 		waitForCalls(t, models, 1)
 
 		block := make(chan struct{})
@@ -575,7 +575,7 @@ func TestLoop_NothingIssuedWhileWaiting(t *testing.T) {
 	userID := uuid.New().String()
 	connID := uuid.New().String()
 
-	d.EngageLoop(userID, connID)
+	d.EngageLoop(userID, connID, sessions.currentEpoch())
 	waitForCalls(t, models, 1)
 
 	sessions.enterWaiting()
@@ -589,7 +589,7 @@ func TestLoop_NothingIssuedWhileWaiting(t *testing.T) {
 	}
 
 	sessions.resume()
-	d.EngageLoop(userID, connID)
+	d.EngageLoop(userID, connID, sessions.currentEpoch())
 	waitForCalls(t, models, 2)
 	d.StopLoop(userID)
 
@@ -636,7 +636,7 @@ func TestLoop_NoAIReconnect(t *testing.T) {
 	userID := uuid.New().String()
 	connID := uuid.New().String()
 
-	d.EngageLoop(userID, connID)
+	d.EngageLoop(userID, connID, sessions.currentEpoch())
 	waitForCalls(t, models, 1)
 
 	sessions.enterWaiting()
@@ -644,7 +644,7 @@ func TestLoop_NoAIReconnect(t *testing.T) {
 	assertStableCallCount(t, models, 1, 50*time.Millisecond)
 
 	sessions.resume()
-	d.EngageLoop(userID, connID)
+	d.EngageLoop(userID, connID, sessions.currentEpoch())
 	waitForCalls(t, models, 2)
 
 	d.StopLoop(userID)
@@ -682,7 +682,7 @@ func TestLoop_CallCap(t *testing.T) {
 	userID := uuid.New().String()
 	connID := uuid.New().String()
 
-	d.EngageLoop(userID, connID)
+	d.EngageLoop(userID, connID, sessions.currentEpoch())
 	waitForSendCount(t, sessions, 1)
 
 	// The driver's own D-14 counter (player call + reviewer call) is the
@@ -731,7 +731,7 @@ func TestLoop_CallCap(t *testing.T) {
 	// D-14: the cap counter starts again at zero on every #AUTO ON.
 	sessions.setState(session.AutopilotOff)
 	sessions.engageState()
-	d.EngageLoop(userID, connID)
+	d.EngageLoop(userID, connID, sessions.currentEpoch())
 	waitForSendCount(t, sessions, 2)
 	if got := callCount(); got != 2 {
 		t.Fatalf("expected the cap to reset to zero on a fresh EngageLoop, got %d calls this stint", got)
@@ -1006,7 +1006,7 @@ func TestLoop_BlankSettings(t *testing.T) {
 		userID := uuid.New().String()
 		connID := uuid.New().String()
 
-		d.EngageLoop(userID, connID)
+		d.EngageLoop(userID, connID, sessions.currentEpoch())
 		waitForSendCount(t, sessions, 1)
 
 		const manyIterations = 20

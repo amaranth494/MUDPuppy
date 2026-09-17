@@ -120,8 +120,11 @@ type Manager struct {
 // EngageHook is called once per real engagement: a WAITING-to-ON resume in
 // this file, and a fresh #AUTO ON engage in internal/session/handler.go's
 // Autopilot handler. userID and connectionID are always valid ids already
-// used elsewhere in this Manager.
-type EngageHook func(userID, connectionID string)
+// used elsewhere in this Manager. epoch is the stint the engagement began
+// (AutopilotRecord.Epoch, read under the same lock that made the
+// transition), so the driver knows which stint every decision it makes
+// belongs to (code review CR-01 of Phase 4).
+type EngageHook func(userID, connectionID string, epoch uint64)
 
 // SetEngageHook wires the AI driver's entry point. A nil hook (the
 // zero-value default) makes every fire site below a no-op.
@@ -509,6 +512,24 @@ func (m *Manager) AutopilotConnectionIDFor(userID string) string {
 	return ""
 }
 
+// AutopilotEpochFor returns the current autopilot state for a user
+// together with the stint epoch it belongs to, read under one lock so the
+// pair is consistent (code review CR-01 of Phase 4). A user who has never
+// engaged reads as off with epoch 0. The driver compares the epoch it
+// captured when a decision started against this one before every step that
+// costs money or reaches the game: a different epoch means the decision's
+// stint is over, whatever the switch reads now.
+func (m *Manager) AutopilotEpochFor(userID string) (AutopilotState, uint64) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	rec, ok := m.autopilot[userID]
+	if !ok {
+		return AutopilotOff, 0
+	}
+	return rec.State, rec.Epoch
+}
+
 // AutopilotStateFor returns the current autopilot state for a user. A user
 // who has never engaged reads as off, which is also the state a server
 // restart lands on (D-06).
@@ -744,20 +765,33 @@ func (m *Manager) feedTranscriptOutput(userID string, p []byte) {
 // rewritten ConnectionID, no cleared WaitingSince, no new allocation
 // (D-04, threat T-2-05).
 func (m *Manager) EngageAutopilot(userID, connectionID string) (AutopilotState, bool, error) {
+	state, changed, _, err := m.EngageAutopilotEpoch(userID, connectionID)
+	return state, changed, err
+}
+
+// EngageAutopilotEpoch is EngageAutopilot that also reports the stint epoch
+// of the record after the call (code review CR-01 of Phase 4): the new
+// stint's epoch when the engage changed the state, the unchanged current
+// one otherwise. The #AUTO ON handler passes it to the engage hook, so the
+// epoch the driver is told about is the one created by this very
+// transition, not one read afterwards under a second lock.
+func (m *Manager) EngageAutopilotEpoch(userID, connectionID string) (AutopilotState, bool, uint64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	cur := AutopilotOff
 	curConnID := ""
+	var curEpoch uint64
 	if rec, ok := m.autopilot[userID]; ok {
 		cur = rec.State
 		curConnID = rec.ConnectionID
+		curEpoch = rec.Epoch
 	}
 
 	session, ok := m.sessions[userID]
 	if !ok || session.State != StateConnected {
 		m.logAutopilotTransition(userID, connectionID, cur, cur, "refused-no-session")
-		return cur, false, ErrNoConnectedSession
+		return cur, false, curEpoch, ErrNoConnectedSession
 	}
 
 	// Code review C2: the gate was resolved for connectionID, so the live
@@ -765,22 +799,25 @@ func (m *Manager) EngageAutopilot(userID, connectionID string) (AutopilotState, 
 	// profile that accepted the policy could lend its acceptance to another.
 	if connectionID == "" || session.ConnectionID != connectionID {
 		m.logAutopilotTransition(userID, connectionID, cur, cur, "refused-wrong-connection")
-		return cur, false, ErrWrongConnection
+		return cur, false, curEpoch, ErrWrongConnection
 	}
 
 	newState, changed := Engage(cur)
 	if !changed {
 		m.logAutopilotTransition(userID, curConnID, cur, newState, "already-on")
-		return newState, false, nil
+		return newState, false, curEpoch, nil
 	}
 
+	// The record is replaced, but the epoch carries over and goes up by
+	// one: it must never repeat for a user while the process lives.
 	m.autopilot[userID] = &AutopilotRecord{
 		State:        newState,
 		ConnectionID: connectionID,
+		Epoch:        curEpoch + 1,
 	}
 	m.logAutopilotTransition(userID, connectionID, cur, newState, "engage")
 	m.enqueueTranscriptLineLocked(userID, "marker", "[AI-ASSIST engaged]")
-	return newState, true, nil
+	return newState, true, curEpoch + 1, nil
 }
 
 // DisengageAutopilot handles #AUTO OFF and the wheel-grab. Permitted cause
@@ -882,6 +919,9 @@ func (m *Manager) resumeAutopilotLocked(userID, connectionID string) {
 	}
 	rec.State = newState
 	rec.WaitingSince = nil
+	// A resume is an engagement (D-02): it begins a new stint, so the epoch
+	// goes up exactly as it does on #AUTO ON (code review CR-01 of Phase 4).
+	rec.Epoch++
 	m.logAutopilotTransition(userID, rec.ConnectionID, old, newState, "resume")
 	m.enqueueTranscriptLineLocked(userID, "marker", "[AI-ASSIST resumed]")
 
@@ -895,12 +935,14 @@ func (m *Manager) resumeAutopilotLocked(userID, connectionID string) {
 	// releases it. Never fired from EngageAutopilot — the HTTP handler
 	// owns that trigger, so a single code path fires each real engage.
 	if m.engageHook != nil {
-		go m.engageHook(userID, rec.ConnectionID)
+		go m.engageHook(userID, rec.ConnectionID, rec.Epoch)
 	}
 }
 
-// ErrAutopilotNotOn is what SendCommandAs returns for an "ai" command when
-// autopilot is not On at the moment of the write.
+// ErrAutopilotNotOn is what SendCommandAs and SendAICommand return for an
+// AI command when autopilot is not On at the moment of the write, or (for
+// SendAICommand) when it is On but for a later stint than the one the
+// command was decided in.
 var ErrAutopilotNotOn = errors.New("autopilot is not on; AI command not sent")
 
 // SendCommand sends a command to the MUD server, tagged in the session
@@ -925,6 +967,26 @@ func (m *Manager) SendCommand(userID, command string) error {
 // gone off. It returns ErrAutopilotNotOn instead. The staging walkthrough
 // of 2026-09-17 found exactly that: a command sent one second after off.
 func (m *Manager) SendCommandAs(userID, command, source string) error {
+	return m.sendCommand(userID, command, source, false, 0)
+}
+
+// SendAICommand is the driver's send path (code review CR-01 of Phase 4).
+// It is SendCommandAs with source "ai" plus one more condition checked under
+// the same lock: the autopilot record's Epoch must still equal epoch, the
+// stint the command was decided in. "The switch reads On" is not enough: an
+// owner who takes the wheel for one command and types #AUTO ON again before
+// a slow model call returns has the switch On again, in a new stint, and the
+// old decision -- made from text that predates the wheel-grab -- must not be
+// sent into it. A mismatch returns ErrAutopilotNotOn, exactly as a switch
+// that is off does; the driver treats both as "this decision outlived its
+// stint" and drops it quietly.
+func (m *Manager) SendAICommand(userID, command string, epoch uint64) error {
+	return m.sendCommand(userID, command, "ai", true, epoch)
+}
+
+// sendCommand is the one body behind SendCommandAs and SendAICommand.
+// checkEpoch is true only for SendAICommand.
+func (m *Manager) sendCommand(userID, command, source string, checkEpoch bool, epoch uint64) error {
 	m.mu.RLock()
 	conn, ok := m.conns[userID]
 	m.mu.RUnlock()
@@ -945,7 +1007,7 @@ func (m *Manager) SendCommandAs(userID, command, source string) error {
 	if source == "ai" {
 		m.mu.RLock()
 		rec, recOK := m.autopilot[userID]
-		if !recOK || rec.State != AutopilotOn {
+		if !recOK || rec.State != AutopilotOn || (checkEpoch && rec.Epoch != epoch) {
 			m.mu.RUnlock()
 			return ErrAutopilotNotOn
 		}

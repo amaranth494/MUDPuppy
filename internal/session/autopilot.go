@@ -41,6 +41,16 @@ type AutopilotRecord struct {
 	// bounded-waiting-lifetime remediation, if the owner chooses one at the
 	// Phase 2 security review, needs no redesign (see threat T-2-08).
 	WaitingSince *time.Time
+	// Epoch identifies the stint (code review CR-01 of Phase 4). It goes up
+	// by one every time State becomes On -- a fresh #AUTO ON and a
+	// WAITING-to-ON resume alike -- and never goes down or resets while the
+	// process lives, so "the switch reads On" and "this is still the stint
+	// my decision belongs to" are two different questions with two
+	// different answers. The driver captures the epoch when a decision
+	// starts and the Manager refuses an AI send whose epoch is no longer the
+	// record's, which is what stops a decision that outlived its stint from
+	// being sent in the next one after a quick re-engage.
+	Epoch uint64
 }
 
 // ErrNoConnectedSession is returned when #AUTO ON is attempted with no

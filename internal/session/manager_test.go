@@ -1,8 +1,14 @@
 package session
 
 import (
+	"errors"
+	"net"
+	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // newTestManager builds a Manager with no port restrictions and no
@@ -489,9 +495,10 @@ func TestManager_EngageHookStillFiresOnResume(t *testing.T) {
 
 	type engageCall struct {
 		userID, connectionID string
+		epoch                uint64
 	}
 	fired := make(chan engageCall, 4)
-	m.SetEngageHook(func(uid, connID string) { fired <- engageCall{uid, connID} })
+	m.SetEngageHook(func(uid, connID string, epoch uint64) { fired <- engageCall{uid, connID, epoch} })
 
 	m.mu.Lock()
 	m.sessions[userID] = &Session{UserID: userID, ConnectionID: "conn-1", State: StateConnected}
@@ -504,5 +511,116 @@ func TestManager_EngageHookStillFiresOnResume(t *testing.T) {
 	got := <-fired
 	if got.userID != userID || got.connectionID != "conn-1" {
 		t.Fatalf("engage hook fired with (%q, %q), want (%q, %q)", got.userID, got.connectionID, userID, "conn-1")
+	}
+	// Code review CR-01 of Phase 4: the engage was stint 1, the resume is
+	// stint 2, and the hook is told so.
+	if got.epoch != 2 {
+		t.Fatalf("engage hook fired with epoch %d on resume, want 2", got.epoch)
+	}
+	if state, epoch := m.AutopilotEpochFor(userID); state != AutopilotOn || epoch != 2 {
+		t.Fatalf("AutopilotEpochFor = (%q, %d), want (%q, 2)", state, epoch, AutopilotOn)
+	}
+}
+
+// TestManager_StintEpoch pins the stint identity code review CR-01 of Phase
+// 4 added: the epoch goes up by one every time the switch BECOMES On (an
+// engage and a resume alike), is untouched by a repeated engage, a
+// disengage or a park, and never repeats for a user.
+func TestManager_StintEpoch(t *testing.T) {
+	m := newTestManager()
+	const userID = "epoch-user-1"
+	seedConnectedSession(m, userID, "conn-1")
+
+	if state, epoch := m.AutopilotEpochFor(userID); state != AutopilotOff || epoch != 0 {
+		t.Fatalf("never engaged: AutopilotEpochFor = (%q, %d), want (%q, 0)", state, epoch, AutopilotOff)
+	}
+
+	_, changed, epoch, err := m.EngageAutopilotEpoch(userID, "conn-1")
+	if err != nil || !changed || epoch != 1 {
+		t.Fatalf("first engage = (changed %v, epoch %d, err %v), want (true, 1, nil)", changed, epoch, err)
+	}
+
+	_, changed, epoch, err = m.EngageAutopilotEpoch(userID, "conn-1")
+	if err != nil || changed || epoch != 1 {
+		t.Fatalf("repeated engage = (changed %v, epoch %d, err %v), want (false, 1, nil)", changed, epoch, err)
+	}
+
+	m.DisengageAutopilot(userID, "wheel-grab")
+	if state, epoch := m.AutopilotEpochFor(userID); state != AutopilotOff || epoch != 1 {
+		t.Fatalf("after disengage: AutopilotEpochFor = (%q, %d), want (%q, 1)", state, epoch, AutopilotOff)
+	}
+
+	_, changed, epoch, err = m.EngageAutopilotEpoch(userID, "conn-1")
+	if err != nil || !changed || epoch != 2 {
+		t.Fatalf("re-engage = (changed %v, epoch %d, err %v), want (true, 2, nil)", changed, epoch, err)
+	}
+}
+
+// TestSendAICommand_RefusedOnEpochMismatch is the manager half of code
+// review CR-01 of Phase 4: the owner takes the wheel and engages again while
+// stint 1's decision is still waiting on the model. The switch reads On, so
+// the state-only rule would send it; SendAICommand refuses it because it
+// belongs to stint 1 and the switch is in stint 2.
+func TestSendAICommand_RefusedOnEpochMismatch(t *testing.T) {
+	m := newTestManager()
+	userID := uuid.New().String()
+	connID := uuid.New().String()
+	seedConnectedSession(m, userID, connID)
+
+	client, server := net.Pipe()
+	defer client.Close()
+	defer server.Close()
+	m.mu.Lock()
+	m.conns[userID] = client
+	m.mu.Unlock()
+
+	var mu sync.Mutex
+	var wire strings.Builder
+	go func() {
+		buf := make([]byte, 4096)
+		for {
+			n, err := server.Read(buf)
+			if err != nil {
+				return
+			}
+			mu.Lock()
+			wire.Write(buf[:n])
+			mu.Unlock()
+		}
+	}()
+	written := func() string {
+		mu.Lock()
+		defer mu.Unlock()
+		return wire.String()
+	}
+
+	_, _, stint1, err := m.EngageAutopilotEpoch(userID, connID)
+	if err != nil {
+		t.Fatalf("engage: %v", err)
+	}
+	m.DisengageAutopilot(userID, "wheel-grab")
+	_, _, stint2, err := m.EngageAutopilotEpoch(userID, connID)
+	if err != nil {
+		t.Fatalf("re-engage: %v", err)
+	}
+	if stint2 == stint1 {
+		t.Fatalf("expected the re-engage to begin a new stint, got epoch %d twice", stint1)
+	}
+	if got := m.AutopilotStateFor(userID); got != AutopilotOn {
+		t.Fatalf("AutopilotStateFor = %q, want %q", got, AutopilotOn)
+	}
+
+	if err := m.SendAICommand(userID, "stale-east", stint1); !errors.Is(err, ErrAutopilotNotOn) {
+		t.Fatalf("expected ErrAutopilotNotOn for the previous stint's command while the switch is On, got %v", err)
+	}
+	if err := m.SendAICommand(userID, "fresh-north", stint2); err != nil {
+		t.Fatalf("SendAICommand for the current stint: %v", err)
+	}
+
+	if !pollUntil(t, time.Second, func() bool { return strings.Contains(written(), "fresh-north\r\n") }) {
+		t.Fatalf("expected the current stint's command on the wire, got %q", written())
+	}
+	if strings.Contains(written(), "stale-east") {
+		t.Fatalf("the previous stint's command reached the wire: %q", written())
 	}
 }
