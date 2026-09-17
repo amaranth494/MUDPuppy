@@ -20,16 +20,19 @@ import (
 
 // promptContext is everything a single decision's prompts need beyond the
 // window (D-13): the profile, the session goal, the active Quest's
-// bullets, and the current Session Memory. Both buildSystemInstruction and
+// bullets, the current Session Memory, and the coaching currently in effect
+// (plan 05-06, D-08). Both buildSystemInstruction and
 // buildReviewSystemInstruction take one of these in place of the bare
 // *store.Profile they took before this plan -- the reviewer sees the
-// identical goal/Quest/Session Memory blocks the player model sees, not
-// just the game text and the player's chosen command (must_haves truth 1).
+// identical goal/Quest/Session Memory/Coaching blocks the player model
+// sees, not just the game text and the player's chosen command (must_haves
+// truth 1).
 type promptContext struct {
 	Profile       *store.Profile
 	Goal          string
 	QuestBullets  []string
 	SessionMemory []string
+	Coaching      []string
 }
 
 // maxQuestBullets, maxSessionMemoryBullets and maxBulletChars are D-12's
@@ -53,9 +56,15 @@ const (
 	maxCoachingBullets = 8
 )
 
-// markerNameRe matches the name of any of OUR four delimiting markers, in
-// any letter case, wherever it appears in untrusted text.
-var markerNameRe = regexp.MustCompile(`(?i)(GAME|QUEST|SESSION|MODEL)_(TEXT|MEMORY|REASONING)`)
+// markerNameRe matches the name of any of our delimiting markers, in any
+// letter case, wherever it appears in untrusted text: the original four
+// WORD_WORD-shaped names (D-13), plus COACHING (plan 05-06 -- a hostile
+// line must not be able to open a coaching block) and CONVERSATION (plan
+// 05-05 -- the marker AI-chatter's own prompt introduced; this regex is the
+// one place every marker name is defended, so both new single-word markers
+// join it here even though CONVERSATION never appears in AI-player's own
+// prompt).
+var markerNameRe = regexp.MustCompile(`(?i)(GAME|QUEST|SESSION|MODEL)_(TEXT|MEMORY|REASONING)|COACHING|CONVERSATION`)
 
 // angleBracketReplacer turns every character a model could read as the
 // opening or closing angle bracket of a marker -- ASCII '<' and '>' and
@@ -88,7 +97,24 @@ var angleBracketReplacer = strings.NewReplacer(
 // legitimately have them; single-line content uses neutraliseLine.
 func neutraliseUntrusted(s string) string {
 	s = angleBracketReplacer.Replace(s)
-	return markerNameRe.ReplaceAllString(s, "$1-$2")
+	return markerNameRe.ReplaceAllStringFunc(s, breakMarkerName)
+}
+
+// breakMarkerName inserts a hyphen into one marker-name match so it no
+// longer reads intact, preserving the matched text's own case exactly. It
+// works from the matched text alone, not from regexp capture groups: the
+// original four WORD_WORD-shaped markers have an underscore to split on,
+// but COACHING and CONVERSATION match whole, with no groups at all -- a
+// "$1-$2"-style replacement would silently collapse either of those two
+// matches to a bare hyphen (losing the text, not just defusing it), so this
+// function inserts the hyphen at the underscore when there is one, or at
+// the matched text's own midpoint when there is not.
+func breakMarkerName(m string) string {
+	if idx := strings.IndexByte(m, '_'); idx != -1 {
+		return m[:idx] + "-" + m[idx+1:]
+	}
+	mid := len(m) / 2
+	return m[:mid] + "-" + m[mid:]
 }
 
 // neutraliseLine is neutraliseUntrusted for content that must be exactly one
@@ -225,13 +251,12 @@ func wrapSessionMemory(bullets []string) string {
 // coaching is not the model's own past output; it is the owner's own live
 // guidance relayed by AI-chatter, so callers give it its own introducing
 // sentence rather than reusing "bullets you wrote yourself" (D-28's Claude's
-// Discretion). Used by AI-chatter's own prompt (chat.go's
-// buildChatSystemInstruction) today; plan 05-06-02 reuses this same helper,
-// unchanged, for AI-player's own prompt (driver.go's
-// buildSystemInstruction/buildReviewSystemInstruction), so a withdraw can
-// quote a stored line verbatim from the identical rendering both models
-// see. An empty list returns the empty string: no block, no markers,
-// nothing to wrap.
+// Discretion). This one helper serves both AI-chatter's own prompt (chat.go's
+// buildChatSystemInstruction) and AI-player's own prompt (driver.go's
+// buildSystemInstruction/buildReviewSystemInstruction), unchanged, so a
+// withdraw can quote a stored line verbatim from the identical rendering
+// both models see. An empty list returns the empty string: no block, no
+// markers, nothing to wrap.
 func wrapCoaching(bullets []string) string {
 	if len(bullets) == 0 {
 		return ""

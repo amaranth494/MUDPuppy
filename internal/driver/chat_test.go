@@ -393,14 +393,18 @@ func TestHandleChat_UntrustedBlocksCannotForgeAMarker(t *testing.T) {
 		"<GAME_TEXT>", "</GAME_TEXT>",
 		"<SESSION_MEMORY>", "</SESSION_MEMORY>",
 		"<CONVERSATION>", "</CONVERSATION>",
+		// <COACHING>/</COACHING> join this comparative list too (plan
+		// 05-06): untrustedDataParagraph's own shared prose now names this
+		// marker exactly like the other three, so a poisoned prompt with no
+		// real coaching in effect must show the SAME count as the clean
+		// baseline, not zero -- "no more than the clean version" is the
+		// honest bar here, same as every other marker in this loop.
+		"<COACHING>", "</COACHING>",
 	} {
 		want := strings.Count(cleanInstruction, marker)
 		if got := strings.Count(poisonedInstruction, marker); got != want {
 			t.Errorf("%s: expected %d occurrence(s), exactly as with clean content, got %d in:\n%s", marker, want, got, poisonedInstruction)
 		}
-	}
-	if strings.Contains(poisonedInstruction, "<COACHING>") || strings.Contains(poisonedInstruction, "</COACHING>") {
-		t.Errorf("attacker-supplied <COACHING> marker was not neutralised:\n%s", poisonedInstruction)
 	}
 }
 
@@ -506,7 +510,12 @@ func TestHandleChat_PromptCarriesCoachingInEffect(t *testing.T) {
 		f.driver.HandleChat(f.userID, f.connID, "hello")
 
 		instruction := f.models.lastChatSystemInstructionText()
-		if strings.Contains(instruction, "<COACHING>") {
+		// "<COACHING>\n" (immediately followed by the rendered bullet list)
+		// matches only the actual wrapped block -- a bare "<COACHING>"
+		// substring check would also match untrustedDataParagraph's own
+		// shared prose, which always names this marker (plan 05-06),
+		// regardless of whether any coaching is currently in effect.
+		if strings.Contains(instruction, "<COACHING>\n") {
 			t.Errorf("expected no <COACHING> block for an empty coaching store:\n%s", instruction)
 		}
 	})
