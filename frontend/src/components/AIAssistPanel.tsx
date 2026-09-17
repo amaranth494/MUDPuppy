@@ -71,6 +71,11 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
   const [goal, setGoal] = useState('');
   const goalLoadedRef = useRef(false);
   const lastCommittedGoalRef = useRef('');
+  // goalRef always holds what the box holds right now, so a save loop that
+  // outlives the render it started in still reads the latest typing;
+  // savingGoalRef is the one-save-in-flight guard (code review WR-08).
+  const goalRef = useRef('');
+  const savingGoalRef = useRef(false);
 
   // 04-08: the read-only, collapsible Session Memory section (D-10).
   // memoryOpen defaults to collapsed and is component-only state — it
@@ -136,6 +141,7 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
       .then((resp) => {
         if (cancelled) return;
         setGoal(resp.goal);
+        goalRef.current = resp.goal;
         lastCommittedGoalRef.current = resp.goal;
       })
       .catch(() => {
@@ -175,25 +181,44 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
   // (04-UI-SPEC.md Layout §1). A failed save never reverts or clears the
   // owner's typing; it is surfaced through the same system-line mechanism
   // every other failure in this panel already uses.
+  //
+  // Saves are serialised (code review WR-08): at most one PUT is in flight.
+  // Blur (PUT A), a quick edit, then Enter (PUT B) used to run concurrently;
+  // the server could apply them in either order and lastCommittedGoalRef was
+  // set by whichever response arrived LAST, so the box could show B while
+  // the server held A and the next blur was a no-op. Now a commit that
+  // arrives while one is in flight just returns: when the in-flight save
+  // finishes, the loop below looks at what the box holds NOW (goalRef) and
+  // saves again if it differs — the last typed value always wins.
   const commitGoal = useCallback(async () => {
     if (!connectionId || !goalLoadedRef.current) return;
-    if (goal === lastCommittedGoalRef.current) return;
-    const toSave = goal;
+    if (savingGoalRef.current) return;
+    savingGoalRef.current = true;
     try {
-      const resp = await putGoal(connectionId, { goal: toSave });
-      lastCommittedGoalRef.current = resp.goal;
-    } catch {
-      setEntries((prev) => [
-        ...prev,
-        {
-          kind: 'system',
-          id: `goal-save-failed-${Date.now()}`,
-          message: '[Failed to save session goal — try again]',
-          outcome: 'failed',
-        },
-      ]);
+      while (goalRef.current !== lastCommittedGoalRef.current) {
+        const toSave = goalRef.current;
+        try {
+          await putGoal(connectionId, { goal: toSave });
+          lastCommittedGoalRef.current = toSave;
+        } catch {
+          setEntries((prev) => [
+            ...prev,
+            {
+              kind: 'system',
+              id: `goal-save-failed-${Date.now()}`,
+              message: '[Failed to save session goal — try again]',
+              outcome: 'failed',
+            },
+          ]);
+          // Leave lastCommittedGoalRef alone so the next blur/Enter retries,
+          // and stop looping: a failing server must not be hammered.
+          break;
+        }
+      }
+    } finally {
+      savingGoalRef.current = false;
     }
-  }, [connectionId, goal]);
+  }, [connectionId]);
 
   useEffect(() => {
     if (!wsManager) return;
@@ -290,7 +315,10 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
             className="form-input"
             placeholder="No session goal set"
             value={goal}
-            onChange={(e) => setGoal(e.target.value)}
+            onChange={(e) => {
+              goalRef.current = e.target.value;
+              setGoal(e.target.value);
+            }}
             onBlur={commitGoal}
             onKeyDown={(e) => {
               if (e.key === 'Enter') (e.target as HTMLInputElement).blur();

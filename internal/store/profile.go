@@ -145,7 +145,9 @@ type ProfileUpdate struct {
 	ApproachGuidance *string            `json:"approach_guidance,omitempty"`
 	NeverIssueList   *string            `json:"never_issue_list,omitempty"`
 	AISettings       *AISettings        `json:"ai_settings,omitempty"`
-	SessionGoal      *string            `json:"session_goal,omitempty"`
+	// There is deliberately no SessionGoal here (code review WR-08 of Phase
+	// 4): the goal is saved only through ProfileStore.UpdateSessionGoal, a
+	// targeted statement, never through UpdateProfile's whole-row write.
 }
 
 // DefaultAliases returns the default aliases structure
@@ -398,7 +400,6 @@ func (s *ProfileStore) UpdateProfile(userID, profileID uuid.UUID, updates *Profi
 	var conductRules string
 	var approachGuidance string
 	var neverIssueList string
-	var sessionGoal string
 
 	if updates.Keybindings != nil {
 		keybindingsJSON, _ = json.Marshal(*updates.Keybindings)
@@ -460,23 +461,9 @@ func (s *ProfileStore) UpdateProfile(userID, profileID uuid.UUID, updates *Profi
 		aiSettingsJSON, _ = json.Marshal(existing.AISettings)
 	}
 
-	if updates.SessionGoal != nil {
-		sessionGoal = *updates.SessionGoal
-	} else {
-		sessionGoal = existing.SessionGoal
-	}
-
-	query := `
-		UPDATE profiles
-		SET keybindings = $1, settings = $2, aliases = $3, triggers = $4, variables = $5, timers = $6,
-			conduct_rules = $7, approach_guidance = $8, never_issue_list = $9, ai_settings = $10, session_goal = $11, updated_at = NOW()
-		WHERE id = $12 AND user_id = $13
-		RETURNING updated_at
-	`
-
 	var updatedAt string
-	err = s.db.QueryRow(query, keybindingsJSON, settingsJSON, aliasesJSON, triggersJSON, variablesJSON, timersJSON,
-		conductRules, approachGuidance, neverIssueList, aiSettingsJSON, sessionGoal, profileID, userID).Scan(&updatedAt)
+	err = s.db.QueryRow(updateProfileSQL, keybindingsJSON, settingsJSON, aliasesJSON, triggersJSON, variablesJSON, timersJSON,
+		conductRules, approachGuidance, neverIssueList, aiSettingsJSON, profileID, userID).Scan(&updatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -513,12 +500,24 @@ func (s *ProfileStore) UpdateProfile(userID, profileID uuid.UUID, updates *Profi
 	if updates.AISettings != nil {
 		existing.AISettings = *updates.AISettings
 	}
-	if updates.SessionGoal != nil {
-		existing.SessionGoal = *updates.SessionGoal
-	}
-
 	return existing, nil
 }
+
+// updateProfileSQL is UpdateProfile's whole-row write. It deliberately does
+// NOT name session_goal (code review WR-08 of Phase 4): this statement
+// writes back every column it names from a row read moments earlier, and the
+// goal is edited during play through its own targeted statement
+// (updateSessionGoalSQL). Were session_goal still listed here, any settings,
+// alias, trigger or variable save that interleaved with a goal edit would
+// write the OLD goal back over the new one.
+// TestUpdateProfileLeavesTheGoalAlone pins this.
+const updateProfileSQL = `
+		UPDATE profiles
+		SET keybindings = $1, settings = $2, aliases = $3, triggers = $4, variables = $5, timers = $6,
+			conduct_rules = $7, approach_guidance = $8, never_issue_list = $9, ai_settings = $10, updated_at = NOW()
+		WHERE id = $11 AND user_id = $12
+		RETURNING updated_at
+	`
 
 // AcceptPolicy records one-time Safety and Abuse policy acceptance on a
 // profile. The version is supplied by the caller from the server's embedded
@@ -536,6 +535,33 @@ func (s *ProfileStore) AcceptPolicy(userID, profileID uuid.UUID, version string)
 		return nil, err
 	}
 
+	return s.GetProfile(userID, profileID)
+}
+
+// updateSessionGoalSQL is the goal box's own statement (code review WR-08 of
+// Phase 4), declared as a constant in this package's pinned-SQL style so
+// TestUpdateSessionGoalTouchesOnlyTheGoal can assert on its exact text. It
+// sets the goal column (and updated_at) and NOTHING else, scoped to the
+// owner's own profile row.
+const updateSessionGoalSQL = `UPDATE profiles
+	 SET session_goal = $1, updated_at = NOW()
+	 WHERE id = $2 AND user_id = $3`
+
+// UpdateSessionGoal saves the session goal and only the session goal (code
+// review WR-08 of Phase 4). The goal box used to save through
+// UpdateProfile, which reads the whole row and then writes EVERY column
+// back; the goal is saved on every blur, during play, so a goal save that
+// interleaved with an AI Settings, alias, trigger or variable save wrote
+// that request's stale columns back over it -- new conduct rules, the
+// Never-issue list or the call cap silently reverted by a goal edit, or the
+// goal by a settings save. A targeted UPDATE cannot do that in either
+// direction. Returns the profile as stored afterwards, or (nil, nil) when
+// the row does not exist or is not this user's, exactly as AcceptPolicy
+// does.
+func (s *ProfileStore) UpdateSessionGoal(userID, profileID uuid.UUID, goal string) (*Profile, error) {
+	if _, err := s.db.Exec(updateSessionGoalSQL, goal, profileID, userID); err != nil {
+		return nil, err
+	}
 	return s.GetProfile(userID, profileID)
 }
 

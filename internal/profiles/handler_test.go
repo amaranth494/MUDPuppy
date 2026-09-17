@@ -22,6 +22,9 @@ type fakeProfileStore struct {
 	profile    *store.Profile
 	lastUpdate *store.ProfileUpdate
 
+	// goalSaves records every UpdateSessionGoal call, in order.
+	goalSaves []string
+
 	// acceptPolicyReturnsNil, when true, makes AcceptPolicy return (nil, nil)
 	// regardless of profile state — simulating store.ProfileStore.AcceptPolicy's
 	// documented behavior when the profile row is missing (e.g. deleted
@@ -60,9 +63,18 @@ func (f *fakeProfileStore) UpdateProfile(userID, profileID uuid.UUID, updates *s
 	if updates.AISettings != nil {
 		f.profile.AISettings = *updates.AISettings
 	}
-	if updates.SessionGoal != nil {
-		f.profile.SessionGoal = *updates.SessionGoal
+	return f.profile, nil
+}
+
+// UpdateSessionGoal mirrors store.ProfileStore.UpdateSessionGoal: it touches
+// the goal and nothing else, and records that it was the path taken (code
+// review WR-08 of Phase 4).
+func (f *fakeProfileStore) UpdateSessionGoal(userID, profileID uuid.UUID, goal string) (*store.Profile, error) {
+	if f.profile == nil || f.profile.ID != profileID || f.profile.UserID != userID {
+		return nil, nil
 	}
+	f.goalSaves = append(f.goalSaves, goal)
+	f.profile.SessionGoal = goal
 	return f.profile, nil
 }
 
@@ -678,6 +690,39 @@ func TestGoalRoundTrip(t *testing.T) {
 	// read has no create-vs-reactivate event to report.
 	if strings.Contains(getRec.Body.String(), `"quest"`) {
 		t.Errorf("GetGoal response unexpectedly carries a \"quest\" field: %s", getRec.Body.String())
+	}
+}
+
+// TestGoalSaveTouchesOnlyTheGoal is the handler half of code review WR-08 of
+// Phase 4: PutGoal saves through the store's targeted UpdateSessionGoal and
+// never through UpdateProfile's whole-row read-modify-write, so a goal edit
+// made while an AI Settings save is in flight cannot write that save's
+// columns back as they were.
+func TestGoalSaveTouchesOnlyTheGoal(t *testing.T) {
+	userID := uuid.New()
+	profileID := uuid.New()
+	connectionID := uuid.New()
+	profile := newTestProfile(userID, profileID, connectionID)
+	profile.ConductRules = "RULE: the owner's newest conduct rules"
+	profile.NeverIssueList = "give\ndrop"
+	fake := &fakeProfileStore{profile: profile}
+	h := &Handler{profileStore: fake, quests: &fakeQuestStore{}}
+
+	path := "/api/v1/profiles/" + connectionID.String() + "/ai-goal"
+	rec := httptest.NewRecorder()
+	h.PutGoal(rec, newTestRequest(http.MethodPut, path, userID, GoalResponse{Goal: "reach the tower"}))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	if fake.lastUpdate != nil {
+		t.Fatalf("PutGoal went through UpdateProfile's whole-row write: %+v", fake.lastUpdate)
+	}
+	if len(fake.goalSaves) != 1 || fake.goalSaves[0] != "reach the tower" {
+		t.Fatalf("goalSaves = %v, want exactly one targeted save of %q", fake.goalSaves, "reach the tower")
+	}
+	if fake.profile.ConductRules != "RULE: the owner's newest conduct rules" || fake.profile.NeverIssueList != "give\ndrop" {
+		t.Fatalf("a goal save changed another column: %+v", fake.profile)
 	}
 }
 

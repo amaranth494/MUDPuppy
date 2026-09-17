@@ -1,6 +1,9 @@
 package store
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func intPtr(i int) *int {
 	return &i
@@ -123,6 +126,51 @@ func TestEngageGateAllowed(t *testing.T) {
 				t.Errorf("EngageGateAllowed(%v, %v) = %v, want %v", tt.policyVersionAccepted, tt.policyAcceptedAt, got, tt.want)
 			}
 		})
+	}
+}
+
+// profileColumnsOtherThanTheGoal is every profiles column UpdateProfile's
+// whole-row write names. None of them may appear in the goal's statement.
+var profileColumnsOtherThanTheGoal = []string{
+	"keybindings", "settings", "aliases", "triggers", "variables", "timers",
+	"conduct_rules", "approach_guidance", "never_issue_list", "ai_settings",
+	"policy_version_accepted", "policy_accepted_at",
+}
+
+// TestUpdateSessionGoalTouchesOnlyTheGoal proves code review WR-08 of Phase
+// 4 without a database connection, in this package's pinned-SQL style: the
+// goal box's statement sets the goal column (and updated_at) and nothing
+// else, and is scoped to the owner's own profile row.
+func TestUpdateSessionGoalTouchesOnlyTheGoal(t *testing.T) {
+	stmt := strings.Join(strings.Fields(sqlWithoutComments(updateSessionGoalSQL)), " ")
+
+	const want = "UPDATE profiles SET session_goal = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3"
+	if stmt != want {
+		t.Fatalf("goal statement =\n  %s\nwant\n  %s", stmt, want)
+	}
+	for _, column := range profileColumnsOtherThanTheGoal {
+		if strings.Contains(stmt, column) {
+			t.Errorf("the goal statement names %q: a goal save must never write another column", column)
+		}
+	}
+}
+
+// TestUpdateProfileLeavesTheGoalAlone is the other direction of WR-08: the
+// whole-row write, which saves every column it names from a row read
+// moments earlier, must not name session_goal, or a settings/alias/trigger
+// save that interleaves with a goal edit writes the old goal back.
+func TestUpdateProfileLeavesTheGoalAlone(t *testing.T) {
+	stmt := sqlWithoutComments(updateProfileSQL)
+	if strings.Contains(stmt, "session_goal") {
+		t.Fatalf("UpdateProfile's whole-row write names session_goal:\n%s", stmt)
+	}
+	for _, column := range profileColumnsOtherThanTheGoal[:10] {
+		if !strings.Contains(stmt, column+" = $") {
+			t.Errorf("UpdateProfile's statement no longer sets %q:\n%s", column, stmt)
+		}
+	}
+	if !strings.Contains(stmt, "WHERE id = $11 AND user_id = $12") {
+		t.Errorf("UpdateProfile's statement is not scoped to the owner's row as expected:\n%s", stmt)
 	}
 }
 

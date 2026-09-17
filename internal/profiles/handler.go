@@ -20,6 +20,9 @@ type profileStorage interface {
 	GetProfile(userID, profileID uuid.UUID) (*store.Profile, error)
 	GetProfileByConnection(userID, connectionID uuid.UUID) (*store.Profile, error)
 	UpdateProfile(userID, profileID uuid.UUID, updates *store.ProfileUpdate) (*store.Profile, error)
+	// UpdateSessionGoal is the goal box's own targeted save (code review
+	// WR-08 of Phase 4); PutGoal never goes through UpdateProfile.
+	UpdateSessionGoal(userID, profileID uuid.UUID, goal string) (*store.Profile, error)
 	AcceptPolicy(userID, profileID uuid.UUID, version string) (*store.Profile, error)
 }
 
@@ -817,8 +820,11 @@ func (h *Handler) PutGoal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updates := &store.ProfileUpdate{SessionGoal: &req.Goal}
-	updatedProfile, err := h.profileStore.UpdateProfile(userUUID, profile.ID, updates)
+	// A targeted save of the goal column alone (code review WR-08 of Phase
+	// 4), never UpdateProfile's whole-row read-modify-write: the goal is
+	// saved on every blur, during play, and must not be able to write another
+	// request's stale columns back, nor be overwritten by one.
+	updatedProfile, err := h.profileStore.UpdateSessionGoal(userUUID, profile.ID, req.Goal)
 	if err != nil {
 		log.Printf("[PH0106] Update session goal failed: %v", err)
 		h.sendError(w, "Failed to update session goal")
