@@ -1,7 +1,7 @@
 ---
 phase: 04-continuous-play
 document: security-review-agenda
-status: pending-review
+status: reviewed
 created: 2026-09-17
 ---
 
@@ -78,7 +78,7 @@ This document is the input to the Phase 4 security review, not its output. It de
 **What this phase did about it:** nothing in code — this is an owner administrative task, not something a plan can build. Railway account and team access to the staging environment's logs is the owner's own configuration to review and restrict as he sees fit; this phase's own log excerpt (`evidence/05-staging-ai-player.log`) is itself an argument for why it matters, since it is committed to a private repository and its access follows the repository's own access, not Railway's.
 
 **Dispositions:**
-- [ ] **Accept** — current Railway access as configured stands as sufficient.
+- [x] **Accept** — current Railway access as configured stands as sufficient. *(Register R-10, accepted 2026-09-17 as AR-4-08, with the owner's condition on the in-app log display.)*
 - [ ] **Defer** — carry this item to a later security review without deciding now.
 - [ ] **Remediate Now** — the owner reviews and, if needed, restricts staging log access; an outcome recorded here, not a plan.
 
@@ -191,8 +191,8 @@ This document is the input to the Phase 4 security review, not its output. It de
 **Cross-reference:** T-4-03 is the memory-poisoning risk below; this item is about the reviewer specifically, carried from Phase 3.1's own Item 2 ("the reviewer can itself be misled") and now measured with real numbers rather than described in the abstract.
 
 **Dispositions:**
-- [ ] **Accept** — the one-clause harm-list fix, plus the reviewer's demonstrated behaviour (uneven on unlisted acts, occasionally false-blocking ordinary combat) stands as sufficient for now.
-- [ ] **Defer** — carry this item to a later security review without deciding now.
+- [x] **Accept** — the one-clause harm-list fix, plus the reviewer's demonstrated behaviour (uneven on unlisted acts, occasionally false-blocking ordinary combat) stands as sufficient for now. *(Two of this item's three parts only: register R-02, uneven on unlisted acts, accepted as AR-4-02; register R-03, the binding-commitment clause may block a real invite or loan, accepted as AR-4-03. The false blocks of ordinary combat were NOT accepted; see the next box.)*
+- [x] **Defer** — carry this item to a later security review without deciding now. *(The false blocks of ordinary combat only: register R-01, deferred 2026-09-17 as DR-4-01.)*
 - [ ] **Remediate Now** — build multi-sample reviewer measurement, a two-reviewer-call design, or a reviewer prompt change distinguishing player-attack from ordinary creature combat; becomes its own plan.
 
 ---
@@ -208,7 +208,7 @@ This document is the input to the Phase 4 security review, not its output. It de
 **Cross-reference:** T-4-03 (`04-07-PLAN.md`, `04-08-PLAN.md` threat models — both plans carry this id, the second explicitly deferring the residual to this review). No corpus item currently attacks specifically through a fact-shaped memory poisoning attempt (as opposed to an instruction-shaped one); the existing corpus items attack the game-text window and the reasoning channel, not the memory-write path itself.
 
 **Dispositions:**
-- [ ] **Accept** — delimiting, size ceilings, and owner visibility stand as sufficient mitigation for a risk that cannot be fully closed by code.
+- [x] **Accept** — delimiting, size ceilings, and owner visibility stand as sufficient mitigation for a risk that cannot be fully closed by code. *(Register R-05, accepted 2026-09-17 as AR-4-04.)*
 - [ ] **Defer** — carry this item to a later security review without deciding now.
 - [ ] **Remediate Now** — a corpus item that specifically attempts a fact-shaped (not instruction-shaped) memory poisoning, and/or a periodic model-side review of standing memory bullets against the game's own observable state, becomes its own plan.
 
@@ -222,7 +222,7 @@ This document is the input to the Phase 4 security review, not its output. It de
 
 **Dispositions:**
 - [ ] **Accept** — leave both as they are.
-- [ ] **Defer** — carry to a later review.
+- [x] **Defer** — carry to a later review. *(Register R-04, deferred 2026-09-17 as DR-4-02; owner: fix in the next phase per the recommended fix.)*
 - [ ] **Remediate Now** — make both changes; small.
 
 ---
@@ -234,7 +234,7 @@ This document is the input to the Phase 4 security review, not its output. It de
 **Fix:** Have the harness print lengths and a short fingerprint instead of the text itself, and keep proving "unchanged" by comparing fingerprints. About an hour, plus regenerating the fixtures.
 
 **Dispositions:**
-- [ ] **Accept** — the text is harmless tutorial play in a private repository.
+- [x] **Accept** — the text is harmless tutorial play in a private repository. *(Register R-09 / T-4-05, accepted 2026-09-17 as AR-4-01, on the corrected description of what the file holds, not the understated one above.)*
 - [ ] **Defer** — carry to a later review.
 - [ ] **Remediate Now** — change the harness before the branch is pushed.
 
@@ -247,7 +247,7 @@ This document is the input to the Phase 4 security review, not its output. It de
 **Fix:** (1) Add a small stand-in for the session store and two request-level tests. (2) Mark every unfinished game session as ended when the server starts; a follow-up task for this is already written up.
 
 **Dispositions:**
-- [ ] **Accept** — the hand check that both handlers call the marker is enough for now; leave the rows.
+- [x] **Accept** — the hand check that both handlers call the marker is enough for now; leave the rows. *(Register R-06, accepted 2026-09-17 as AR-4-05. This covers gap 1 only; gap 2, the left-over rows, was already fixed by `209d293`.)*
 - [ ] **Defer** — carry to the Phase 6 review, which depends on finished sessions being marked.
 - [ ] **Remediate Now** — do both; small.
 
@@ -288,3 +288,51 @@ The audit checked this agenda against the code and the evidence and found it wro
 - Policy section 5, quoted verbatim, for the record this review is being held against: "AI play consumes paid model API calls under your API key. The per-session call cap exists to protect you; raising it is your choice and your cost." Section 6, quoted verbatim: "Game credentials stored in a profile are used only to connect that profile. The AI does not use stored credentials for any other purpose. Game text captured during play, including other players' words, is stored in session logs and learned notes for this tool's operation. Do not use it to profile or target other players."
 
 **The project cannot close while any item on this agenda remains marked Defer.**
+
+---
+
+## Decisions recorded 2026-09-17
+
+The owner decided on the Phase 4 Risk Register artifact (https://claude.ai/artifact/SvSdbXCa3YXmFDryiXpAaK), not on this page: 10 accepted, 4 deferred to the Phase 5 security review, 0 remediate now. The boxes ticked above were ticked afterwards, from the register, so this page matches the record; the opening paragraph's "none marked as chosen" describes the agenda as it went into the review. Full record: `04-SECURITY.md` and `.planning/RISK-REGISTER.md` (Phase 04 section). The register split, merged and added items relative to this agenda, so the mapping is not one to one.
+
+**Part 1 — carried-forward risks.** The register listed nine of these as fixed, not as decisions, so no box is ticked for them.
+
+| Agenda item | Register id | Outcome |
+|-------------|-------------|---------|
+| 1. DR-3-01 | — (listed as fixed) | Closed as remediated at the review; see RISK-REGISTER.md outcome |
+| 2. DR-3-03 | — (listed as fixed) | Closed as remediated at the review; see RISK-REGISTER.md outcome. Leftover IN-09 is part of R-12 (accepted, AR-4-10) |
+| 3. DR-3-04 | — (listed as fixed) | Closed as remediated at the review; see RISK-REGISTER.md outcome |
+| 4. DR-3-05 | — (no decision needed) | Held through Phase 4; closed by the push of `ai-player` at Phase 4 close; see RISK-REGISTER.md outcome |
+| 5. DR-3-06 | R-10 | **Accepted** (AR-4-08), with the owner's condition that the in-app log display sits behind the signed-in user's login; todo `2026-09-17-confirm-log-page-login-gate.md` |
+| 6. DR-3-07 | — (listed as fixed) | Closed as remediated at the review; see RISK-REGISTER.md outcome |
+| 7. DR-3.1-01 | — (listed as fixed) | Closed as remediated at the review; see RISK-REGISTER.md outcome, which keeps the stated limitation (not a fresh-quota day; the checker's catch rate through this channel is unmeasured). That uncertainty is R-02 (accepted, AR-4-02) |
+| 8. DR-3.1-02 | — (listed as fixed) | Closed as remediated at the review; see RISK-REGISTER.md outcome. Leftover (the cap is off until set) is R-07, **accepted** (AR-4-06) |
+| 9. DR-3.1-03 | — (listed as fixed) | Closed as remediated at the review; see RISK-REGISTER.md outcome |
+| 10. DR-3.1-04 | — (listed as fixed) | Closed as remediated at the review; see RISK-REGISTER.md outcome. Leftover (the check only runs on Railway, IN-07) is R-14, **deferred** (DR-4-04) |
+| 11. DR-3.1-05 | — (listed as fixed) | Closed as remediated at the review; see RISK-REGISTER.md outcome |
+
+**Part 2 — what this phase newly creates.**
+
+| Agenda item | Register id | Decision |
+|-------------|-------------|----------|
+| The reviewer's reliability: false blocks of ordinary combat | R-01 | **Deferred** (DR-4-01) |
+| The reviewer's reliability: only reliable on what its list names; one sample per item | R-02 | **Accepted** (AR-4-02) |
+| The reviewer's reliability: the D-29 clause may block a real invite or loan | R-03 | **Accepted** (AR-4-03) |
+| The AI's own memory as an injection channel (T-4-03) | R-05 | **Accepted** (AR-4-04) |
+| Two small loose ends in the reviewer (missing `blocked` field; "written by you") | R-04 | **Deferred** (DR-4-02) |
+| The Phase 4 report file prints the AI's own words (T-4-05, OPEN in the audit) | R-09 | **Accepted** (AR-4-01). Not fixed; accepted |
+| Session Memory follows the login: no request-level sign-in/sign-out test | R-06 | **Accepted** (AR-4-05). The second gap was already fixed by `209d293` |
+
+**Part 3 and the corrections section.**
+
+| Agenda item | Register id | Decision |
+|-------------|-------------|----------|
+| T-4-01 row: stale-stint failure counted against the next stint; `Connect` holds the lock across the dial; a late message flips the badge (corrections) | R-12 | **Accepted** (AR-4-10) |
+| T-4-02 row: a rate-limit answer counts as a strike | R-08 | **Accepted** (AR-4-07) |
+| T-4-02, corrections: the ICM rate limit never counts an AI command (OPEN in the audit) | R-13 | **Deferred** (DR-4-03). Not fixed; the owner adds that the limiter must be a configurable setting |
+| T-4-04 row | R-01, R-02, R-04 | See Part 2 above |
+| T-4-15 row | — | Confirmation only; holds as described |
+| Corrections: the vault-key gate depends on `RAILWAY_ENVIRONMENT` alone | R-14 | **Deferred** (DR-4-04) |
+| Not on this agenda; from `04-REVIEW-FIX.md`: WR-05, WR-08, WR-09 proven by tests but not watched on staging | R-11 | **Accepted** (AR-4-09) |
+
+Four deferrals (DR-4-01 to DR-4-04) are active after this review and are carried in `.planning/todos/pending/2026-09-17-phase5-security-carry-forward.md`.
