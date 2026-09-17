@@ -821,20 +821,30 @@ func TestHandleEngage(t *testing.T) {
 		models := &fakeModels{answer: &gemini.Answer{Reasoning: "heading north", Command: "north"}}
 		d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, commands, &fakeNotifier{}, testConfig())
 
-		d.HandleEngage(uuid.New().String(), uuid.New().String())
+		userID := uuid.New().String()
+		connID := uuid.New().String()
+
+		// icm-refused is transient (D-15): it takes
+		// store.DefaultDisengageThreshold consecutive refusals for the same
+		// user to disengage, not the first.
+		for i := 0; i < store.DefaultDisengageThreshold; i++ {
+			d.HandleEngage(userID, connID)
+		}
 
 		if got := len(sessions.sendCalls()); got != 0 {
 			t.Fatalf("expected zero sends on ICM refusal, got %d", got)
 		}
 		rows := decisions.rows()
-		if len(rows) != 1 {
-			t.Fatalf("expected exactly one stored decision row, got %d", len(rows))
+		if len(rows) != store.DefaultDisengageThreshold {
+			t.Fatalf("expected exactly %d stored decision rows, got %d", store.DefaultDisengageThreshold, len(rows))
 		}
-		if rows[0].Outcome != "refused" {
-			t.Fatalf("expected outcome %q, got %q", "refused", rows[0].Outcome)
+		for _, row := range rows {
+			if row.Outcome != "refused" {
+				t.Fatalf("expected outcome %q, got %q", "refused", row.Outcome)
+			}
 		}
 		if got := len(sessions.disengages()); got != 1 {
-			t.Fatalf("expected exactly one disengage call, got %d", got)
+			t.Fatalf("expected exactly one disengage call (at the threshold), got %d", got)
 		}
 	})
 
@@ -1236,6 +1246,13 @@ func TestHandleEngageFailures(t *testing.T) {
 		},
 	}
 
+	// Every kind in this table is one of D-15's seven transient kinds
+	// (transientFailureKinds), so a single HandleEngage call no longer
+	// disengages on its own — it takes store.DefaultDisengageThreshold
+	// consecutive failures for the same user to reach the threshold. Each
+	// case drives the same fixed models.err/tc.answer through that many
+	// calls and asserts the sub-threshold ("N of M") notices along the way
+	// plus the final, threshold-reached disengage.
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			sessions := &fakeSessions{window: "a room"}
@@ -1244,31 +1261,47 @@ func TestHandleEngageFailures(t *testing.T) {
 			models := &fakeModels{answer: tc.answer, err: tc.modelErr}
 			d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, &fakeCommands{}, notifier, testConfig())
 
-			d.HandleEngage(uuid.New().String(), uuid.New().String())
+			userID := uuid.New().String()
+			connID := uuid.New().String()
+			for i := 0; i < store.DefaultDisengageThreshold; i++ {
+				d.HandleEngage(userID, connID)
+			}
 
 			if got := len(sessions.sendCalls()); got != 0 {
 				t.Fatalf("expected zero sends, got %d", got)
 			}
 			rows := decisions.rows()
-			if len(rows) != 1 {
-				t.Fatalf("expected exactly one stored decision row, got %d", len(rows))
+			if len(rows) != store.DefaultDisengageThreshold {
+				t.Fatalf("expected exactly %d stored decision rows, got %d", store.DefaultDisengageThreshold, len(rows))
 			}
-			if rows[0].FailureKind != tc.wantFailure {
-				t.Fatalf("expected failure kind %q, got %q", tc.wantFailure, rows[0].FailureKind)
+			for _, row := range rows {
+				if row.FailureKind != tc.wantFailure {
+					t.Fatalf("expected failure kind %q, got %q", tc.wantFailure, row.FailureKind)
+				}
+				if row.Outcome != tc.wantOutcome {
+					t.Fatalf("expected outcome %q, got %q", tc.wantOutcome, row.Outcome)
+				}
 			}
-			if rows[0].Outcome != tc.wantOutcome {
-				t.Fatalf("expected outcome %q, got %q", tc.wantOutcome, rows[0].Outcome)
-			}
+
 			wantNotice := failureNotices[tc.wantFailure]
 			events := notifier.eventsSnapshot()
-			if len(events) != 1 {
-				t.Fatalf("expected exactly one notification, got %d", len(events))
+			if len(events) != store.DefaultDisengageThreshold {
+				t.Fatalf("expected exactly %d notifications, got %d", store.DefaultDisengageThreshold, len(events))
 			}
-			if events[0].Message != wantNotice {
-				t.Fatalf("expected notice %q, got %q", wantNotice, events[0].Message)
+			last := events[len(events)-1]
+			if last.Message != wantNotice {
+				t.Fatalf("expected the threshold notice %q, got %q", wantNotice, last.Message)
+			}
+			if last.Outcome != "failed" {
+				t.Fatalf("expected the threshold event outcome %q, got %q", "failed", last.Outcome)
+			}
+			for i := 0; i < len(events)-1; i++ {
+				if events[i].Outcome != "transient" {
+					t.Fatalf("expected sub-threshold event %d outcome %q, got %q", i, "transient", events[i].Outcome)
+				}
 			}
 			if got := len(sessions.disengages()); got != 1 {
-				t.Fatalf("expected exactly one disengage call, got %d", got)
+				t.Fatalf("expected exactly one disengage call (at the threshold), got %d", got)
 			}
 		})
 	}
@@ -1349,6 +1382,8 @@ func TestHandleEngageReviewer(t *testing.T) {
 			},
 		}
 
+		// As in TestHandleEngageFailures, every kind here is transient
+		// (D-15) — a single reviewer error no longer disengages on its own.
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
 				sessions := &fakeSessions{window: "a room"}
@@ -1361,7 +1396,11 @@ func TestHandleEngageReviewer(t *testing.T) {
 				}
 				d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, commands, notifier, testConfig())
 
-				d.HandleEngage(uuid.New().String(), uuid.New().String())
+				userID := uuid.New().String()
+				connID := uuid.New().String()
+				for i := 0; i < store.DefaultDisengageThreshold; i++ {
+					d.HandleEngage(userID, connID)
+				}
 
 				if got := len(sessions.sendCalls()); got != 0 {
 					t.Fatalf("expected zero sends, got %d", got)
@@ -1370,25 +1409,28 @@ func TestHandleEngageReviewer(t *testing.T) {
 					t.Fatalf("expected zero dispatches, got %d", got)
 				}
 				rows := decisions.rows()
-				if len(rows) != 1 {
-					t.Fatalf("expected exactly one stored decision row, got %d", len(rows))
+				if len(rows) != store.DefaultDisengageThreshold {
+					t.Fatalf("expected exactly %d stored decision rows, got %d", store.DefaultDisengageThreshold, len(rows))
 				}
-				if rows[0].Outcome != "failed" {
-					t.Fatalf("expected outcome %q, got %q", "failed", rows[0].Outcome)
-				}
-				if rows[0].FailureKind != tc.wantFailure {
-					t.Fatalf("expected failure kind %q, got %q", tc.wantFailure, rows[0].FailureKind)
+				for _, row := range rows {
+					if row.Outcome != "failed" {
+						t.Fatalf("expected outcome %q, got %q", "failed", row.Outcome)
+					}
+					if row.FailureKind != tc.wantFailure {
+						t.Fatalf("expected failure kind %q, got %q", tc.wantFailure, row.FailureKind)
+					}
 				}
 				wantNotice := failureNotices[tc.wantFailure]
 				events := notifier.eventsSnapshot()
-				if len(events) != 1 {
-					t.Fatalf("expected exactly one notification, got %d", len(events))
+				if len(events) != store.DefaultDisengageThreshold {
+					t.Fatalf("expected exactly %d notifications, got %d", store.DefaultDisengageThreshold, len(events))
 				}
-				if events[0].Message != wantNotice {
-					t.Fatalf("expected notice %q, got %q", wantNotice, events[0].Message)
+				last := events[len(events)-1]
+				if last.Message != wantNotice {
+					t.Fatalf("expected the threshold notice %q, got %q", wantNotice, last.Message)
 				}
 				if got := len(sessions.disengages()); got != 1 {
-					t.Fatalf("expected exactly one disengage call, got %d", got)
+					t.Fatalf("expected exactly one disengage call (at the threshold), got %d", got)
 				}
 			})
 		}

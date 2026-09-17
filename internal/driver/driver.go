@@ -15,7 +15,9 @@ package driver
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -28,7 +30,12 @@ import (
 	"github.com/google/uuid"
 )
 
-// Failure kinds (D-13). Each maps to exactly one locked notice below.
+// Failure kinds (D-13, extended by D-15/D-14/D-17). The first seven are the
+// D-13/D-15 kinds; failureAuth/failureBadRequest/failureMissingProfile/
+// failureMissingModel are D-15's non-transient split (04-RESEARCH Pitfall
+// 1); failureCapReached and failureBlockedRepeatedly are D-14 and D-17's
+// halt kinds, recorded as outcome "failed" rows with their own
+// failure_kind rather than a fifth outcome value (04-RESEARCH A5).
 const (
 	failureAPIError     = "api-error"
 	failureRateLimited  = "rate-limited"
@@ -37,21 +44,93 @@ const (
 	failureNonGameLine  = "non-game-line"
 	failureMalformed    = "malformed"
 	failureICMRefused   = "icm-refused"
+
+	failureAuth           = "auth"
+	failureBadRequest     = "bad-request"
+	failureMissingProfile = "missing-profile"
+	failureMissingModel   = "missing-model"
+
+	failureCapReached        = "call-cap"
+	failureBlockedRepeatedly = "blocked-repeatedly"
 )
 
-// failureNotices maps every D-13 failure kind to its locked notice. The
-// first six sentences are reproduced verbatim from 03-UI-SPEC.md's
-// Copywriting Contract; the seventh (icm-refused) is a new sentence in the
-// same voice, added because D-13 covers "a first failure of any kind" and
-// an ICM refusal is one, while the Copywriting Contract names only six.
+// failureNotices maps every failure kind to its locked notice, verbatim
+// from 04-UI-SPEC.md's Copywriting Contract (which reproduces 03-UI-SPEC's
+// six original sentences unchanged and adds the icm-refused, cap-reached
+// and blocked-repeatedly sentences new this phase). The four D-15
+// non-transient kinds added this phase (auth, bad-request, missing-profile,
+// missing-model) deliberately reuse the api-error sentence verbatim — the
+// owner-visible wording does not change for them; the distinction lives in
+// failure_kind and in the immediate-disengage behaviour, not in new copy.
 var failureNotices = map[string]string{
-	failureAPIError:     "AI decision failed: the model could not be reached. Autopilot disengaged.",
-	failureRateLimited:  "AI decision failed: the model's rate limit was reached. Autopilot disengaged.",
-	failureNoCommand:    "AI decision failed: the model did not return a command. Autopilot disengaged.",
-	failureMultiCommand: "AI decision failed: the model returned more than one command. Autopilot disengaged.",
-	failureNonGameLine:  "AI decision failed: the model tried to issue a non-game command. Autopilot disengaged.",
-	failureMalformed:    "AI decision failed: the model's answer could not be understood. Autopilot disengaged.",
-	failureICMRefused:   "AI decision failed: the command was refused by the command safety limits. Autopilot disengaged.",
+	failureAPIError:       "AI decision failed: the model could not be reached. Autopilot disengaged.",
+	failureRateLimited:    "AI decision failed: the model's rate limit was reached. Autopilot disengaged.",
+	failureNoCommand:      "AI decision failed: the model did not return a command. Autopilot disengaged.",
+	failureMultiCommand:   "AI decision failed: the model returned more than one command. Autopilot disengaged.",
+	failureNonGameLine:    "AI decision failed: the model tried to issue a non-game command. Autopilot disengaged.",
+	failureMalformed:      "AI decision failed: the model's answer could not be understood. Autopilot disengaged.",
+	failureICMRefused:     "AI decision failed: the game's own limits refused the command. Autopilot disengaged.",
+	failureAuth:           "AI decision failed: the model could not be reached. Autopilot disengaged.",
+	failureBadRequest:     "AI decision failed: the model could not be reached. Autopilot disengaged.",
+	failureMissingProfile: "AI decision failed: the model could not be reached. Autopilot disengaged.",
+	failureMissingModel:   "AI decision failed: the model could not be reached. Autopilot disengaged.",
+
+	failureCapReached:        "Session call cap reached. Autopilot disengaged.",
+	failureBlockedRepeatedly: "AI decisions were blocked repeatedly. Autopilot disengaged.",
+}
+
+// kindSentences gives the bare notice fragment for each transient kind
+// (D-15), reused to build the sub-threshold "(N of M)" notice
+// (recordFailure) without the "Autopilot disengaged." suffix the full
+// failureNotices entry carries.
+var kindSentences = map[string]string{
+	failureAPIError:     "the model could not be reached.",
+	failureRateLimited:  "the model's rate limit was reached.",
+	failureNoCommand:    "the model did not return a command.",
+	failureMultiCommand: "the model returned more than one command.",
+	failureNonGameLine:  "the model tried to issue a non-game command.",
+	failureMalformed:    "the model's answer could not be understood.",
+	failureICMRefused:   "the game's own limits refused the command.",
+}
+
+// transientFailureKinds names exactly the seven D-15 kinds counted toward
+// the consecutive-failure threshold rather than disengaging on the first
+// hit: a network hiccup, a rate limit, an unreadable or malformed answer, a
+// non-command or multi-command answer, and an ICM refusal are all
+// conditions that might not recur on the very next attempt. Any failure
+// kind absent from this set (including the cap-reached and
+// blocked-repeatedly halts, which are not D-13/D-15 kinds at all) is
+// non-transient and disengages immediately (04-RESEARCH Pitfall 1).
+var transientFailureKinds = map[string]bool{
+	failureAPIError:     true,
+	failureRateLimited:  true,
+	failureMalformed:    true,
+	failureNoCommand:    true,
+	failureMultiCommand: true,
+	failureNonGameLine:  true,
+	failureICMRefused:   true,
+}
+
+// failureEventOutcome overrides the browser-facing Event.Outcome for a
+// failure kind whose outcome is not simply "failed" — the cap-reached and
+// blocked-repeatedly halts each get their own outcome string so the panel
+// and terminal can colour and word them distinctly (04-UI-SPEC.md). A kind
+// absent here defaults to "failed" in recordFailure; a sub-threshold
+// transient failure overrides to "transient" inline, not through this map,
+// since that depends on the live count rather than the kind alone.
+var failureEventOutcome = map[string]string{
+	failureCapReached:        "cap",
+	failureBlockedRepeatedly: "blocked-repeatedly",
+}
+
+// failureDisengageCause overrides DisengageAutopilot's cause string for a
+// failure kind that is not the ordinary "ai-failure" — the cap-reached and
+// blocked-repeatedly halts each get their own cause so the autopilot
+// transition log can tell them apart from an ordinary AI failure. A kind
+// absent here defaults to "ai-failure" in recordFailure.
+var failureDisengageCause = map[string]string{
+	failureCapReached:        "ai-call-cap",
+	failureBlockedRepeatedly: "ai-blocked-repeatedly",
 }
 
 // maxCommandBytes bounds a validated command's length (T-3-01); anything
@@ -139,6 +218,20 @@ type Event struct {
 	Outcome   string
 	Message   string
 	Timestamp string
+
+	// State, Calls, CallCap, CallCapSet, Failures, Blocks and Threshold are
+	// meaningful on any event the driver emits during a stint (D-18,
+	// DR-3-03): the same message that carries a disengage also carries the
+	// switch's new state, read after the disengage has already been
+	// applied, so the badge and the panel's status line never lag behind
+	// what actually happened.
+	State      string
+	Calls      int
+	CallCap    int
+	CallCapSet bool
+	Failures   int
+	Blocks     int
+	Threshold  int
 }
 
 // Driver holds the collaborators the phase's single decision needs and an
@@ -163,14 +256,26 @@ type Driver struct {
 	loops          map[string]context.CancelFunc
 	lastDecisionAt map[string]time.Time
 
-	// settleDelay, floorInterval and minSpacing are Driver fields rather
-	// than package constants (04-RESEARCH Don't Hand-Roll) so tests can
-	// inject millisecond values with no fake-clock library. D-06 calls
-	// these tunable starting points: 1.5s settle, 20s floor, 3s minimum
-	// spacing, tuned against Alter Aeon during the staging walkthrough.
+	// callCounts, failureCounts and blockCounts are the three per-stint
+	// counters D-14, D-15 and D-17 need, guarded by the same d.mu — one
+	// mechanism reused three times, not three mechanisms (04-CONTEXT
+	// Claude's Discretion). All three reset to zero on every EngageLoop
+	// (resetStintCounters), including after a wheel-grab.
+	callCounts    map[string]int
+	failureCounts map[string]int
+	blockCounts   map[string]int
+
+	// settleDelay, floorInterval, minSpacing and retryDelay are Driver
+	// fields rather than package constants (04-RESEARCH Don't Hand-Roll) so
+	// tests can inject millisecond values with no fake-clock library. D-06
+	// calls settle/floor/minSpacing tunable starting points: 1.5s settle,
+	// 20s floor, 3s minimum spacing, tuned against Alter Aeon during the
+	// staging walkthrough. retryDelay is D-16's fixed 503 retry delay (2
+	// seconds, fixed per 04-CONTEXT Claude's Discretion).
 	settleDelay   time.Duration
 	floorInterval time.Duration
 	minSpacing    time.Duration
+	retryDelay    time.Duration
 }
 
 // New builds a Driver. notifier may be nil (plan 03-09 supplies the real
@@ -187,9 +292,13 @@ func New(sessions Sessions, profiles Profiles, decisions Decisions, models Model
 		inFlight:       make(map[string]bool),
 		loops:          make(map[string]context.CancelFunc),
 		lastDecisionAt: make(map[string]time.Time),
+		callCounts:     make(map[string]int),
+		failureCounts:  make(map[string]int),
+		blockCounts:    make(map[string]int),
 		settleDelay:    1500 * time.Millisecond,
 		floorInterval:  20 * time.Second,
 		minSpacing:     3 * time.Second,
+		retryDelay:     2 * time.Second,
 	}
 }
 
@@ -252,22 +361,32 @@ func (d *Driver) runIteration(userID, connectionID string, first bool) {
 		gameSessionID = &gsID
 	}
 
+	// defaultResolved backs the two defensive failure paths below, which
+	// happen before a profile (and therefore a real ResolveAISettings
+	// result) is available. Neither path is transient in a way that reads
+	// this threshold in practice (missing-profile is non-transient; the
+	// uuid-parse path is unreachable per the comment below), so a plain
+	// default threshold is sufficient.
+	defaultResolved := store.ResolveAISettings(store.AISettings{}, "")
+
 	userUUID, uErr := uuid.Parse(userID)
 	connUUID, cErr := uuid.Parse(connectionID)
 	if uErr != nil || cErr != nil {
 		// Defensive only: both ids are already-parsed strings the caller
 		// (task 03-08-03's two hook points) always supplies as valid ids.
 		// No model call is made.
-		d.recordFailure(userID, connectionID, uuid.Nil, uuid.Nil, gameSessionID, "", window, "", "", failureMalformed)
+		d.recordFailure(userID, connectionID, uuid.Nil, uuid.Nil, gameSessionID, "", window, "", "", failureMalformed, defaultResolved)
 		return
 	}
 
 	profile, err := d.profiles.GetProfileByConnection(userUUID, connUUID)
 	if err != nil || profile == nil {
 		// A missing profile at this point means something changed under
-		// the engage hook between the gate check and this call; treated
-		// the same as an unreachable model since neither can proceed.
-		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, "", window, "", "", failureAPIError)
+		// the engage hook between the gate check and this call; D-15 makes
+		// this a non-transient kind (04-RESEARCH Pitfall 1) — it disengages
+		// on the first hit rather than counting toward the threshold, since
+		// a missing profile will not resolve itself on the next tick.
+		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, "", window, "", "", failureMissingProfile, defaultResolved)
 		return
 	}
 
@@ -281,8 +400,10 @@ func (d *Driver) runIteration(userID, connectionID string, first bool) {
 	entry, ok := d.cfg.ResolveModelEntry(resolved.ModelName)
 	if !ok {
 		// Plan 03-06's engage-gate refusal should have prevented reaching
-		// here at all; this is the defensive second line (D-20).
-		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, "", window, "", "", failureAPIError)
+		// here at all; this is the defensive second line (D-20). Also
+		// non-transient (D-15): an unresolvable model entry will not
+		// resolve itself on the next tick either.
+		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, "", window, "", "", failureMissingModel, resolved)
 		return
 	}
 
@@ -292,7 +413,29 @@ func (d *Driver) runIteration(userID, connectionID string, first bool) {
 	}
 	wrapped := wrapWindow(window)
 
+	// D-14: the cap is checked, and the call counted, before the call is
+	// made — a false result here means no player call happens this
+	// iteration at all.
+	if !d.tryReserveCall(userID, resolved) {
+		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, "", "", failureCapReached, resolved)
+		return
+	}
+
 	answer, genErr := d.models.GenerateContent(context.Background(), entry.Endpoint, entry.ModelName, entry.APIKey, systemInstruction, wrapped)
+	if genErr != nil && is503(genErr) {
+		// D-16: one automatic retry on a vendor 503, with a visible notice
+		// while the retry is in flight. The retry itself counts against the
+		// cap (D-14) — a failed reservation here goes straight to the
+		// cap-halt path, making no further call.
+		d.notifyRetrying(userID, resolved)
+		time.Sleep(d.retryDelay)
+		if !d.tryReserveCall(userID, resolved) {
+			d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, "", "", failureCapReached, resolved)
+			return
+		}
+		log.Printf("[AI-PLAYER] user_id=%s connection_id=%s stage=retry http=%d", userID, connectionID, http.StatusServiceUnavailable)
+		answer, genErr = d.models.GenerateContent(context.Background(), entry.Endpoint, entry.ModelName, entry.APIKey, systemInstruction, wrapped)
+	}
 	if genErr != nil {
 		// Diagnostic surface (CLAUDE.md rule 7): the vendor's error kind and
 		// HTTP status, never its message (which may carry a URL), so a
@@ -308,8 +451,12 @@ func (d *Driver) runIteration(userID, connectionID string, first bool) {
 			kind = failureRateLimited
 		case gemini.KindMalformed:
 			kind = failureMalformed
+		case gemini.KindAuth:
+			kind = failureAuth
+		case gemini.KindBadRequest:
+			kind = failureBadRequest
 		}
-		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, "", "", kind)
+		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, "", "", kind, resolved)
 		return
 	}
 
@@ -317,12 +464,12 @@ func (d *Driver) runIteration(userID, connectionID string, first bool) {
 
 	cmd, failKind := validateCommand(answer.Command)
 	if failKind != "" {
-		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, answer.Command, failKind)
+		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, answer.Command, failKind, resolved)
 		return
 	}
 
 	if matchedEntry, blocked := matchNeverIssue(cmd, profile.NeverIssueList); blocked {
-		d.recordBlocked(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, "never-issue", "Matched Never-issue entry: \""+matchedEntry+"\"")
+		d.recordBlocked(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, "never-issue", "Matched Never-issue entry: \""+matchedEntry+"\"", resolved)
 		return
 	}
 
@@ -333,7 +480,26 @@ func (d *Driver) runIteration(userID, connectionID string, first bool) {
 	reviewSystemInstruction := buildReviewSystemInstruction(profile)
 	reviewUserText := "Chosen command: " + cmd + "\nModel's stated reasoning: " + answer.Reasoning + "\n\n" + wrapped
 	d.logDecision(userID, connectionID, "", "review", entry.ModelName, "", "", len(window), len(cmd))
+
+	// D-14: the reviewer call is a second reservation against the cap
+	// (DR-3.1-02) — a cap of N permits at most N calls total in a stint,
+	// counting the reviewer and any retry alongside the decision call.
+	if !d.tryReserveCall(userID, resolved) {
+		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, failureCapReached, resolved)
+		return
+	}
+
 	review, revErr := d.models.ReviewCommand(context.Background(), entry.Endpoint, entry.ModelName, entry.APIKey, reviewSystemInstruction, reviewUserText)
+	if revErr != nil && is503(revErr) {
+		d.notifyRetrying(userID, resolved)
+		time.Sleep(d.retryDelay)
+		if !d.tryReserveCall(userID, resolved) {
+			d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, failureCapReached, resolved)
+			return
+		}
+		log.Printf("[AI-PLAYER] user_id=%s connection_id=%s stage=retry http=%d", userID, connectionID, http.StatusServiceUnavailable)
+		review, revErr = d.models.ReviewCommand(context.Background(), entry.Endpoint, entry.ModelName, entry.APIKey, reviewSystemInstruction, reviewUserText)
+	}
 	if revErr != nil {
 		// D-09: an unreviewed command never reaches the game. Map the
 		// reviewer's error the same way the player call's error is mapped
@@ -346,8 +512,12 @@ func (d *Driver) runIteration(userID, connectionID string, first bool) {
 			kind = failureRateLimited
 		case gemini.KindMalformed:
 			kind = failureMalformed
+		case gemini.KindAuth:
+			kind = failureAuth
+		case gemini.KindBadRequest:
+			kind = failureBadRequest
 		}
-		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, kind)
+		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, kind, resolved)
 		return
 	}
 	if review.Blocked {
@@ -355,7 +525,7 @@ func (d *Driver) runIteration(userID, connectionID string, first bool) {
 		if strings.TrimSpace(reason) == "" {
 			reason = emptyReviewReasonFallback
 		}
-		d.recordBlocked(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, "reviewer", "Reviewer blocked: "+reason)
+		d.recordBlocked(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, "reviewer", "Reviewer blocked: "+reason, resolved)
 		return
 	}
 
@@ -366,29 +536,146 @@ func (d *Driver) runIteration(userID, connectionID string, first bool) {
 		RequiresExecution: true,
 	}
 	if _, icmErr := d.commands.Dispatch(&ctx, userID, normalized); icmErr != nil {
-		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, failureICMRefused)
+		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, failureICMRefused, resolved)
 		return
 	}
 
 	d.logDecision(userID, connectionID, "", "dispatch", entry.ModelName, "", "", len(window), len(cmd))
 
 	if err := d.sessions.SendCommandAs(userID, cmd, "ai"); err != nil {
-		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, failureAPIError)
+		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, failureAPIError, resolved)
 		return
 	}
 
-	d.recordSuccess(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd)
+	d.recordSuccess(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, resolved)
+}
+
+// resetStintCounters zeroes userID's call, consecutive-failure and
+// consecutive-block counters (D-14, D-15, D-17: "starts at zero on every
+// #AUTO ON, including after a wheel-grab"). EngageLoop
+// (internal/driver/loop.go) calls this as its first statement, before the
+// stint's opening decision runs.
+func (d *Driver) resetStintCounters(userID string) {
+	d.mu.Lock()
+	d.callCounts[userID] = 0
+	d.failureCounts[userID] = 0
+	d.blockCounts[userID] = 0
+	d.mu.Unlock()
+}
+
+// tryReserveCall reserves one model call against userID's per-stint call
+// cap (D-14) before the call is made, so a cap halt happens in front of the
+// call rather than after it. A blank cap (CallCapSet false) always
+// succeeds — there is no limit to enforce — but the count still increments
+// so the panel's "Calls: {count}" status line (04-UI-SPEC.md §3) reflects
+// the real number of calls made in the stint. The decision call, the
+// reviewer call, and each call's own 503 retry all reserve separately, so a
+// cap of N permits at most N calls total in the stint, counting all of
+// them (D-14, DR-3.1-02, D-16).
+func (d *Driver) tryReserveCall(userID string, resolved store.ResolvedAISettings) bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if resolved.CallCapSet && d.callCounts[userID] >= resolved.CallCap {
+		return false
+	}
+	d.callCounts[userID]++
+	return true
+}
+
+// is503 reports whether err is a *gemini.Error carrying HTTP 503, the one
+// vendor condition D-16 retries once. Status is always the real HTTP
+// status regardless of which Kind bucket a 503 lands in (it falls into
+// gemini.KindTransport's default branch), so this checks Status directly
+// rather than Kind.
+func is503(err error) bool {
+	gerr, ok := err.(*gemini.Error)
+	return ok && gerr.Status == http.StatusServiceUnavailable
+}
+
+// notifyRetrying sends D-16's fixed retrying notice while a 503 retry is in
+// flight. No decision row is stored for it — the retry is a status update
+// mid-decision, not a decision outcome of its own.
+func (d *Driver) notifyRetrying(userID string, resolved store.ResolvedAISettings) {
+	d.notify(userID, d.decorateEvent(userID, Event{
+		Kind:      "system",
+		Outcome:   "retrying",
+		Message:   "The model is unavailable, retrying...",
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+	}, resolved))
+}
+
+// decorateEvent fills in D-18's switch-state and the D-14/D-15/D-17 status
+// counts on ev before it is sent to the browser. State is read after any
+// disengage the caller already applied (every caller below disengages, when
+// it does, before building and notifying its Event), so a message
+// announcing a halt carries the post-halt state with no poll lag (D-18,
+// DR-3-03). resolved is the caller's already-resolved AI settings for this
+// stint.
+func (d *Driver) decorateEvent(userID string, ev Event, resolved store.ResolvedAISettings) Event {
+	d.mu.Lock()
+	calls := d.callCounts[userID]
+	failures := d.failureCounts[userID]
+	blocks := d.blockCounts[userID]
+	d.mu.Unlock()
+
+	ev.State = string(d.sessions.AutopilotStateFor(userID))
+	ev.Calls = calls
+	ev.CallCap = resolved.CallCap
+	ev.CallCapSet = resolved.CallCapSet
+	ev.Failures = failures
+	ev.Blocks = blocks
+	ev.Threshold = resolved.DisengageThreshold
+	return ev
 }
 
 // recordFailure stores a failed or refused decision, notifies a system
-// event carrying the matching locked notice, disengages autopilot, and
-// logs the stage=failed line. A storage error is tolerated (the decision
-// row is best-effort); the notify/disengage/log sequence still runs.
-func (d *Driver) recordFailure(userID, connectionID string, userUUID, connUUID uuid.UUID, gameSessionID *uuid.UUID, modelName, window, reasoning, command, failureKind string) {
-	notice := failureNotices[failureKind]
-	outcome := "failed"
+// event carrying the matching locked notice, and disengages autopilot when
+// warranted, then logs the stage=failed line. A storage error is tolerated
+// (the decision row is best-effort); the notify/log sequence still runs.
+//
+// D-15 splits the D-13 failure kinds into transient (a network hiccup, a
+// rate limit, an unusable or malformed answer, an ICM refusal) and
+// non-transient (a missing profile, an unresolvable model entry, an auth or
+// bad-request response). Non-transient kinds disengage on the first hit,
+// exactly as Phase 3 did for every kind. Transient kinds increment a
+// per-user consecutive-failure counter; below the resolved threshold the
+// row is still stored but the notice carries a running count and nothing
+// disengages, letting the loop continue on the next tick; at the threshold
+// the notice reads the kind's full locked sentence and autopilot
+// disengages, same as a non-transient kind.
+//
+// This same function is also the D-14 cap-reached and D-17
+// blocked-repeatedly halt path: failureCapReached and
+// failureBlockedRepeatedly are neither D-13/D-15 kinds nor in
+// transientFailureKinds, so they always disengage, picking up their own
+// cause and event outcome from the lookup tables above. One storage/notify/
+// disengage/log mechanism is reused three ways rather than three separate
+// ones.
+func (d *Driver) recordFailure(userID, connectionID string, userUUID, connUUID uuid.UUID, gameSessionID *uuid.UUID, modelName, window, reasoning, command, failureKind string, resolved store.ResolvedAISettings) {
+	dbOutcome := "failed"
 	if failureKind == failureICMRefused {
-		outcome = "refused"
+		dbOutcome = "refused"
+	}
+
+	notice := failureNotices[failureKind]
+	eventOutcome := "failed"
+	if eo, ok := failureEventOutcome[failureKind]; ok {
+		eventOutcome = eo
+	}
+	disengage := true
+
+	if transientFailureKinds[failureKind] {
+		d.mu.Lock()
+		d.failureCounts[userID]++
+		count := d.failureCounts[userID]
+		d.mu.Unlock()
+
+		threshold := resolved.DisengageThreshold
+		if count < threshold {
+			disengage = false
+			eventOutcome = "transient"
+			notice = fmt.Sprintf("AI decision failed: %s (%d of %d)", kindSentences[failureKind], count, threshold)
+		}
 	}
 
 	decisionID := ""
@@ -401,7 +688,7 @@ func (d *Driver) recordFailure(userID, connectionID string, userUUID, connUUID u
 			WindowText:    window,
 			Reasoning:     reasoning,
 			Command:       command,
-			Outcome:       outcome,
+			Outcome:       dbOutcome,
 			FailureKind:   failureKind,
 			Notice:        notice,
 		})
@@ -410,18 +697,24 @@ func (d *Driver) recordFailure(userID, connectionID string, userUUID, connUUID u
 		}
 	}
 
-	d.notify(userID, Event{
+	if disengage {
+		cause := "ai-failure"
+		if c, ok := failureDisengageCause[failureKind]; ok {
+			cause = c
+		}
+		d.sessions.DisengageAutopilot(userID, cause)
+	}
+
+	d.notify(userID, d.decorateEvent(userID, Event{
 		ID:        decisionID,
 		Kind:      "system",
 		Reasoning: reasoning,
-		Outcome:   outcome,
+		Outcome:   eventOutcome,
 		Message:   notice,
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
-	})
+	}, resolved))
 
-	d.sessions.DisengageAutopilot(userID, "ai-failure")
-
-	d.logDecision(userID, connectionID, decisionID, "failed", modelName, outcome, failureKind, len(window), len(command))
+	d.logDecision(userID, connectionID, decisionID, "failed", modelName, dbOutcome, failureKind, len(window), len(command))
 }
 
 // recordBlocked stores a blocked decision (D-08), notifies a decision
@@ -434,10 +727,17 @@ func (d *Driver) recordFailure(userID, connectionID string, userUUID, connUUID u
 // kind; FailureKind carries the layer name and Notice the caller's reason;
 // Kind is "decision" (not "system") so the panel renders the command
 // beside the reason; and — the one line that must not be copied from
-// recordFailure — there is deliberately no DisengageAutopilot call below.
-// A block leaves autopilot exactly where the owner set it (D-06); do not
-// "fix" this by adding a disengage call.
-func (d *Driver) recordBlocked(userID, connectionID string, userUUID, connUUID uuid.UUID, gameSessionID *uuid.UUID, modelName, window, reasoning, command, layer, notice string) {
+// recordFailure — there is deliberately no DisengageAutopilot call for a
+// single block. A block leaves autopilot exactly where the owner set it
+// (D-06); do not "fix" this by adding a disengage call here.
+//
+// D-17 adds a second, independent counter on top of that rule: consecutive
+// blocks (never-issue or reviewer, either counts) are tracked separately
+// from D-15's failure counter — a block is not a failure — and reaching the
+// same resolved threshold disengages through recordFailure's own
+// failureBlockedRepeatedly path, with its own cause and notice, rather than
+// by adding a disengage call to this function.
+func (d *Driver) recordBlocked(userID, connectionID string, userUUID, connUUID uuid.UUID, gameSessionID *uuid.UUID, modelName, window, reasoning, command, layer, notice string, resolved store.ResolvedAISettings) {
 	decisionID := ""
 	if d.decisions != nil {
 		id, _, err := d.decisions.InsertDecision(store.DecisionRecord{
@@ -457,7 +757,7 @@ func (d *Driver) recordBlocked(userID, connectionID string, userUUID, connUUID u
 		}
 	}
 
-	d.notify(userID, Event{
+	d.notify(userID, d.decorateEvent(userID, Event{
 		ID:        decisionID,
 		Kind:      "decision",
 		Reasoning: reasoning,
@@ -465,18 +765,34 @@ func (d *Driver) recordBlocked(userID, connectionID string, userUUID, connUUID u
 		Outcome:   "blocked",
 		Message:   notice,
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
-	})
+	}, resolved))
 
 	// D-06: deliberately no autopilot-disengage call here — a block is
 	// the defence working, not the AI failing, and the switch must stay
 	// exactly where the owner left it. Do not "fix" this by adding one.
 
 	d.logDecision(userID, connectionID, decisionID, "blocked", modelName, "blocked", layer, len(window), len(command))
+
+	d.mu.Lock()
+	d.blockCounts[userID]++
+	blockCount := d.blockCounts[userID]
+	d.mu.Unlock()
+
+	if blockCount >= resolved.DisengageThreshold {
+		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, modelName, window, "", "", failureBlockedRepeatedly, resolved)
+	}
 }
 
 // recordSuccess stores a sent decision, notifies a decision event, and
-// logs the stage=sent line.
-func (d *Driver) recordSuccess(userID, connectionID string, userUUID, connUUID uuid.UUID, gameSessionID *uuid.UUID, modelName, window, reasoning, command string) {
+// logs the stage=sent line. D-15/D-17: a sent command resets both the
+// consecutive-failure and consecutive-block counters to zero — the loop
+// proved it can still act, so neither streak carries forward.
+func (d *Driver) recordSuccess(userID, connectionID string, userUUID, connUUID uuid.UUID, gameSessionID *uuid.UUID, modelName, window, reasoning, command string, resolved store.ResolvedAISettings) {
+	d.mu.Lock()
+	d.failureCounts[userID] = 0
+	d.blockCounts[userID] = 0
+	d.mu.Unlock()
+
 	decisionID := ""
 	if d.decisions != nil {
 		id, _, err := d.decisions.InsertDecision(store.DecisionRecord{
@@ -494,14 +810,14 @@ func (d *Driver) recordSuccess(userID, connectionID string, userUUID, connUUID u
 		}
 	}
 
-	d.notify(userID, Event{
+	d.notify(userID, d.decorateEvent(userID, Event{
 		ID:        decisionID,
 		Kind:      "decision",
 		Reasoning: reasoning,
 		Command:   command,
 		Outcome:   "sent",
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
-	})
+	}, resolved))
 
 	d.logDecision(userID, connectionID, decisionID, "sent", modelName, "sent", "", len(window), len(command))
 }

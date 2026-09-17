@@ -26,8 +26,11 @@ import (
 // already failed, hit a cap, or otherwise disengaged the switch has no
 // loop to start.
 func (d *Driver) EngageLoop(userID, connectionID string) {
-	// Plan 04-04 resets the per-stint call/failure/block counters here, as
-	// this function's first statement, before the first iteration runs.
+	// D-14/D-15/D-17: the call, consecutive-failure and consecutive-block
+	// counters all start at zero on every #AUTO ON, including after a
+	// wheel-grab, so this runs as this function's first statement, before
+	// the first iteration runs.
+	d.resetStintCounters(userID)
 
 	d.runIteration(userID, connectionID, true)
 

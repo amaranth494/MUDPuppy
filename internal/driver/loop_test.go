@@ -155,11 +155,13 @@ func TestFakeSessionsStateMachine(t *testing.T) {
 }
 
 // TestScriptedStintSurvivesAFailureMidway proves the harness can describe
-// the shape Phase 4's thresholds will later enforce: a stint where the
-// middle decision fails must still leave the two clean decisions sent, the
-// one failure stored with a failure kind, exactly one disengage recorded,
-// and no panic. It asserts nothing about thresholds or counters -- neither
-// exists yet; that is 04-03's work.
+// the shape Phase 4's thresholds enforce: a stint where the middle decision
+// fails must still leave the two clean decisions sent, the one failure
+// stored with a failure kind, and no panic. The middle failure (a transient
+// transport error, D-15) is the stint's first consecutive failure, one
+// short of the default threshold of three, so it does not disengage --
+// updated by 04-04 from this test's original assertion of an immediate
+// disengage, which predates the threshold this plan adds.
 func TestScriptedStintSurvivesAFailureMidway(t *testing.T) {
 	sessions := &fakeSessions{window: "a room"}
 	decisions := &fakeDecisionsStore{}
@@ -216,8 +218,8 @@ func TestScriptedStintSurvivesAFailureMidway(t *testing.T) {
 		t.Fatalf("expected exactly 1 failure row, got %d", failureRows)
 	}
 
-	if got := len(sessions.disengages()); got != 1 {
-		t.Fatalf("expected exactly 1 disengage call, got %d", got)
+	if got := len(sessions.disengages()); got != 0 {
+		t.Fatalf("expected zero disengage calls (one transient failure is below the default threshold of 3), got %d", got)
 	}
 }
 
@@ -629,4 +631,424 @@ func TestLoop_NoAIReconnect(t *testing.T) {
 	if got := sessions.reconnectCallCount(); got != 0 {
 		t.Fatalf("expected zero reconnect-shaped calls on the session double, got %d", got)
 	}
+}
+
+// TestLoop_CallCap proves D-14/DR-3.1-02: the loop halts before making the
+// call that would exceed the session call cap, autopilot lands off, and the
+// panel/terminal notice is the locked cap-reached sentence. A cap of 2
+// permits exactly one full iteration (the decision call plus the reviewer
+// call, DR-3.1-02's own counting rule), so the second iteration's very
+// first reservation -- the decision call -- is the cap's third call and is
+// refused before it is made. A fresh EngageLoop resets the counter to zero.
+func TestLoop_CallCap(t *testing.T) {
+	sessions := &fakeSessions{window: "a room"}
+	sessions.engageState()
+	decisions := &fakeDecisionsStore{}
+	notifier := &fakeNotifier{}
+	commands := &fakeCommands{}
+	models := &fakeModels{
+		answer:       &gemini.Answer{Reasoning: "heading out", Command: "look"},
+		reviewAnswer: &gemini.ReviewAnswer{Blocked: false, Reason: "clear"},
+	}
+	profile := testProfile()
+	callCap := 2
+	profile.AISettings.CallCap = &callCap
+	d := New(sessions, &fakeProfiles{profile: profile}, decisions, models, commands, notifier, testConfig())
+	d.settleDelay = 2 * time.Millisecond
+	d.floorInterval = 5 * time.Second
+	d.minSpacing = 2 * time.Millisecond
+
+	userID := uuid.New().String()
+	connID := uuid.New().String()
+
+	d.EngageLoop(userID, connID)
+	waitForSendCount(t, sessions, 1)
+
+	// The driver's own D-14 counter (player call + reviewer call) is the
+	// one that actually enforces the cap; fakeModels.callCount() only
+	// counts the player call, so read the cap counter directly.
+	callCount := func() int {
+		d.mu.Lock()
+		defer d.mu.Unlock()
+		return d.callCounts[userID]
+	}
+	if got := callCount(); got != 2 {
+		t.Fatalf("expected exactly 2 reserved calls (decision + reviewer) for the cap's one permitted iteration, got %d", got)
+	}
+
+	sessions.fireOutput()
+	waitForDisengages(t, sessions, 1)
+
+	assertStableCallCount(t, models, 1, 100*time.Millisecond)
+	if got := callCount(); got != 2 {
+		t.Fatalf("expected the reserved call count to stay at the cap (2), got %d", got)
+	}
+	if got := len(sessions.sendCalls()); got != 1 {
+		t.Fatalf("expected exactly 1 sent command total, got %d", got)
+	}
+
+	disengages := sessions.disengages()
+	if len(disengages) != 1 || disengages[0] != "ai-call-cap" {
+		t.Fatalf("expected exactly one ai-call-cap disengage, got %v", disengages)
+	}
+	if got := sessions.AutopilotStateFor(userID); got != session.AutopilotOff {
+		t.Fatalf("expected autopilot off after the cap halt, got %v", got)
+	}
+
+	events := notifier.eventsSnapshot()
+	last := events[len(events)-1]
+	if last.Message != "Session call cap reached. Autopilot disengaged." {
+		t.Fatalf("expected the locked cap-reached notice, got %q", last.Message)
+	}
+	if last.Outcome != "cap" {
+		t.Fatalf("expected event outcome %q, got %q", "cap", last.Outcome)
+	}
+	if last.State != "off" {
+		t.Fatalf("expected the cap-halt event to carry state %q, got %q", "off", last.State)
+	}
+
+	// D-14: the cap counter starts again at zero on every #AUTO ON.
+	sessions.setState(session.AutopilotOff)
+	sessions.engageState()
+	d.EngageLoop(userID, connID)
+	waitForSendCount(t, sessions, 2)
+	if got := callCount(); got != 2 {
+		t.Fatalf("expected the cap to reset to zero on a fresh EngageLoop, got %d calls this stint", got)
+	}
+}
+
+// TestLoop_ErrorThreshold proves D-15: two consecutive transient failures
+// continue the loop with a running "(N of M)" count and send nothing; the
+// third disengages with the kind's full locked sentence; a sent command
+// resets the count; a blank threshold resolves to 3; and a non-transient
+// (auth) failure disengages on the first hit rather than being counted.
+func TestLoop_ErrorThreshold(t *testing.T) {
+	t.Run("two_transient_failures_continue_then_the_third_disengages", func(t *testing.T) {
+		sessions := &fakeSessions{window: "a room"}
+		decisions := &fakeDecisionsStore{}
+		notifier := &fakeNotifier{}
+		commands := &fakeCommands{}
+		models := &fakeModels{err: &gemini.Error{Kind: gemini.KindTransport, Message: "dial tcp: i/o timeout"}}
+		d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, commands, notifier, testConfig())
+
+		userID := uuid.New().String()
+		connID := uuid.New().String()
+
+		d.HandleEngage(userID, connID)
+		d.HandleEngage(userID, connID)
+		d.HandleEngage(userID, connID)
+
+		events := notifier.eventsSnapshot()
+		if len(events) != 3 {
+			t.Fatalf("expected exactly 3 notifications, got %d", len(events))
+		}
+		wantFirst := "AI decision failed: the model could not be reached. (1 of 3)"
+		wantSecond := "AI decision failed: the model could not be reached. (2 of 3)"
+		wantThird := "AI decision failed: the model could not be reached. Autopilot disengaged."
+		if events[0].Message != wantFirst || events[0].Outcome != "transient" {
+			t.Fatalf("expected first notice %q with outcome %q, got %q / %q", wantFirst, "transient", events[0].Message, events[0].Outcome)
+		}
+		if events[1].Message != wantSecond || events[1].Outcome != "transient" {
+			t.Fatalf("expected second notice %q with outcome %q, got %q / %q", wantSecond, "transient", events[1].Message, events[1].Outcome)
+		}
+		if events[2].Message != wantThird || events[2].Outcome != "failed" {
+			t.Fatalf("expected third notice %q with outcome %q, got %q / %q", wantThird, "failed", events[2].Message, events[2].Outcome)
+		}
+		if got := len(sessions.disengages()); got != 1 {
+			t.Fatalf("expected exactly one disengage call (at the threshold), got %d", got)
+		}
+	})
+
+	t.Run("a_sent_command_resets_the_count", func(t *testing.T) {
+		sessions := &fakeSessions{window: "a room"}
+		decisions := &fakeDecisionsStore{}
+		notifier := &fakeNotifier{}
+		commands := &fakeCommands{}
+		transientErr := &gemini.Error{Kind: gemini.KindTransport, Message: "dial tcp: i/o timeout"}
+		models := &fakeModels{
+			answers: []*gemini.Answer{
+				nil,
+				nil,
+				{Reasoning: "recovered", Command: "look"},
+				nil,
+			},
+			errs: []error{
+				transientErr,
+				transientErr,
+				nil,
+				transientErr,
+			},
+			reviewAnswers: []*gemini.ReviewAnswer{
+				{Blocked: false, Reason: "clear"},
+			},
+		}
+		d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, commands, notifier, testConfig())
+
+		userID := uuid.New().String()
+		connID := uuid.New().String()
+
+		d.HandleEngage(userID, connID) // 1 of 3
+		d.HandleEngage(userID, connID) // 2 of 3
+		d.HandleEngage(userID, connID) // sent -- resets the count
+		d.HandleEngage(userID, connID) // back to 1 of 3, not 3 of 3
+
+		events := notifier.eventsSnapshot()
+		if len(events) != 4 {
+			t.Fatalf("expected exactly 4 notifications, got %d", len(events))
+		}
+		wantAfterReset := "AI decision failed: the model could not be reached. (1 of 3)"
+		if events[3].Message != wantAfterReset {
+			t.Fatalf("expected the count to restart at 1 after a sent command, got %q", events[3].Message)
+		}
+		if got := len(sessions.disengages()); got != 0 {
+			t.Fatalf("expected zero disengage calls (the count never reached 3 after the reset), got %d", got)
+		}
+	})
+
+	t.Run("blank_threshold_resolves_to_3", func(t *testing.T) {
+		profile := testProfile()
+		profile.AISettings.DisengageThreshold = nil
+		sessions := &fakeSessions{window: "a room"}
+		decisions := &fakeDecisionsStore{}
+		notifier := &fakeNotifier{}
+		commands := &fakeCommands{}
+		models := &fakeModels{err: &gemini.Error{Kind: gemini.KindTransport, Message: "dial tcp: i/o timeout"}}
+		d := New(sessions, &fakeProfiles{profile: profile}, decisions, models, commands, notifier, testConfig())
+
+		userID := uuid.New().String()
+		connID := uuid.New().String()
+
+		d.HandleEngage(userID, connID)
+		d.HandleEngage(userID, connID)
+		if got := len(sessions.disengages()); got != 0 {
+			t.Fatalf("expected no disengage before the third failure with a blank threshold, got %d", got)
+		}
+		d.HandleEngage(userID, connID)
+		if got := len(sessions.disengages()); got != 1 {
+			t.Fatalf("expected exactly one disengage at the third failure with a blank threshold, got %d", got)
+		}
+	})
+
+	t.Run("auth_failure_disengages_on_the_first_hit", func(t *testing.T) {
+		sessions := &fakeSessions{window: "a room"}
+		decisions := &fakeDecisionsStore{}
+		notifier := &fakeNotifier{}
+		commands := &fakeCommands{}
+		models := &fakeModels{err: &gemini.Error{Kind: gemini.KindAuth, Message: "invalid API key"}}
+		d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, commands, notifier, testConfig())
+
+		d.HandleEngage(uuid.New().String(), uuid.New().String())
+
+		if got := len(sessions.disengages()); got != 1 {
+			t.Fatalf("expected exactly one disengage call on the first auth failure, got %d", got)
+		}
+		events := notifier.eventsSnapshot()
+		if len(events) != 1 {
+			t.Fatalf("expected exactly one notification, got %d", len(events))
+		}
+		if events[0].Outcome != "failed" {
+			t.Fatalf("expected event outcome %q, got %q", "failed", events[0].Outcome)
+		}
+	})
+}
+
+// TestLoop_ConsecutiveBlocks proves D-17: three consecutive blocks
+// disengage with their own locked notice, distinct from D-15's failure
+// notice; a sent command resets the block count; and blocks never move
+// D-15's failure counter, so a hostile room cannot spend a whole session's
+// worth of calls by forcing block after block.
+func TestLoop_ConsecutiveBlocks(t *testing.T) {
+	t.Run("three_consecutive_blocks_disengage_with_their_own_notice", func(t *testing.T) {
+		profile := testProfile()
+		profile.NeverIssueList = "give"
+		sessions := &fakeSessions{window: "a room"}
+		decisions := &fakeDecisionsStore{}
+		notifier := &fakeNotifier{}
+		commands := &fakeCommands{}
+		models := &fakeModels{answer: &gemini.Answer{Reasoning: "handing it over", Command: "give sword to bob"}}
+		d := New(sessions, &fakeProfiles{profile: profile}, decisions, models, commands, notifier, testConfig())
+
+		userID := uuid.New().String()
+		connID := uuid.New().String()
+
+		d.HandleEngage(userID, connID)
+		d.HandleEngage(userID, connID)
+		d.HandleEngage(userID, connID)
+
+		if got := len(sessions.sendCalls()); got != 0 {
+			t.Fatalf("expected zero sends, got %d", got)
+		}
+		events := notifier.eventsSnapshot()
+		// 3 blocked-decision events plus the separate blocked-repeatedly
+		// notice fired on the third.
+		if len(events) != 4 {
+			t.Fatalf("expected 4 notifications (3 blocks + 1 blocked-repeatedly), got %d", len(events))
+		}
+		last := events[3]
+		if last.Message != "AI decisions were blocked repeatedly. Autopilot disengaged." {
+			t.Fatalf("expected the locked blocked-repeatedly notice, got %q", last.Message)
+		}
+		if last.Outcome != "blocked-repeatedly" {
+			t.Fatalf("expected event outcome %q, got %q", "blocked-repeatedly", last.Outcome)
+		}
+		disengages := sessions.disengages()
+		if len(disengages) != 1 || disengages[0] != "ai-blocked-repeatedly" {
+			t.Fatalf("expected exactly one ai-blocked-repeatedly disengage, got %v", disengages)
+		}
+	})
+
+	t.Run("a_sent_command_resets_the_block_count", func(t *testing.T) {
+		profile := testProfile()
+		profile.NeverIssueList = "give"
+		sessions := &fakeSessions{window: "a room"}
+		decisions := &fakeDecisionsStore{}
+		notifier := &fakeNotifier{}
+		commands := &fakeCommands{}
+		models := &fakeModels{
+			answers: []*gemini.Answer{
+				{Reasoning: "handing it over", Command: "give sword to bob"},
+				{Reasoning: "handing it over", Command: "give sword to bob"},
+				{Reasoning: "looking around", Command: "look"},
+				{Reasoning: "handing it over", Command: "give sword to bob"},
+				{Reasoning: "handing it over", Command: "give sword to bob"},
+			},
+			reviewAnswers: []*gemini.ReviewAnswer{
+				{Blocked: false, Reason: "clear"},
+			},
+		}
+		d := New(sessions, &fakeProfiles{profile: profile}, decisions, models, commands, notifier, testConfig())
+
+		userID := uuid.New().String()
+		connID := uuid.New().String()
+
+		d.HandleEngage(userID, connID) // block 1 of 3
+		d.HandleEngage(userID, connID) // block 2 of 3
+		d.HandleEngage(userID, connID) // sent -- resets the block count
+		d.HandleEngage(userID, connID) // block 1 of 3 again
+		d.HandleEngage(userID, connID) // block 2 of 3 again
+
+		if got := len(sessions.disengages()); got != 0 {
+			t.Fatalf("expected zero disengage calls (the block count never reached 3 after the reset), got %d", got)
+		}
+	})
+
+	t.Run("blocks_never_move_the_failure_counter", func(t *testing.T) {
+		profile := testProfile()
+		profile.NeverIssueList = "give"
+		sessions := &fakeSessions{window: "a room"}
+		decisions := &fakeDecisionsStore{}
+		notifier := &fakeNotifier{}
+		commands := &fakeCommands{}
+		models := &fakeModels{answer: &gemini.Answer{Reasoning: "handing it over", Command: "give sword to bob"}}
+		d := New(sessions, &fakeProfiles{profile: profile}, decisions, models, commands, notifier, testConfig())
+
+		userID := uuid.New().String()
+		connID := uuid.New().String()
+
+		d.HandleEngage(userID, connID)
+		d.HandleEngage(userID, connID)
+
+		d.mu.Lock()
+		failureCount := d.failureCounts[userID]
+		d.mu.Unlock()
+		if failureCount != 0 {
+			t.Fatalf("expected the failure counter to stay at 0 after blocks, got %d", failureCount)
+		}
+	})
+}
+
+// TestLoop_BlankSettings proves the blank-settings limit (REQ-safety-limits-hold):
+// a blank cap lets the loop run on past any number of calls, a failure is
+// still informative with blank settings, nothing panics, and a session that
+// never engages autopilot makes no model call and sends nothing -- hand
+// play is untouched by this plan's counters and halts.
+func TestLoop_BlankSettings(t *testing.T) {
+	t.Run("blank_cap_runs_past_many_calls", func(t *testing.T) {
+		sessions := &fakeSessions{window: "a room"}
+		sessions.engageState()
+		decisions := &fakeDecisionsStore{}
+		notifier := &fakeNotifier{}
+		commands := &fakeCommands{}
+		models := &fakeModels{
+			answer:       &gemini.Answer{Reasoning: "looking around", Command: "look"},
+			reviewAnswer: &gemini.ReviewAnswer{Blocked: false, Reason: "clear"},
+		}
+		d := newPacedDriver(sessions, decisions, notifier, commands, models, 2*time.Millisecond, 5*time.Second, time.Millisecond)
+
+		userID := uuid.New().String()
+		connID := uuid.New().String()
+
+		d.EngageLoop(userID, connID)
+		waitForSendCount(t, sessions, 1)
+
+		const manyIterations = 20
+		for i := 0; i < manyIterations; i++ {
+			sessions.fireOutput()
+			waitForSendCount(t, sessions, i+2)
+		}
+
+		d.StopLoop(userID)
+
+		// Read the driver's own D-14 counter (every reserved call, player
+		// and reviewer alike) rather than fakeModels.callCount(), which
+		// only counts the player call -- the point of this assertion is
+		// that a blank cap never halts no matter how many calls accumulate.
+		d.mu.Lock()
+		totalCalls := d.callCounts[userID]
+		d.mu.Unlock()
+		if want := (manyIterations + 1) * 2; totalCalls < want {
+			t.Fatalf("expected the blank cap to let the loop run past %d reserved calls, got %d", want, totalCalls)
+		}
+		if got := len(sessions.disengages()); got != 0 {
+			t.Fatalf("expected zero disengage calls with a blank cap, got %d", got)
+		}
+	})
+
+	t.Run("a_failure_is_still_informative_with_blank_settings", func(t *testing.T) {
+		sessions := &fakeSessions{window: "a room"}
+		decisions := &fakeDecisionsStore{}
+		notifier := &fakeNotifier{}
+		commands := &fakeCommands{}
+		models := &fakeModels{err: &gemini.Error{Kind: gemini.KindAuth, Message: "invalid API key"}}
+		d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, commands, notifier, testConfig())
+
+		// Nothing panics with every AI setting left blank (testProfile's
+		// AISettings{} zero value): no model call, either, since the
+		// failure below shows nothing about this test depends on a set
+		// cap or threshold.
+		d.HandleEngage(uuid.New().String(), uuid.New().String())
+
+		events := notifier.eventsSnapshot()
+		if len(events) != 1 {
+			t.Fatalf("expected exactly one notification, got %d", len(events))
+		}
+		if events[0].Message == "" {
+			t.Fatalf("expected a non-empty, informative failure notice")
+		}
+		if got := len(sessions.disengages()); got != 1 {
+			t.Fatalf("expected exactly one disengage call, got %d", got)
+		}
+	})
+
+	t.Run("hand_play_is_untouched_by_blank_settings", func(t *testing.T) {
+		// A human-typed command never reaches the driver at all -- the
+		// wheel-grab and ordinary echo paths are internal/session's job.
+		// This proves the negative mechanically: a Driver that is never
+		// engaged makes zero model calls and zero sends, so none of this
+		// plan's counters or halts can fire for a session that never turns
+		// autopilot on.
+		sessions := &fakeSessions{window: "a room"}
+		decisions := &fakeDecisionsStore{}
+		notifier := &fakeNotifier{}
+		commands := &fakeCommands{}
+		models := &fakeModels{answer: &gemini.Answer{Reasoning: "n/a", Command: "look"}}
+		_ = New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, commands, notifier, testConfig())
+
+		if got := models.callCount(); got != 0 {
+			t.Fatalf("expected zero model calls with autopilot never engaged, got %d", got)
+		}
+		if got := len(sessions.sendCalls()); got != 0 {
+			t.Fatalf("expected zero sends with autopilot never engaged, got %d", got)
+		}
+	})
 }
