@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/amaranth494/MudPuppy/internal/policy"
 	"github.com/amaranth494/MudPuppy/internal/store"
@@ -59,6 +60,9 @@ func (f *fakeProfileStore) UpdateProfile(userID, profileID uuid.UUID, updates *s
 	if updates.AISettings != nil {
 		f.profile.AISettings = *updates.AISettings
 	}
+	if updates.SessionGoal != nil {
+		f.profile.SessionGoal = *updates.SessionGoal
+	}
 	return f.profile, nil
 }
 
@@ -76,6 +80,29 @@ func (f *fakeProfileStore) AcceptPolicy(userID, profileID uuid.UUID, version str
 		f.profile.PolicyAcceptedAt = &ts
 	}
 	return f.profile, nil
+}
+
+// fakeQuestStore is a hand-written fake satisfying questStorage, used so
+// TestGoalRoundTrip exercises PutGoal's Quest-reactivation call without a
+// live Postgres connection.
+type fakeQuestStore struct {
+	calls []string // goal text passed to each EnsureActiveQuest call, in order
+}
+
+func (f *fakeQuestStore) EnsureActiveQuest(userID, connectionID uuid.UUID, goalText string) (store.Quest, error) {
+	f.calls = append(f.calls, goalText)
+	now := time.Now().UTC()
+	return store.Quest{
+		ID:                 uuid.New(),
+		UserID:             userID,
+		ConnectionID:       connectionID,
+		GoalText:           goalText,
+		GoalTextNormalized: store.NormalizeGoal(goalText),
+		Status:             "active",
+		Bullets:            []string{},
+		CreatedAt:          now,
+		UpdatedAt:          now,
+	}, nil
 }
 
 func newTestProfile(userID, profileID, connectionID uuid.UUID) *store.Profile {
@@ -500,5 +527,116 @@ func TestAIPlayerLogLinesAreEmitted(t *testing.T) {
 		if strings.Contains(logOutput, s) {
 			t.Errorf("log output leaked conduct rules text %q; got:\n%s", s, logOutput)
 		}
+	}
+}
+
+// TestGoalRoundTrip proves D-01/D-02/D-03/D-04's happy paths without a live
+// database: PUT then GET returns the same text; a 1001-character goal is
+// refused with a validation error; a blank goal is accepted and clears the
+// field, and creates no Quest.
+func TestGoalRoundTrip(t *testing.T) {
+	userID := uuid.New()
+	profileID := uuid.New()
+	connectionID := uuid.New()
+	fake := &fakeProfileStore{profile: newTestProfile(userID, profileID, connectionID)}
+	quests := &fakeQuestStore{}
+	h := &Handler{profileStore: fake, quests: quests}
+
+	path := "/api/v1/profiles/" + connectionID.String() + "/ai-goal"
+
+	// A freshly built test profile answers GET with an empty goal (D-02).
+	preGetReq := newTestRequest(http.MethodGet, path, userID, nil)
+	preGetRec := httptest.NewRecorder()
+	h.GetGoal(preGetRec, preGetReq)
+	if preGetRec.Code != http.StatusOK {
+		t.Fatalf("pre-PUT GET status = %d, body = %s", preGetRec.Code, preGetRec.Body.String())
+	}
+	var preGot GoalResponse
+	if err := json.NewDecoder(preGetRec.Body).Decode(&preGot); err != nil {
+		t.Fatalf("decode pre-PUT GET response: %v", err)
+	}
+	if preGot.Goal != "" {
+		t.Errorf("Goal before PUT = %q, want empty", preGot.Goal)
+	}
+
+	// PUT a non-blank goal; it round-trips and names a Quest.
+	putBody := GoalResponse{Goal: "reach the tower"}
+	putReq := newTestRequest(http.MethodPut, path, userID, putBody)
+	putRec := httptest.NewRecorder()
+	h.PutGoal(putRec, putReq)
+	if putRec.Code != http.StatusOK {
+		t.Fatalf("PUT status = %d, body = %s", putRec.Code, putRec.Body.String())
+	}
+
+	getReq := newTestRequest(http.MethodGet, path, userID, nil)
+	getRec := httptest.NewRecorder()
+	h.GetGoal(getRec, getReq)
+	var got GoalResponse
+	if err := json.NewDecoder(getRec.Body).Decode(&got); err != nil {
+		t.Fatalf("decode GET response: %v", err)
+	}
+	if got.Goal != "reach the tower" {
+		t.Errorf("Goal after PUT = %q, want %q", got.Goal, "reach the tower")
+	}
+	if len(quests.calls) != 1 || quests.calls[0] != "reach the tower" {
+		t.Errorf("quests.calls = %v, want one call with %q", quests.calls, "reach the tower")
+	}
+
+	// A 1001-character goal is refused with a validation error; the store
+	// is not updated.
+	overLength := strings.Repeat("a", 1001)
+	overReq := newTestRequest(http.MethodPut, path, userID, GoalResponse{Goal: overLength})
+	overRec := httptest.NewRecorder()
+	h.PutGoal(overRec, overReq)
+	if overRec.Code != http.StatusBadRequest {
+		t.Fatalf("over-length PUT status = %d, want %d", overRec.Code, http.StatusBadRequest)
+	}
+	if fake.profile.SessionGoal != "reach the tower" {
+		t.Errorf("SessionGoal after rejected over-length PUT = %q, want unchanged %q", fake.profile.SessionGoal, "reach the tower")
+	}
+
+	// A blank goal is accepted, clears the field, and creates no Quest.
+	blankReq := newTestRequest(http.MethodPut, path, userID, GoalResponse{Goal: ""})
+	blankRec := httptest.NewRecorder()
+	h.PutGoal(blankRec, blankReq)
+	if blankRec.Code != http.StatusOK {
+		t.Fatalf("blank PUT status = %d, body = %s", blankRec.Code, blankRec.Body.String())
+	}
+	if fake.profile.SessionGoal != "" {
+		t.Errorf("SessionGoal after blank PUT = %q, want empty", fake.profile.SessionGoal)
+	}
+	if len(quests.calls) != 1 {
+		t.Errorf("quests.calls after blank PUT = %v, want still exactly one call (blank creates nothing)", quests.calls)
+	}
+}
+
+// TestGoalRefusesNotOwnedConnection proves T-4-09: a connection id the
+// caller does not own is refused, exactly as the AI-settings endpoint
+// refuses one.
+func TestGoalRefusesNotOwnedConnection(t *testing.T) {
+	userID := uuid.New()
+	otherUserID := uuid.New()
+	profileID := uuid.New()
+	connectionID := uuid.New()
+	fake := &fakeProfileStore{profile: newTestProfile(userID, profileID, connectionID)}
+	h := &Handler{profileStore: fake, quests: &fakeQuestStore{}}
+
+	path := "/api/v1/profiles/" + connectionID.String() + "/ai-goal"
+
+	getReq := newTestRequest(http.MethodGet, path, otherUserID, nil)
+	getRec := httptest.NewRecorder()
+	h.GetGoal(getRec, getReq)
+	if getRec.Code != http.StatusBadRequest {
+		t.Fatalf("GET status = %d, want %d (not owned)", getRec.Code, http.StatusBadRequest)
+	}
+
+	putReq := newTestRequest(http.MethodPut, path, otherUserID, GoalResponse{Goal: "steal this goal"})
+	putRec := httptest.NewRecorder()
+	h.PutGoal(putRec, putReq)
+	if putRec.Code != http.StatusBadRequest {
+		t.Fatalf("PUT status = %d, want %d (not owned)", putRec.Code, http.StatusBadRequest)
+	}
+	if fake.profile.SessionGoal != "" {
+		t.Errorf("SessionGoal = %q after a not-owned PUT, want unchanged empty", fake.profile.SessionGoal)
 	}
 }

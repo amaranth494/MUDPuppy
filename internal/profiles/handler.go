@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/amaranth494/MudPuppy/internal/policy"
 	"github.com/amaranth494/MudPuppy/internal/store"
@@ -40,6 +41,34 @@ type decisionsStorage interface {
 	ListForConnection(connectionID uuid.UUID, limit int) ([]store.Decision, error)
 }
 
+// questStorage is the subset of *store.QuestStore the goal endpoint calls
+// (task 04-06-02, D-04). Same discipline as decisionsStorage above: an
+// interface lets handler_test.go exercise PutGoal with a hand-written fake
+// instead of a live Postgres connection.
+type questStorage interface {
+	EnsureActiveQuest(userID, connectionID uuid.UUID, goalText string) (store.Quest, error)
+}
+
+// AIEvent is the payload PutGoal pushes through the goal-changed/
+// goal-cleared notifier hook (D-03). It carries exactly what a "system" AI
+// message needs to render the locked line -- no State/Calls/Failures/...
+// fields, which are driver-loop-owned (D-14/D-15/D-17) and meaningless to a
+// goal save that may happen while autopilot is off.
+type AIEvent struct {
+	ID        string
+	Kind      string
+	Outcome   string
+	Message   string
+	Timestamp string
+}
+
+// AINotifier delivers an AIEvent to the browser, mirroring
+// internal/driver.NotifierFunc's shape so cmd/server/main.go can route both
+// the driver's decision events and this handler's goal-changed event
+// through the exact same wsHandler.PushAI call (D-18's single
+// message-delivery path, not two).
+type AINotifier func(userID string, ev AIEvent)
+
 // Handler handles profiles HTTP requests
 type Handler struct {
 	profileStore profileStorage
@@ -51,6 +80,15 @@ type Handler struct {
 	// GetDecisions answer 503 rather than panic — a missing dependency
 	// fails closed, same discipline as transcripts above.
 	decisions decisionsStorage
+	// quests is nil until SetQuestStore is called. PutGoal still saves the
+	// goal text with a nil quests store (the goal box itself never depends
+	// on Quest bookkeeping succeeding) but skips EnsureActiveQuest.
+	quests questStorage
+	// aiNotifier is nil until SetAINotifier is called, making the
+	// goal-changed/goal-cleared system line a silent no-op — a missing
+	// notifier never blocks the goal save itself, same discipline as
+	// internal/driver.Notifier being nil-safe.
+	aiNotifier AINotifier
 }
 
 // SetDecisionStore wires the connection's-decisions read endpoint
@@ -64,6 +102,22 @@ func (h *Handler) SetDecisionStore(s *store.DecisionStore) {
 	if s != nil {
 		h.decisions = s
 	}
+}
+
+// SetQuestStore wires the goal endpoint's Quest reactivate-or-create call
+// (D-04) to s. Same nil-underlying-pointer guard as SetDecisionStore above.
+func (h *Handler) SetQuestStore(s *store.QuestStore) {
+	if s != nil {
+		h.quests = s
+	}
+}
+
+// SetAINotifier wires the goal-changed/goal-cleared system-line push (D-03)
+// after construction, following SetDecisionStore's injection precedent. A
+// nil hook is a silent no-op, so PutGoal stays independently testable
+// without a live websocket handler.
+func (h *Handler) SetAINotifier(n AINotifier) {
+	h.aiNotifier = n
 }
 
 // NewHandler creates a new profiles handler with no transcript store
@@ -141,6 +195,19 @@ type AISettingsResponse struct {
 	NeverIssueList   string           `json:"never_issue_list"`
 	AISettings       store.AISettings `json:"ai_settings"`
 }
+
+// GoalResponse is the GET response and PUT request body for the ai-goal
+// sub-resource (D-01). It carries exactly the session goal text — Quest
+// bullets are not shown on the panel this phase (D-11) and have no field
+// here.
+type GoalResponse struct {
+	Goal string `json:"goal"`
+}
+
+// maxGoalLength is the session goal's length cap (T-4-10), following the
+// keybinding-command precedent (500 chars) rather than the 20000-char
+// free-text fields, doubled per 04-CONTEXT.md's Claude's Discretion.
+const maxGoalLength = 1000
 
 // PolicyResponse is the response shape for both GetPolicy and AcceptPolicy.
 type PolicyResponse struct {
@@ -650,6 +717,97 @@ func (h *Handler) PutAISettings(w http.ResponseWriter, r *http.Request) {
 		NeverIssueList:   updatedProfile.NeverIssueList,
 		AISettings:       updatedProfile.AISettings,
 	})
+}
+
+// GetGoal handles GET /api/v1/profiles/:connection_id/ai-goal
+func (h *Handler) GetGoal(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	_, profile, err := h.getProfileByConnectionID(r)
+	if err != nil {
+		h.sendError(w, err.Error())
+		return
+	}
+
+	h.sendJSON(w, GoalResponse{Goal: profile.SessionGoal})
+}
+
+// PutGoal handles PUT /api/v1/profiles/:connection_id/ai-goal. Saving a
+// non-blank goal names its Quest (D-04): EnsureActiveQuest creates or
+// reactivates the open Quest whose goal text matches, trimmed and
+// case-folded. A blank goal clears the field and creates nothing — the
+// previously active Quest, if any, stays open and untouched (Phase 4 closes
+// nothing). Ownership is resolved through getProfileByConnectionID, the
+// same check every other profile sub-resource uses (T-4-09).
+func (h *Handler) PutGoal(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userUUID, profile, err := h.getProfileByConnectionID(r)
+	if err != nil {
+		h.sendError(w, err.Error())
+		return
+	}
+
+	var req GoalResponse
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.sendError(w, "Invalid request body")
+		return
+	}
+
+	if len(req.Goal) > maxGoalLength {
+		h.sendError(w, "Session goal must be 1000 characters or less")
+		return
+	}
+
+	updates := &store.ProfileUpdate{SessionGoal: &req.Goal}
+	updatedProfile, err := h.profileStore.UpdateProfile(userUUID, profile.ID, updates)
+	if err != nil {
+		log.Printf("[PH0106] Update session goal failed: %v", err)
+		h.sendError(w, "Failed to update session goal")
+		return
+	}
+	if updatedProfile == nil {
+		h.sendError(w, "Profile not found")
+		return
+	}
+
+	connectionID, _ := h.getConnectionIDFromPath(r)
+	trimmedGoal := strings.TrimSpace(req.Goal)
+
+	questWord := "none"
+	if trimmedGoal != "" && h.quests != nil {
+		if q, qerr := h.quests.EnsureActiveQuest(userUUID, connectionID, req.Goal); qerr != nil {
+			log.Printf("[PH0106] Ensure active quest failed: %v", qerr)
+		} else if q.CreatedAt.Equal(q.UpdatedAt) {
+			questWord = "created"
+		} else {
+			questWord = "reactivated"
+		}
+	}
+
+	log.Printf("[AI-PLAYER] goal connection_id=%s user_id=%s quest=%s goal_length=%d", connectionID, userUUID, questWord, len(req.Goal))
+
+	if h.aiNotifier != nil {
+		message := "Goal cleared"
+		if trimmedGoal != "" {
+			message = "Goal changed: " + updatedProfile.SessionGoal
+		}
+		h.aiNotifier(userUUID.String(), AIEvent{
+			ID:        uuid.New().String(),
+			Kind:      "system",
+			Outcome:   "goal",
+			Message:   message,
+			Timestamp: time.Now().UTC().Format(time.RFC3339),
+		})
+	}
+
+	h.sendJSON(w, GoalResponse{Goal: updatedProfile.SessionGoal})
 }
 
 // GetPolicy handles GET /api/v1/profiles/:connection_id/policy

@@ -270,6 +270,10 @@ func main() {
 	// sessionManager.SetDisengageHook. The notifier is nil at construction
 	// and wired below once wsHandler exists (plan 03-09).
 	decisionStore := store.NewDecisionStore(db)
+	// questStore backs the goal endpoint's reactivate-or-create call (D-04,
+	// plan 04-06). It is constructed beside decisionStore because both are
+	// per-connection AI Player audit/memory stores sharing the same *sql.DB.
+	questStore := store.NewQuestStore(db)
 	// 120s: current Gemini flash models take well over the 30s default to return a
 	// structured answer (seen on staging 2026-09-16: transport timeout at exactly 30s).
 	geminiClient := gemini.NewClient(120 * time.Second)
@@ -282,6 +286,8 @@ func main() {
 	// (plan 03-09) so a reloaded play screen reads back exactly what the
 	// driver above wrote.
 	profilesHandler.SetDecisionStore(decisionStore)
+	// Wire questStore to the goal endpoint (plan 04-06, D-04).
+	profilesHandler.SetQuestStore(questStore)
 
 	// Initialize WebSocket handler (SP02PH02)
 	wsHandler := session.NewWebSocketHandler(sessionManager, cfg)
@@ -311,6 +317,20 @@ func main() {
 			Threshold:  ev.Threshold,
 		})
 	}))
+
+	// Wire the goal endpoint's goal-changed/goal-cleared system line
+	// (plan 04-06, D-03) through the exact same wsHandler.PushAI path the
+	// driver's own notifications take above — one message-delivery
+	// mechanism, not two.
+	profilesHandler.SetAINotifier(func(userID string, ev profiles.AIEvent) {
+		_ = wsHandler.PushAI(userID, session.AIDecisionPayload{
+			ID:        ev.ID,
+			Kind:      ev.Kind,
+			Outcome:   ev.Outcome,
+			Message:   ev.Message,
+			Timestamp: ev.Timestamp,
+		})
+	})
 
 	// Initialize metrics (SP02PH04T03)
 	metrics.Init()
@@ -477,6 +497,17 @@ func main() {
 			profilesHandler.GetAISettings(w, r)
 		case http.MethodPut:
 			profilesHandler.PutAISettings(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	mux.HandleFunc("/api/v1/profiles/{connection_id}/ai-goal", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			profilesHandler.GetGoal(w, r)
+		case http.MethodPut:
+			profilesHandler.PutGoal(w, r)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
