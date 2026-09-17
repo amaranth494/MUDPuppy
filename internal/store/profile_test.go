@@ -80,6 +80,84 @@ func TestResolveAISettings(t *testing.T) {
 	}
 }
 
+// TestResolveAISettings_RateLimitBlankMeansServerDefault proves D-25/
+// DR-4-03's resolution rule: a nil RateLimitPerSecond resolves to
+// RateLimitSet == false and RateLimitPerSecond == DefaultAIRateLimitPerSecond
+// (never "unlimited" — unlike CallCap's own blank-means-no-cap rule), a set
+// value resolves to RateLimitSet == true and that value, and the three
+// existing settings resolve exactly as TestResolveAISettings above already
+// proves they do, unaffected by this fourth field.
+func TestResolveAISettings_RateLimitBlankMeansServerDefault(t *testing.T) {
+	tests := []struct {
+		name               string
+		settings           AISettings
+		serverDefaultModel string
+		wantRateLimitSet   bool
+		wantRateLimit      int
+	}{
+		{
+			name:               "nil rate limit resolves to server default, not unlimited",
+			settings:           AISettings{},
+			serverDefaultModel: "gemini-server-default",
+			wantRateLimitSet:   false,
+			wantRateLimit:      DefaultAIRateLimitPerSecond,
+		},
+		{
+			name:               "explicit rate limit 7 sets RateLimitSet and RateLimitPerSecond",
+			settings:           AISettings{RateLimitPerSecond: intPtr(7)},
+			serverDefaultModel: "gemini-server-default",
+			wantRateLimitSet:   true,
+			wantRateLimit:      7,
+		},
+		{
+			name: "rate limit resolves independently of the other three settings",
+			settings: AISettings{
+				ModelName:          "gemini-2.5-pro",
+				CallCap:            intPtr(25),
+				DisengageThreshold: intPtr(1),
+				RateLimitPerSecond: intPtr(10),
+			},
+			serverDefaultModel: "gemini-server-default",
+			wantRateLimitSet:   true,
+			wantRateLimit:      10,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ResolveAISettings(tt.settings, tt.serverDefaultModel)
+			if got.RateLimitSet != tt.wantRateLimitSet {
+				t.Errorf("ResolveAISettings(...).RateLimitSet = %v, want %v", got.RateLimitSet, tt.wantRateLimitSet)
+			}
+			if got.RateLimitPerSecond != tt.wantRateLimit {
+				t.Errorf("ResolveAISettings(...).RateLimitPerSecond = %d, want %d", got.RateLimitPerSecond, tt.wantRateLimit)
+			}
+
+			// The three existing settings resolve exactly as
+			// TestResolveAISettings already proves, unaffected by this
+			// fourth field.
+			wantModelName := tt.settings.ModelName
+			if wantModelName == "" {
+				wantModelName = tt.serverDefaultModel
+			}
+			if got.ModelName != wantModelName {
+				t.Errorf("ResolveAISettings(...).ModelName = %q, want %q", got.ModelName, wantModelName)
+			}
+			wantCallCapSet := tt.settings.CallCap != nil
+			if got.CallCapSet != wantCallCapSet {
+				t.Errorf("ResolveAISettings(...).CallCapSet = %v, want %v", got.CallCapSet, wantCallCapSet)
+			}
+			wantThreshold := DefaultDisengageThreshold
+			if tt.settings.DisengageThreshold != nil {
+				wantThreshold = *tt.settings.DisengageThreshold
+			}
+			if got.DisengageThreshold != wantThreshold {
+				t.Errorf("ResolveAISettings(...).DisengageThreshold = %d, want %d", got.DisengageThreshold, wantThreshold)
+			}
+		})
+	}
+}
+
 func TestEngageGateAllowed(t *testing.T) {
 	tests := []struct {
 		name                  string

@@ -763,8 +763,8 @@ func (h *Handler) PutAISettings(w http.ResponseWriter, r *http.Request) {
 
 	connectionID, _ := h.getConnectionIDFromPath(r)
 	saved := updatedProfile
-	log.Printf("[AI-PLAYER] ai settings saved connection_id=%s model_name_blank=%t call_cap_blank=%t threshold_blank=%t",
-		connectionID, saved.AISettings.ModelName == "", saved.AISettings.CallCap == nil, saved.AISettings.DisengageThreshold == nil)
+	log.Printf("[AI-PLAYER] ai settings saved connection_id=%s model_name_blank=%t call_cap_blank=%t threshold_blank=%t rate_limit_blank=%t",
+		connectionID, saved.AISettings.ModelName == "", saved.AISettings.CallCap == nil, saved.AISettings.DisengageThreshold == nil, saved.AISettings.RateLimitPerSecond == nil)
 
 	h.sendJSON(w, AISettingsResponse{
 		ConductRules:     updatedProfile.ConductRules,
@@ -1178,9 +1178,10 @@ func (h *Handler) validateUpdate(req *UpdateProfileRequest) error {
 }
 
 // validateAISettings validates a PutAISettings request body. Nil pointers
-// (CallCap, DisengageThreshold) are valid and mean blank — a blank field is
-// never rejected (D-09, D-10, D-11); only over-length text and out-of-range
-// numeric values (when set) are rejected (T-1-04).
+// (CallCap, DisengageThreshold, RateLimitPerSecond) are valid and mean
+// blank — a blank field is never rejected (D-09, D-10, D-11, D-25); only
+// over-length text and out-of-range numeric values (when set) are rejected
+// (T-1-04). A set RateLimitPerSecond outside 1-20 is rejected (T-5-17).
 func validateAISettings(req AISettingsResponse) *ValidationError {
 	if len(req.ConductRules) > 20000 {
 		return &ValidationError{Message: "Conduct rules must be 20000 characters or less"}
@@ -1199,6 +1200,9 @@ func validateAISettings(req AISettingsResponse) *ValidationError {
 	}
 	if req.AISettings.DisengageThreshold != nil && *req.AISettings.DisengageThreshold < 1 {
 		return &ValidationError{Message: "Disengage threshold must be at least 1 when set"}
+	}
+	if req.AISettings.RateLimitPerSecond != nil && (*req.AISettings.RateLimitPerSecond < 1 || *req.AISettings.RateLimitPerSecond > 20) {
+		return &ValidationError{Message: "AI command rate limit must be between 1 and 20 commands per second"}
 	}
 	return nil
 }

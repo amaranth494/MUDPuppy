@@ -348,6 +348,80 @@ func TestAISettingsRejectsOverLengthNeverIssueList(t *testing.T) {
 	}
 }
 
+// aiSettingsIntPtr is a local helper so this test file doesn't need to
+// import a shared fixtures package for a single-use pointer conversion.
+func aiSettingsIntPtr(i int) *int {
+	return &i
+}
+
+// TestAISettingsRateLimitBounds proves D-25/DR-4-03's validation rule: a
+// set AI Command Rate Limit outside 1-20 is rejected with the locked
+// message, and nil (blank), 1 and 20 are all accepted at the boundary.
+func TestAISettingsRateLimitBounds(t *testing.T) {
+	rejected := []struct {
+		name  string
+		value int
+	}{
+		{"zero is rejected", 0},
+		{"21 is rejected", 21},
+		{"a negative value is rejected", -1},
+	}
+	for _, tt := range rejected {
+		t.Run(tt.name, func(t *testing.T) {
+			userID := uuid.New()
+			profileID := uuid.New()
+			connectionID := uuid.New()
+			fake := &fakeProfileStore{profile: newTestProfile(userID, profileID, connectionID)}
+			h := &Handler{profileStore: fake}
+
+			putBody := AISettingsResponse{AISettings: store.AISettings{RateLimitPerSecond: aiSettingsIntPtr(tt.value)}}
+			path := "/api/v1/profiles/" + connectionID.String() + "/ai-settings"
+			putReq := newTestRequest(http.MethodPut, path, userID, putBody)
+			putRec := httptest.NewRecorder()
+			h.PutAISettings(putRec, putReq)
+
+			if putRec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400", putRec.Code)
+			}
+			want := `{"error":"AI command rate limit must be between 1 and 20 commands per second"}` + "\n"
+			if putRec.Body.String() != want {
+				t.Errorf("body = %q, want %q", putRec.Body.String(), want)
+			}
+			if fake.lastUpdate != nil {
+				t.Errorf("fake store recorded an update, want none")
+			}
+		})
+	}
+
+	accepted := []struct {
+		name  string
+		value *int
+	}{
+		{"nil (blank) is accepted", nil},
+		{"1 is accepted", aiSettingsIntPtr(1)},
+		{"20 is accepted", aiSettingsIntPtr(20)},
+	}
+	for _, tt := range accepted {
+		t.Run(tt.name, func(t *testing.T) {
+			userID := uuid.New()
+			profileID := uuid.New()
+			connectionID := uuid.New()
+			fake := &fakeProfileStore{profile: newTestProfile(userID, profileID, connectionID)}
+			h := &Handler{profileStore: fake}
+
+			putBody := AISettingsResponse{AISettings: store.AISettings{RateLimitPerSecond: tt.value}}
+			path := "/api/v1/profiles/" + connectionID.String() + "/ai-settings"
+			putReq := newTestRequest(http.MethodPut, path, userID, putBody)
+			putRec := httptest.NewRecorder()
+			h.PutAISettings(putRec, putReq)
+
+			if putRec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200, body = %s", putRec.Code, putRec.Body.String())
+			}
+		})
+	}
+}
+
 func TestAISettingsCannotSetAcceptance(t *testing.T) {
 	userID := uuid.New()
 	profileID := uuid.New()
