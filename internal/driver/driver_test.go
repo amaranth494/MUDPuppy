@@ -39,6 +39,17 @@ func (o *orderLog) snapshot() []string {
 // fakeModels is a canned or error-returning Models double. block, when
 // non-nil, is closed by the test to release a GenerateContent call that is
 // deliberately held open (repeat_engage_fires_nothing).
+//
+// answers/errs and reviewAnswers/reviewErrs are an optional scripted queue
+// (04-01-01): parallel slices indexed by call order (calls/reviewCalls
+// before increment), letting a test express "answer this, then fail, then
+// answer that" across a multi-decision stint. When a queue index runs past
+// the end of the longer of its two slices, the last entry is returned again
+// and overruns is incremented, so a runaway loop is visible as a number
+// rather than a panic. When both queues are empty (the common single-decision
+// case every existing test uses), GenerateContent/ReviewCommand fall back to
+// the original answer/err and reviewAnswer/reviewErr fields unedited, so
+// every pre-04-01 test keeps passing with no changes.
 type fakeModels struct {
 	mu                    sync.Mutex
 	calls                 int
@@ -48,20 +59,54 @@ type fakeModels struct {
 	err                   error
 	block                 chan struct{}
 
+	answers            []*gemini.Answer
+	errs               []error
+	systemInstructions []string
+	windows            []string
+	overruns           int
+
 	reviewCalls                 int
 	lastReviewSystemInstruction string
 	lastReviewUserText          string
 	reviewAnswer                *gemini.ReviewAnswer
 	reviewErr                   error
+
+	reviewAnswers []*gemini.ReviewAnswer
+	reviewErrs    []error
 }
 
 func (f *fakeModels) GenerateContent(ctx context.Context, endpoint, model, apiKey, systemInstruction, userText string) (*gemini.Answer, error) {
 	f.mu.Lock()
+	idx := f.calls
 	f.calls++
 	f.lastSystemInstruction = systemInstruction
 	f.lastWindow = userText
+	f.systemInstructions = append(f.systemInstructions, systemInstruction)
+	f.windows = append(f.windows, userText)
 	block := f.block
-	answer, err := f.answer, f.err
+
+	qlen := len(f.answers)
+	if len(f.errs) > qlen {
+		qlen = len(f.errs)
+	}
+
+	var answer *gemini.Answer
+	var err error
+	if qlen > 0 {
+		useIdx := idx
+		if useIdx >= qlen {
+			f.overruns++
+			useIdx = qlen - 1
+		}
+		if useIdx < len(f.answers) {
+			answer = f.answers[useIdx]
+		}
+		if useIdx < len(f.errs) {
+			err = f.errs[useIdx]
+		}
+	} else {
+		answer, err = f.answer, f.err
+	}
 	f.mu.Unlock()
 
 	if block != nil {
@@ -76,9 +121,38 @@ func (f *fakeModels) GenerateContent(ctx context.Context, endpoint, model, apiKe
 func (f *fakeModels) ReviewCommand(ctx context.Context, endpoint, model, apiKey, systemInstruction, userText string) (*gemini.ReviewAnswer, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	idx := f.reviewCalls
 	f.reviewCalls++
 	f.lastReviewSystemInstruction = systemInstruction
 	f.lastReviewUserText = userText
+
+	qlen := len(f.reviewAnswers)
+	if len(f.reviewErrs) > qlen {
+		qlen = len(f.reviewErrs)
+	}
+	if qlen > 0 {
+		useIdx := idx
+		if useIdx >= qlen {
+			f.overruns++
+			useIdx = qlen - 1
+		}
+		var answer *gemini.ReviewAnswer
+		var err error
+		if useIdx < len(f.reviewAnswers) {
+			answer = f.reviewAnswers[useIdx]
+		}
+		if useIdx < len(f.reviewErrs) {
+			err = f.reviewErrs[useIdx]
+		}
+		if err != nil {
+			return nil, err
+		}
+		if answer != nil {
+			return answer, nil
+		}
+		return &gemini.ReviewAnswer{Blocked: false, Reason: ""}, nil
+	}
+
 	if f.reviewErr != nil {
 		return nil, f.reviewErr
 	}
@@ -124,6 +198,35 @@ func (f *fakeModels) lastReviewUserTextValue() string {
 	return f.lastReviewUserText
 }
 
+// overrunCount reports how many calls ran past the end of a scripted queue
+// and were served the queue's last entry again (04-01-01).
+func (f *fakeModels) overrunCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.overruns
+}
+
+// systemInstructionsSnapshot returns every system instruction seen by
+// GenerateContent, in call order, so a stint test can assert on the first
+// iteration's prompt and the second's, not just the last.
+func (f *fakeModels) systemInstructionsSnapshot() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]string, len(f.systemInstructions))
+	copy(out, f.systemInstructions)
+	return out
+}
+
+// windowsSnapshot returns every window (system-instruction-adjacent user
+// text) seen by GenerateContent, in call order.
+func (f *fakeModels) windowsSnapshot() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]string, len(f.windows))
+	copy(out, f.windows)
+	return out
+}
+
 // fakeCommands is a Commands double that can be told to refuse every
 // dispatch, recording each attempted command and, optionally, its position
 // in a shared orderLog.
@@ -163,6 +266,16 @@ type sendCall struct {
 
 // fakeSessions is a Sessions double backed by an in-memory window string
 // that a test can update mid-run (resume_fires_one_fresh_decision).
+//
+// state (04-01-01) makes the double tell the truth about the autopilot
+// switch: every transition runs through internal/session/autopilot.go's own
+// pure Engage/Disengage/EnterWaiting/Resume functions rather than a
+// hard-coded return, so a test can no longer pass against a build that
+// never actually disengages (T-4-17). Go's zero value for the
+// AutopilotState string type is "", not "off" — currentStateLocked
+// normalizes an unset state field to session.AutopilotOff so a
+// &fakeSessions{} literal that never sets state behaves exactly like a
+// freshly booted switch.
 type fakeSessions struct {
 	mu             sync.Mutex
 	window         string
@@ -171,6 +284,9 @@ type fakeSessions struct {
 	gameSessionID  uuid.UUID
 	hasGameSession bool
 	order          *orderLog
+
+	state        session.AutopilotState
+	outputSignal chan struct{}
 }
 
 func (f *fakeSessions) RecentOutputSnapshot(userID string) string {
@@ -195,11 +311,111 @@ func (f *fakeSessions) SendCommandAs(userID, command, source string) error {
 	return nil
 }
 
+// currentStateLocked returns f.state, treating an unset zero value as
+// session.AutopilotOff. Callers must hold f.mu.
+func (f *fakeSessions) currentStateLocked() session.AutopilotState {
+	if f.state == "" {
+		return session.AutopilotOff
+	}
+	return f.state
+}
+
+// engageState runs the real Engage transition (session.Engage) against the
+// double's stored state, storing and returning the result.
+func (f *fakeSessions) engageState() (session.AutopilotState, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	newState, changed := session.Engage(f.currentStateLocked())
+	f.state = newState
+	return newState, changed
+}
+
+// disengageState runs the real Disengage transition (session.Disengage)
+// against the double's stored state; DisengageAutopilot below is built on
+// this so the method interface tests exercise is never a copy of the rule.
+func (f *fakeSessions) disengageState() (session.AutopilotState, bool) {
+	newState, changed := session.Disengage(f.currentStateLocked())
+	f.state = newState
+	return newState, changed
+}
+
+// DisengageAutopilot records the cause as it always has, then computes the
+// new state with the real session.Disengage transition and returns that
+// state and the real changed boolean — no longer the fixed
+// (session.AutopilotOff, true) every prior test drove past unnoticed
+// (T-4-17). Already-off correctly reports changed=false.
 func (f *fakeSessions) DisengageAutopilot(userID, cause string) (session.AutopilotState, bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.disengageCalls = append(f.disengageCalls, cause)
-	return session.AutopilotOff, true
+	return f.disengageState()
+}
+
+// setState directly sets the stored autopilot state, for test setup that
+// needs to start somewhere other than off.
+func (f *fakeSessions) setState(s session.AutopilotState) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.state = s
+}
+
+// enterWaiting runs the real EnterWaiting transition (a dropped connection),
+// for a test to drive the double through off/on/waiting by hand.
+func (f *fakeSessions) enterWaiting() (session.AutopilotState, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	newState, changed := session.EnterWaiting(f.currentStateLocked())
+	f.state = newState
+	return newState, changed
+}
+
+// resume runs the real Resume transition (a connection returning), for a
+// test to drive the double through waiting-to-on by hand.
+func (f *fakeSessions) resume() (session.AutopilotState, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	newState, changed := session.Resume(f.currentStateLocked())
+	f.state = newState
+	return newState, changed
+}
+
+// AutopilotStateFor returns the stored state under the same mutex every
+// other accessor uses, satisfying the widened Sessions interface (04-01-01)
+// so a later loop can ask what the switch actually reads.
+func (f *fakeSessions) AutopilotStateFor(userID string) session.AutopilotState {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.currentStateLocked()
+}
+
+// OutputSignal returns the double's single output-arrived channel, lazily
+// creating it on first access. Buffered size 1, matching the shape a real
+// per-user signal would need for a non-blocking fire. The Sessions
+// interface is not widened with this method in this plan — the real
+// *session.Manager does not have it yet, and adding it to the interface
+// here would break the build.
+func (f *fakeSessions) OutputSignal(userID string) <-chan struct{} {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.outputSignal == nil {
+		f.outputSignal = make(chan struct{}, 1)
+	}
+	return f.outputSignal
+}
+
+// fireOutput performs a non-blocking send on the output signal, lazily
+// creating it if a test fires before ever reading it, so a later loop can
+// be woken deterministically without a sleep-based assertion.
+func (f *fakeSessions) fireOutput() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.outputSignal == nil {
+		f.outputSignal = make(chan struct{}, 1)
+	}
+	select {
+	case f.outputSignal <- struct{}{}:
+	default:
+	}
 }
 
 func (f *fakeSessions) CurrentGameSessionID(userID string) (uuid.UUID, bool) {
@@ -312,6 +528,21 @@ func waitForCalls(t *testing.T, m *fakeModels, want int) {
 		time.Sleep(time.Millisecond)
 	}
 	t.Fatalf("timed out waiting for %d model call(s), got %d", want, m.callCount())
+}
+
+// waitForDisengages polls (never sleeps a fixed assertion) until s has
+// recorded at least n disengage calls, following waitForCalls' exact
+// deadline-polling shape.
+func waitForDisengages(t *testing.T, s *fakeSessions, n int) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if len(s.disengages()) >= n {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %d disengage call(s), got %d", n, len(s.disengages()))
 }
 
 // assertBlockedDecision asserts the full blocked contract (D-06, D-07,

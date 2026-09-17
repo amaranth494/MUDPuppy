@@ -89,6 +89,11 @@ type Sessions interface {
 	SendCommandAs(userID, command, source string) error
 	DisengageAutopilot(userID, cause string) (session.AutopilotState, bool)
 	CurrentGameSessionID(userID string) (uuid.UUID, bool)
+	// AutopilotStateFor reports the current autopilot state for userID, so
+	// a later loop can stop itself when a decision has already disengaged
+	// the switch rather than sending its next command regardless (04-01,
+	// D-20). The real *session.Manager already implements this method.
+	AutopilotStateFor(userID string) session.AutopilotState
 }
 
 // Profiles is the slice of *store.ProfileStore the driver depends on.
