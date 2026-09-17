@@ -472,6 +472,100 @@ func TestCoachingIsGuidanceNeverAuthority(t *testing.T) {
 	}
 }
 
+// TestUntrustedParagraphIsWrittenForItsReader proves code review WR-07 of
+// Phase 5: the three prompts share the security core word for word, and each
+// is told the truth about who wrote the memory and what coaching is to it.
+func TestUntrustedParagraphIsWrittenForItsReader(t *testing.T) {
+	ctx := promptContext{
+		Profile:       testProfile(),
+		QuestBullets:  []string{"quest bullet"},
+		SessionMemory: []string{"session bullet"},
+		Coaching:      []string{"avoid the north road"},
+	}
+	prompts := map[string]string{
+		"player":   buildSystemInstruction(ctx),
+		"reviewer": buildReviewSystemInstruction(ctx),
+		"chatter": buildChatSystemInstruction(chatPromptContext{
+			Profile:       testProfile(),
+			QuestBullets:  ctx.QuestBullets,
+			SessionMemory: ctx.SessionMemory,
+			Coaching:      ctx.Coaching,
+		}),
+	}
+	audiences := map[string]promptAudience{"player": audiencePlayer, "reviewer": audienceReviewer, "chatter": audienceChatter}
+
+	for name, si := range prompts {
+		// The security core: identical everywhere, and in this order.
+		last := -1
+		for _, sentence := range untrustedDataCore() {
+			idx := strings.Index(si, sentence)
+			if idx == -1 {
+				t.Fatalf("%s prompt: missing the shared security sentence %q", name, sentence)
+			}
+			if idx < last {
+				t.Fatalf("%s prompt: the shared security sentences are out of order", name)
+			}
+			last = idx
+		}
+		if !strings.Contains(si, untrustedDataParagraphFor(audiences[name])) {
+			t.Fatalf("%s prompt: does not carry the paragraph written for it", name)
+		}
+		// Every version keeps coaching below the rules and names every marker.
+		for _, want := range []string{"which coaching never overrides", "<GAME_TEXT>", "<QUEST_MEMORY>", "<SESSION_MEMORY>", "<COACHING>"} {
+			if !strings.Contains(untrustedDataParagraphFor(audiences[name]), want) {
+				t.Errorf("%s paragraph: missing %q", name, want)
+			}
+		}
+	}
+
+	// Who wrote the memory.
+	if !strings.Contains(prompts["player"], "both were written by you, earlier") {
+		t.Error("player prompt: AI-player did write its own memory and should be told so")
+	}
+	for _, name := range []string{"reviewer", "chatter"} {
+		if strings.Contains(prompts[name], "both were written by you") || strings.Contains(prompts[name], "what you have seen") {
+			t.Errorf("%s prompt: told it wrote memory it did not write", name)
+		}
+	}
+	if !strings.Contains(prompts["reviewer"], "both were written by the other model, earlier") {
+		t.Error("reviewer prompt: expected the memory attributed to the other model")
+	}
+	if !strings.Contains(prompts["chatter"], "both were written by AI-player, earlier") {
+		t.Error("chatter prompt: expected the memory attributed to AI-player")
+	}
+
+	// What coaching is to each reader.
+	const playerOnly = "weigh them as what the owner would likely want"
+	if !strings.Contains(prompts["player"], playerOnly) {
+		t.Error("player prompt: expected the guidance-for-the-player wording")
+	}
+	for _, name := range []string{"reviewer", "chatter"} {
+		if strings.Contains(prompts[name], playerOnly) {
+			t.Errorf("%s prompt: carries coaching wording written for AI-player", name)
+		}
+	}
+	if !strings.Contains(untrustedDataParagraphFor(audienceReviewer), "they never change your harm judgement") {
+		t.Error("reviewer paragraph: expected coaching never to change the harm judgement")
+	}
+	chatterParagraph := untrustedDataParagraphFor(audienceChatter)
+	if !strings.Contains(chatterParagraph, "not a live instruction to act on again") {
+		t.Error("chatter paragraph: expected the coaching block described as a record")
+	}
+	// The contradiction the review found: told to act on the block in one
+	// place and told it is not an instruction in another.
+	if strings.Contains(prompts["chatter"], "guidance you should act on") || strings.Contains(prompts["chatter"], "weigh them as") {
+		t.Error("chatter prompt: still told to act on a block it is elsewhere told is only a record")
+	}
+
+	// The three are genuinely different texts, and the default is the player's.
+	if untrustedDataParagraph() != untrustedDataParagraphFor(audiencePlayer) {
+		t.Error("untrustedDataParagraph() must stay the paragraph as AI-player reads it")
+	}
+	if untrustedDataParagraphFor(audienceReviewer) == untrustedDataParagraphFor(audiencePlayer) || chatterParagraph == untrustedDataParagraphFor(audiencePlayer) {
+		t.Error("expected a paragraph of its own for the reviewer and for AI-chatter")
+	}
+}
+
 // TestChatPromptTellsTheModelToReuseTheOwnersWording pins the sentence that
 // makes the gate workable for an honest model.
 func TestChatPromptTellsTheModelToReuseTheOwnersWording(t *testing.T) {

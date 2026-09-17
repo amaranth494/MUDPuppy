@@ -784,7 +784,10 @@ func buildChatSystemInstruction(ctx chatPromptContext) string {
 	b.WriteString("When the owner asks for something the profile's conduct rules, Never-issue list or safety checker will not allow, you do not flatly refuse it: name the rule or filter that is in the way, suggest the wording change that would get the result, and tell the owner the change is his to make himself. ")
 	b.WriteString(chatUpdateSettingsSentence)
 	b.WriteString("\n\n")
-	b.WriteString(untrustedDataParagraph())
+	// Code review WR-07 of Phase 5: written for AI-chatter, not borrowed from
+	// AI-player. The memory was written by AI-player, not by this model, and
+	// the coaching block is a record, not guidance for this model to act on.
+	b.WriteString(untrustedDataParagraphFor(audienceChatter))
 	b.WriteString("Conduct rules:\n")
 	b.WriteString(profile.ConductRules)
 	b.WriteString("\n\nApproach guidance:\n")

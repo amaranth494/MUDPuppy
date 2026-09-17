@@ -1861,9 +1861,17 @@ func TestMemoryIsWrappedInBothPrompts(t *testing.T) {
 			t.Fatalf("expected reviewer system instruction to carry %s, got %q", marker, reviewSI)
 		}
 	}
-	untrusted := untrustedDataParagraph()
-	if !strings.Contains(playerSI, untrusted) || !strings.Contains(reviewSI, untrusted) {
-		t.Fatalf("expected both prompts to share the identical untrusted-data paragraph")
+	// Code review WR-07 of Phase 5: each prompt carries the paragraph written
+	// for its own reader, and the security core of it is word for word the
+	// same in both. (This used to assert one byte-identical paragraph, which
+	// is what told the reviewer it had written the player's memory itself.)
+	if !strings.Contains(playerSI, untrustedDataParagraphFor(audiencePlayer)) || !strings.Contains(reviewSI, untrustedDataParagraphFor(audienceReviewer)) {
+		t.Fatalf("expected each prompt to carry the untrusted-data paragraph written for its own reader")
+	}
+	for _, sentence := range untrustedDataCore() {
+		if !strings.Contains(playerSI, sentence) || !strings.Contains(reviewSI, sentence) {
+			t.Fatalf("expected both prompts to share the security core sentence %q", sentence)
+		}
 	}
 	if !strings.Contains(playerSI, "quest bullet one") || !strings.Contains(reviewSI, "quest bullet one") {
 		t.Fatalf("expected the same Quest bullet text in both prompts")
@@ -2764,12 +2772,18 @@ func TestHandleEngageReviewer(t *testing.T) {
 
 		playerSI := models.lastSystemInstructionText()
 		reviewSI := models.lastReviewSystemInstructionText()
-		untrusted := untrustedDataParagraph()
-		if !strings.Contains(playerSI, untrusted) {
+		if !strings.Contains(playerSI, untrustedDataParagraphFor(audiencePlayer)) {
 			t.Fatalf("expected the player system instruction to contain the untrusted-data paragraph")
 		}
-		if !strings.Contains(reviewSI, untrusted) {
-			t.Fatalf("expected the reviewer system instruction to contain the same untrusted-data paragraph as the player system instruction")
+		// Code review WR-07 of Phase 5: the reviewer reads the paragraph
+		// written for the reviewer; the security core is the same text.
+		if !strings.Contains(reviewSI, untrustedDataParagraphFor(audienceReviewer)) {
+			t.Fatalf("expected the reviewer system instruction to contain the untrusted-data paragraph written for the reviewer")
+		}
+		for _, sentence := range untrustedDataCore() {
+			if !strings.Contains(playerSI, sentence) || !strings.Contains(reviewSI, sentence) {
+				t.Fatalf("expected both prompts to share the security core sentence %q", sentence)
+			}
 		}
 	})
 
