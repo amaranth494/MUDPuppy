@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 4 planned (11 plans, 9 waves); brief published, pending owner approval
-last_updated: "2026-09-17T03:28:43.887Z"
-last_activity: 2026-09-17 -- Phase 4 planning complete
+last_updated: "2026-09-17T04:12:57.260Z"
+last_activity: 2026-09-17 -- Phase 4 execution started
 progress:
   total_phases: 9
   completed_phases: 4
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-14)
 
 **Core value:** The owner can hand the wheel to the AI and take it back instantly, always seeing what the AI is doing and why, with every mechanical safety limit holding, and the AI getting measurably better session over session by the game's own numbers.
-**Current focus:** Phase 3.1 — prompt-injection-review
+**Current focus:** Phase 4 — continuous-play
 
 ## Current Position
 
-Phase: 4
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-09-17 -- Phase 4 planning complete
+Phase: 4 (continuous-play) — EXECUTING
+Plan: 1 of 11
+Status: Executing Phase 4
+Last activity: 2026-09-17 -- Phase 4 execution started
 
 Progress: [██▌       ] 25%
 

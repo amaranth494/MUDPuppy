@@ -224,8 +224,8 @@ Implementation notes for planning: the two new stages slot into `HandleEngage` i
 Plans:
 **Wave 1**
 
-- [ ] 04-01-PLAN.md — A multi-decision stint can be driven and observed in tests, with no network
-- [ ] 04-02-PLAN.md — The server refuses to start without the credential-vault key, and migration 012 rolls back cleanly
+- [x] 04-01-PLAN.md — A multi-decision stint can be driven and observed in tests, with no network
+- [x] 04-02-PLAN.md — The server refuses to start without the credential-vault key, and migration 012 rolls back cleanly
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -349,7 +349,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 1. Profile Foundation and Policy Gate | 6/6 | Complete    | 2026-09-15 |
 | 2. Autopilot Switch | 7/7 | Complete    | 2026-09-15 |
 | 3. One AI Decision | 13/13 | Complete    | 2026-09-16 |
-| 4. Continuous Play | 0/TBD | Not started | - |
+| 4. Continuous Play | 2/11 | In Progress|  |
 | 5. Coaching Channel | 0/TBD | Not started | - |
 | 6. Measurement and Memory | 0/TBD | Not started | - |
 | 7. Study Loader | 0/TBD | Not started | - |
