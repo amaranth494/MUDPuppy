@@ -514,14 +514,47 @@ _check_status() {
   fi
 }
 
-# _check_not_status <label> <desc> <forbidden-http-status>
-_check_not_status() {
-  local label="$1" desc="$2" forbidden_status="$3"
-  if [ "$HTTP_STATUS" != "$forbidden_status" ]; then
-    _check "$label" "$desc (status $HTTP_STATUS)" 0
-  else
-    _check "$label" "$desc (expected anything other than $forbidden_status, got $HTTP_STATUS)" 1
+# _check_refused <label> <desc> <data-field>
+# The ownership check (code review WR-12, T-4-09). The old assertion was
+# "anything other than 200", which a server that was DOWN passed with flying
+# colours: curl's own failure (000), a proxy's 502, a 500 and an expired
+# cookie's 401 all printed "PASS ... is refused", so the filed IDOR evidence
+# could not tell "refused because not owned" from "never got there". A
+# refusal is now a SPECIFIC answer from the application:
+#   * status 400, 403 or 404 (the handlers answer a not-owned or non-existent
+#     connection with 400 and {"error":"Profile not found"});
+#   * a JSON body with a non-empty "error";
+#   * and NO <data-field> in it -- the field that would carry the other
+#     owner's goal, memory, or the delete's counts.
+# Anything else FAILS, and says why: 000 (transport failure or timeout), 401
+# (the session is not authenticated, so ownership was never tested), 5xx
+# (server or proxy error), and of course 200.
+_check_refused() {
+  local label="$1" desc="$2" data_field="$3"
+  local why=""
+  case "$HTTP_STATUS" in
+    400|403|404) ;;
+    000) why="no HTTP answer at all (transport failure or timeout) -- this is not a refusal" ;;
+    401) why="HTTP 401: the session is not authenticated, so ownership was never tested" ;;
+    5??) why="HTTP $HTTP_STATUS: a server or proxy error is not a refusal" ;;
+    200) why="HTTP 200: the request was ANSWERED, not refused" ;;
+    *)   why="HTTP $HTTP_STATUS is not one of the refusals 400/403/404" ;;
+  esac
+  if [ -n "$why" ]; then
+    _check "$label" "$desc ($why)" 1
+    return
   fi
+  local err
+  err=$(_get_field "$HTTP_BODY" error)
+  if [ -z "$err" ] || [ "$err" = "null" ]; then
+    _check "$label" "$desc (status $HTTP_STATUS, but the body carries no \"error\" -- not the application's own refusal)" 1
+    return
+  fi
+  if printf '%s' "$HTTP_BODY" | grep -qE "\"$data_field\"[[:space:]]*:"; then
+    _check "$label" "$desc (status $HTTP_STATUS, but the body carries \"$data_field\" -- data was returned alongside the refusal)" 1
+    return
+  fi
+  _check "$label" "$desc (status $HTTP_STATUS, error: $err, no \"$data_field\" in the body)" 0
 }
 
 # _check_nonempty <label> <desc> <value>
@@ -786,17 +819,17 @@ fi
 _step "Step 13: GET profiles/\$NOT_OWNED_CONNECTION_ID/ai-goal -- refused, not answered with someone else's goal (C1, T-4-09)"
 _http GET "profiles/${NOT_OWNED_CONNECTION_ID}/ai-goal"
 _print_response GET "profiles/\$NOT_OWNED_CONNECTION_ID/ai-goal"
-_check_not_status C1 "a not-owned/non-existent connection_id is refused on ai-goal, never answered with HTTP 200" "200"
+_check_refused C1 "a not-owned/non-existent connection_id is refused on ai-goal by the application itself" "goal"
 
 _step "Step 14: GET profiles/\$NOT_OWNED_CONNECTION_ID/ai-memory -- refused, not answered with someone else's memory (C2, T-4-09)"
 _http GET "profiles/${NOT_OWNED_CONNECTION_ID}/ai-memory"
 _print_response GET "profiles/\$NOT_OWNED_CONNECTION_ID/ai-memory"
-_check_not_status C2 "a not-owned/non-existent connection_id is refused on ai-memory, never answered with HTTP 200" "200"
+_check_refused C2 "a not-owned/non-existent connection_id is refused on ai-memory by the application itself" "session_memory"
 
 _step "Step 15: DELETE profiles/\$NOT_OWNED_CONNECTION_ID/captured-text -- refused, never deletes someone else's captured text (C4, T-4-09)"
 _http DELETE "profiles/${NOT_OWNED_CONNECTION_ID}/captured-text"
 _print_response DELETE "profiles/\$NOT_OWNED_CONNECTION_ID/captured-text"
-_check_not_status C4 "a not-owned/non-existent connection_id is refused on the captured-text delete, never answered with HTTP 200" "200"
+_check_refused C4 "a not-owned/non-existent connection_id is refused on the captured-text delete by the application itself, and nothing was deleted" "snapshots_cleared"
 
 # ---------------------------------------------------------------------------
 # Step 16 -- Restore: PUT the goal captured in step 1 back, so a live run
