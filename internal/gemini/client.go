@@ -23,9 +23,18 @@ import (
 // boundary that belongs in the driver, in front of the ICM dispatcher
 // (plan 03-08, T-3-01), so that check exists in exactly one place and
 // cannot be half-done in two.
+// SessionMemory and QuestMemory are optional (plan 04-08, D-10/D-11): the
+// model rewrites either list in full whenever it wants to change what it
+// remembers, riding the same answer that already carries the command so
+// remembering costs no extra model call. Absent means "leave memory alone";
+// present means "replace wholesale". A malformed field must never cost the
+// owner a command, so decode failures on these two fields alone leave them
+// nil rather than failing the whole Answer decode — see decodeAnswer.
 type Answer struct {
-	Reasoning string `json:"reasoning"`
-	Command   string `json:"command"`
+	Reasoning     string   `json:"reasoning"`
+	Command       string   `json:"command"`
+	SessionMemory []string `json:"session_memory,omitempty"`
+	QuestMemory   []string `json:"quest_memory,omitempty"`
 }
 
 // Kind names the shape of a GenerateContent failure so a caller can branch
@@ -107,6 +116,11 @@ type contentBlock struct {
 
 type schemaProperty struct {
 	Type string `json:"type"`
+	// Items describes the element schema when Type is "array" — e.g.
+	// {"type":"array","items":{"type":"string"}} for session_memory and
+	// quest_memory (plan 04-08). Nil/omitted for every non-array property,
+	// changing nothing about the existing scalar properties.
+	Items *schemaProperty `json:"items,omitempty"`
 }
 
 type responseSchema struct {
@@ -180,20 +194,61 @@ func (c *Client) GenerateContent(ctx context.Context, endpoint, model, apiKey, s
 	schema := responseSchema{
 		Type: "object",
 		Properties: map[string]schemaProperty{
-			"reasoning": {Type: "string"},
-			"command":   {Type: "string"},
+			"reasoning":      {Type: "string"},
+			"command":        {Type: "string"},
+			"session_memory": {Type: "array", Items: &schemaProperty{Type: "string"}},
+			"quest_memory":   {Type: "array", Items: &schemaProperty{Type: "string"}},
 		},
+		// Memory is optional: a decision that proposes no memory change
+		// simply omits both fields, so Required names only the two fields
+		// every decision must carry.
 		Required: []string{"reasoning", "command"},
+		// The model states its thinking, then its command, then what it
+		// wants remembered — mirroring ReviewCommand's already-shipped
+		// reason-before-blocked use of this same mechanism.
+		PropertyOrdering: []string{"reasoning", "command", "session_memory", "quest_memory"},
 	}
 	inner, err := c.doGenerate(ctx, endpoint, model, apiKey, systemInstruction, userText, schema)
 	if err != nil {
 		return nil, err
 	}
-	var answer Answer
-	if err := json.Unmarshal(inner, &answer); err != nil {
+	return decodeAnswer(inner)
+}
+
+// answerWire mirrors Answer for the outer decode, but keeps the two memory
+// fields as raw JSON so a malformed shape (e.g. session_memory sent as a
+// string instead of an array) can be dropped without failing the decode of
+// reasoning/command — a bad memory field must never cost the owner a
+// command.
+type answerWire struct {
+	Reasoning     string          `json:"reasoning"`
+	Command       string          `json:"command"`
+	SessionMemory json.RawMessage `json:"session_memory,omitempty"`
+	QuestMemory   json.RawMessage `json:"quest_memory,omitempty"`
+}
+
+// decodeAnswer decodes a raw structured-answer payload into an Answer,
+// tolerating a malformed session_memory/quest_memory shape by leaving that
+// field nil rather than failing the whole decode.
+func decodeAnswer(data []byte) (*Answer, error) {
+	var wire answerWire
+	if err := json.Unmarshal(data, &wire); err != nil {
 		return nil, &Error{Kind: KindMalformed, Message: "could not decode the model's structured answer"}
 	}
-	return &answer, nil
+	answer := &Answer{Reasoning: wire.Reasoning, Command: wire.Command}
+	if len(wire.SessionMemory) > 0 {
+		var sm []string
+		if json.Unmarshal(wire.SessionMemory, &sm) == nil {
+			answer.SessionMemory = sm
+		}
+	}
+	if len(wire.QuestMemory) > 0 {
+		var qm []string
+		if json.Unmarshal(wire.QuestMemory, &qm) == nil {
+			answer.QuestMemory = qm
+		}
+	}
+	return answer, nil
 }
 
 // doGenerate is the shared plumbing behind GenerateContent and

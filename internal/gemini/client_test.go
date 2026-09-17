@@ -147,6 +147,156 @@ func TestGenerateContent(t *testing.T) {
 	})
 }
 
+func TestAnswerCarriesMemoryFields(t *testing.T) {
+	t.Run("schema_declares_both_array_properties_in_ordering", func(t *testing.T) {
+		var decoded map[string]any
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if err := json.NewDecoder(r.Body).Decode(&decoded); err != nil {
+				t.Errorf("decode request body: %v", err)
+			}
+			writeSuccess(w, "why", "north")
+		}))
+		defer srv.Close()
+
+		c := NewClient(5 * time.Second)
+		if _, err := c.GenerateContent(context.Background(), srv.URL, "test-model", testFakeKey, "sys", "user"); err != nil {
+			t.Fatalf("GenerateContent() error = %v", err)
+		}
+
+		genConfig := decoded["generationConfig"].(map[string]any)
+		schema := genConfig["responseSchema"].(map[string]any)
+		props, ok := schema["properties"].(map[string]any)
+		if !ok {
+			t.Fatal("responseSchema missing properties")
+		}
+		for _, name := range []string{"session_memory", "quest_memory"} {
+			prop, ok := props[name].(map[string]any)
+			if !ok {
+				t.Fatalf("responseSchema.properties missing %s", name)
+			}
+			if prop["type"] != "array" {
+				t.Errorf("%s.type = %v, want array", name, prop["type"])
+			}
+			items, ok := prop["items"].(map[string]any)
+			if !ok {
+				t.Fatalf("%s.items missing", name)
+			}
+			if items["type"] != "string" {
+				t.Errorf("%s.items.type = %v, want string", name, items["type"])
+			}
+		}
+
+		required, ok := schema["required"].([]any)
+		if !ok {
+			t.Fatal("responseSchema missing required")
+		}
+		if len(required) != 2 || required[0] != "reasoning" || required[1] != "command" {
+			t.Errorf("responseSchema.required = %v, want exactly [reasoning command]", required)
+		}
+
+		ordering, ok := schema["propertyOrdering"].([]any)
+		if !ok {
+			t.Fatal("responseSchema missing propertyOrdering")
+		}
+		wantOrdering := []string{"reasoning", "command", "session_memory", "quest_memory"}
+		if len(ordering) != len(wantOrdering) {
+			t.Fatalf("propertyOrdering = %v, want %v", ordering, wantOrdering)
+		}
+		for i, want := range wantOrdering {
+			if ordering[i] != want {
+				t.Errorf("propertyOrdering[%d] = %v, want %v", i, ordering[i], want)
+			}
+		}
+	})
+
+	t.Run("both_memory_arrays_present_decode_into_answer", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			envelope := map[string]any{
+				"candidates": []map[string]any{
+					{
+						"content": map[string]any{
+							"parts": []map[string]any{
+								{"text": `{"reasoning":"why","command":"north","session_memory":["fact one","fact two"],"quest_memory":["progress one"]}`},
+							},
+						},
+					},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(envelope)
+		}))
+		defer srv.Close()
+
+		c := NewClient(5 * time.Second)
+		answer, err := c.GenerateContent(context.Background(), srv.URL, "test-model", testFakeKey, "sys", "user")
+		if err != nil {
+			t.Fatalf("GenerateContent() error = %v", err)
+		}
+		if answer.Command != "north" {
+			t.Errorf("Command = %q, want %q", answer.Command, "north")
+		}
+		if len(answer.SessionMemory) != 2 || answer.SessionMemory[0] != "fact one" || answer.SessionMemory[1] != "fact two" {
+			t.Errorf("SessionMemory = %v, want [fact one fact two]", answer.SessionMemory)
+		}
+		if len(answer.QuestMemory) != 1 || answer.QuestMemory[0] != "progress one" {
+			t.Errorf("QuestMemory = %v, want [progress one]", answer.QuestMemory)
+		}
+	})
+
+	t.Run("neither_memory_field_present_decodes_nil_with_command_intact", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			writeSuccess(w, "why", "north")
+		}))
+		defer srv.Close()
+
+		c := NewClient(5 * time.Second)
+		answer, err := c.GenerateContent(context.Background(), srv.URL, "test-model", testFakeKey, "sys", "user")
+		if err != nil {
+			t.Fatalf("GenerateContent() error = %v", err)
+		}
+		if answer.Command != "north" {
+			t.Errorf("Command = %q, want %q", answer.Command, "north")
+		}
+		if answer.SessionMemory != nil {
+			t.Errorf("SessionMemory = %v, want nil", answer.SessionMemory)
+		}
+		if answer.QuestMemory != nil {
+			t.Errorf("QuestMemory = %v, want nil", answer.QuestMemory)
+		}
+	})
+
+	t.Run("session_memory_as_string_instead_of_array_does_not_panic_or_lose_command", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			envelope := map[string]any{
+				"candidates": []map[string]any{
+					{
+						"content": map[string]any{
+							"parts": []map[string]any{
+								{"text": `{"reasoning":"why","command":"north","session_memory":"not an array"}`},
+							},
+						},
+					},
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(envelope)
+		}))
+		defer srv.Close()
+
+		c := NewClient(5 * time.Second)
+		answer, err := c.GenerateContent(context.Background(), srv.URL, "test-model", testFakeKey, "sys", "user")
+		if err != nil {
+			t.Fatalf("GenerateContent() error = %v, want no error (malformed memory field must not cost the command)", err)
+		}
+		if answer.Command != "north" {
+			t.Errorf("Command = %q, want %q", answer.Command, "north")
+		}
+		if answer.SessionMemory != nil {
+			t.Errorf("SessionMemory = %v, want nil on a malformed field", answer.SessionMemory)
+		}
+	})
+}
+
 func TestGenerateContentErrors(t *testing.T) {
 	tests := []struct {
 		name       string
