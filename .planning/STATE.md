@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: "Completed 04-11-PLAN.md (final continuation): re-verified evidence/01-test-report.txt and evidence/02-harness-selftest.txt against the final build, filed 04-SECURITY-AGENDA.md and 04-11-SUMMARY.md. Phase 4 awaiting code review, regression gate, verifier, and owner acceptance."
-last_updated: "2026-09-17T12:30:31.370Z"
+stopped_at: "Phase 4 accepted by the owner on the Evidence Dossier (2026-09-17); security review (secure-phase audit, Risk Register, SECURITY.md) and the push of ai-player still to do"
+last_updated: "2026-09-17T14:11:20.401Z"
 last_activity: 2026-09-17
 progress:
   total_phases: 9
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-09-14)
 
 ## Current Position
 
-Phase: 4 (continuous-play) — AWAITING VERIFICATION
-Plan: 11 of 11 (04-11 complete, all plans executed)
-Status: All 11 plans executed and evidence filed; phase awaiting code review, the regression gate, the verifier, and the owner's acceptance of the Evidence Dossier and 04-SECURITY-AGENDA.md before phase close
+Phase: 5
+Plan: Not started
+Status: Phase 4 complete and accepted by the owner (Evidence Dossier https://claude.ai/artifact/5MdwXoJPJBGFug2anbayLG, 2026-09-17). Phase 4 security review pending: audit, Risk Register decisions, SECURITY.md, then push. Phase 5 (coaching-channel) not started.
 Last activity: 2026-09-17
 
 Progress: [██████████] 100% (Phase 4, all 11 plans executed)
@@ -36,7 +36,7 @@ Progress: [██████████] 100% (Phase 4, all 11 plans executed)
 
 **Velocity:**
 
-- Total plans completed: 39 (Phase 01, all waves) — duration logged for 1 (01-05)
+- Total plans completed: 50 (Phase 01, all waves) — duration logged for 1 (01-05)
 - Average duration: 61min (01-05 only; earlier plans in this phase predate metric logging)
 - Total execution time: ~1 hour logged
 
@@ -49,6 +49,7 @@ Progress: [██████████] 100% (Phase 4, all 11 plans executed)
 | 02 | 7 | - | - |
 | 3 | 13 | - | - |
 | 3.1 | 7 | - | - |
+| 4 | 11 | - | - |
 
 **Recent Trend:**
 
