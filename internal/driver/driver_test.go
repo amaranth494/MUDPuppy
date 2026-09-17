@@ -61,6 +61,12 @@ type fakeModels struct {
 	err                   error
 	block                 chan struct{}
 
+	// ignoreCancel makes a held GenerateContent call ignore its context and
+	// wait for block alone: the worst case, a model call that StopLoop's
+	// cancellation does NOT interrupt, so the stint-epoch tests prove the
+	// epoch checks hold on their own (code review CR-01/WR-02 of Phase 4).
+	ignoreCancel bool
+
 	answers            []*gemini.Answer
 	errs               []error
 	systemInstructions []string
@@ -86,6 +92,7 @@ func (f *fakeModels) GenerateContent(ctx context.Context, endpoint, model, apiKe
 	f.systemInstructions = append(f.systemInstructions, systemInstruction)
 	f.windows = append(f.windows, userText)
 	block := f.block
+	ignoreCancel := f.ignoreCancel
 
 	qlen := len(f.answers)
 	if len(f.errs) > qlen {
@@ -112,7 +119,17 @@ func (f *fakeModels) GenerateContent(ctx context.Context, endpoint, model, apiKe
 	f.mu.Unlock()
 
 	if block != nil {
-		<-block
+		if ignoreCancel {
+			<-block
+		} else {
+			// Like the real client (http.NewRequestWithContext), a held call
+			// returns as soon as its context is cancelled.
+			select {
+			case <-block:
+			case <-ctx.Done():
+				return nil, &gemini.Error{Kind: gemini.KindTransport, Message: ctx.Err().Error()}
+			}
+		}
 	}
 	if err != nil {
 		return nil, err

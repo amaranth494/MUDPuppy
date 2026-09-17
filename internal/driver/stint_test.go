@@ -37,6 +37,7 @@ func TestStint_QuickReengageDropsTheOldDecision(t *testing.T) {
 	commands := &fakeCommands{}
 	memory := newFakeMemoryStore()
 	models := &fakeModels{
+		ignoreCancel: true, // worst case: StopLoop does not interrupt the old call
 		answers: []*gemini.Answer{
 			{Reasoning: "stint one, first", Command: "look"},
 			{Reasoning: "stint one, decided before the wheel-grab", Command: "stale-north", SessionMemory: []string{"written by a decision that outlived its stint"}},
@@ -145,6 +146,7 @@ func TestStint_StaleIterationIsNotAFailure(t *testing.T) {
 	notifier := &fakeNotifier{}
 	commands := &fakeCommands{}
 	models := &fakeModels{
+		ignoreCancel: true, // worst case: StopLoop does not interrupt the old call
 		answers: []*gemini.Answer{
 			{Reasoning: "stint one, first", Command: "look"},
 			nil,
@@ -231,6 +233,150 @@ func TestStint_DuplicateEngageStartsNothing(t *testing.T) {
 	}
 	if calls, _, _ := stintCounters(d, userID); calls != 2 {
 		t.Fatalf("expected the running stint's call count (2) to be left alone, got %d", calls)
+	}
+}
+
+// inFlightCount reports how many iterations are in flight for userID, in any
+// stint.
+func inFlightCount(d *Driver, userID string) int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	n := 0
+	for key := range d.inFlight {
+		if key.userID == userID {
+			n++
+		}
+	}
+	return n
+}
+
+// waitForNoInFlight polls until userID has no iteration in flight.
+func waitForNoInFlight(t *testing.T, d *Driver, userID string, within time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(within)
+	for time.Now().Before(deadline) {
+		if inFlightCount(d, userID) == 0 {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatalf("an iteration was still in flight %v after StopLoop", within)
+}
+
+// TestStint_StopLoopInterruptsAnInFlightModelCall is code review WR-02 of
+// Phase 4: StopLoop's comment said a loop "waiting on a model call that can
+// take up to two minutes" was cancelled at once, and it was not -- the call
+// ran on context.Background(). The held call here is NEVER released: only
+// the stint context's cancellation can end it.
+func TestStint_StopLoopInterruptsAnInFlightModelCall(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		blockFirst   bool
+		wantCallsMin int
+	}{
+		{"a_loop_tick", false, 2},
+		{"the_stints_first_decision", true, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sessions := &fakeSessions{window: "a room"}
+			sessions.engageState()
+			decisions := &fakeDecisionsStore{}
+			notifier := &fakeNotifier{}
+			commands := &fakeCommands{}
+			models := &fakeModels{
+				answer:       &gemini.Answer{Reasoning: "looking around", Command: "look"},
+				reviewAnswer: &gemini.ReviewAnswer{Blocked: false, Reason: "clear"},
+			}
+			d := newPacedDriver(sessions, decisions, notifier, commands, models, 2*time.Millisecond, 5*time.Second, 2*time.Millisecond)
+
+			userID := uuid.New().String()
+			connID := uuid.New().String()
+			epoch := sessions.currentEpoch()
+			block := make(chan struct{}) // never closed
+			defer close(block)
+
+			if tc.blockFirst {
+				models.setBlock(block)
+				go d.EngageLoop(userID, connID, epoch)
+			} else {
+				d.EngageLoop(userID, connID, epoch)
+				waitForSendCount(t, sessions, 1)
+				models.setBlock(block)
+				sessions.fireOutput()
+			}
+			waitForCalls(t, models, tc.wantCallsMin) // the call is now held
+
+			sendsBefore := len(sessions.sendCalls())
+			eventsBefore := len(notifier.eventsSnapshot())
+			reviewsBefore := models.reviewCallCount()
+
+			sessions.disengageState()
+			d.StopLoop(userID, epoch)
+
+			waitForNoInFlight(t, d, userID, time.Second)
+
+			if got := len(sessions.sendCalls()); got != sendsBefore {
+				t.Fatalf("expected nothing sent by the interrupted decision, got %d further send(s)", got-sendsBefore)
+			}
+			if got := models.reviewCallCount(); got != reviewsBefore {
+				t.Fatalf("expected no reviewer call after the interruption, got %d", got-reviewsBefore)
+			}
+			if got := len(notifier.eventsSnapshot()); got != eventsBefore {
+				t.Fatalf("expected no notice for an interrupted decision (a cancelled call is not a model failure), got %d", got-eventsBefore)
+			}
+			if _, failures, _ := stintCounters(d, userID); failures != 0 {
+				t.Fatalf("expected a cancelled call not to count as a failure, got %d", failures)
+			}
+			for _, row := range decisions.rows() {
+				if row.Outcome == "failed" {
+					t.Fatalf("an interrupted decision must not be stored as a failure")
+				}
+			}
+		})
+	}
+}
+
+// TestStint_RetryDelayIsCancellable proves the 503 retry wait no longer
+// holds a stopped stint for its whole length and that no retry is made, and
+// no call reserved, for a stint that ended during it (code review WR-02).
+func TestStint_RetryDelayIsCancellable(t *testing.T) {
+	sessions := &fakeSessions{window: "a room"}
+	sessions.engageState()
+	decisions := &fakeDecisionsStore{}
+	notifier := &fakeNotifier{}
+	models := &fakeModels{
+		err: &gemini.Error{Kind: gemini.KindTransport, Status: 503, Message: "unavailable"},
+	}
+	d := newPacedDriver(sessions, decisions, notifier, &fakeCommands{}, models, 2*time.Millisecond, 5*time.Second, 2*time.Millisecond)
+	d.retryDelay = 30 * time.Second
+
+	userID := uuid.New().String()
+	connID := uuid.New().String()
+	epoch := sessions.currentEpoch()
+
+	go d.EngageLoop(userID, connID, epoch)
+	waitForCalls(t, models, 1)
+
+	// Wait for the retrying notice: the iteration is now in its retry delay.
+	deadline := time.Now().Add(2 * time.Second)
+	for len(notifier.eventsSnapshot()) == 0 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+
+	sessions.disengageState()
+	d.StopLoop(userID, epoch)
+	waitForNoInFlight(t, d, userID, time.Second)
+
+	if got := models.callCount(); got != 1 {
+		t.Fatalf("expected no retry for a stint that ended during the retry delay, got %d calls", got)
+	}
+	if calls, failures, _ := stintCounters(d, userID); calls != 1 || failures != 0 {
+		t.Fatalf("expected one reserved call and no failure, got calls=%d failures=%d", calls, failures)
+	}
+	for _, ev := range notifier.eventsSnapshot() {
+		if ev.Outcome == "transient" || ev.Outcome == "failed" {
+			t.Fatalf("expected no failure notice, got %q", ev.Message)
+		}
 	}
 }
 

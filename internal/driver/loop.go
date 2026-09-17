@@ -42,22 +42,33 @@ func (d *Driver) EngageLoop(userID, connectionID string, epoch uint64) {
 		return
 	}
 
+	// The stint's context is created and registered BEFORE the first
+	// decision (code review WR-02 of Phase 4), so StopLoop can interrupt
+	// that decision's model calls too, not only the pacing loop that
+	// follows it.
+	ctx, entry, ok := d.registerStint(userID, epoch)
+	if !ok {
+		d.logDecision(userID, connectionID, "", "engage-ignored", "", "", "", 0, 0)
+		return
+	}
+
 	// The first decision is the only one that carries D-08's reassess
 	// instruction, so the stint must not start pacing until it has actually
 	// run. A skip can now only mean another iteration of this SAME stint is
 	// in flight (a direct HandleEngage racing this call); wait for it and
 	// try again, giving up only if the stint ends while waiting.
-	for !d.runIteration(userID, connectionID, true, epoch) {
-		if d.staleStage(userID, epoch) != "" {
+	for !d.runIteration(ctx, userID, connectionID, true, epoch) {
+		if d.staleStage(ctx, userID, epoch) != "" || cancellableWait(ctx, firstIterationRetryDelay) {
+			d.releaseStint(userID, entry)
 			return
 		}
-		time.Sleep(firstIterationRetryDelay)
 	}
 
 	// A first decision that failed, hit a cap, or outlived its stint has no
 	// loop to start -- and, when the stint is over, must not stamp the
 	// minimum-spacing clock the NEXT stint paces itself against.
-	if d.staleStage(userID, epoch) != "" {
+	if d.staleStage(ctx, userID, epoch) != "" {
+		d.releaseStint(userID, entry)
 		return
 	}
 
@@ -68,7 +79,12 @@ func (d *Driver) EngageLoop(userID, connectionID string, epoch uint64) {
 	d.lastDecisionAt[userID] = time.Now()
 	d.mu.Unlock()
 
-	d.startLoop(userID, connectionID, epoch)
+	go func() {
+		d.runLoop(ctx, userID, connectionID, epoch)
+		// A loop that stops by itself (its stint ended, and it noticed
+		// before any StopLoop arrived) removes its own registry entry.
+		d.releaseStint(userID, entry)
+	}()
 }
 
 // firstIterationRetryDelay is how long EngageLoop waits before retrying a
@@ -92,51 +108,59 @@ func (d *Driver) beginStint(userID string, epoch uint64) bool {
 	return true
 }
 
-// startLoop replaces (or creates) userID's pacing goroutine. Cancelling and
-// replacing any loop already running for this user first means a resume
-// racing an engage can never leave two loops alive for the same user.
-// Guarded by the same d.mu that already guards inFlight and lastDecisionAt.
+// registerStint replaces (or creates) userID's registered stint and returns
+// the context every model call, retry wait and pacing wait of that stint
+// runs under. Cancelling and replacing any stint already registered for this
+// user first means a resume racing an engage can never leave two loops alive
+// for the same user. Guarded by the same d.mu that already guards inFlight
+// and lastDecisionAt.
 //
 // The registry entry carries the stint's epoch (code review WR-10 of Phase
-// 4). A loop for a LATER stint is never replaced by an earlier one -- an
-// EngageLoop that was slow to get here must not cancel the stint that has
-// since superseded it -- and StopLoop uses the same epoch to tell which
-// stint it was asked to stop.
-func (d *Driver) startLoop(userID, connectionID string, epoch uint64) {
+// 4). A LATER stint is never replaced by an earlier one -- an EngageLoop
+// that was slow to get here must not cancel the stint that has since
+// superseded it (ok is false) -- and StopLoop uses the same epoch to tell
+// which stint it was asked to stop.
+func (d *Driver) registerStint(userID string, epoch uint64) (context.Context, *stintLoop, bool) {
 	d.mu.Lock()
+	defer d.mu.Unlock()
 	if existing, ok := d.loops[userID]; ok {
 		if existing.epoch > epoch {
-			d.mu.Unlock()
-			return
+			return nil, nil, false
 		}
 		existing.cancel()
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	entry := &stintLoop{epoch: epoch, cancel: cancel}
 	d.loops[userID] = entry
-	d.mu.Unlock()
+	return ctx, entry, true
+}
 
-	go func() {
-		d.runLoop(ctx, userID, connectionID, epoch)
-		// A loop that stops by itself (its stint ended, and it noticed
-		// before any StopLoop arrived) removes its own registry entry -- but
-		// only if the entry is still its own.
-		d.mu.Lock()
-		if d.loops[userID] == entry {
-			delete(d.loops, userID)
-		}
-		d.mu.Unlock()
-		cancel()
-	}()
+// releaseStint cancels entry's context and removes entry from the registry,
+// but only if the registered entry is still this one.
+func (d *Driver) releaseStint(userID string, entry *stintLoop) {
+	d.mu.Lock()
+	if d.loops[userID] == entry {
+		delete(d.loops, userID)
+	}
+	d.mu.Unlock()
+	entry.cancel()
 }
 
 // StopLoop is the DisengageHook target (04-03-01, Pattern 2): it cancels
-// and forgets userID's pacing goroutine, if one is running, so a loop
-// asleep in its pacing wait -- or waiting on a model call that can take up
-// to two minutes -- stops at once rather than only being noticed after its
-// next decision completes. A miss (no loop running for userID) is a silent
-// no-op, and it is safe to call from inside the very goroutine being
-// cancelled: cancelling a context only marks it Done, it never blocks.
+// and forgets userID's registered stint, if there is one. What that stops,
+// precisely (code review WR-02 of Phase 4 -- this comment used to promise
+// more than the code did): the stint's context is the one every pacing wait,
+// every model call (player and reviewer, and their 503 retries) and the
+// retry delay run under, from the stint's first decision on. A loop asleep
+// in a pacing wait returns at once. A decision waiting on the model has its
+// HTTP request cancelled, returns within moments instead of up to two
+// minutes later, and is then dropped quietly by runIteration's stint check:
+// no reviewer call, no retry, no counter, no notice, no memory write. The
+// one thing not interrupted is a decision-row insert or a socket write
+// already under way, both of which are short and bounded. A miss (no stint
+// registered for userID) is a silent no-op, and it is safe to call from
+// inside the very goroutine being cancelled: cancelling a context only marks
+// it Done, it never blocks.
 //
 // epoch is the stint that ended (code review WR-10 of Phase 4). The session
 // manager fires this hook with `go`, so nothing orders it against the
@@ -211,7 +235,7 @@ func (d *Driver) runLoop(ctx context.Context, userID, connectionID string, epoch
 		// The switch must still be On AND still in this loop's own stint: a
 		// loop that outlived its stint stops itself here even if a later
 		// stint has the switch On again.
-		if d.staleStage(userID, epoch) != "" {
+		if d.staleStage(ctx, userID, epoch) != "" {
 			return
 		}
 
@@ -231,11 +255,11 @@ func (d *Driver) runLoop(ctx context.Context, userID, connectionID string, epoch
 		window := d.sessions.RecentOutputSnapshot(userID)
 		d.logDecision(userID, connectionID, "", "loop-tick", "", "", "", len(window), 0)
 
-		d.runIteration(userID, connectionID, false, epoch)
+		d.runIteration(ctx, userID, connectionID, false, epoch)
 
 		// An iteration that outlived its stint must not stamp the clock the
 		// next stint paces itself against.
-		if d.staleStage(userID, epoch) != "" {
+		if d.staleStage(ctx, userID, epoch) != "" {
 			return
 		}
 

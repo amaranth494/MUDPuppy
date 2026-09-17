@@ -414,10 +414,12 @@ func (d *Driver) SetMemory(m Memory) {
 //
 // It has no stint of its own to be told about, so it takes the switch's
 // current epoch as the stint this decision belongs to; the decision is
-// still dropped if the stint ends before it is sent.
+// still dropped if the stint ends before it is sent. For the same reason it
+// has no stint context to be cancelled through: its model calls run to
+// completion (or the client's timeout) and only then meet the stint check.
 func (d *Driver) HandleEngage(userID, connectionID string) {
 	_, epoch := d.sessions.AutopilotEpochFor(userID)
-	d.runIteration(userID, connectionID, false, epoch)
+	d.runIteration(context.Background(), userID, connectionID, false, epoch)
 }
 
 // staleStage reports whether an iteration that began in stint epoch has
@@ -429,12 +431,18 @@ func (d *Driver) HandleEngage(userID, connectionID string) {
 // A dropped iteration sends nothing, dispatches nothing, makes no further
 // model call, changes no counter, prints no failure or block notice, and
 // writes no memory: it is not a failure, it is simply no longer wanted.
-func (d *Driver) staleStage(userID string, epoch uint64) string {
+//
+// ctx is the stint's context (code review WR-02 of Phase 4). StopLoop
+// cancels it the moment the stint ends, which is also what makes an
+// in-flight model call return early with an error; a cancelled context
+// therefore reads as "dropped-disengaged" here, so that error is never
+// mistaken for a model failure.
+func (d *Driver) staleStage(ctx context.Context, userID string, epoch uint64) string {
 	state, current := d.sessions.AutopilotEpochFor(userID)
 	if current != epoch {
 		return "dropped-stale"
 	}
-	if state != session.AutopilotOn {
+	if state != session.AutopilotOn || ctx.Err() != nil {
 		return "dropped-disengaged"
 	}
 	return ""
@@ -462,7 +470,7 @@ func (d *Driver) staleStage(userID string, epoch uint64) string {
 // run at all because another iteration of the SAME stint was in flight;
 // EngageLoop uses it so a stint never starts pacing on top of a first
 // decision that never ran.
-func (d *Driver) runIteration(userID, connectionID string, first bool, epoch uint64) bool {
+func (d *Driver) runIteration(ctx context.Context, userID, connectionID string, first bool, epoch uint64) bool {
 	key := flightKey{userID: userID, epoch: epoch}
 	d.mu.Lock()
 	if d.inFlight[key] {
@@ -478,13 +486,13 @@ func (d *Driver) runIteration(userID, connectionID string, first bool, epoch uin
 		d.mu.Unlock()
 	}()
 
-	d.decide(userID, connectionID, first, epoch)
+	d.decide(ctx, userID, connectionID, first, epoch)
 	return true
 }
 
 // decide is the body of one iteration, split from runIteration so the
 // in-flight guard above wraps every return path below exactly once.
-func (d *Driver) decide(userID, connectionID string, first bool, epoch uint64) {
+func (d *Driver) decide(ctx context.Context, userID, connectionID string, first bool, epoch uint64) {
 
 	window := d.sessions.RecentOutputSnapshot(userID)
 	d.logDecision(userID, connectionID, "", "request", "", "", "", len(window), 0)
@@ -569,11 +577,11 @@ func (d *Driver) decide(userID, connectionID string, first bool, epoch uint64) {
 		return
 	}
 
-	answer, genErr := d.models.GenerateContent(context.Background(), entry.Endpoint, entry.ModelName, entry.APIKey, systemInstruction, wrapped)
+	answer, genErr := d.models.GenerateContent(ctx, entry.Endpoint, entry.ModelName, entry.APIKey, systemInstruction, wrapped)
 	if genErr != nil && is503(genErr) {
 		// A retry is a further model call and a visible notice: neither is
 		// wanted for a stint that has ended (code review CR-01 of Phase 4).
-		if stage := d.staleStage(userID, epoch); stage != "" {
+		if stage := d.staleStage(ctx, userID, epoch); stage != "" {
 			d.logDecision(userID, connectionID, "", stage, entry.ModelName, "", "", len(window), 0)
 			return
 		}
@@ -582,13 +590,18 @@ func (d *Driver) decide(userID, connectionID string, first bool, epoch uint64) {
 		// cap (D-14) — a failed reservation here goes straight to the
 		// cap-halt path, making no further call.
 		d.notifyRetrying(userID, resolved)
-		time.Sleep(d.retryDelay)
+		// The retry delay is cancellable (code review WR-02 of Phase 4): a
+		// stint that ends during it makes no retry and reserves no call.
+		if d.waitBeforeRetry(ctx, userID, epoch) {
+			d.logDecision(userID, connectionID, "", "dropped-disengaged", entry.ModelName, "", "", len(window), 0)
+			return
+		}
 		if !d.tryReserveCall(userID, resolved) {
 			d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, "", "", failureCapReached, resolved)
 			return
 		}
 		log.Printf("[AI-PLAYER] user_id=%s connection_id=%s stage=retry http=%d", userID, connectionID, http.StatusServiceUnavailable)
-		answer, genErr = d.models.GenerateContent(context.Background(), entry.Endpoint, entry.ModelName, entry.APIKey, systemInstruction, wrapped)
+		answer, genErr = d.models.GenerateContent(ctx, entry.Endpoint, entry.ModelName, entry.APIKey, systemInstruction, wrapped)
 	}
 
 	// The model call above takes seconds (up to the client's two-minute
@@ -600,7 +613,7 @@ func (d *Driver) decide(userID, connectionID string, first bool, epoch uint64) {
 	// (no counter, no notice), writes no memory, and never reaches the
 	// reviewer call, whose cost would otherwise be charged to the NEXT
 	// stint's freshly zeroed call count.
-	if stage := d.staleStage(userID, epoch); stage != "" {
+	if stage := d.staleStage(ctx, userID, epoch); stage != "" {
 		d.logDecision(userID, connectionID, "", stage, entry.ModelName, "", "", len(window), 0)
 		return
 	}
@@ -666,20 +679,23 @@ func (d *Driver) decide(userID, connectionID string, first bool, epoch uint64) {
 		return
 	}
 
-	review, revErr := d.models.ReviewCommand(context.Background(), entry.Endpoint, entry.ModelName, entry.APIKey, reviewSystemInstruction, reviewUserText)
+	review, revErr := d.models.ReviewCommand(ctx, entry.Endpoint, entry.ModelName, entry.APIKey, reviewSystemInstruction, reviewUserText)
 	if revErr != nil && is503(revErr) {
-		if stage := d.staleStage(userID, epoch); stage != "" {
+		if stage := d.staleStage(ctx, userID, epoch); stage != "" {
 			d.logDecision(userID, connectionID, "", stage, entry.ModelName, "", "", len(window), len(cmd))
 			return
 		}
 		d.notifyRetrying(userID, resolved)
-		time.Sleep(d.retryDelay)
+		if d.waitBeforeRetry(ctx, userID, epoch) {
+			d.logDecision(userID, connectionID, "", "dropped-disengaged", entry.ModelName, "", "", len(window), len(cmd))
+			return
+		}
 		if !d.tryReserveCall(userID, resolved) {
 			d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, failureCapReached, resolved)
 			return
 		}
 		log.Printf("[AI-PLAYER] user_id=%s connection_id=%s stage=retry http=%d", userID, connectionID, http.StatusServiceUnavailable)
-		review, revErr = d.models.ReviewCommand(context.Background(), entry.Endpoint, entry.ModelName, entry.APIKey, reviewSystemInstruction, reviewUserText)
+		review, revErr = d.models.ReviewCommand(ctx, entry.Endpoint, entry.ModelName, entry.APIKey, reviewSystemInstruction, reviewUserText)
 	}
 
 	// Second stint check, after the reviewer call and before its verdict or
@@ -689,7 +705,7 @@ func (d *Driver) decide(userID, connectionID string, first bool, epoch uint64) {
 	// dispatched. SendAICommand enforces the same rule atomically below;
 	// this check also avoids spending an ICM dispatch on a command that
 	// would be refused.
-	if stage := d.staleStage(userID, epoch); stage != "" {
+	if stage := d.staleStage(ctx, userID, epoch); stage != "" {
 		d.logDecision(userID, connectionID, "", stage, entry.ModelName, "", "", len(window), len(cmd))
 		return
 	}
@@ -723,13 +739,13 @@ func (d *Driver) decide(userID, connectionID string, first bool, epoch uint64) {
 		return
 	}
 
-	ctx := icm.ContextAutomation
+	execCtx := icm.ContextAutomation
 	normalized := &icm.NormalizedCommand{
 		Command:           cmd,
 		Operator:          "",
 		RequiresExecution: true,
 	}
-	if _, icmErr := d.commands.Dispatch(&ctx, userID, normalized); icmErr != nil {
+	if _, icmErr := d.commands.Dispatch(&execCtx, userID, normalized); icmErr != nil {
 		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, failureICMRefused, resolved)
 		return
 	}
@@ -742,7 +758,7 @@ func (d *Driver) decide(userID, connectionID string, first bool, epoch uint64) {
 	// between check and write is nanoseconds, not a model call.
 	if err := d.sessions.SendAICommand(userID, cmd, epoch); err != nil {
 		if errors.Is(err, session.ErrAutopilotNotOn) {
-			stage := d.staleStage(userID, epoch)
+			stage := d.staleStage(ctx, userID, epoch)
 			if stage == "" {
 				stage = "dropped-disengaged"
 			}
@@ -864,6 +880,18 @@ func (d *Driver) tryReserveCall(userID string, resolved store.ResolvedAISettings
 func is503(err error) bool {
 	gerr, ok := err.(*gemini.Error)
 	return ok && gerr.Status == http.StatusServiceUnavailable
+}
+
+// waitBeforeRetry waits D-16's retry delay under the stint's context and
+// reports true when the retry must NOT be made: the context was cancelled
+// during the wait, or the stint is over by the end of it (code review WR-02
+// of Phase 4; this used to be an uninterruptible time.Sleep followed by a
+// paid retry whatever had happened meanwhile).
+func (d *Driver) waitBeforeRetry(ctx context.Context, userID string, epoch uint64) bool {
+	if cancellableWait(ctx, d.retryDelay) {
+		return true
+	}
+	return d.staleStage(ctx, userID, epoch) != ""
 }
 
 // notifyRetrying sends D-16's fixed retrying notice while a 503 retry is in

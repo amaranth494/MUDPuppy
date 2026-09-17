@@ -112,9 +112,12 @@ type Manager struct {
 
 	// disengageHook is the AI driver's symmetric stop signal (04-03-01,
 	// D-27/Pattern 2): fired the instant autopilot leaves ON for any
-	// reason, so a loop asleep in its pacing wait — or waiting on a model
-	// call that can take up to two minutes — is cancelled at once rather
-	// than only being noticed after its next decision completes. Fired
+	// reason. The driver cancels the ended stint's context, which its
+	// pacing waits, its model calls and its retry delay all run under (code
+	// review WR-02 of Phase 4), so a loop asleep in its pacing wait stops at
+	// once and a decision waiting on a model call -- which can otherwise
+	// take up to two minutes -- has the call cancelled and is dropped
+	// instead of only being noticed after it completes. Fired
 	// from exactly two places in this file: the changed-true path of
 	// DisengageAutopilot (a wheel-grab or #AUTO OFF) and the changed-true
 	// path of parkAutopilotLocked (a disconnect). A nil hook is a silent
