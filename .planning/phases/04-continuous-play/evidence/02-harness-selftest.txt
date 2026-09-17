@@ -1,12 +1,12 @@
 ### scripts/verify-phase4.sh --self-test (clean fixtures)
 ================================================================
 Phase 4 canned-report harness -- scripts/verify-phase4.sh
-Run started (UTC): 2026-09-17T11:07:56Z
+Run started (UTC): 2026-09-17T12:15:55Z
 Mode: --self-test (fixtures: scripts/fixtures/phase4/, no server)
 BASE_URL: http://fixture.invalid
 CONNECTION_ID: 00000000-0000-0000-0000-000000000000
 NOT_OWNED_CONNECTION_ID: ffffffff-ffff-ffff-ffff-ffffffffffff
-git rev-parse --short HEAD: 39bc3cd
+git rev-parse --short HEAD: 4df1543
 ================================================================
 
 Ground rules: (1) proof here is this report or an end-user screenshot,
@@ -141,17 +141,14 @@ TOTAL CHECKS: 35  FAILURES: 0  SKIPPED: 2
 ================================================================
 GO TEST EXIT: 0
 ================================================================
->>> self-test invocation exit: 0
-
---- contents of the self-test report file ---
 ================================================================
 Phase 4 canned-report harness -- scripts/verify-phase4.sh
-Run started (UTC): 2026-09-17T11:07:56Z
+Run started (UTC): 2026-09-17T12:15:55Z
 Mode: --self-test (fixtures: scripts/fixtures/phase4/, no server)
 BASE_URL: http://fixture.invalid
 CONNECTION_ID: 00000000-0000-0000-0000-000000000000
 NOT_OWNED_CONNECTION_ID: ffffffff-ffff-ffff-ffff-ffffffffffff
-git rev-parse --short HEAD: 39bc3cd
+git rev-parse --short HEAD: 4df1543
 ================================================================
 
 Ground rules: (1) proof here is this report or an end-user screenshot,
@@ -292,12 +289,12 @@ EXIT: 0
 ### scripts/verify-phase4.sh --self-test-negative (one deliberately wrong response)
 ================================================================
 Phase 4 canned-report harness -- scripts/verify-phase4.sh
-Run started (UTC): 2026-09-17T11:08:03Z
+Run started (UTC): 2026-09-17T12:16:02Z
 Mode: --self-test-negative (fixtures: scripts/fixtures/phase4-negative/, no server)
 BASE_URL: http://fixture.invalid
 CONNECTION_ID: 00000000-0000-0000-0000-000000000000
 NOT_OWNED_CONNECTION_ID: ffffffff-ffff-ffff-ffff-ffffffffffff
-git rev-parse --short HEAD: 39bc3cd
+git rev-parse --short HEAD: 4df1543
 ================================================================
 
 Ground rules: (1) proof here is this report or an end-user screenshot,
@@ -432,17 +429,14 @@ TOTAL CHECKS: 35  FAILURES: 1  SKIPPED: 2
 ================================================================
 GO TEST EXIT: 0
 ================================================================
->>> negative self-test invocation exit: 1
-
---- contents of the negative self-test report file ---
 ================================================================
 Phase 4 canned-report harness -- scripts/verify-phase4.sh
-Run started (UTC): 2026-09-17T11:08:03Z
+Run started (UTC): 2026-09-17T12:16:02Z
 Mode: --self-test-negative (fixtures: scripts/fixtures/phase4-negative/, no server)
 BASE_URL: http://fixture.invalid
 CONNECTION_ID: 00000000-0000-0000-0000-000000000000
 NOT_OWNED_CONNECTION_ID: ffffffff-ffff-ffff-ffff-ffffffffffff
-git rev-parse --short HEAD: 39bc3cd
+git rev-parse --short HEAD: 4df1543
 ================================================================
 
 Ground rules: (1) proof here is this report or an end-user screenshot,
