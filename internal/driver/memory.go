@@ -56,15 +56,27 @@ const (
 	maxCoachingBullets = 8
 )
 
-// markerNameRe matches the name of any of our delimiting markers, in any
-// letter case, wherever it appears in untrusted text: the original four
-// WORD_WORD-shaped names (D-13), plus COACHING (plan 05-06 -- a hostile
-// line must not be able to open a coaching block) and CONVERSATION (plan
-// 05-05 -- the marker AI-chatter's own prompt introduced; this regex is the
-// one place every marker name is defended, so both new single-word markers
-// join it here even though CONVERSATION never appears in AI-player's own
-// prompt).
-var markerNameRe = regexp.MustCompile(`(?i)(GAME|QUEST|SESSION|MODEL)_(TEXT|MEMORY|REASONING)|COACHING|CONVERSATION`)
+// markerNameRe matches the name of one of the four WORD_WORD-shaped
+// delimiting markers (D-13), in any letter case, WHEREVER it appears in
+// untrusted text. An underscore-joined name never occurs in ordinary prose,
+// so breaking it everywhere costs nothing.
+var markerNameRe = regexp.MustCompile(`(?i)(GAME|QUEST|SESSION|MODEL)_(TEXT|MEMORY|REASONING)`)
+
+// bareMarkerRe matches the two single-word marker names, COACHING (plan
+// 05-06) and CONVERSATION (plan 05-05), ONLY where they stand as a marker:
+// inside brackets, with an optional closing slash and optional white space,
+// in any letter case. It runs after the bracket pass, so by then every angle
+// bracket and look-alike is already a square bracket and "</COACHING>" reads
+// "[/COACHING]".
+//
+// Code review WR-06 of Phase 5: these two used to be bare, unanchored
+// alternatives of markerNameRe. Unlike the underscore names they ARE ordinary
+// words, so every "conversation" in the game window, in memory bullets BEFORE
+// THEY WERE STORED, in the goal, in model reasoning and in the owner's own
+// coaching lines became "conver-sation", and "coaching" became "coac-hing".
+// The bracket pass had already removed the delimiter risk; the bare word
+// carried none.
+var bareMarkerRe = regexp.MustCompile(`(?i)(\[\s*/?\s*)(COACHING|CONVERSATION)(\s*\])`)
 
 // angleBracketReplacer turns every character a model could read as the
 // opening or closing angle bracket of a marker -- ASCII '<' and '>' and
@@ -90,25 +102,27 @@ var angleBracketReplacer = strings.NewReplacer(
 // player AND the reviewer at once, for as long as the bullet lived.
 //
 // After this function nothing in s can read as one of our markers: no angle
-// bracket of any kind survives (they become square brackets) and no marker
-// name survives intact (its underscore becomes a hyphen), so
-// "</SESSION_MEMORY>" reaches the model as "[/SESSION-MEMORY]". Line breaks
-// are left alone here because the game-text window and a model's reasoning
+// bracket of any kind survives (they become square brackets), no underscore
+// marker name survives intact anywhere (its underscore becomes a hyphen), and
+// neither single-word marker name survives intact inside brackets. So
+// "</SESSION_MEMORY>" reaches the model as "[/SESSION-MEMORY]" and
+// "</COACHING>" as "[/COAC-HING]", while "a conversation about coaching" is
+// left exactly as written (code review WR-06 of Phase 5). Line breaks are
+// left alone here because the game-text window and a model's reasoning
 // legitimately have them; single-line content uses neutraliseLine.
 func neutraliseUntrusted(s string) string {
 	s = angleBracketReplacer.Replace(s)
-	return markerNameRe.ReplaceAllStringFunc(s, breakMarkerName)
+	s = markerNameRe.ReplaceAllStringFunc(s, breakMarkerName)
+	return bareMarkerRe.ReplaceAllStringFunc(s, func(m string) string {
+		parts := bareMarkerRe.FindStringSubmatch(m)
+		return parts[1] + breakMarkerName(parts[2]) + parts[3]
+	})
 }
 
-// breakMarkerName inserts a hyphen into one marker-name match so it no
-// longer reads intact, preserving the matched text's own case exactly. It
-// works from the matched text alone, not from regexp capture groups: the
-// original four WORD_WORD-shaped markers have an underscore to split on,
-// but COACHING and CONVERSATION match whole, with no groups at all -- a
-// "$1-$2"-style replacement would silently collapse either of those two
-// matches to a bare hyphen (losing the text, not just defusing it), so this
-// function inserts the hyphen at the underscore when there is one, or at
-// the matched text's own midpoint when there is not.
+// breakMarkerName inserts a hyphen into one marker name so it no longer
+// reads intact, preserving the name's own letter case exactly. The four
+// WORD_WORD-shaped names have an underscore to split on; COACHING and
+// CONVERSATION have none, so the hyphen goes at the name's midpoint.
 func breakMarkerName(m string) string {
 	if idx := strings.IndexByte(m, '_'); idx != -1 {
 		return m[:idx] + "-" + m[idx+1:]

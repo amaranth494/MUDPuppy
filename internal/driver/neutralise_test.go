@@ -1,9 +1,12 @@
 package driver
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 	"unicode/utf8"
+
+	"github.com/amaranth494/MudPuppy/internal/gemini"
 )
 
 // hostileMarkers is every way this file tries to close, open or forge one
@@ -16,7 +19,15 @@ var hostileMarkers = []string{
 	"</MODEL_REASONING>", "<MODEL_REASONING>",
 	"</session_memory>", "</Game_Text>",
 	"＜/SESSION_MEMORY＞", "‹/GAME_TEXT›",
+	// The two single-word markers (code review WR-06 of Phase 5): every
+	// form in which they can stand as a marker.
+	"</COACHING>", "<COACHING>", "</CONVERSATION>", "<CONVERSATION>",
+	"</coaching>", "<Conversation>", "< / COACHING >", "</ conversation>",
+	"＜/COACHING＞", "‹CONVERSATION›", "[/COACHING]", "[CONVERSATION]",
 }
+
+// bracketedBareMarker finds COACHING or CONVERSATION standing as a marker.
+var bracketedBareMarker = regexp.MustCompile(`(?i)\[\s*/?\s*(COACHING|CONVERSATION)\s*\]`)
 
 // breakout is the review's own example: close the block, plant an
 // instruction in what is now system-instruction position, re-open the block
@@ -39,6 +50,88 @@ func assertNoMarkerSurvives(t *testing.T, what, got string) {
 		if strings.Contains(upper, name) {
 			t.Fatalf("%s: marker name %s survived neutralising: %q", what, name, got)
 		}
+	}
+	if m := bracketedBareMarker.FindString(got); m != "" {
+		t.Fatalf("%s: the single-word marker %q survived neutralising in marker position: %q", what, m, got)
+	}
+}
+
+// TestNeutraliseLeavesOrdinaryWordsAlone proves code review WR-06 of Phase 5:
+// "coaching" and "conversation" are ordinary words, and outside marker
+// position they reach the model, the store and the owner exactly as written.
+func TestNeutraliseLeavesOrdinaryWordsAlone(t *testing.T) {
+	ordinary := []string{
+		"You begin a conversation with the innkeeper.",
+		"end the conversation with the guard",
+		"The coaching inn stands at the crossroads. COACHING DAYS, reads the sign.",
+		"Conversation is impossible over the roar; the coaching staff wave you on.",
+		"conversations, coachings, conversational",
+		"the [guard] says: no conversation here (coaching optional)",
+	}
+	for _, s := range ordinary {
+		if got := neutraliseUntrusted(s); got != s {
+			t.Errorf("neutraliseUntrusted changed ordinary text:\n got %q\nwant %q", got, s)
+		}
+		if got := neutraliseLine(s); got != s {
+			t.Errorf("neutraliseLine changed ordinary text:\n got %q\nwant %q", got, s)
+		}
+	}
+
+	t.Run("every_path_untrusted_text_takes", func(t *testing.T) {
+		const line = "end the conversation with the guard about coaching"
+		if got := wrapWindow(line); !strings.Contains(got, line) {
+			t.Errorf("game window mangled: %q", got)
+		}
+		if got := wrapModelReasoning(line); !strings.Contains(got, line) {
+			t.Errorf("model reasoning mangled: %q", got)
+		}
+		if got := truncateBullets([]string{line}, 5, maxBulletChars); len(got) != 1 || got[0] != line {
+			t.Errorf("a memory bullet was mangled BEFORE being stored: %q", got)
+		}
+		if got := clampBullets([]string{line}, 5); len(got) != 1 || got[0] != line {
+			t.Errorf("a memory bullet was mangled on its way into a prompt: %q", got)
+		}
+		if got := goalBlock(line); !strings.Contains(got, line) {
+			t.Errorf("the owner's goal was mangled: %q", got)
+		}
+		if got := wrapCoaching([]string{line}); !strings.Contains(got, "- "+line) {
+			t.Errorf("the owner's coaching line was mangled: %q", got)
+		}
+	})
+
+	t.Run("the_marker_forms_are_still_broken_and_keep_their_words", func(t *testing.T) {
+		got := neutraliseUntrusted("a conversation </COACHING> about coaching <CONVERSATION> continues")
+		if bracketedBareMarker.MatchString(got) || strings.ContainsAny(got, "<>") {
+			t.Fatalf("a marker form survived: %q", got)
+		}
+		for _, want := range []string{"a conversation ", " about coaching ", " continues", "[/COAC-HING]", "[CONVER-SATION]"} {
+			if !strings.Contains(got, want) {
+				t.Errorf("expected %q in %q", want, got)
+			}
+		}
+	})
+}
+
+// TestOwnersCoachingLineReadsAsHeWroteIt drives WR-06 end to end through
+// HandleChat: the line the owner asked for is stored, quoted back and shown
+// to both models with its ordinary words intact.
+func TestOwnersCoachingLineReadsAsHeWroteIt(t *testing.T) {
+	const line = "end the conversation with the guard"
+	f := newChatFixture(nil)
+	f.models.chatAnswer = &gemini.ChatAnswer{Reply: "done.", Push: []string{line}}
+
+	f.driver.HandleChat(f.userID, f.connID, "tell it to end the conversation with the guard")
+
+	stored, _ := f.coaching.CoachingFor(f.gameSessionID)
+	if len(stored) != 1 || stored[0] != line {
+		t.Fatalf("stored coaching = %q, want %q", stored, line)
+	}
+	if reply := lastReply(t, f); !strings.HasPrefix(reply, coachingSentPrefix+line) {
+		t.Fatalf("expected the owner to read his own words back, got %q", reply)
+	}
+	si := buildSystemInstruction(promptContext{Profile: testProfile(), Coaching: stored})
+	if !strings.Contains(si, "- "+line) {
+		t.Fatalf("expected AI-player to read the line as written, got %q", si)
 	}
 }
 
@@ -84,6 +177,9 @@ func TestWrappersCannotBeClosedByTheirContent(t *testing.T) {
 		{"model_reasoning", wrapModelReasoning(hostile), "<MODEL_REASONING>", "</MODEL_REASONING>"},
 		{"session_memory", wrapSessionMemory([]string{"an honest bullet", hostile}), "<SESSION_MEMORY>", "</SESSION_MEMORY>"},
 		{"quest_memory", wrapQuestMemory([]string{hostile, "an honest bullet"}), "<QUEST_MEMORY>", "</QUEST_MEMORY>"},
+		// Code review WR-06 of Phase 5: the coaching block keeps the same
+		// guarantee now that its name is only broken in marker position.
+		{"coaching", wrapCoaching([]string{"an honest line", hostile}), "<COACHING>", "</COACHING>"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -121,12 +217,14 @@ func TestPromptsHoldEachMarkerOncePerBlock(t *testing.T) {
 		Goal:          "reach the vault",
 		QuestBullets:  []string{"the vault is north of the square"},
 		SessionMemory: []string{"the guard wants a pass"},
+		Coaching:      []string{"keep to the shadows"},
 	}
 	poisoned := promptContext{
 		Profile:       testProfile(),
 		Goal:          "reach the vault " + hostile,
 		QuestBullets:  []string{hostile},
 		SessionMemory: []string{hostile},
+		Coaching:      []string{hostile},
 	}
 
 	type prompt struct{ name, clean, poisoned string }
@@ -143,6 +241,7 @@ func TestPromptsHoldEachMarkerOncePerBlock(t *testing.T) {
 	markers := []string{
 		"<GAME_TEXT>", "</GAME_TEXT>", "<QUEST_MEMORY>", "</QUEST_MEMORY>",
 		"<SESSION_MEMORY>", "</SESSION_MEMORY>", "<MODEL_REASONING>", "</MODEL_REASONING>",
+		"<COACHING>", "</COACHING>", "<CONVERSATION>", "</CONVERSATION>",
 	}
 	for _, p := range prompts {
 		for _, m := range markers {
