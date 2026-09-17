@@ -24,6 +24,24 @@ func NewKeyStore(keys map[int][]byte) *KeyStore {
 	return &KeyStore{keys: keys}
 }
 
+// ErrInvalidKey is returned by ParseKey for a value that is not usable as a
+// vault key. It deliberately says nothing about the value itself.
+var ErrInvalidKey = errors.New("not a standard-base64-encoded 32-byte key")
+
+// ParseKey decodes one vault key exactly as DefaultKeyStore accepts it:
+// standard (not URL-safe) base64 of exactly 32 bytes, with no surrounding
+// white space or quotes. It is the ONE definition of "a usable key" (code
+// review WR-07 of Phase 4): internal/config's startup gate calls it too, so
+// the gate can never again pass a value this key store then silently
+// ignores. The error never contains the value or its length.
+func ParseKey(encoded string) ([]byte, error) {
+	keyData, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil || len(keyData) != 32 {
+		return nil, ErrInvalidKey
+	}
+	return keyData, nil
+}
+
 // DefaultKeyStore creates a key store from environment variables
 // Keys should be provided as base64-encoded 32-byte values
 func DefaultKeyStore() (*KeyStore, error) {
@@ -32,7 +50,7 @@ func DefaultKeyStore() (*KeyStore, error) {
 	// Try to load multiple key versions
 	for version := 1; version <= 3; version++ {
 		keyEnv := getKeyEnv(version)
-		if keyData, err := base64.StdEncoding.DecodeString(keyEnv); err == nil && len(keyData) == 32 {
+		if keyData, err := ParseKey(keyEnv); err == nil {
 			keys[version] = keyData
 		}
 	}

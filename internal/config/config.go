@@ -2,10 +2,13 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/amaranth494/MudPuppy/internal/crypto"
 )
 
 // AIModelEntry is one entry in the AI model registry: a slug, the vendor
@@ -195,8 +198,35 @@ func Load() (*Config, error) {
 	// owner's own machine; DefaultKeyStore's generated-key fallback stays
 	// in place for local development, unchanged. Never log the key, its
 	// length, or any other environment value here.
-	if cfg.EncryptionKeyV1 == "" && os.Getenv("RAILWAY_ENVIRONMENT") != "" {
-		return nil, errors.New("ENCRYPTION_KEY_V1 environment variable is required outside local development")
+	//
+	// Code review WR-07 of Phase 4: "missing" was the only case checked, and
+	// DefaultKeyStore ignores a key it cannot use exactly as it ignores one
+	// that is absent -- so a key pasted with quotes or a trailing space, in
+	// URL-safe base64, or of the wrong length started the server on a fresh
+	// random key all the same. (A trailing line break is fine: Go's base64
+	// decoder ignores it, the key store loads the key, and so this gate
+	// accepts it too.) The gate now asks the key store's own
+	// parser (crypto.ParseKey) whether each key that is set is usable. V1 is
+	// required; V2 and V3 are optional but, when set, must be usable too,
+	// because a rotation key that is silently dropped makes everything
+	// encrypted under it unreadable in the same way. The message names the
+	// variable and never the value.
+	if os.Getenv("RAILWAY_ENVIRONMENT") != "" {
+		if cfg.EncryptionKeyV1 == "" {
+			return nil, errors.New("ENCRYPTION_KEY_V1 environment variable is required outside local development")
+		}
+		for _, k := range []struct{ name, value string }{
+			{"ENCRYPTION_KEY_V1", cfg.EncryptionKeyV1},
+			{"ENCRYPTION_KEY_V2", cfg.EncryptionKeyV2},
+			{"ENCRYPTION_KEY_V3", cfg.EncryptionKeyV3},
+		} {
+			if k.value == "" {
+				continue
+			}
+			if _, err := crypto.ParseKey(k.value); err != nil {
+				return nil, fmt.Errorf("%s environment variable is set but unusable outside local development: it must be the standard base64 encoding of exactly 32 bytes, with no quotes or spaces", k.name)
+			}
+		}
 	}
 
 	// AI model registry (Phase 3, D-18). Scanned from the environment once:
