@@ -1,6 +1,7 @@
 package session
 
 import (
+	"encoding/json"
 	"reflect"
 	"sync"
 	"testing"
@@ -144,6 +145,62 @@ func TestPushAI(t *testing.T) {
 		}
 		if len(newFake.recorded()) != 1 {
 			t.Fatalf("new tab's connection did not receive the push; old tab's teardown deleted the new registration")
+		}
+	})
+}
+
+// TestAIPayloadSendsZeroAndEmpty is code review WR-05 of Phase 4, on the
+// wire. The panel updates a field only when the message carries it, so a
+// stint message must carry its counts when they are 0 and its memory list
+// when it is empty; a message that says nothing about the stint (the
+// goal-changed line) must carry none of them, or it would zero the panel.
+func TestAIPayloadSendsZeroAndEmpty(t *testing.T) {
+	decode := func(t *testing.T, p AIDecisionPayload) map[string]json.RawMessage {
+		t.Helper()
+		raw, err := json.Marshal(WSMessage{Type: MsgTypeAI, Decision: &p})
+		if err != nil {
+			t.Fatalf("marshal: %v", err)
+		}
+		var msg struct {
+			Decision map[string]json.RawMessage `json:"decision"`
+		}
+		if err := json.Unmarshal(raw, &msg); err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		return msg.Decision
+	}
+
+	t.Run("a_stint_message_carries_zero_counts_and_an_empty_list", func(t *testing.T) {
+		got := decode(t, AIDecisionPayload{ID: "dec-1", Kind: "decision", Outcome: "sent"}.
+			WithStint("on", 0, 0, false, 0, 0, 3, nil))
+		for field, want := range map[string]string{
+			"calls": "0", "failures": "0", "blocks": "0", "threshold": "3", "session_memory": "[]", "state": `"on"`,
+		} {
+			if string(got[field]) != want {
+				t.Errorf("%s = %s, want %s (present even when zero or empty)", field, got[field], want)
+			}
+		}
+	})
+
+	t.Run("a_stint_message_carries_its_values", func(t *testing.T) {
+		got := decode(t, AIDecisionPayload{Kind: "system"}.
+			WithStint("on", 7, 20, true, 1, 2, 3, []string{"the guard wants a pass"}))
+		for field, want := range map[string]string{
+			"calls": "7", "call_cap": "20", "call_cap_set": "true", "failures": "1", "blocks": "2",
+			"session_memory": `["the guard wants a pass"]`,
+		} {
+			if string(got[field]) != want {
+				t.Errorf("%s = %s, want %s", field, got[field], want)
+			}
+		}
+	})
+
+	t.Run("a_message_with_no_stint_data_carries_none_of_it", func(t *testing.T) {
+		got := decode(t, AIDecisionPayload{ID: "goal-1", Kind: "system", Outcome: "goal", Message: "Goal changed: reach the vault"})
+		for _, field := range []string{"calls", "call_cap", "failures", "blocks", "threshold", "session_memory", "state"} {
+			if _, present := got[field]; present {
+				t.Errorf("%s is present on a message that says nothing about the stint: %s", field, got[field])
+			}
 		}
 	})
 }

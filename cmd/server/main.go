@@ -328,23 +328,18 @@ func main() {
 	// refresh recovers it through the decisions-read endpoint even if the
 	// tab was closed at the moment the decision happened.
 	aiDriver.SetNotifier(aidriver.NotifierFunc(func(userID string, ev aidriver.Event) {
+		// WithStint (code review WR-05 of Phase 4): every driver event
+		// carries the stint's counts and memory list even when they are
+		// zero or empty, so the panel can show a streak that has cleared.
 		_ = wsHandler.PushAI(userID, session.AIDecisionPayload{
-			ID:            ev.ID,
-			Kind:          ev.Kind,
-			Reasoning:     ev.Reasoning,
-			Command:       ev.Command,
-			Outcome:       ev.Outcome,
-			Message:       ev.Message,
-			Timestamp:     ev.Timestamp,
-			State:         ev.State,
-			Calls:         ev.Calls,
-			CallCap:       ev.CallCap,
-			CallCapSet:    ev.CallCapSet,
-			Failures:      ev.Failures,
-			Blocks:        ev.Blocks,
-			Threshold:     ev.Threshold,
-			SessionMemory: ev.SessionMemory,
-		})
+			ID:        ev.ID,
+			Kind:      ev.Kind,
+			Reasoning: ev.Reasoning,
+			Command:   ev.Command,
+			Outcome:   ev.Outcome,
+			Message:   ev.Message,
+			Timestamp: ev.Timestamp,
+		}.WithStint(ev.State, ev.Calls, ev.CallCap, ev.CallCapSet, ev.Failures, ev.Blocks, ev.Threshold, ev.SessionMemory))
 	}))
 
 	// Wire the goal endpoint's goal-changed/goal-cleared system line

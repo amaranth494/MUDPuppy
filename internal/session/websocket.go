@@ -74,21 +74,51 @@ type AIDecisionPayload struct {
 	// badge and the panel's status line never lag behind what actually
 	// happened. The other fields are the standing call/failure/block counts
 	// against their resolved cap/threshold.
+	//
+	// The counts and the memory list are POINTERS (code review WR-05 of
+	// Phase 4). As plain omitempty values a zero count and an emptied list
+	// were left out of the message, and the panel -- which updates a field
+	// only when the message carries it -- went on showing "Consecutive
+	// failures: 1 of 3" after the next sent command had reset the count to
+	// 0, and the old bullets after the model emptied its memory. A pointer
+	// separates the two cases the wire has to tell apart: nil means "this
+	// message says nothing about the stint" (the goal-changed line) and is
+	// omitted; non-nil is always sent, zero and [] included. Build the stint
+	// half with WithStint, never field by field.
 	State      string `json:"state,omitempty"`
-	Calls      int    `json:"calls,omitempty"`
-	CallCap    int    `json:"call_cap,omitempty"`
+	Calls      *int   `json:"calls,omitempty"`
+	CallCap    *int   `json:"call_cap,omitempty"`
 	CallCapSet bool   `json:"call_cap_set,omitempty"`
-	Failures   int    `json:"failures,omitempty"`
-	Blocks     int    `json:"blocks,omitempty"`
-	Threshold  int    `json:"threshold,omitempty"`
+	Failures   *int   `json:"failures,omitempty"`
+	Blocks     *int   `json:"blocks,omitempty"`
+	Threshold  *int   `json:"threshold,omitempty"`
 
 	// SessionMemory carries the current game session's full curated Session
-	// Memory list (D-10, plan 04-08) on every ai message — the whole list,
-	// not a diff — so the panel's collapsible section replaces its
-	// displayed list wholesale from whichever message arrives. Omitted (not
-	// merely empty) when there is nothing to report, matching every other
-	// omitempty field on this payload.
-	SessionMemory []string `json:"session_memory,omitempty"`
+	// Memory list (D-10, plan 04-08) on every driver-emitted ai message — the
+	// whole list, not a diff — so the panel's collapsible section replaces
+	// its displayed list wholesale from whichever message arrives. Present
+	// (as [] when empty, never null) on every stint message; absent only on
+	// a message that says nothing about the stint.
+	SessionMemory *[]string `json:"session_memory,omitempty"`
+}
+
+// WithStint returns p carrying the stint's standing status (code review
+// WR-05 of Phase 4): every count is present on the wire even when it is
+// zero, and the Session Memory list is present even when it is empty (a nil
+// list is sent as [], never null).
+func (p AIDecisionPayload) WithStint(state string, calls, callCap int, callCapSet bool, failures, blocks, threshold int, sessionMemory []string) AIDecisionPayload {
+	if sessionMemory == nil {
+		sessionMemory = []string{}
+	}
+	p.State = state
+	p.Calls = &calls
+	p.CallCap = &callCap
+	p.CallCapSet = callCapSet
+	p.Failures = &failures
+	p.Blocks = &blocks
+	p.Threshold = &threshold
+	p.SessionMemory = &sessionMemory
+	return p
 }
 
 // IsHumanSource is the wheel-grab's classification rule. Absent or

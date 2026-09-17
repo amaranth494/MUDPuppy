@@ -2371,4 +2371,39 @@ func TestAIPayloadCarriesSwitchState(t *testing.T) {
 			t.Fatalf("expected the event's Calls (%d) to match the driver's recorded count (%d)", last.Calls, wantCalls)
 		}
 	})
+
+	// Code review WR-05 of Phase 4: the event that CLEARS a streak must say
+	// so. A transient failure shows "1 of 3"; the next sent command resets
+	// the count, and its event carries Failures 0 and a non-nil (empty)
+	// memory list for the wire to send as 0 and [] rather than leave out.
+	t.Run("the_event_after_a_cleared_streak_carries_zero_not_nothing", func(t *testing.T) {
+		sessions := &fakeSessions{window: "a room"}
+		sessions.engageState()
+		notifier := &fakeNotifier{}
+		models := &fakeModels{
+			answers: []*gemini.Answer{nil, {Reasoning: "recovered", Command: "look"}},
+			errs:    []error{&gemini.Error{Kind: gemini.KindTransport, Message: "dial tcp: i/o timeout"}, nil},
+		}
+		d := New(sessions, &fakeProfiles{profile: testProfile()}, &fakeDecisionsStore{}, models, &fakeCommands{}, notifier, testConfig())
+		d.SetMemory(newFakeMemoryStore())
+
+		userID := uuid.New().String()
+		connID := uuid.New().String()
+		d.HandleEngage(userID, connID) // 1 of 3
+		d.HandleEngage(userID, connID) // sent: the streak is cleared
+
+		events := notifier.eventsSnapshot()
+		if len(events) != 2 {
+			t.Fatalf("expected 2 events, got %d", len(events))
+		}
+		if events[0].Failures != 1 {
+			t.Fatalf("expected the failure event to carry Failures=1, got %d", events[0].Failures)
+		}
+		if events[1].Outcome != "sent" || events[1].Failures != 0 || events[1].Blocks != 0 {
+			t.Fatalf("expected the sent event to carry Failures=0 and Blocks=0, got %+v", events[1])
+		}
+		if events[1].SessionMemory == nil {
+			t.Fatalf("expected a non-nil (empty) Session Memory list on a stint event, got nil")
+		}
+	})
 }

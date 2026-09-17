@@ -200,20 +200,26 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
     const handleAI = (payload: AIDecisionPayload) => {
       // 04-04 D-14/D-15/D-17: every event the driver emits during a stint
       // carries the standing counts; update only the fields this payload
-      // actually carries, since not every future 'ai' message (e.g. a goal
-      // change) needs to.
-      if (payload.calls !== undefined) setCallCount(payload.calls);
+      // actually carries, since not every 'ai' message (e.g. a goal change)
+      // does. Code review WR-05: the server now sends these fields on every
+      // stint message even when they are 0 (it used to leave a zero out, so
+      // "Consecutive failures: 1 of 3" stayed on screen after the streak had
+      // been cleared). "Carried" therefore means "is a number", and a
+      // carried 0 is applied like any other value.
+      const carried = (v: unknown): v is number => typeof v === 'number';
+      if (carried(payload.calls)) setCallCount(payload.calls);
       if (payload.call_cap_set) {
         setCallCap(payload.call_cap ?? null);
-      } else if (payload.calls !== undefined) {
+      } else if (carried(payload.calls)) {
         setCallCap(null);
       }
-      if (payload.failures !== undefined) setFailureCount(payload.failures);
-      if (payload.blocks !== undefined) setBlockCount(payload.blocks);
-      if (payload.threshold !== undefined) setDisengageThreshold(payload.threshold);
-      // 04-08 D-10: the full curated list rides every 'ai' message that
-      // carries one — replace wholesale, never merge or diff.
-      if (payload.session_memory !== undefined) setSessionMemory(payload.session_memory);
+      if (carried(payload.failures)) setFailureCount(payload.failures);
+      if (carried(payload.blocks)) setBlockCount(payload.blocks);
+      if (carried(payload.threshold)) setDisengageThreshold(payload.threshold);
+      // 04-08 D-10: the full curated list rides every stint message —
+      // replace wholesale, never merge or diff. An EMPTY list is a real
+      // value too (the AI emptied its memory) and replaces the old bullets.
+      if (Array.isArray(payload.session_memory)) setSessionMemory(payload.session_memory);
 
       if (payload.kind === 'decision') {
         setEntries((prev) => [
