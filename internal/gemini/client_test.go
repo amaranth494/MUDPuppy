@@ -715,3 +715,128 @@ func TestReviewCommandErrors(t *testing.T) {
 		})
 	}
 }
+
+// writeChatSuccess writes a 200 Gemini generateContent response whose inner
+// text field decodes to {"reply": reply}, mirroring writeSuccess's
+// double-encode shape for AI-chatter's answer.
+func writeChatSuccess(w http.ResponseWriter, reply string) {
+	inner, _ := json.Marshal(ChatAnswer{Reply: reply})
+	envelope := map[string]any{
+		"candidates": []map[string]any{
+			{
+				"content": map[string]any{
+					"parts": []map[string]any{
+						{"text": string(inner)},
+					},
+				},
+			},
+		},
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(envelope)
+}
+
+// TestChat_DecodesReply proves a well-formed body round-trips through
+// Chat's double-decode exactly like GenerateContent's and ReviewCommand's
+// own decode tests.
+func TestChat_DecodesReply(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeChatSuccess(w, "AI-player avoided the north road because you asked it to.")
+	}))
+	defer srv.Close()
+
+	c := NewClient(5 * time.Second)
+	answer, err := c.Chat(context.Background(), srv.URL, "test-model", testFakeKey, "sys", "why did you go east?")
+	if err != nil {
+		t.Fatalf("Chat() error = %v", err)
+	}
+	if answer.Reply != "AI-player avoided the north road because you asked it to." {
+		t.Errorf("Reply = %q, want the decoded value, not raw JSON", answer.Reply)
+	}
+}
+
+// TestChat_MissingReplyIsMalformed proves an inner body of {} -- a
+// syntactically valid answer that carries no reply at all -- is a
+// KindMalformed error, never a decoded ChatAnswer with an empty Reply an
+// owner could mistake for a real (if terse) answer. D-11 says AI-chatter
+// always answers.
+func TestChat_MissingReplyIsMalformed(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		envelope := map[string]any{
+			"candidates": []map[string]any{
+				{
+					"content": map[string]any{
+						"parts": []map[string]any{
+							{"text": `{}`},
+						},
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(envelope)
+	}))
+	defer srv.Close()
+
+	c := NewClient(5 * time.Second)
+	answer, err := c.Chat(context.Background(), srv.URL, "test-model", testFakeKey, "sys", "user")
+	if err == nil {
+		t.Fatal("expected an error for a missing reply, got nil")
+	}
+	if answer != nil {
+		t.Errorf("expected nil *ChatAnswer, got %+v", answer)
+	}
+	if got := ErrorKind(err); got != KindMalformed {
+		t.Errorf("ErrorKind() = %v, want %v", got, KindMalformed)
+	}
+}
+
+// TestChat_SchemaShape asserts the request body Chat sends carries the
+// reply property, the required list and the property ordering, the same
+// way TestGenerateContent's "request_carries_system_instruction_and_schema"
+// subtest asserts GenerateContent's schema.
+func TestChat_SchemaShape(t *testing.T) {
+	var decoded map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&decoded); err != nil {
+			t.Errorf("decode request body: %v", err)
+		}
+		writeChatSuccess(w, "a short plain answer")
+	}))
+	defer srv.Close()
+
+	c := NewClient(5 * time.Second)
+	if _, err := c.Chat(context.Background(), srv.URL, "test-model", testFakeKey, "sys", "user"); err != nil {
+		t.Fatalf("Chat() error = %v", err)
+	}
+
+	genConfig, ok := decoded["generationConfig"].(map[string]any)
+	if !ok {
+		t.Fatal("request body missing generationConfig")
+	}
+	schema, ok := genConfig["responseSchema"].(map[string]any)
+	if !ok {
+		t.Fatal("generationConfig missing responseSchema")
+	}
+	props, ok := schema["properties"].(map[string]any)
+	if !ok {
+		t.Fatal("responseSchema missing properties")
+	}
+	if _, ok := props["reply"]; !ok {
+		t.Error("responseSchema.properties missing reply")
+	}
+	required, ok := schema["required"].([]any)
+	if !ok {
+		t.Fatal("responseSchema missing required")
+	}
+	if len(required) != 1 || required[0] != "reply" {
+		t.Errorf("responseSchema.required = %v, want [\"reply\"]", required)
+	}
+	ordering, ok := schema["propertyOrdering"].([]any)
+	if !ok {
+		t.Fatal("responseSchema missing propertyOrdering")
+	}
+	if len(ordering) != 1 || ordering[0] != "reply" {
+		t.Errorf("responseSchema.propertyOrdering = %v, want [\"reply\"]", ordering)
+	}
+}
