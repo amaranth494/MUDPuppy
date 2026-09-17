@@ -131,3 +131,16 @@ None — no external service configuration required.
 ---
 *Phase: 04-continuous-play*
 *Completed: 2026-09-16*
+
+## Self-Check: PASSED
+
+- FOUND: migrations/013_add_goal_memory_and_quests.up.sql
+- FOUND: migrations/013_add_goal_memory_and_quests.down.sql
+- FOUND: internal/store/quests.go
+- FOUND: internal/store/quests_test.go
+- FOUND: .planning/phases/04-continuous-play/04-06-SUMMARY.md
+- FOUND: commit 26c9b86 (Task 04-06-01)
+- FOUND: commit 30bd4e7 (Task 04-06-02)
+- FOUND: commit 3ad375e (Task 04-06-03)
+- FOUND: commit 3e0d5f0 (build: rebuild production bundle)
+- FOUND: commit 53246c6 (docs: plan summary)
