@@ -159,3 +159,17 @@ Optional: `NOT_OWNED_CONNECTION_ID` (defaults to `ffffffff-ffff-ffff-ffff-ffffff
 ---
 *Phase: 04-continuous-play*
 *Completed: 2026-09-17*
+
+## Self-Check: PASSED
+
+- FOUND: scripts/verify-phase4.sh
+- FOUND: scripts/fixtures/phase4/README.md
+- FOUND: scripts/fixtures/phase4-negative/README.md
+- FOUND: scripts/fixtures/phase4/12-decisions-get-after.json
+- FOUND: scripts/fixtures/phase4-negative/12-decisions-get-after.json
+- FOUND: internal/profiles/handler.go
+- FOUND: internal/profiles/handler_test.go
+- FOUND: .planning/phases/04-continuous-play/deferred-items.md
+- FOUND: commit 1d100b5 (Task 04-10-01)
+- FOUND: commit dfa66c8 (Task 04-10-02)
+- FOUND: commit 7ca42b2 (docs: plan summary)
