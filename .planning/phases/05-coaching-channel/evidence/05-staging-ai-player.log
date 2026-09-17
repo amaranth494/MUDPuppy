@@ -1,0 +1,4 @@
+### STARTUP (deployment 09925327-7104-45a0-ac52-c24b34f9e450, railway up --detach -e staging -s MudPuppy, local HEAD 8b88bdf)
+### captured with: railway logs -d <deployment-id> -e staging -s MudPuppy, filtered to migration and startup lines
+2026/09/17 21:27:00 Migrations completed successfully (version=15, dirty=false)
+2026/09/17 21:27:00 Server starting on port 8080
