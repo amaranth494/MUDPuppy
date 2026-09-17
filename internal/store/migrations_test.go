@@ -60,6 +60,37 @@ func TestMigration012DownReconcilesBlockedRows(t *testing.T) {
 	}
 }
 
+// TestMigration014AddsLoginStartedAtColumn proves D-31's storage half
+// without a database connection: the up file adds users.login_started_at
+// with a NOT NULL DEFAULT NOW() (the deliberate backfill for a user already
+// signed in when the migration runs), and the down file drops the same
+// column, so the pair round-trips cleanly.
+func TestMigration014AddsLoginStartedAtColumn(t *testing.T) {
+	upPath := filepath.Join("..", "..", "migrations", "014_add_login_started_at.up.sql")
+	upRaw, err := os.ReadFile(upPath)
+	if err != nil {
+		t.Fatalf("could not read %s: %v", upPath, err)
+	}
+	upStripped := stripSQLComments(string(upRaw))
+
+	const addColumn = "ALTER TABLE users\nADD COLUMN IF NOT EXISTS login_started_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW();"
+	if !strings.Contains(upStripped, addColumn) {
+		t.Errorf("expected the up migration to contain %q; got file contents:\n%s", addColumn, upStripped)
+	}
+
+	downPath := filepath.Join("..", "..", "migrations", "014_add_login_started_at.down.sql")
+	downRaw, err := os.ReadFile(downPath)
+	if err != nil {
+		t.Fatalf("could not read %s: %v", downPath, err)
+	}
+	downStripped := stripSQLComments(string(downRaw))
+
+	const dropColumn = "ALTER TABLE users\nDROP COLUMN IF EXISTS login_started_at;"
+	if !strings.Contains(downStripped, dropColumn) {
+		t.Errorf("expected the down migration to contain %q; got file contents:\n%s", dropColumn, downStripped)
+	}
+}
+
 // TestMigrationFilesPairUp is a cheap standing guard against the same class
 // of defect as D-26: every up migration must have a matching down migration,
 // so a future migration cannot ship without a rollback.

@@ -117,3 +117,20 @@ func (s *UserStore) EmailExists(email string) (bool, error) {
 	`, email).Scan(&exists)
 	return exists, err
 }
+
+// MarkLoginStarted records that userID's current MUDPuppy login began now
+// (D-31, migration 014): the auth handler calls this on a successful Login
+// and again on Logout, so the login's boundary is always the moment
+// sign-in completed or sign-out cleared the session -- never the moment a
+// game connection happens to open. OpenGameSession
+// (internal/store/transcripts.go) reads login_started_at back, in the same
+// INSERT that opens a new game session, to decide which earlier game
+// session's Session Memory, if any, the new one inherits.
+func (s *UserStore) MarkLoginStarted(userID uuid.UUID) error {
+	_, err := s.db.Exec(`
+		UPDATE users
+		SET login_started_at = NOW(), updated_at = NOW()
+		WHERE id = $1
+	`, userID)
+	return err
+}
