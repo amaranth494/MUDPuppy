@@ -289,6 +289,11 @@ func main() {
 	// reason: another per-connection AI Player store sharing the same
 	// *sql.DB.
 	conversationStore := store.NewConversationStore(db)
+	// coachingStore backs the standing coaching list AI-chatter pushes to
+	// and withdraws from (plan 05-06, D-08), constructed beside
+	// conversationStore for the same reason: another per-connection AI
+	// Player store sharing the same *sql.DB.
+	coachingStore := store.NewCoachingStore(db)
 	// 120s: current Gemini flash models take well over the 30s default to return a
 	// structured answer (seen on staging 2026-09-16: transport timeout at exactly 30s).
 	geminiClient := gemini.NewClient(120 * time.Second)
@@ -311,11 +316,22 @@ func main() {
 	// and recalls against the same conversationStore the Logs page will
 	// read from.
 	aiDriver.SetConversation(conversationStore)
+	// Wire the real coaching store (plan 05-06) so HandleChat's push/
+	// withdraw step and both prompts' Coaching block read and write
+	// against the same coachingStore the panel's "Coaching in effect"
+	// read below reloads from.
+	aiDriver.SetCoaching(coachingStore)
 
 	// Wire the same decisionStore instance to the decisions-read endpoint
 	// (plan 03-09) so a reloaded play screen reads back exactly what the
 	// driver above wrote.
 	profilesHandler.SetDecisionStore(decisionStore)
+	// Wire the coaching and conversation stores to their own GET-only
+	// read endpoints (plan 05-06, D-09) so the panel's "Coaching in
+	// effect" list and the AI-chatter conversation reload after a
+	// refresh from exactly what the driver above reads and writes.
+	profilesHandler.SetCoachingStore(coachingStore)
+	profilesHandler.SetConversationStore(conversationStore)
 	// Wire questStore to the goal endpoint (plan 04-06, D-04).
 	profilesHandler.SetQuestStore(questStore)
 
@@ -586,6 +602,30 @@ func main() {
 		switch r.Method {
 		case http.MethodGet:
 			profilesHandler.GetSessionMemory(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// The panel's "Coaching in effect" reload (plan 05-06, D-09): GET-only,
+	// following ai-memory's exact shape -- no PUT, the coaching store's only
+	// writer is internal/driver's HandleChat (D-18).
+	mux.HandleFunc("/api/v1/profiles/{connection_id}/ai-coaching", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			profilesHandler.GetCoaching(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// The panel's AI-chatter conversation reload (plan 05-06, D-09):
+	// GET-only, following ai-memory's exact shape -- no PUT or POST, the
+	// message box writes through the websocket chat channel (D-18).
+	mux.HandleFunc("/api/v1/profiles/{connection_id}/ai-conversation", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			profilesHandler.GetConversation(w, r)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
