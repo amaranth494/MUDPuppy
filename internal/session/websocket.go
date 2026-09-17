@@ -76,7 +76,9 @@ type WSMessage struct {
 // (D-08). Kind is "decision" (Reasoning and Command are set, Outcome is
 // "sent") or "system" (Message carries a locked failure/refusal notice,
 // Outcome is one of "refused", "failed", "cap", "blocked-repeatedly",
-// "transient" or "retrying" as of Phase 4). Never logged in full (T-3-07).
+// "transient" or "retrying" as of Phase 4, plus "coaching-received" as of
+// plan 05-06 -- the thinking-stream marker for a coaching push or withdraw,
+// D-05). Never logged in full (T-3-07).
 type AIDecisionPayload struct {
 	ID        string `json:"id"`
 	Kind      string `json:"kind"`

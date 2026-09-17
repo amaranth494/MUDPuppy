@@ -48,6 +48,20 @@ type decisionsStorage interface {
 	ListForConnection(connectionID uuid.UUID, limit int) ([]store.Decision, error)
 }
 
+// coachingStorage is the subset of *store.CoachingStore the ai-coaching
+// read endpoint calls (plan 05-06, D-09). Same discipline as
+// transcriptStorage above.
+type coachingStorage interface {
+	CoachingForConnection(connectionID uuid.UUID) ([]string, error)
+}
+
+// conversationStorage is the subset of *store.ConversationStore the
+// ai-conversation read endpoint calls (plan 05-06, D-09). Same discipline
+// as coachingStorage above.
+type conversationStorage interface {
+	ConversationFor(connectionID uuid.UUID) ([]store.ConversationLine, error)
+}
+
 // questStorage is the subset of *store.QuestStore the goal endpoint calls
 // (task 04-06-02, D-04). Same discipline as decisionsStorage above: an
 // interface lets handler_test.go exercise PutGoal with a hand-written fake
@@ -109,6 +123,14 @@ type Handler struct {
 	// notifier never blocks the goal save itself, same discipline as
 	// internal/driver.Notifier being nil-safe.
 	aiNotifier AINotifier
+	// coaching is nil until SetCoachingStore is called, making GetCoaching
+	// answer 503 rather than panic (plan 05-06, D-09) -- same discipline as
+	// transcripts above.
+	coaching coachingStorage
+	// conversation is nil until SetConversationStore is called, making
+	// GetConversation answer 503 rather than panic (plan 05-06, D-09) --
+	// same discipline as transcripts above.
+	conversation conversationStorage
 }
 
 // SetDecisionStore wires the connection's-decisions read endpoint
@@ -147,6 +169,22 @@ func (h *Handler) SetRetention(j *store.RetentionJob) {
 // without a live websocket handler.
 func (h *Handler) SetAINotifier(n AINotifier) {
 	h.aiNotifier = n
+}
+
+// SetCoachingStore wires the ai-coaching read endpoint (plan 05-06, D-09) to
+// s. Same nil-underlying-pointer guard as SetDecisionStore above.
+func (h *Handler) SetCoachingStore(s *store.CoachingStore) {
+	if s != nil {
+		h.coaching = s
+	}
+}
+
+// SetConversationStore wires the ai-conversation read endpoint (plan 05-06,
+// D-09) to s. Same nil-underlying-pointer guard as SetDecisionStore above.
+func (h *Handler) SetConversationStore(s *store.ConversationStore) {
+	if s != nil {
+		h.conversation = s
+	}
 }
 
 // NewHandler creates a new profiles handler with no transcript store
@@ -249,6 +287,36 @@ type GoalResponse struct {
 // editing Session Memory by hand is Phase 5.
 type SessionMemoryResponse struct {
 	SessionMemory []string `json:"session_memory"`
+}
+
+// CoachingResponse is the GET response for the ai-coaching sub-resource
+// (D-09, plan 05-06): the connection's standing coaching list within the
+// current MUDPuppy login, never null (an empty list serialises as []).
+// There is deliberately no PUT request body type to match -- the coaching
+// list is AI-chatter's own working list, not configuration (D-10, D-18);
+// its only writer anywhere in the codebase is internal/driver's HandleChat.
+type CoachingResponse struct {
+	Coaching []string `json:"coaching"`
+}
+
+// ConversationLineResponse is one line of the owner/AI-chatter conversation
+// on the wire (plan 05-06), carrying exactly what the panel's reload needs:
+// an id, a speaker, the text and when it happened.
+type ConversationLineResponse struct {
+	ID        int64  `json:"id"`
+	Speaker   string `json:"speaker"`
+	Text      string `json:"text"`
+	Timestamp string `json:"timestamp"`
+}
+
+// ConversationResponse is the GET response for the ai-conversation
+// sub-resource (D-09, plan 05-06): the connection's conversation within the
+// current MUDPuppy login, oldest first, never null. There is deliberately
+// no PUT, POST or DELETE request body type to match -- the panel's message
+// box writes through the websocket chat channel (MsgTypeChat), never this
+// endpoint (D-18).
+type ConversationResponse struct {
+	Lines []ConversationLineResponse `json:"lines"`
 }
 
 // DeleteCapturedTextResponse is the response for the owner's immediate
@@ -941,6 +1009,98 @@ func (h *Handler) GetSessionMemory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.sendJSON(w, SessionMemoryResponse{SessionMemory: bullets})
+}
+
+// GetCoaching handles GET /api/v1/profiles/:connection_id/ai-coaching
+// (D-09, plan 05-06). GET-only, following GetSessionMemory's exact shape:
+// ownership is resolved through getProfileByConnectionID, the same check
+// every other profile sub-resource uses. A nil coaching store fails closed
+// with 503 rather than panicking. There is deliberately no PUT, POST or
+// DELETE -- the panel reads this and nothing else writes it (D-18): the
+// coaching store's only writer anywhere in the codebase is
+// internal/driver's HandleChat.
+func (h *Handler) GetCoaching(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	_, _, err := h.getProfileByConnectionID(r)
+	if err != nil {
+		h.sendError(w, err.Error())
+		return
+	}
+
+	if h.coaching == nil {
+		http.Error(w, "Coaching unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	connectionID, err := h.getConnectionIDFromPath(r)
+	if err != nil {
+		h.sendError(w, err.Error())
+		return
+	}
+
+	coaching, err := h.coaching.CoachingForConnection(connectionID)
+	if err != nil {
+		log.Printf("[PH0107] Get coaching failed: %v", err)
+		h.sendError(w, "Failed to load coaching")
+		return
+	}
+	if coaching == nil {
+		coaching = []string{}
+	}
+
+	h.sendJSON(w, CoachingResponse{Coaching: coaching})
+}
+
+// GetConversation handles GET /api/v1/profiles/:connection_id/ai-conversation
+// (D-09, plan 05-06). GET-only, same shape as GetCoaching above. There is
+// deliberately no PUT, POST or DELETE -- the panel's message box writes
+// through the websocket chat channel (MsgTypeChat), never this endpoint
+// (D-18).
+func (h *Handler) GetConversation(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	_, _, err := h.getProfileByConnectionID(r)
+	if err != nil {
+		h.sendError(w, err.Error())
+		return
+	}
+
+	if h.conversation == nil {
+		http.Error(w, "Conversation unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	connectionID, err := h.getConnectionIDFromPath(r)
+	if err != nil {
+		h.sendError(w, err.Error())
+		return
+	}
+
+	lines, err := h.conversation.ConversationFor(connectionID)
+	if err != nil {
+		log.Printf("[PH0107] Get conversation failed: %v", err)
+		h.sendError(w, "Failed to load conversation")
+		return
+	}
+
+	resp := ConversationResponse{Lines: make([]ConversationLineResponse, 0, len(lines))}
+	for _, line := range lines {
+		resp.Lines = append(resp.Lines, ConversationLineResponse{
+			ID:        line.ID,
+			Speaker:   line.Speaker,
+			Text:      line.Text,
+			Timestamp: line.CreatedAt.UTC().Format(time.RFC3339),
+		})
+	}
+
+	h.sendJSON(w, resp)
 }
 
 // DeleteCapturedText handles DELETE

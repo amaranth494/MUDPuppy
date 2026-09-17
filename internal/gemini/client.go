@@ -370,26 +370,37 @@ func (c *Client) ReviewCommand(ctx context.Context, endpoint, model, apiKey, sys
 }
 
 // ChatAnswer is AI-chatter's constrained answer to one owner message: a
-// short plain-text reply, and nothing else yet. Plan 05-06 extends this
-// type with the coaching-suggestion fields once that behaviour ships;
-// shipping those fields now, unread, would be dead wire.
+// short plain-text reply, plus optional standing-suggestion actions (plan
+// 05-06, D-08, D-10): Push names lines to relay down to AI-player as new
+// coaching, Withdraw names lines -- copied verbatim from the coaching
+// currently in effect, per the chat prompt's own instruction -- to remove.
+// Reply stays the only required property; PropertyOrdering places it first
+// so the model states its answer before its actions.
 type ChatAnswer struct {
-	Reply string `json:"reply"`
+	Reply    string   `json:"reply"`
+	Push     []string `json:"push,omitempty"`
+	Withdraw []string `json:"withdraw,omitempty"`
 }
 
 // Chat asks the model to answer one owner chat message (D-01, D-11), using
 // the same constrained-JSON mechanism GenerateContent and ReviewCommand
 // already use. D-11 says AI-chatter always answers, so an answer whose
 // reply is missing or empty is a *Error{Kind: KindMalformed}, the same
-// failure kind a genuine decode error already returns.
+// failure kind a genuine decode error already returns. push and withdraw
+// are optional array-of-string properties, using schemaProperty.Items
+// exactly as GenerateContent's session_memory/quest_memory fields do.
 func (c *Client) Chat(ctx context.Context, endpoint, model, apiKey, systemInstruction, userText string) (*ChatAnswer, error) {
 	schema := responseSchema{
 		Type: "object",
 		Properties: map[string]schemaProperty{
-			"reply": {Type: "string"},
+			"reply":    {Type: "string"},
+			"push":     {Type: "array", Items: &schemaProperty{Type: "string"}},
+			"withdraw": {Type: "array", Items: &schemaProperty{Type: "string"}},
 		},
-		Required:         []string{"reply"},
-		PropertyOrdering: []string{"reply"},
+		Required: []string{"reply"},
+		// The model states its answer before its actions: reply, then push,
+		// then withdraw.
+		PropertyOrdering: []string{"reply", "push", "withdraw"},
 	}
 	inner, err := c.doGenerate(ctx, endpoint, model, apiKey, systemInstruction, userText, schema)
 	if err != nil {
@@ -401,15 +412,23 @@ func (c *Client) Chat(ctx context.Context, endpoint, model, apiKey, systemInstru
 // chatAnswerWire mirrors ChatAnswer for the outer decode, following
 // decodeAnswer's tolerant pattern: a syntactically valid body that is
 // missing or empty on reply is a malformed answer, not a Go zero-value
-// reply an owner could mistake for a real one.
+// reply an owner could mistake for a real one. push and withdraw are kept
+// as raw JSON so a malformed shape on either drops that field alone rather
+// than failing the whole decode -- a bad coaching action must never cost
+// the owner a reply, mirroring decodeAnswer's own tolerance for
+// session_memory/quest_memory.
 type chatAnswerWire struct {
-	Reply string `json:"reply"`
+	Reply    string          `json:"reply"`
+	Push     json.RawMessage `json:"push,omitempty"`
+	Withdraw json.RawMessage `json:"withdraw,omitempty"`
 }
 
 // decodeChatAnswer decodes a raw structured-answer payload into a
 // ChatAnswer, failing closed (KindMalformed) when reply is missing or
 // empty -- D-11 says AI-chatter always answers, so a decoded-but-empty
-// reply must never reach the owner as if it were a real one.
+// reply must never reach the owner as if it were a real one. A malformed
+// push or withdraw shape leaves that field nil rather than failing the
+// decode.
 func decodeChatAnswer(data []byte) (*ChatAnswer, error) {
 	var wire chatAnswerWire
 	if err := json.Unmarshal(data, &wire); err != nil {
@@ -418,7 +437,20 @@ func decodeChatAnswer(data []byte) (*ChatAnswer, error) {
 	if wire.Reply == "" {
 		return nil, &Error{Kind: KindMalformed, Message: "AI-chatter's answer did not carry a reply"}
 	}
-	return &ChatAnswer{Reply: wire.Reply}, nil
+	answer := &ChatAnswer{Reply: wire.Reply}
+	if len(wire.Push) > 0 {
+		var push []string
+		if json.Unmarshal(wire.Push, &push) == nil {
+			answer.Push = push
+		}
+	}
+	if len(wire.Withdraw) > 0 {
+		var withdraw []string
+		if json.Unmarshal(wire.Withdraw, &withdraw) == nil {
+			answer.Withdraw = withdraw
+		}
+	}
+	return answer, nil
 }
 
 // errorFromResponse maps a non-200 Gemini response to a typed *Error,
