@@ -191,7 +191,7 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
   const sendChatMessage = useCallback(() => {
     const text = chatDraft.trim();
     if (!text) return;
-    const sent = wsManager ? wsManager.sendChat(text) : false;
+    const sent = wsManager ? wsManager.sendChat(text, connectionId) : false;
     if (sent) {
       setChatDraft('');
     } else {
@@ -209,7 +209,7 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
         },
       ]);
     }
-  }, [chatDraft, wsManager]);
+  }, [chatDraft, wsManager, connectionId]);
 
   // 04-04: the standing status line's counts (D-14, D-15, D-17), held in
   // component state and updated from whichever fields the latest 'ai'

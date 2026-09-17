@@ -157,6 +157,16 @@ type ChatPayload struct {
 	Timestamp string `json:"timestamp"`
 }
 
+// chatWrongConnectionError is what the owner reads when a chat message named
+// a different connection from the one the server has for him (code review
+// WR-10 of Phase 5). chatUnknownConnectionError is for the rarer case where
+// the server knows of no connection at all and the message named none.
+// Either way nothing was sent to AI-chatter and nothing was saved.
+const (
+	chatWrongConnectionError   = "That message was not sent to AI-chatter: it was for a different connection from the one you are playing. Reload the page and try again."
+	chatUnknownConnectionError = "That message was not sent to AI-chatter: connect to the game first, then try again."
+)
+
 // IsHumanSource is the wheel-grab's classification rule. Absent or
 // unrecognised means human, because the failure in that direction is an
 // unwanted disengage the owner will notice immediately, while the opposite
@@ -665,11 +675,19 @@ func (h *WebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 				continue
 			}
 
-			connectionID := wsMsg.ConnectionID
-			if connectionID == "" {
-				if sess, sessErr := h.manager.GetSession(userIDStr); sessErr == nil {
-					connectionID = sess.ConnectionID
+			// Code review WR-10 of Phase 5: the connection is resolved from
+			// the server's own state; an id in the message can never override
+			// it. A message naming a different connection is refused. Ids and
+			// a length only in the log line, never the chat text.
+			connectionID, resolved := h.manager.ResolveChatConnection(userIDStr, wsMsg.ConnectionID)
+			if !resolved {
+				reason, notice := "connection-mismatch", chatWrongConnectionError
+				if wsMsg.ConnectionID == "" {
+					reason, notice = "connection-unknown", chatUnknownConnectionError
 				}
+				log.Printf("[AI-CHATTER] chat user_id=%s stage=refused reason=%s message_len=%d", userIDStr, reason, len(wsMsg.Data))
+				h.sendError(conn, notice)
+				continue
 			}
 
 			go h.manager.FireChatHook(userIDStr, connectionID, wsMsg.Data)

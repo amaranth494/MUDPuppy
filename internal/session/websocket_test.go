@@ -446,6 +446,102 @@ func TestWheelGrabSourceRule(t *testing.T) {
 	})
 }
 
+// TestResolveChatConnection proves code review WR-10 of Phase 5: the
+// connection a chat message belongs to comes from the server's own state and
+// an id in the message can never override it; and code review WR-01: that
+// state survives the game connection going down, so chat still has a target
+// while disconnected (D-06).
+func TestResolveChatConnection(t *testing.T) {
+	t.Run("the_live_session_decides_and_the_browser_need_not_name_it", func(t *testing.T) {
+		m := newTestManager()
+		seedConnectedSession(m, "u1", "conn-a")
+
+		if got, ok := m.ResolveChatConnection("u1", ""); !ok || got != "conn-a" {
+			t.Fatalf("ResolveChatConnection = (%q, %v), want (conn-a, true)", got, ok)
+		}
+		if got, ok := m.ResolveChatConnection("u1", "conn-a"); !ok || got != "conn-a" {
+			t.Fatalf("a matching supplied id: got (%q, %v), want (conn-a, true)", got, ok)
+		}
+	})
+
+	t.Run("a_supplied_id_for_another_connection_is_refused", func(t *testing.T) {
+		m := newTestManager()
+		seedConnectedSession(m, "u1", "conn-a")
+
+		if got, ok := m.ResolveChatConnection("u1", "conn-b"); ok || got != "" {
+			t.Fatalf("ResolveChatConnection = (%q, %v), want (\"\", false): the message must never reach profile B's text under connection A's session", got, ok)
+		}
+	})
+
+	t.Run("disconnected_with_the_switch_parked_resolves_to_the_parked_connection", func(t *testing.T) {
+		m := newTestManager()
+		seedConnectedSession(m, "u1", "conn-a")
+		if _, _, err := m.EngageAutopilot("u1", "conn-a"); err != nil {
+			t.Fatalf("engage err = %v", err)
+		}
+		if err := m.Disconnect("u1", ReasonRemote); err != nil {
+			t.Fatalf("Disconnect err = %v", err)
+		}
+		// GetSession answers a blank placeholder, not an error, once the
+		// session is gone: this is the state the old fallback read "" from.
+		if sess, _ := m.GetSession("u1"); sess.ConnectionID != "" || sess.State == StateConnected {
+			t.Fatalf("precondition: expected no live session after the disconnect, got %+v", sess)
+		}
+
+		if got, ok := m.ResolveChatConnection("u1", ""); !ok || got != "conn-a" {
+			t.Fatalf("ResolveChatConnection while WAITING / connection lost = (%q, %v), want (conn-a, true)", got, ok)
+		}
+		if _, ok := m.ResolveChatConnection("u1", "conn-b"); ok {
+			t.Fatal("a different supplied id must still be refused while disconnected")
+		}
+	})
+
+	t.Run("disconnected_with_the_switch_off_resolves_to_the_last_connection", func(t *testing.T) {
+		m := newTestManager()
+		m.mu.Lock()
+		m.rememberConnectionLocked("u1", "conn-a")
+		m.mu.Unlock()
+
+		if got, ok := m.ResolveChatConnection("u1", ""); !ok || got != "conn-a" {
+			t.Fatalf("ResolveChatConnection = (%q, %v), want (conn-a, true)", got, ok)
+		}
+		if _, ok := m.ResolveChatConnection("u1", "conn-b"); ok {
+			t.Fatal("a different supplied id must be refused when the server remembers the connection")
+		}
+	})
+
+	t.Run("a_quick_connect_is_never_remembered", func(t *testing.T) {
+		m := newTestManager()
+		m.mu.Lock()
+		m.rememberConnectionLocked("u1", "")
+		m.mu.Unlock()
+
+		if got, ok := m.ResolveChatConnection("u1", ""); ok || got != "" {
+			t.Fatalf("ResolveChatConnection = (%q, %v), want (\"\", false)", got, ok)
+		}
+	})
+
+	t.Run("when_the_server_knows_nothing_the_supplied_id_is_used_for_the_driver_to_verify", func(t *testing.T) {
+		m := newTestManager()
+
+		if got, ok := m.ResolveChatConnection("u1", "conn-a"); !ok || got != "conn-a" {
+			t.Fatalf("ResolveChatConnection = (%q, %v), want (conn-a, true)", got, ok)
+		}
+		if got, ok := m.ResolveChatConnection("u1", ""); ok || got != "" {
+			t.Fatalf("nothing known and nothing supplied: got (%q, %v), want (\"\", false)", got, ok)
+		}
+	})
+
+	t.Run("one_users_connection_never_answers_for_another", func(t *testing.T) {
+		m := newTestManager()
+		seedConnectedSession(m, "u1", "conn-a")
+
+		if got, ok := m.ResolveChatConnection("u2", ""); ok || got != "" {
+			t.Fatalf("ResolveChatConnection for another user = (%q, %v), want (\"\", false)", got, ok)
+		}
+	})
+}
+
 // TestWebSocket_ChatIsNotAWheelGrab proves D-16: a chat message never
 // disengages autopilot and is never treated as a game command, in every
 // autopilot state, including disconnected. It exercises Manager.FireChatHook

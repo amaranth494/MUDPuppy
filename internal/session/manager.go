@@ -133,6 +133,15 @@ type Manager struct {
 	// so it is stored here purely to keep every driver hook this package
 	// declares in one place. A nil hook is a silent no-op.
 	chatHook ChatHook
+
+	// lastConnectionID remembers the saved connection each user most
+	// recently connected to (code review WR-10 and WR-01 of Phase 5). Like
+	// autopilot and outputWindow above it deliberately outlives the session:
+	// it is how a chat message is aimed at the right profile, server-side,
+	// while the game connection is down and autopilot is off. Created lazily;
+	// cleared only by a process restart. A quick connect (no saved
+	// connection) never writes it.
+	lastConnectionID map[string]string
 }
 
 // EngageHook is called once per real engagement: a WAITING-to-ON resume in
@@ -208,6 +217,60 @@ func (m *Manager) FireChatHook(userID, connectionID, message string) {
 	if hook != nil {
 		hook(userID, connectionID, message)
 	}
+}
+
+// rememberConnectionLocked records connectionID as the saved connection
+// userID most recently connected to. The caller holds m.mu. A blank id (a
+// quick connect) is ignored.
+func (m *Manager) rememberConnectionLocked(userID, connectionID string) {
+	if connectionID == "" {
+		return
+	}
+	if m.lastConnectionID == nil {
+		m.lastConnectionID = make(map[string]string)
+	}
+	m.lastConnectionID[userID] = connectionID
+}
+
+// ResolveChatConnection decides which saved connection an inbound chat
+// message belongs to (code review WR-10 of Phase 5). The answer comes from
+// the SERVER's own state, never from the message:
+//
+//  1. the user's live game session, when there is one;
+//  2. otherwise the connection the autopilot switch is engaged or parked on;
+//  3. otherwise the saved connection the user most recently connected to.
+//
+// The last two are what keep chat working while the game connection is down
+// (D-06, code review WR-01 of Phase 5).
+//
+// supplied is the connection id the browser sent, if any. It can never
+// override the server's answer: when the server knows the connection and the
+// browser names a different one, the message is refused (ok=false). It used
+// to be trusted outright, so one profile's goal, rules and decisions could be
+// read into a conversation and coaching list stored under another's game
+// session. Only when the server knows nothing at all -- no session, switch
+// off, nothing remembered since the process started -- is supplied used, and
+// the driver still checks the user owns it before reading anything.
+func (m *Manager) ResolveChatConnection(userID, supplied string) (connectionID string, ok bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	known := ""
+	if sess, found := m.sessions[userID]; found && sess.State == StateConnected && sess.ConnectionID != "" {
+		known = sess.ConnectionID
+	} else if rec, found := m.autopilot[userID]; found && rec.State != AutopilotOff && rec.ConnectionID != "" {
+		known = rec.ConnectionID
+	} else if last := m.lastConnectionID[userID]; last != "" {
+		known = last
+	}
+
+	if known == "" {
+		return supplied, supplied != ""
+	}
+	if supplied != "" && supplied != known {
+		return "", false
+	}
+	return known, true
 }
 
 // defaultWriteTimeout is how long a command write to the game socket may
@@ -376,6 +439,7 @@ func (m *Manager) Connect(ctx context.Context, userID, host string, port int, co
 	// Store connection
 	m.sessions[userID] = session
 	m.conns[userID] = conn
+	m.rememberConnectionLocked(userID, connectionID)
 
 	// Open the session transcript, THEN resume a waiting autopilot.
 	m.openTranscriptThenResumeLocked(userID, connectionID, conn)

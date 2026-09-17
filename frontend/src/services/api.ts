@@ -205,7 +205,12 @@ export class WebSocketManager {
   // around the write — so the panel can show the locked
   // "[Message failed to send — try again]" notice instead of silently
   // losing the owner's draft (T-5-57) the way a void sendCommand would.
-  sendChat(text: string): boolean {
+  //
+  // Code review WR-10 of Phase 5: connectionId names the connection the
+  // panel belongs to. The server decides the connection from its own state
+  // and only checks this one against it — a message naming a different
+  // connection is refused, never obeyed.
+  sendChat(text: string, connectionId?: string): boolean {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       return false;
     }
@@ -213,6 +218,7 @@ export class WebSocketManager {
       this.ws.send(JSON.stringify({
         type: 'chat',
         data: text,
+        connection_id: connectionId || undefined,
       }));
       return true;
     } catch {
