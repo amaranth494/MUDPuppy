@@ -419,7 +419,19 @@ export default function PlayScreen() {
       } else if (payload.kind === 'decision' && payload.outcome === 'blocked') {
         automationEngine.echoLocal(`[AI-ASSIST blocked > ${payload.command}]`, { color: 'brightyellow' });
       } else if (payload.kind === 'system') {
-        automationEngine.echoLocal(`[${payload.message}]`, { color: 'red' });
+        // 04-04 (04-UI-SPEC.md §4): the system line's colour is chosen from
+        // the outcome instead of always red -- brightyellow for "still
+        // going, nothing has stopped" (a sub-threshold transient failure or
+        // a 503 retry in flight), white for a plain owner-action fact (a
+        // goal change, plan 04-06), red otherwise (failed, refused, cap,
+        // blocked-repeatedly, and every threshold-reached D-13/D-15 kind).
+        const color =
+          payload.outcome === 'transient' || payload.outcome === 'retrying'
+            ? 'brightyellow'
+            : payload.outcome === 'goal'
+              ? 'white'
+              : 'red';
+        automationEngine.echoLocal(`[${payload.message}]`, { color });
       }
     };
     wsManager.onAI(handleAI);

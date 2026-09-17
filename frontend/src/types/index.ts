@@ -68,17 +68,30 @@ export interface WSMessage {
 
 // 03-10: the websocket payload of an "ai" message (plan 03-09, D-08). Kind is
 // "decision" (reasoning/command are set, outcome is "sent") or "system" (message
-// carries a locked failure/refusal notice, outcome is "refused"/"failed"). No
-// window_text field — the server deliberately never sends the game text snapshot
-// the model saw (T-3-15).
+// carries a locked failure/refusal notice). No window_text field — the server
+// deliberately never sends the game text snapshot the model saw (T-3-15).
+//
+// 04-04: the outcome union gains 'cap' (D-14), 'blocked-repeatedly' (D-17),
+// 'transient' and 'retrying' (D-15, D-16); 'goal' is included even though
+// plan 04-06 is what emits it, so the colour lookup is written once
+// (04-UI-SPEC.md). The state/count fields are meaningful on any event the
+// driver emits during a stint (D-18, DR-3-03) and mirror
+// internal/session/websocket.go's AIDecisionPayload field for field.
 export interface AIDecisionPayload {
   id: string;
   kind: 'decision' | 'system';
   reasoning?: string;
   command?: string;
-  outcome?: 'sent' | 'refused' | 'failed' | 'blocked';
+  outcome?: 'sent' | 'refused' | 'failed' | 'blocked' | 'cap' | 'blocked-repeatedly' | 'transient' | 'retrying' | 'goal';
   message?: string;
   timestamp: string;
+  state?: 'on' | 'waiting' | 'off';
+  calls?: number;
+  call_cap?: number;
+  call_cap_set?: boolean;
+  failures?: number;
+  blocks?: number;
+  threshold?: number;
 }
 
 // 03-10: one row of GET /api/v1/profiles/{connection_id}/decisions (D-12), the

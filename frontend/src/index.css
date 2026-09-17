@@ -293,6 +293,22 @@ body {
   color: var(--color-text);
 }
 
+/* 04-04: the non-scrolling region between the header and the scrollable
+   decision list (04-UI-SPEC.md Layout §1) — this phase's status line only;
+   plan 04-06's goal box and plan 04-08's Session Memory section join it
+   later. No new pixel literal: the panel's 380x480 geometry is unchanged. */
+.ai-assist-panel-top {
+  flex-shrink: 0;
+  padding: var(--spacing-sm) var(--spacing-md) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ai-assist-status-line {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-dim);
+  padding-bottom: var(--spacing-sm);
+}
+
 .ai-assist-panel-body {
   flex: 1;
   overflow-y: auto;
@@ -353,6 +369,19 @@ body {
 .ai-system-line.state-disengaged { color: #888; }
 .ai-system-line.state-refused,
 .ai-system-line.state-failed { color: var(--color-error); }
+
+/* 04-04 (04-UI-SPEC.md §Color/§4): the cap-reached and blocked-repeatedly
+   halts extend the existing "disengaged, and it wasn't the owner" red
+   reservation; a sub-threshold transient failure and a 503 retry in flight
+   extend the existing "still going, nothing has stopped" yellow
+   reservation; a goal-changed/cleared line (plan 04-06) is a plain owner-
+   action fact, the same neutral #888 the disengaged line already uses. No
+   new custom property is introduced -- only existing tokens are referenced. */
+.ai-system-line.state-cap,
+.ai-system-line.state-blocked-repeatedly { color: var(--color-error); }
+.ai-system-line.state-transient,
+.ai-system-line.state-retrying { color: var(--color-warning); }
+.ai-system-line.state-goal { color: #888; }
 
 /* 03-10: minimized AI Assist tab — mirrors .autopilot-badge's dot+pill pattern */
 .ai-assist-tab {

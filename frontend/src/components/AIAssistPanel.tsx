@@ -49,6 +49,29 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
   const [isLoading, setIsLoading] = useState(true);
   const bodyRef = useRef<HTMLDivElement>(null);
 
+  // 04-04: the standing status line's counts (D-14, D-15, D-17), held in
+  // component state and updated from whichever fields the latest 'ai'
+  // message actually carries (04-UI-SPEC.md §3's Claude's Discretion) --
+  // never assumed present on every message, since only the driver's own
+  // events populate them. callCap is null when the stint has no cap set.
+  const [callCount, setCallCount] = useState(0);
+  const [callCap, setCallCap] = useState<number | null>(null);
+  const [failureCount, setFailureCount] = useState(0);
+  const [blockCount, setBlockCount] = useState(0);
+  const [disengageThreshold, setDisengageThreshold] = useState(3);
+
+  // The counts are meaningless before an engage and reset to zero on every
+  // new stint (D-14/D-15/D-17); the status line itself is hidden entirely
+  // while autopilot is off (04-UI-SPEC.md §3), but resetting here too keeps
+  // a lingering high count from flashing briefly the moment it re-shows.
+  useEffect(() => {
+    if (autopilotState === 'off') {
+      setCallCount(0);
+      setFailureCount(0);
+      setBlockCount(0);
+    }
+  }, [autopilotState]);
+
   const loadHistory = useCallback(async () => {
     if (!connectionId) return;
     setIsLoading(true);
@@ -82,6 +105,20 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
   useEffect(() => {
     if (!wsManager) return;
     const handleAI = (payload: AIDecisionPayload) => {
+      // 04-04 D-14/D-15/D-17: every event the driver emits during a stint
+      // carries the standing counts; update only the fields this payload
+      // actually carries, since not every future 'ai' message (e.g. a goal
+      // change) needs to.
+      if (payload.calls !== undefined) setCallCount(payload.calls);
+      if (payload.call_cap_set) {
+        setCallCap(payload.call_cap ?? null);
+      } else if (payload.calls !== undefined) {
+        setCallCap(null);
+      }
+      if (payload.failures !== undefined) setFailureCount(payload.failures);
+      if (payload.blocks !== undefined) setBlockCount(payload.blocks);
+      if (payload.threshold !== undefined) setDisengageThreshold(payload.threshold);
+
       if (payload.kind === 'decision') {
         setEntries((prev) => [
           ...prev,
@@ -142,6 +179,17 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
         >
           –
         </button>
+      </div>
+      <div className="ai-assist-panel-top">
+        {autopilotState !== 'off' && (
+          <div className="ai-assist-status-line">
+            {callCap != null
+              ? `Calls: ${callCount} of ${callCap}`
+              : `Calls: ${callCount}`}
+            {' · '}Consecutive failures: {failureCount} of {disengageThreshold}
+            {' · '}Consecutive blocks: {blockCount} of {disengageThreshold}
+          </div>
+        )}
       </div>
       <div className="ai-assist-panel-body" ref={bodyRef}>
         {isLoading && <div className="ai-assist-loading">Loading decision history…</div>}

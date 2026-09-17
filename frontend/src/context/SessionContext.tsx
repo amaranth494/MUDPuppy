@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
-import { ConnectionState, User, Profile, Timer, TimersResponse, Variable } from '../types';
+import { ConnectionState, User, Profile, Timer, TimersResponse, Variable, AIDecisionPayload } from '../types';
 import {
   checkAuth,
   getSessionStatus,
@@ -259,6 +259,28 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
     wsManager.onAutopilot(handleAutopilotPush);
     return () => {
       wsManager.offAutopilot(handleAutopilotPush);
+    };
+  }, [wsManager]);
+
+  // 04-04 (D-18, DR-3-03): the same no-lag layer as handleAutopilotPush
+  // above, registered/unregistered as an onAI/offAI pair (AIAssistPanel.tsx's
+  // own onAI/offAI usage is the sibling precedent) sourced from the 'ai'
+  // message instead of the 'autopilot' one — every event the driver emits
+  // during a stint now carries the switch's post-disengage state, so a cap
+  // or threshold halt updates the badge in the same message that carries
+  // its notice, with no poll lag. The polling refresh (refreshStatus) stays
+  // exactly as it is; it remains the correctness mechanism, this is only
+  // the no-lag layer, the same relationship the autopilot push already has.
+  useEffect(() => {
+    if (!wsManager) return;
+    const handleAI = (payload: AIDecisionPayload) => {
+      if (payload.state === 'on' || payload.state === 'waiting' || payload.state === 'off') {
+        setAutopilotState(payload.state);
+      }
+    };
+    wsManager.onAI(handleAI);
+    return () => {
+      wsManager.offAI(handleAI);
     };
   }, [wsManager]);
 
