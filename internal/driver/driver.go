@@ -316,7 +316,7 @@ type Driver struct {
 	// guarded by the same d.mu that already guards inFlight. lastDecisionAt
 	// records when each user's most recent iteration finished, so runLoop
 	// can enforce minSpacing against it.
-	loops          map[string]context.CancelFunc
+	loops          map[string]*stintLoop
 	lastDecisionAt map[string]time.Time
 
 	// callCounts, failureCounts and blockCounts are the three per-stint
@@ -364,7 +364,7 @@ func New(sessions Sessions, profiles Profiles, decisions Decisions, models Model
 		cfg:            cfg,
 		inFlight:       make(map[flightKey]bool),
 		begunEpoch:     make(map[string]uint64),
-		loops:          make(map[string]context.CancelFunc),
+		loops:          make(map[string]*stintLoop),
 		lastDecisionAt: make(map[string]time.Time),
 		callCounts:     make(map[string]int),
 		failureCounts:  make(map[string]int),

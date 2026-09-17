@@ -148,7 +148,13 @@ func (m *Manager) SetEngageHook(h EngageHook) {
 // to call when no loop is running for userID (a silent no-op) and safe to
 // call from inside the very goroutine it targets, since cancelling a
 // context only marks it Done and never blocks.
-type DisengageHook func(userID string)
+//
+// epoch is the stint that just ended (code review WR-10 of Phase 4). The
+// hook is fired with `go`, so it can be scheduled AFTER the owner's next
+// #AUTO ON has already started the next stint's loop; carrying the epoch
+// lets the driver stop only the stint that ended, or an older one, and
+// never the one that replaced it.
+type DisengageHook func(userID string, epoch uint64)
 
 // SetDisengageHook wires the AI driver's stop signal, mirroring
 // SetEngageHook exactly. A nil hook (the zero-value default) makes every
@@ -854,9 +860,11 @@ func (m *Manager) DisengageAutopilot(userID, cause string) (AutopilotState, bool
 
 	cur := AutopilotOff
 	curConnID := ""
+	var curEpoch uint64
 	if rec, ok := m.autopilot[userID]; ok {
 		cur = rec.State
 		curConnID = rec.ConnectionID
+		curEpoch = rec.Epoch
 	}
 
 	newState, changed := Disengage(cur)
@@ -878,9 +886,11 @@ func (m *Manager) DisengageAutopilot(userID, cause string) (AutopilotState, bool
 	// asleep in its pacing wait is cancelled at once. Started with `go`,
 	// matching resumeAutopilotLocked's existing discipline below — the
 	// caller holds m.mu here, so a synchronous call could deadlock the
-	// moment the driver reads anything back from this Manager.
+	// moment the driver reads anything back from this Manager. The hook is
+	// told which stint ended (code review WR-10 of Phase 4): this goroutine
+	// may not run until after the next stint has begun.
 	if m.disengageHook != nil {
-		go m.disengageHook(userID)
+		go m.disengageHook(userID, curEpoch)
 	}
 	return newState, true
 }
@@ -909,9 +919,10 @@ func (m *Manager) parkAutopilotLocked(userID string) {
 
 	// 04-03-01/D-27: same stop signal as DisengageAutopilot's changed-true
 	// path — a disconnect must cancel a sleeping loop immediately too
-	// (D-19), not only be noticed the next time it wakes.
+	// (D-19), not only be noticed the next time it wakes. rec.Epoch is the
+	// stint being parked; a resume begins the next one.
 	if m.disengageHook != nil {
-		go m.disengageHook(userID)
+		go m.disengageHook(userID, rec.Epoch)
 	}
 }
 

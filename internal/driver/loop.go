@@ -96,16 +96,38 @@ func (d *Driver) beginStint(userID string, epoch uint64) bool {
 // replacing any loop already running for this user first means a resume
 // racing an engage can never leave two loops alive for the same user.
 // Guarded by the same d.mu that already guards inFlight and lastDecisionAt.
+//
+// The registry entry carries the stint's epoch (code review WR-10 of Phase
+// 4). A loop for a LATER stint is never replaced by an earlier one -- an
+// EngageLoop that was slow to get here must not cancel the stint that has
+// since superseded it -- and StopLoop uses the same epoch to tell which
+// stint it was asked to stop.
 func (d *Driver) startLoop(userID, connectionID string, epoch uint64) {
 	d.mu.Lock()
-	if cancel, ok := d.loops[userID]; ok {
-		cancel()
+	if existing, ok := d.loops[userID]; ok {
+		if existing.epoch > epoch {
+			d.mu.Unlock()
+			return
+		}
+		existing.cancel()
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	d.loops[userID] = cancel
+	entry := &stintLoop{epoch: epoch, cancel: cancel}
+	d.loops[userID] = entry
 	d.mu.Unlock()
 
-	go d.runLoop(ctx, userID, connectionID, epoch)
+	go func() {
+		d.runLoop(ctx, userID, connectionID, epoch)
+		// A loop that stops by itself (its stint ended, and it noticed
+		// before any StopLoop arrived) removes its own registry entry -- but
+		// only if the entry is still its own.
+		d.mu.Lock()
+		if d.loops[userID] == entry {
+			delete(d.loops, userID)
+		}
+		d.mu.Unlock()
+		cancel()
+	}()
 }
 
 // StopLoop is the DisengageHook target (04-03-01, Pattern 2): it cancels
@@ -115,17 +137,35 @@ func (d *Driver) startLoop(userID, connectionID string, epoch uint64) {
 // next decision completes. A miss (no loop running for userID) is a silent
 // no-op, and it is safe to call from inside the very goroutine being
 // cancelled: cancelling a context only marks it Done, it never blocks.
-func (d *Driver) StopLoop(userID string) {
+//
+// epoch is the stint that ended (code review WR-10 of Phase 4). The session
+// manager fires this hook with `go`, so nothing orders it against the
+// following #AUTO ON: a StopLoop for stint N can arrive after stint N+1's
+// loop has started. It therefore cancels only a loop whose own epoch is N or
+// older. A loop of a later stint is left running -- cancelling it used to
+// leave the badge On with no decisions and no notice until the owner toggled
+// the switch.
+func (d *Driver) StopLoop(userID string, epoch uint64) {
 	d.mu.Lock()
-	cancel, ok := d.loops[userID]
+	entry, ok := d.loops[userID]
+	if ok && entry.epoch > epoch {
+		ok = false
+	}
 	if ok {
 		delete(d.loops, userID)
 	}
 	d.mu.Unlock()
 
 	if ok {
-		cancel()
+		entry.cancel()
 	}
+}
+
+// stintLoop is one user's registered pacing loop: the stint it belongs to
+// and the cancel func that stops it.
+type stintLoop struct {
+	epoch  uint64
+	cancel context.CancelFunc
 }
 
 // cancellableWait waits for dur or ctx's cancellation, whichever comes

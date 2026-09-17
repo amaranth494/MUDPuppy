@@ -67,7 +67,7 @@ func TestStint_QuickReengageDropsTheOldDecision(t *testing.T) {
 
 	// Wheel-grab, then #AUTO ON again, before the model answers.
 	sessions.disengageState()
-	d.StopLoop(userID)
+	d.StopLoop(userID, sessions.currentEpoch())
 	sessions.engageState()
 	stint2 := sessions.currentEpoch()
 	if stint2 == stint1 {
@@ -97,7 +97,7 @@ func TestStint_QuickReengageDropsTheOldDecision(t *testing.T) {
 	// Now the old model call answers, into a switch that reads On.
 	close(block)
 	time.Sleep(100 * time.Millisecond)
-	d.StopLoop(userID)
+	d.StopLoop(userID, sessions.currentEpoch())
 
 	for _, s := range sessions.sendCalls() {
 		if s.command == "stale-north" {
@@ -172,14 +172,14 @@ func TestStint_StaleIterationIsNotAFailure(t *testing.T) {
 	models.setBlock(nil)
 
 	sessions.disengageState()
-	d.StopLoop(userID)
+	d.StopLoop(userID, sessions.currentEpoch())
 	sessions.engageState()
 	d.EngageLoop(userID, connID, sessions.currentEpoch())
 	waitForSendCount(t, sessions, 2)
 
 	close(block) // the old call now fails, into a switch that reads On
 	time.Sleep(100 * time.Millisecond)
-	d.StopLoop(userID)
+	d.StopLoop(userID, sessions.currentEpoch())
 
 	_, failures, blocks := stintCounters(d, userID)
 	if failures != 0 || blocks != 0 {
@@ -224,7 +224,7 @@ func TestStint_DuplicateEngageStartsNothing(t *testing.T) {
 
 	d.EngageLoop(userID, connID, epoch)   // duplicate
 	d.EngageLoop(userID, connID, epoch-1) // superseded
-	d.StopLoop(userID)
+	d.StopLoop(userID, sessions.currentEpoch())
 
 	if got := models.callCount(); got != 1 {
 		t.Fatalf("expected a duplicate or superseded engage to make no model call, got %d calls", got)
@@ -232,4 +232,96 @@ func TestStint_DuplicateEngageStartsNothing(t *testing.T) {
 	if calls, _, _ := stintCounters(d, userID); calls != 2 {
 		t.Fatalf("expected the running stint's call count (2) to be left alone, got %d", calls)
 	}
+}
+
+// loopRegistered reports whether a pacing loop is registered for userID and,
+// if so, for which stint.
+func loopRegistered(d *Driver, userID string) (uint64, bool) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	entry, ok := d.loops[userID]
+	if !ok {
+		return 0, false
+	}
+	return entry.epoch, true
+}
+
+// TestStint_LateStopLoopLeavesTheNextStintRunning is code review WR-10 of
+// Phase 4. The manager fires the disengage hook with `go`, so the StopLoop
+// for stint N can be scheduled after stint N+1's loop has started. It must
+// not cancel that loop: the result used to be a badge reading On with no
+// decisions and no notice until the owner toggled the switch.
+func TestStint_LateStopLoopLeavesTheNextStintRunning(t *testing.T) {
+	sessions := &fakeSessions{window: "a room"}
+	sessions.engageState()
+	decisions := &fakeDecisionsStore{}
+	notifier := &fakeNotifier{}
+	commands := &fakeCommands{}
+	models := &fakeModels{
+		answer:       &gemini.Answer{Reasoning: "looking around", Command: "look"},
+		reviewAnswer: &gemini.ReviewAnswer{Blocked: false, Reason: "clear"},
+	}
+	d := newPacedDriver(sessions, decisions, notifier, commands, models, 2*time.Millisecond, 5*time.Second, 2*time.Millisecond)
+
+	userID := uuid.New().String()
+	connID := uuid.New().String()
+
+	stint1 := sessions.currentEpoch()
+	d.EngageLoop(userID, connID, stint1)
+	waitForSendCount(t, sessions, 1)
+
+	// Wheel-grab and immediate #AUTO ON; stint 1's StopLoop has not run yet.
+	sessions.disengageState()
+	sessions.engageState()
+	stint2 := sessions.currentEpoch()
+	d.EngageLoop(userID, connID, stint2)
+	waitForSendCount(t, sessions, 2)
+
+	// Now the late StopLoop for stint 1 lands.
+	d.StopLoop(userID, stint1)
+
+	if epoch, ok := loopRegistered(d, userID); !ok || epoch != stint2 {
+		t.Fatalf("expected stint %d's loop to stay registered after a late StopLoop for stint %d, got (epoch %d, registered %v)", stint2, stint1, epoch, ok)
+	}
+	sessions.fireOutput()
+	waitForSendCount(t, sessions, 3) // stint 2 is still deciding
+
+	// The stint's own StopLoop does stop it.
+	d.StopLoop(userID, stint2)
+	if _, ok := loopRegistered(d, userID); ok {
+		t.Fatalf("expected StopLoop for the current stint to remove its loop")
+	}
+	settled := models.callCount()
+	sessions.fireOutput()
+	assertStableCallCount(t, models, settled, 100*time.Millisecond)
+}
+
+// TestStint_LoopThatStopsItselfLeavesNoEntry proves the other half of WR-10:
+// a loop that notices by itself that its stint is over removes its own
+// registry entry instead of leaving a dead one behind.
+func TestStint_LoopThatStopsItselfLeavesNoEntry(t *testing.T) {
+	sessions := &fakeSessions{window: "a room"}
+	sessions.engageState()
+	models := &fakeModels{
+		answer:       &gemini.Answer{Reasoning: "looking around", Command: "look"},
+		reviewAnswer: &gemini.ReviewAnswer{Blocked: false, Reason: "clear"},
+	}
+	d := newPacedDriver(sessions, &fakeDecisionsStore{}, &fakeNotifier{}, &fakeCommands{}, models, 2*time.Millisecond, 5*time.Second, 2*time.Millisecond)
+
+	userID := uuid.New().String()
+	connID := uuid.New().String()
+	d.EngageLoop(userID, connID, sessions.currentEpoch())
+	waitForSendCount(t, sessions, 1)
+
+	sessions.disengageState() // no StopLoop: the fake fires no hook
+	sessions.fireOutput()     // wake the loop so it notices
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, ok := loopRegistered(d, userID); !ok {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatalf("expected a loop that stopped by itself to remove its own registry entry")
 }

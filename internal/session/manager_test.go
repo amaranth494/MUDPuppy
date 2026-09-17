@@ -416,7 +416,8 @@ func TestManager_DisengageHookFires(t *testing.T) {
 		}
 
 		fired := make(chan string, 4)
-		m.SetDisengageHook(func(uid string) { fired <- uid })
+		epochs := make(chan uint64, 4)
+		m.SetDisengageHook(func(uid string, epoch uint64) { fired <- uid; epochs <- epoch })
 
 		if _, changed := m.DisengageAutopilot(userID, "disengage"); !changed {
 			t.Fatalf("expected the disengage to change state")
@@ -428,6 +429,10 @@ func TestManager_DisengageHookFires(t *testing.T) {
 		if got := <-fired; got != userID {
 			t.Fatalf("disengage hook fired with user id %q, want %q", got, userID)
 		}
+		// Code review WR-10 of Phase 4: the hook names the stint that ended.
+		if got := <-epochs; got != 1 {
+			t.Fatalf("disengage hook fired with epoch %d, want 1 (the stint that ended)", got)
+		}
 		if len(fired) != 0 {
 			t.Fatalf("expected exactly one hook firing, got an extra one queued")
 		}
@@ -438,7 +443,8 @@ func TestManager_DisengageHookFires(t *testing.T) {
 		const userID = "disengage-user-2"
 
 		fired := make(chan string, 4)
-		m.SetDisengageHook(func(uid string) { fired <- uid })
+		epochs := make(chan uint64, 4)
+		m.SetDisengageHook(func(uid string, epoch uint64) { fired <- uid; epochs <- epoch })
 
 		if _, changed := m.DisengageAutopilot(userID, "disengage"); changed {
 			t.Fatalf("expected an already-off disengage to report changed=false")
@@ -461,7 +467,8 @@ func TestManager_DisengageHookFires(t *testing.T) {
 		}
 
 		fired := make(chan string, 4)
-		m.SetDisengageHook(func(uid string) { fired <- uid })
+		epochs := make(chan uint64, 4)
+		m.SetDisengageHook(func(uid string, epoch uint64) { fired <- uid; epochs <- epoch })
 
 		if err := m.Disconnect(userID, ReasonRemote); err != nil {
 			t.Fatalf("Disconnect err = %v, want nil", err)
@@ -472,6 +479,9 @@ func TestManager_DisengageHookFires(t *testing.T) {
 		}
 		if got := <-fired; got != userID {
 			t.Fatalf("disengage hook fired with user id %q, want %q", got, userID)
+		}
+		if got := <-epochs; got != 1 {
+			t.Fatalf("disengage hook fired with epoch %d on park, want 1 (the stint being parked)", got)
 		}
 	})
 }

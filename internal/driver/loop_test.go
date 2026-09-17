@@ -287,7 +287,7 @@ func TestLoop_Pacing(t *testing.T) {
 		// waitForCalls returns when the third model call starts; the send
 		// follows the review, so wait for it before reading sendCalls.
 		waitForSendCount(t, sessions, 3)
-		d.StopLoop(userID)
+		d.StopLoop(userID, sessions.currentEpoch())
 
 		sends := sessions.sendCalls()
 		if len(sends) != 3 {
@@ -329,7 +329,7 @@ func TestLoop_Pacing(t *testing.T) {
 		// decision can only come from the floor interval's own nudge.
 		waitForCalls(t, models, 2)
 
-		d.StopLoop(userID)
+		d.StopLoop(userID, sessions.currentEpoch())
 
 		assertStableCallCount(t, models, 2, 100*time.Millisecond)
 		if got := len(sessions.sendCalls()); got != 2 {
@@ -375,7 +375,7 @@ func TestLoop_Pacing(t *testing.T) {
 		ticker.Stop()
 
 		waitForStableCallCount(models, 2*d.floorInterval)
-		d.StopLoop(userID)
+		d.StopLoop(userID, sessions.currentEpoch())
 
 		got := models.callCount()
 		if got <= 1 {
@@ -426,7 +426,7 @@ func TestEngageLoop_Reassess(t *testing.T) {
 	sessions.setWindow("second window: a very different, brightly lit hall")
 	sessions.fireOutput()
 	waitForCalls(t, models, 2)
-	d.StopLoop(userID)
+	d.StopLoop(userID, sessions.currentEpoch())
 
 	si := models.systemInstructionsSnapshot()
 	if len(si) != 2 {
@@ -483,7 +483,7 @@ func TestLoop_StopsWhenWheelGrabbed(t *testing.T) {
 		// polling for a stable call count, never a fixed sleep.
 		waitForStableCallCount(models, 100*time.Millisecond)
 
-		d.StopLoop(userID)
+		d.StopLoop(userID, sessions.currentEpoch())
 
 		for i := 0; i < 5; i++ {
 			sessions.fireOutput()
@@ -530,7 +530,7 @@ func TestLoop_StopsWhenWheelGrabbed(t *testing.T) {
 		// (found on staging 2026-09-17: it was sent one second after off),
 		// and being dropped is not a failure.
 		sessions.disengageState()
-		d.StopLoop(userID)
+		d.StopLoop(userID, sessions.currentEpoch())
 		close(block)
 
 		assertStableCallCount(t, models, 2, 100*time.Millisecond)
@@ -591,7 +591,7 @@ func TestLoop_NothingIssuedWhileWaiting(t *testing.T) {
 	sessions.resume()
 	d.EngageLoop(userID, connID, sessions.currentEpoch())
 	waitForCalls(t, models, 2)
-	d.StopLoop(userID)
+	d.StopLoop(userID, sessions.currentEpoch())
 
 	sends := sessions.sendCalls()
 	if len(sends) != 2 {
@@ -647,7 +647,7 @@ func TestLoop_NoAIReconnect(t *testing.T) {
 	d.EngageLoop(userID, connID, sessions.currentEpoch())
 	waitForCalls(t, models, 2)
 
-	d.StopLoop(userID)
+	d.StopLoop(userID, sessions.currentEpoch())
 
 	if got := sessions.reconnectCallCount(); got != 0 {
 		t.Fatalf("expected zero reconnect-shaped calls on the session double, got %d", got)
@@ -1015,7 +1015,7 @@ func TestLoop_BlankSettings(t *testing.T) {
 			waitForSendCount(t, sessions, i+2)
 		}
 
-		d.StopLoop(userID)
+		d.StopLoop(userID, sessions.currentEpoch())
 
 		// Read the driver's own D-14 counter (every reserved call, player
 		// and reviewer alike) rather than fakeModels.callCount(), which
