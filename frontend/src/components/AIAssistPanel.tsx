@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AIDecisionPayload } from '../types';
-import { getDecisions, getGoal, putGoal } from '../services/api';
+import { getDecisions, getGoal, putGoal, getSessionMemory } from '../services/api';
 import { useSession } from '../context/SessionContext';
 
 interface AIAssistPanelProps {
@@ -72,6 +72,15 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
   const goalLoadedRef = useRef(false);
   const lastCommittedGoalRef = useRef('');
 
+  // 04-08: the read-only, collapsible Session Memory section (D-10).
+  // memoryOpen defaults to collapsed and is component-only state — it
+  // resets on remount, never persisted (04-UI-SPEC.md Claude's Discretion).
+  // sessionMemory loads once on mount via getSessionMemory and is then
+  // replaced wholesale from every 'ai' message that carries a
+  // session_memory snapshot (never merged, never diffed).
+  const [memoryOpen, setMemoryOpen] = useState(false);
+  const [sessionMemory, setSessionMemory] = useState<string[]>([]);
+
   // The counts are meaningless before an engage and reset to zero on every
   // new stint (D-14/D-15/D-17); the status line itself is hidden entirely
   // while autopilot is off (04-UI-SPEC.md §3), but resetting here too keeps
@@ -142,6 +151,26 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
     };
   }, [connectionId]);
 
+  // Load the current Session Memory once on mount and whenever the
+  // connection changes (D-10). A load failure leaves the section at its
+  // default empty state — same silent-fallback shape as the goal and
+  // history loads above — rather than blocking the rest of the panel.
+  useEffect(() => {
+    if (!connectionId) return;
+    let cancelled = false;
+    getSessionMemory(connectionId)
+      .then((resp) => {
+        if (cancelled) return;
+        setSessionMemory(resp.session_memory);
+      })
+      .catch(() => {
+        // No panel-wide error surface for a load failure here either.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [connectionId]);
+
   // Commits on blur and on Enter (which blurs the input) — no Save button
   // (04-UI-SPEC.md Layout §1). A failed save never reverts or clears the
   // owner's typing; it is surfaced through the same system-line mechanism
@@ -182,6 +211,9 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
       if (payload.failures !== undefined) setFailureCount(payload.failures);
       if (payload.blocks !== undefined) setBlockCount(payload.blocks);
       if (payload.threshold !== undefined) setDisengageThreshold(payload.threshold);
+      // 04-08 D-10: the full curated list rides every 'ai' message that
+      // carries one — replace wholesale, never merge or diff.
+      if (payload.session_memory !== undefined) setSessionMemory(payload.session_memory);
 
       if (payload.kind === 'decision') {
         setEntries((prev) => [
@@ -271,6 +303,24 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
             {' · '}Consecutive blocks: {blockCount} of {disengageThreshold}
           </div>
         )}
+        <div className="ai-assist-memory">
+          <button className="ai-assist-memory-header" onClick={() => setMemoryOpen((v) => !v)}>
+            <span>{memoryOpen ? '▾' : '▸'}</span>
+            <span>Session Memory ({sessionMemory.length})</span>
+          </button>
+          {memoryOpen &&
+            (sessionMemory.length === 0 ? (
+              <div className="ai-assist-memory-empty">No session memory yet.</div>
+            ) : (
+              <ul className="ai-assist-memory-list">
+                {sessionMemory.map((item, i) => (
+                  <li key={i} className="ai-assist-memory-item">
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            ))}
+        </div>
       </div>
       <div className="ai-assist-panel-body" ref={bodyRef}>
         {isLoading && <div className="ai-assist-loading">Loading decision history…</div>}

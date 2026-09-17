@@ -309,6 +309,43 @@ body {
   padding-bottom: var(--spacing-sm);
 }
 
+/* 04-08: the read-only, collapsible Session Memory section (D-10,
+   04-UI-SPEC.md Layout §2). No card background or border — the bullets sit
+   directly on the panel's existing secondary background, matching Session
+   Memory's own definition as compact and curated, not a boxed artifact.
+   Existing custom properties and the existing spacing scale only. */
+.ai-assist-memory {
+  padding: var(--spacing-sm) 0;
+}
+.ai-assist-memory-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  background: transparent;
+  border: none;
+  color: var(--color-text);
+  padding: 0;
+  cursor: pointer;
+}
+.ai-assist-memory-list {
+  list-style: disc;
+  margin: var(--spacing-xs) 0 0;
+  padding-left: var(--spacing-md);
+}
+.ai-assist-memory-item {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-dim);
+  margin-bottom: var(--spacing-xs);
+}
+.ai-assist-memory-empty {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-dim);
+  font-style: italic;
+  margin-top: var(--spacing-xs);
+}
+
 .ai-assist-panel-body {
   flex: 1;
   overflow-y: auto;

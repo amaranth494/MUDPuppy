@@ -520,6 +520,15 @@ func main() {
 		}
 	})
 
+	mux.HandleFunc("/api/v1/profiles/{connection_id}/ai-memory", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			profilesHandler.GetSessionMemory(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
 	mux.HandleFunc("/api/v1/profiles/{connection_id}/policy", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:

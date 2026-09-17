@@ -1,4 +1,4 @@
-import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, AutomationCredentials, Profile, UpdateProfileRequest, Alias, Trigger, Variable, Timer, AliasesResponse, TriggersResponse, VariablesResponse, TimersResponse, HelpSection, HelpSummary, AISettingsResponse, GoalResponse, PolicyResponse, EngageGateResponse, AIDecisionPayload, StoredDecision, GameSessionSummary, TranscriptLine } from '../types';
+import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, AutomationCredentials, Profile, UpdateProfileRequest, Alias, Trigger, Variable, Timer, AliasesResponse, TriggersResponse, VariablesResponse, TimersResponse, HelpSection, HelpSummary, AISettingsResponse, GoalResponse, SessionMemoryResponse, PolicyResponse, EngageGateResponse, AIDecisionPayload, StoredDecision, GameSessionSummary, TranscriptLine } from '../types';
 import { logErrorToConsole } from './log';
 import { CommandSource } from './automation';
 import { AutopilotAnswer } from './automation/evaluator';
@@ -703,6 +703,20 @@ export async function putGoal(connectionId: string, body: GoalResponse): Promise
   if (!response.ok) {
     const data = await response.json();
     throw new Error(data.error || 'Failed to save session goal');
+  }
+  return await response.json();
+}
+
+// Get the current game session's Session Memory for a connection (D-10),
+// read-only — there is no putSessionMemory this phase (Phase 5).
+export async function getSessionMemory(connectionId: string): Promise<SessionMemoryResponse> {
+  const response = await fetch(`${API_BASE}/profiles/${connectionId}/ai-memory`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to load session memory');
   }
   return await response.json();
 }

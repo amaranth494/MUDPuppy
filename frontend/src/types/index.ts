@@ -92,6 +92,11 @@ export interface AIDecisionPayload {
   failures?: number;
   blocks?: number;
   threshold?: number;
+  // session_memory carries the current game session's full curated Session
+  // Memory list (D-10, plan 04-08) on every event the driver emits during a
+  // stint — the whole list, not a diff. Undefined on a message that carries
+  // no memory snapshot (e.g. the goal-changed system line).
+  session_memory?: string[];
 }
 
 // 03-10: one row of GET /api/v1/profiles/{connection_id}/decisions (D-12), the
@@ -321,6 +326,13 @@ export interface AISettingsResponse {
 // field for field.
 export interface GoalResponse {
   goal: string;
+}
+
+// SessionMemoryResponse is the GET response for the ai-memory sub-resource
+// (D-10), matching internal/profiles/handler.go's SessionMemoryResponse
+// field for field. Read-only — there is no PUT counterpart this phase.
+export interface SessionMemoryResponse {
+  session_memory: string[];
 }
 
 export interface PolicyResponse {

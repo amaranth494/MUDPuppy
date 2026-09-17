@@ -21,6 +21,9 @@ type fakeTranscriptStore struct {
 	sessionsByConnection map[uuid.UUID][]store.GameSessionSummary
 	linesBySession       map[uuid.UUID][]store.GameSessionLine
 	sessionOwner         map[uuid.UUID]uuid.UUID // gameSessionID -> connection_id
+	// sessionMemoryByConnection backs GetSessionMemory (D-10, plan 04-08) —
+	// same discipline as sessionsByConnection above.
+	sessionMemoryByConnection map[uuid.UUID][]string
 }
 
 func (f *fakeTranscriptStore) ListSessionsForConnection(connectionID uuid.UUID, limit int) ([]store.GameSessionSummary, error) {
@@ -32,6 +35,10 @@ func (f *fakeTranscriptStore) GetSessionLines(gameSessionID, connectionID uuid.U
 		return []store.GameSessionLine{}, nil
 	}
 	return f.linesBySession[gameSessionID], nil
+}
+
+func (f *fakeTranscriptStore) SessionMemoryForConnection(connectionID uuid.UUID) ([]string, error) {
+	return f.sessionMemoryByConnection[connectionID], nil
 }
 
 func TestListSessionsScopedToOwner(t *testing.T) {
@@ -170,6 +177,103 @@ func TestGetSessionTranscript(t *testing.T) {
 		}
 		if len(got.Lines) != 0 {
 			t.Fatalf("Lines = %+v, want empty — a session belonging to another connection must never leak its text", got.Lines)
+		}
+	})
+}
+
+// TestGetSessionMemory proves D-10's read-only endpoint (plan 04-08):
+// stored bullets round-trip, a connection with nothing stored yet answers
+// with an empty array rather than an error, a connection id the caller does
+// not own is refused (T-4-09), and a handler with no transcripts store
+// wired fails closed with 503 rather than panicking.
+func TestGetSessionMemory(t *testing.T) {
+	t.Run("returns_stored_bullets", func(t *testing.T) {
+		userID := uuid.New()
+		profileID := uuid.New()
+		connectionID := uuid.New()
+		profileFake := &fakeProfileStore{profile: newTestProfile(userID, profileID, connectionID)}
+		transcriptsFake := &fakeTranscriptStore{
+			sessionMemoryByConnection: map[uuid.UUID][]string{
+				connectionID: {"spoke with captain reyes", "learned the bridge is out"},
+			},
+		}
+		h := &Handler{profileStore: profileFake, transcripts: transcriptsFake}
+
+		path := "/api/v1/profiles/" + connectionID.String() + "/ai-memory"
+		req := newTestRequest(http.MethodGet, path, userID, nil)
+		rec := httptest.NewRecorder()
+		h.GetSessionMemory(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+		}
+		var got SessionMemoryResponse
+		if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if len(got.SessionMemory) != 2 || got.SessionMemory[0] != "spoke with captain reyes" {
+			t.Fatalf("SessionMemory = %v, want the two stored bullets", got.SessionMemory)
+		}
+	})
+
+	t.Run("no_open_game_session_returns_empty_array", func(t *testing.T) {
+		userID := uuid.New()
+		profileID := uuid.New()
+		connectionID := uuid.New()
+		profileFake := &fakeProfileStore{profile: newTestProfile(userID, profileID, connectionID)}
+		transcriptsFake := &fakeTranscriptStore{}
+		h := &Handler{profileStore: profileFake, transcripts: transcriptsFake}
+
+		path := "/api/v1/profiles/" + connectionID.String() + "/ai-memory"
+		req := newTestRequest(http.MethodGet, path, userID, nil)
+		rec := httptest.NewRecorder()
+		h.GetSessionMemory(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+		}
+		var got SessionMemoryResponse
+		if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if got.SessionMemory == nil || len(got.SessionMemory) != 0 {
+			t.Fatalf("SessionMemory = %v, want an empty (never nil) array", got.SessionMemory)
+		}
+	})
+
+	t.Run("not_owned_connection_is_refused", func(t *testing.T) {
+		userID := uuid.New()
+		profileID := uuid.New()
+		connectionID := uuid.New()
+		otherConnectionID := uuid.New()
+		profileFake := &fakeProfileStore{profile: newTestProfile(userID, profileID, connectionID)}
+		transcriptsFake := &fakeTranscriptStore{}
+		h := &Handler{profileStore: profileFake, transcripts: transcriptsFake}
+
+		path := "/api/v1/profiles/" + otherConnectionID.String() + "/ai-memory"
+		req := newTestRequest(http.MethodGet, path, userID, nil)
+		rec := httptest.NewRecorder()
+		h.GetSessionMemory(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, body = %s, want 400", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("no_transcripts_store_wired_fails_closed", func(t *testing.T) {
+		userID := uuid.New()
+		profileID := uuid.New()
+		connectionID := uuid.New()
+		profileFake := &fakeProfileStore{profile: newTestProfile(userID, profileID, connectionID)}
+		h := &Handler{profileStore: profileFake}
+
+		path := "/api/v1/profiles/" + connectionID.String() + "/ai-memory"
+		req := newTestRequest(http.MethodGet, path, userID, nil)
+		rec := httptest.NewRecorder()
+		h.GetSessionMemory(rec, req)
+
+		if rec.Code != http.StatusServiceUnavailable {
+			t.Fatalf("status = %d, want 503", rec.Code)
 		}
 	})
 }

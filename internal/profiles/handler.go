@@ -30,6 +30,10 @@ type profileStorage interface {
 type transcriptStorage interface {
 	ListSessionsForConnection(connectionID uuid.UUID, limit int) ([]store.GameSessionSummary, error)
 	GetSessionLines(gameSessionID, connectionID uuid.UUID, limit int) ([]store.GameSessionLine, error)
+	// SessionMemoryForConnection is the read side of the ai-memory
+	// sub-resource (D-10, plan 04-08) — same discipline as the two methods
+	// above.
+	SessionMemoryForConnection(connectionID uuid.UUID) ([]string, error)
 }
 
 // decisionsStorage is the subset of *store.DecisionStore the decisions
@@ -202,6 +206,14 @@ type AISettingsResponse struct {
 // here.
 type GoalResponse struct {
 	Goal string `json:"goal"`
+}
+
+// SessionMemoryResponse is the GET response for the ai-memory sub-resource
+// (D-10, plan 04-08): the current game session's full curated Session
+// Memory list. There is deliberately no PUT request body type to match —
+// editing Session Memory by hand is Phase 5.
+type SessionMemoryResponse struct {
+	SessionMemory []string `json:"session_memory"`
 }
 
 // maxGoalLength is the session goal's length cap (T-4-10), following the
@@ -808,6 +820,49 @@ func (h *Handler) PutGoal(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.sendJSON(w, GoalResponse{Goal: updatedProfile.SessionGoal})
+}
+
+// GetSessionMemory handles GET /api/v1/profiles/:connection_id/ai-memory
+// (D-10). GET-only, following GetAISettings' exact shape: ownership is
+// resolved through getProfileByConnectionID, the same check every other
+// profile sub-resource uses (T-4-09). A nil transcripts store (no
+// TranscriptStore wired) fails closed with 503 rather than panicking, the
+// same discipline the two log endpoints already use. There is deliberately
+// no PutSessionMemory — editing memory by hand is Phase 5 (D-10).
+func (h *Handler) GetSessionMemory(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	_, _, err := h.getProfileByConnectionID(r)
+	if err != nil {
+		h.sendError(w, err.Error())
+		return
+	}
+
+	if h.transcripts == nil {
+		http.Error(w, "Session Memory unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	connectionID, err := h.getConnectionIDFromPath(r)
+	if err != nil {
+		h.sendError(w, err.Error())
+		return
+	}
+
+	bullets, err := h.transcripts.SessionMemoryForConnection(connectionID)
+	if err != nil {
+		log.Printf("[PH0107] Get session memory failed: %v", err)
+		h.sendError(w, "Failed to load session memory")
+		return
+	}
+	if bullets == nil {
+		bullets = []string{}
+	}
+
+	h.sendJSON(w, SessionMemoryResponse{SessionMemory: bullets})
 }
 
 // GetPolicy handles GET /api/v1/profiles/:connection_id/policy
