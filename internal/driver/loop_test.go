@@ -282,6 +282,9 @@ func TestLoop_Pacing(t *testing.T) {
 			t.Fatalf("expected the third decision to land no sooner than the settle wait (%v), landed after %v", settle, elapsed)
 		}
 
+		// waitForCalls returns when the third model call starts; the send
+		// follows the review, so wait for it before reading sendCalls.
+		waitForSendCount(t, sessions, 3)
 		d.StopLoop(userID)
 
 		sends := sessions.sendCalls()
