@@ -836,7 +836,85 @@ func TestChat_SchemaShape(t *testing.T) {
 	if !ok {
 		t.Fatal("responseSchema missing propertyOrdering")
 	}
-	if len(ordering) != 1 || ordering[0] != "reply" {
-		t.Errorf("responseSchema.propertyOrdering = %v, want [\"reply\"]", ordering)
+	if len(ordering) != 3 || ordering[0] != "reply" || ordering[1] != "push" || ordering[2] != "withdraw" {
+		t.Errorf("responseSchema.propertyOrdering = %v, want [\"reply\", \"push\", \"withdraw\"]", ordering)
+	}
+	if _, ok := props["push"]; !ok {
+		t.Error("responseSchema.properties missing push")
+	}
+	if _, ok := props["withdraw"]; !ok {
+		t.Error("responseSchema.properties missing withdraw")
+	}
+}
+
+// writeChatAnswer writes a 200 Gemini generateContent response whose inner
+// text field is the raw JSON body given, so a test can send a shape
+// ChatAnswer's own json tags would not naturally produce (e.g. a malformed
+// push field) -- mirroring writeChatSuccess's double-encode shape but
+// taking the inner body directly rather than building it from a ChatAnswer.
+func writeChatAnswer(w http.ResponseWriter, innerJSON string) {
+	envelope := map[string]any{
+		"candidates": []map[string]any{
+			{
+				"content": map[string]any{
+					"parts": []map[string]any{
+						{"text": innerJSON},
+					},
+				},
+			},
+		},
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(envelope)
+}
+
+// TestChat_DecodesPushAndWithdraw proves a well-formed body carrying both
+// push and withdraw arrays round-trips through Chat's decode intact,
+// alongside the reply (plan 05-06, D-08, D-10).
+func TestChat_DecodesPushAndWithdraw(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeChatAnswer(w, `{"reply":"done.","push":["avoid the north road"],"withdraw":["keep to the shadows"]}`)
+	}))
+	defer srv.Close()
+
+	c := NewClient(5 * time.Second)
+	answer, err := c.Chat(context.Background(), srv.URL, "test-model", testFakeKey, "sys", "user")
+	if err != nil {
+		t.Fatalf("Chat() error = %v", err)
+	}
+	if answer.Reply != "done." {
+		t.Errorf("Reply = %q, want %q", answer.Reply, "done.")
+	}
+	if len(answer.Push) != 1 || answer.Push[0] != "avoid the north road" {
+		t.Errorf("Push = %v, want [\"avoid the north road\"]", answer.Push)
+	}
+	if len(answer.Withdraw) != 1 || answer.Withdraw[0] != "keep to the shadows" {
+		t.Errorf("Withdraw = %v, want [\"keep to the shadows\"]", answer.Withdraw)
+	}
+}
+
+// TestChat_MalformedPushIsDropped proves a push field sent as a string
+// instead of an array is dropped -- the reply and a well-formed withdraw
+// still decode -- mirroring decodeAnswer's own tolerance for a malformed
+// session_memory/quest_memory shape.
+func TestChat_MalformedPushIsDropped(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeChatAnswer(w, `{"reply":"done.","push":"not an array","withdraw":["keep to the shadows"]}`)
+	}))
+	defer srv.Close()
+
+	c := NewClient(5 * time.Second)
+	answer, err := c.Chat(context.Background(), srv.URL, "test-model", testFakeKey, "sys", "user")
+	if err != nil {
+		t.Fatalf("Chat() error = %v", err)
+	}
+	if answer.Reply != "done." {
+		t.Errorf("Reply = %q, want %q", answer.Reply, "done.")
+	}
+	if answer.Push != nil {
+		t.Errorf("Push = %v, want nil (malformed shape dropped)", answer.Push)
+	}
+	if len(answer.Withdraw) != 1 || answer.Withdraw[0] != "keep to the shadows" {
+		t.Errorf("Withdraw = %v, want [\"keep to the shadows\"]", answer.Withdraw)
 	}
 }

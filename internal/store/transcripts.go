@@ -62,23 +62,37 @@ func NewTranscriptStore(db *sql.DB) *TranscriptStore {
 // openGameSessionSQL is declared as a package-level constant, rather than
 // an inline literal, so transcripts_test.go (no database connection) can
 // assert on its exact text: one INSERT, no SELECT-then-INSERT race, that
-// seeds session_memory from the same user_id and connection_id's most
-// recent earlier game session started at or after users.login_started_at,
-// falling back to an empty array when there is none (D-31, amending D-10 --
-// Session Memory now lives for the MUDPuppy login, not the game
-// connection).
-const openGameSessionSQL = `INSERT INTO game_sessions (user_id, connection_id, session_memory)
-	VALUES ($1, $2, COALESCE(
-		(SELECT gs.session_memory
-		 FROM game_sessions gs
-		 JOIN users u ON u.id = gs.user_id
-		 WHERE gs.user_id = $1
-		   AND gs.connection_id = $2
-		   AND gs.started_at >= u.login_started_at
-		 ORDER BY gs.started_at DESC
-		 LIMIT 1),
-		'[]'::jsonb
-	))
+// seeds session_memory AND coaching_suggestions (plan 05-06, D-08) from the
+// same user_id and connection_id's most recent earlier game session started
+// at or after users.login_started_at, falling back to an empty array for
+// either column when there is none (D-31, amending D-10 -- Session Memory
+// now lives for the MUDPuppy login, not the game connection; D-08 ties
+// coaching's lifetime to Session Memory's exactly).
+const openGameSessionSQL = `INSERT INTO game_sessions (user_id, connection_id, session_memory, coaching_suggestions)
+	VALUES ($1, $2,
+		COALESCE(
+			(SELECT gs.session_memory
+			 FROM game_sessions gs
+			 JOIN users u ON u.id = gs.user_id
+			 WHERE gs.user_id = $1
+			   AND gs.connection_id = $2
+			   AND gs.started_at >= u.login_started_at
+			 ORDER BY gs.started_at DESC
+			 LIMIT 1),
+			'[]'::jsonb
+		),
+		COALESCE(
+			(SELECT gs.coaching_suggestions
+			 FROM game_sessions gs
+			 JOIN users u ON u.id = gs.user_id
+			 WHERE gs.user_id = $1
+			   AND gs.connection_id = $2
+			   AND gs.started_at >= u.login_started_at
+			 ORDER BY gs.started_at DESC
+			 LIMIT 1),
+			'[]'::jsonb
+		)
+	)
 	RETURNING id`
 
 // OpenGameSession starts a new transcript row for a saved-profile

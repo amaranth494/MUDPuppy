@@ -966,6 +966,82 @@ func (f *fakeMemoryStore) updateCallsSnapshot() []updateSessionMemoryCall {
 	return out
 }
 
+// updateCoachingCall records one fakeCoaching.UpdateCoaching invocation.
+type updateCoachingCall struct {
+	gameSessionID uuid.UUID
+	bullets       []string
+}
+
+// fakeCoaching is a Coaching double (plan 05-06), following fakeMemoryStore's
+// exact shape: an in-memory game-session-id-to-list map so CoachingFor reads
+// back whatever UpdateCoaching most recently stored (when updateErr is
+// unset). CoachingForConnection is keyed by the same map -- a test that
+// exercises it wires the connection id and the game session id as the same
+// uuid, since no login-boundary SQL exists here to fake.
+type fakeCoaching struct {
+	mu        sync.Mutex
+	bullets   map[uuid.UUID][]string
+	updateErr error
+	readErr   error
+	calls     []updateCoachingCall
+}
+
+func newFakeCoaching() *fakeCoaching {
+	return &fakeCoaching{bullets: make(map[uuid.UUID][]string)}
+}
+
+func (f *fakeCoaching) CoachingFor(gameSessionID uuid.UUID) ([]string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.readErr != nil {
+		return nil, f.readErr
+	}
+	b, ok := f.bullets[gameSessionID]
+	if !ok {
+		return []string{}, nil
+	}
+	out := make([]string, len(b))
+	copy(out, b)
+	return out, nil
+}
+
+func (f *fakeCoaching) UpdateCoaching(gameSessionID uuid.UUID, coaching []string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls = append(f.calls, updateCoachingCall{gameSessionID: gameSessionID, bullets: coaching})
+	if f.updateErr != nil {
+		return f.updateErr
+	}
+	stored := make([]string, len(coaching))
+	copy(stored, coaching)
+	f.bullets[gameSessionID] = stored
+	return nil
+}
+
+func (f *fakeCoaching) CoachingForConnection(connectionID uuid.UUID) ([]string, error) {
+	return f.CoachingFor(connectionID)
+}
+
+func (f *fakeCoaching) updateCallsSnapshot() []updateCoachingCall {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]updateCoachingCall, len(f.calls))
+	copy(out, f.calls)
+	return out
+}
+
+// seed pre-loads gameSessionID's coaching list directly, without going
+// through UpdateCoaching -- so a test can prime the store the same way a
+// prior chat turn would have left it, without that prior turn's own call
+// counting toward updateCallsSnapshot.
+func (f *fakeCoaching) seed(gameSessionID uuid.UUID, bullets []string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	stored := make([]string, len(bullets))
+	copy(stored, bullets)
+	f.bullets[gameSessionID] = stored
+}
+
 // boolPtr returns a pointer to v, for building gemini.ReviewAnswer literals
 // now that Blocked is *bool (D-24, DR-4-02) — a small named helper beside
 // testProfile/testConfig rather than repeating &[]bool{true}[0] inline at

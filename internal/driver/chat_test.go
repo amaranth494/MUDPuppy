@@ -2,6 +2,7 @@ package driver
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -26,6 +27,7 @@ type chatTestFixture struct {
 	commands      *fakeCommands
 	quests        *fakeQuestStore
 	memory        *fakeMemoryStore
+	coaching      *fakeCoaching
 	userID        string
 	connID        string
 	userUUID      uuid.UUID
@@ -57,6 +59,7 @@ func newChatFixture(profile *store.Profile) *chatTestFixture {
 		commands:      &fakeCommands{},
 		quests:        &fakeQuestStore{},
 		memory:        newFakeMemoryStore(),
+		coaching:      newFakeCoaching(),
 		userID:        userID.String(),
 		connID:        connID.String(),
 		userUUID:      userID,
@@ -67,6 +70,7 @@ func newChatFixture(profile *store.Profile) *chatTestFixture {
 	f.driver.SetQuests(f.quests)
 	f.driver.SetMemory(f.memory)
 	f.driver.SetConversation(f.conversation)
+	f.driver.SetCoaching(f.coaching)
 	return f
 }
 
@@ -463,5 +467,289 @@ func TestHandleChat_MessageTooLong(t *testing.T) {
 	events := f.notifier.chatEventsSnapshot()
 	if len(events) != 1 || events[0].Speaker != "system" || events[0].State != chatStateFailed {
 		t.Fatalf("expected exactly one system/failed line, got %+v", events)
+	}
+}
+
+// TestHandleChat_PromptCarriesCoachingInEffect proves D-17: the coaching
+// currently in effect travels in AI-chatter's own prompt, in its own
+// delimited block, with the verbatim-copy instruction present; an empty
+// store renders no block at all; a nil Coaching collaborator still produces
+// a reply; and a withdraw naming a line copied EXACTLY out of the
+// instruction the fake model recorded (not hard-coded in this test) removes
+// it -- the test that fails if the coaching-in-effect block ever stops
+// reaching the prompt.
+func TestHandleChat_PromptCarriesCoachingInEffect(t *testing.T) {
+	t.Run("three_lines_appear_inside_markers_with_the_verbatim_sentence", func(t *testing.T) {
+		f := newChatFixture(nil)
+		f.coaching.seed(f.gameSessionID, []string{"avoid the north road", "always check inventory first", "greet the guard politely"})
+
+		f.driver.HandleChat(f.userID, f.connID, "what are you doing?")
+
+		instruction := f.models.lastChatSystemInstructionText()
+		for _, want := range []string{
+			"<COACHING>",
+			"avoid the north road",
+			"always check inventory first",
+			"greet the guard politely",
+			"</COACHING>",
+			"verbatim",
+		} {
+			if !strings.Contains(instruction, want) {
+				t.Errorf("system instruction missing %q\n---\n%s", want, instruction)
+			}
+		}
+	})
+
+	t.Run("empty_store_produces_no_coaching_block", func(t *testing.T) {
+		f := newChatFixture(nil)
+
+		f.driver.HandleChat(f.userID, f.connID, "hello")
+
+		instruction := f.models.lastChatSystemInstructionText()
+		if strings.Contains(instruction, "<COACHING>") {
+			t.Errorf("expected no <COACHING> block for an empty coaching store:\n%s", instruction)
+		}
+	})
+
+	t.Run("nil_coaching_collaborator_still_produces_a_reply", func(t *testing.T) {
+		f := newChatFixture(nil)
+		f.driver.SetCoaching(nil)
+
+		f.driver.HandleChat(f.userID, f.connID, "hello")
+
+		if got := f.models.chatCallCount(); got != 1 {
+			t.Fatalf("expected exactly one Chat call, got %d", got)
+		}
+		lines := f.conversation.linesFor(f.gameSessionID)
+		if len(lines) != 2 {
+			t.Fatalf("expected a reply to still be stored, got %+v", lines)
+		}
+	})
+
+	t.Run("withdraw_matches_the_exact_text_the_model_actually_received", func(t *testing.T) {
+		f := newChatFixture(nil)
+		f.coaching.seed(f.gameSessionID, []string{"avoid the north road"})
+		f.models.chatAnswer = &gemini.ChatAnswer{Reply: "noted."}
+
+		f.driver.HandleChat(f.userID, f.connID, "what have you told it so far?")
+
+		instruction := f.models.lastChatSystemInstructionText()
+		blockStart := strings.Index(instruction, "<COACHING>\n")
+		blockEnd := strings.Index(instruction, "\n</COACHING>")
+		if blockStart == -1 || blockEnd == -1 {
+			t.Fatalf("expected a <COACHING> block, got %q", instruction)
+		}
+		bulletLine := instruction[blockStart+len("<COACHING>\n") : blockEnd]
+		exact := strings.TrimPrefix(bulletLine, "- ")
+
+		f.models.chatAnswer = &gemini.ChatAnswer{Reply: "forgetting that now.", Withdraw: []string{exact}}
+		f.driver.HandleChat(f.userID, f.connID, "forget what you told it about the north road")
+
+		remaining, err := f.coaching.CoachingFor(f.gameSessionID)
+		if err != nil {
+			t.Fatalf("CoachingFor() error = %v", err)
+		}
+		if len(remaining) != 0 {
+			t.Fatalf("expected the coaching line withdrawn using the exact prompt text, got %v", remaining)
+		}
+	})
+}
+
+// TestHandleChat_Withdraw proves D-10: a withdraw removes the matching
+// line and the reply carries the exact removed text; a withdraw matching
+// nothing removes nothing and says so.
+func TestHandleChat_Withdraw(t *testing.T) {
+	t.Run("matching_withdraw_removes_and_confirms", func(t *testing.T) {
+		f := newChatFixture(nil)
+		f.coaching.seed(f.gameSessionID, []string{"avoid the north road", "keep to the shadows"})
+		f.models.chatAnswer = &gemini.ChatAnswer{Reply: "understood.", Withdraw: []string{"avoid the north road"}}
+
+		f.driver.HandleChat(f.userID, f.connID, "forget about the north road")
+
+		remaining, _ := f.coaching.CoachingFor(f.gameSessionID)
+		if len(remaining) != 1 || remaining[0] != "keep to the shadows" {
+			t.Fatalf("expected exactly the other line to remain, got %v", remaining)
+		}
+		lines := f.conversation.linesFor(f.gameSessionID)
+		reply := lines[len(lines)-1].Text
+		if !strings.HasPrefix(reply, coachingWithdrewPrefix+"avoid the north road") {
+			t.Fatalf("expected the reply to lead with the withdraw prefix and exact text, got %q", reply)
+		}
+	})
+
+	t.Run("no_match_removes_nothing_and_says_so", func(t *testing.T) {
+		f := newChatFixture(nil)
+		f.coaching.seed(f.gameSessionID, []string{"avoid the north road"})
+		f.models.chatAnswer = &gemini.ChatAnswer{Reply: "okay.", Withdraw: []string{"something never said"}}
+
+		f.driver.HandleChat(f.userID, f.connID, "forget about the bridge")
+
+		remaining, _ := f.coaching.CoachingFor(f.gameSessionID)
+		if len(remaining) != 1 {
+			t.Fatalf("expected nothing removed, got %v", remaining)
+		}
+		lines := f.conversation.linesFor(f.gameSessionID)
+		reply := lines[len(lines)-1].Text
+		if !strings.Contains(reply, coachingWithdrawNoMatchSentence) {
+			t.Fatalf("expected the no-match sentence in the reply, got %q", reply)
+		}
+	})
+}
+
+// TestHandleChat_ReplyQuotesTheExactLineSent proves T-5-27: the "Sent to
+// AI-player:" prefix is byte-identical to the stored line even when the
+// model's own reply claims something different, and a push of only
+// whitespace produces no prefix and no stored line.
+func TestHandleChat_ReplyQuotesTheExactLineSent(t *testing.T) {
+	t.Run("prefix_is_byte_identical_to_the_stored_line", func(t *testing.T) {
+		f := newChatFixture(nil)
+		f.models.chatAnswer = &gemini.ChatAnswer{
+			Reply: "I have not changed anything at all.",
+			Push:  []string{"always check inventory first"},
+		}
+
+		f.driver.HandleChat(f.userID, f.connID, "tell it to check inventory first")
+
+		stored, _ := f.coaching.CoachingFor(f.gameSessionID)
+		if len(stored) != 1 {
+			t.Fatalf("expected exactly one stored line, got %v", stored)
+		}
+		lines := f.conversation.linesFor(f.gameSessionID)
+		reply := lines[len(lines)-1].Text
+		want := coachingSentPrefix + stored[0]
+		if !strings.HasPrefix(reply, want) {
+			t.Fatalf("expected the reply to lead with %q, got %q", want, reply)
+		}
+	})
+
+	t.Run("whitespace_only_push_produces_no_prefix_and_no_stored_line", func(t *testing.T) {
+		f := newChatFixture(nil)
+		f.models.chatAnswer = &gemini.ChatAnswer{Reply: "okay.", Push: []string{"   "}}
+
+		f.driver.HandleChat(f.userID, f.connID, "hello")
+
+		stored, _ := f.coaching.CoachingFor(f.gameSessionID)
+		if len(stored) != 0 {
+			t.Fatalf("expected nothing stored, got %v", stored)
+		}
+		lines := f.conversation.linesFor(f.gameSessionID)
+		reply := lines[len(lines)-1].Text
+		if strings.Contains(reply, coachingSentPrefix) {
+			t.Fatalf("expected no Sent to AI-player prefix, got %q", reply)
+		}
+	})
+}
+
+// TestHandleChat_EmitsCoachingReceivedMarker proves D-05: a push emits
+// exactly one Kind: "system" event with Outcome "coaching-received" and the
+// unbracketed message "Coaching received", carrying none of the suggestion
+// text; a chat with no push and no withdraw emits none.
+func TestHandleChat_EmitsCoachingReceivedMarker(t *testing.T) {
+	t.Run("push_emits_exactly_one_marker", func(t *testing.T) {
+		f := newChatFixture(nil)
+		f.models.chatAnswer = &gemini.ChatAnswer{Reply: "done.", Push: []string{"avoid the north road"}}
+
+		f.driver.HandleChat(f.userID, f.connID, "avoid the north road from now on")
+
+		var markers []Event
+		for _, ev := range f.notifier.eventsSnapshot() {
+			if ev.Outcome == "coaching-received" {
+				markers = append(markers, ev)
+			}
+		}
+		if len(markers) != 1 {
+			t.Fatalf("expected exactly one coaching-received event, got %d: %+v", len(markers), markers)
+		}
+		ev := markers[0]
+		if ev.Kind != "system" {
+			t.Errorf("expected Kind system, got %q", ev.Kind)
+		}
+		if ev.Message != "Coaching received" {
+			t.Errorf("expected exact message %q, got %q", "Coaching received", ev.Message)
+		}
+		if strings.ContainsAny(ev.Message, "[]") {
+			t.Errorf("expected no brackets in the wire message, got %q", ev.Message)
+		}
+		if strings.Contains(ev.Message, "avoid the north road") {
+			t.Errorf("expected no suggestion text in the marker, got %q", ev.Message)
+		}
+	})
+
+	t.Run("no_push_or_withdraw_emits_no_marker", func(t *testing.T) {
+		f := newChatFixture(nil)
+
+		f.driver.HandleChat(f.userID, f.connID, "hello")
+
+		for _, ev := range f.notifier.eventsSnapshot() {
+			if ev.Outcome == "coaching-received" {
+				t.Fatalf("expected no coaching-received event, got %+v", ev)
+			}
+		}
+	})
+}
+
+// TestHandleChat_CoachingCeilings proves the D-08 ceiling: nine pushes leave
+// eight suggestions, the oldest gone, each at most maxBulletChars characters
+// and marker-free, and the reply names the drop.
+func TestHandleChat_CoachingCeilings(t *testing.T) {
+	f := newChatFixture(nil)
+	pushes := make([]string, 9)
+	for i := range pushes {
+		pushes[i] = fmt.Sprintf("suggestion number %02d %s", i+1, strings.Repeat("x", 250))
+	}
+	f.models.chatAnswer = &gemini.ChatAnswer{Reply: "done.", Push: pushes}
+
+	f.driver.HandleChat(f.userID, f.connID, "remember all of these")
+
+	stored, _ := f.coaching.CoachingFor(f.gameSessionID)
+	if len(stored) != maxCoachingBullets {
+		t.Fatalf("expected exactly %d stored suggestions, got %d: %v", maxCoachingBullets, len(stored), stored)
+	}
+	for _, s := range stored {
+		if strings.Contains(s, "suggestion number 01 ") {
+			t.Fatalf("expected the oldest suggestion dropped, got %v", stored)
+		}
+		if len(s) > maxBulletChars {
+			t.Errorf("expected every stored suggestion at most %d characters, got %d: %q", maxBulletChars, len(s), s)
+		}
+		if strings.ContainsAny(s, "<>") {
+			t.Errorf("expected every stored suggestion marker-free, got %q", s)
+		}
+	}
+	lines := f.conversation.linesFor(f.gameSessionID)
+	reply := lines[len(lines)-1].Text
+	if !strings.Contains(reply, "dropped") {
+		t.Fatalf("expected the reply to name the drop, got %q", reply)
+	}
+}
+
+// TestCoachingHasOneWriter is a source-level assertion (matching Phase 4's
+// corpus well-formedness test's own os.ReadFile discipline) that
+// UpdateCoaching is CALLED (".UpdateCoaching(", a method call on a
+// collaborator) in exactly one non-test file in this package, and that file
+// is chat.go (T-5-26). This deliberately does not match the bare
+// "UpdateCoaching(" substring, which also appears once in driver.go's own
+// Coaching interface method declaration -- a declaration is not a call.
+func TestCoachingHasOneWriter(t *testing.T) {
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatalf("ReadDir(.) error = %v", err)
+	}
+	var filesWithCall []string
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		data, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatalf("ReadFile(%s) error = %v", name, err)
+		}
+		if strings.Contains(string(data), ".UpdateCoaching(") {
+			filesWithCall = append(filesWithCall, name)
+		}
+	}
+	if len(filesWithCall) != 1 || filesWithCall[0] != "chat.go" {
+		t.Fatalf("expected .UpdateCoaching( to appear in exactly one non-test file, chat.go, got %v", filesWithCall)
 	}
 }

@@ -44,6 +44,13 @@ const (
 	maxQuestBullets         = 20
 	maxSessionMemoryBullets = 30
 	maxBulletChars          = 200
+
+	// maxCoachingBullets is D-08's standing-suggestion list ceiling (plan
+	// 05-06): at most 8 coaching lines are ever in effect at once, enforced
+	// in Go on the way into either prompt regardless of what the chat
+	// answer's own schema asked for, exactly like maxQuestBullets and
+	// maxSessionMemoryBullets above.
+	maxCoachingBullets = 8
 )
 
 // markerNameRe matches the name of any of OUR four delimiting markers, in
@@ -209,6 +216,27 @@ func wrapSessionMemory(bullets []string) string {
 		return ""
 	}
 	return "<SESSION_MEMORY>\n" + renderBullets(bullets) + "\n</SESSION_MEMORY>"
+}
+
+// wrapCoaching encloses bullets between <COACHING> and </COACHING> markers
+// (D-08, plan 05-06), a direct sibling of wrapQuestMemory/wrapSessionMemory
+// reusing the identical renderBullets/neutraliseLine pipeline -- no new
+// clamp, render or neutralise function. Unlike Quest and Session Memory,
+// coaching is not the model's own past output; it is the owner's own live
+// guidance relayed by AI-chatter, so callers give it its own introducing
+// sentence rather than reusing "bullets you wrote yourself" (D-28's Claude's
+// Discretion). Used by AI-chatter's own prompt (chat.go's
+// buildChatSystemInstruction) today; plan 05-06-02 reuses this same helper,
+// unchanged, for AI-player's own prompt (driver.go's
+// buildSystemInstruction/buildReviewSystemInstruction), so a withdraw can
+// quote a stored line verbatim from the identical rendering both models
+// see. An empty list returns the empty string: no block, no markers,
+// nothing to wrap.
+func wrapCoaching(bullets []string) string {
+	if len(bullets) == 0 {
+		return ""
+	}
+	return "<COACHING>\n" + renderBullets(bullets) + "\n</COACHING>"
 }
 
 // goalBlock returns the session goal's labelled section, or an empty

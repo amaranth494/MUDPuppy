@@ -274,6 +274,24 @@ type Conversation interface {
 	RecentConversation(gameSessionID uuid.UUID, limit int) ([]store.ConversationLine, error)
 }
 
+// Coaching is the slice of *store.CoachingStore the driver depends on for
+// the standing coaching list AI-chatter pushes to and withdraws from (plan
+// 05-06, D-08): the same login-scoped lifetime Session Memory has (D-31).
+// Nil-safe for the same reason as Quests and Memory above: an unwired
+// Coaching collaborator means the prompt simply carries no coaching and
+// HandleChat's push/withdraw step is a no-op, not a crash.
+//
+// UpdateCoaching must be called from exactly one place in this package --
+// internal/driver/chat.go's HandleChat, driven only by an inbound owner
+// message (T-5-26, TestCoachingHasOneWriter) -- so nothing reading
+// untrusted game text or model-written memory can ever become a line
+// AI-player reads as the owner's own guidance.
+type Coaching interface {
+	CoachingFor(gameSessionID uuid.UUID) ([]string, error)
+	UpdateCoaching(gameSessionID uuid.UUID, coaching []string) error
+	CoachingForConnection(connectionID uuid.UUID) ([]string, error)
+}
+
 // Notifier delivers a decision or system Event, or a chat ChatEvent, to the
 // browser (plan 03-09's live push to the owner's open play screen; plan
 // 05-05 adds the chat channel). A nil Notifier passed to New is a silent
@@ -326,7 +344,11 @@ type ChatEvent struct {
 }
 
 // Event is the payload plan 03-09 delivers live to the browser and plan
-// 03-10 renders. Kind is "decision" or "system".
+// 03-10 renders. Kind is "decision" or "system". A Kind: "system" Event's
+// Outcome grows one value per phase that needs one; plan 05-06 adds
+// "coaching-received" (D-05), emitted by HandleChat at the moment a push or
+// a withdraw actually changes the coaching store, carrying no suggestion
+// text -- see chat.go's notifyCoachingReceived.
 type Event struct {
 	ID        string
 	Kind      string
@@ -385,6 +407,13 @@ type Driver struct {
 	// the prompt. Not set by New; wired by SetConversation once
 	// cmd/server/main.go builds the real *store.ConversationStore.
 	conversation Conversation
+
+	// coaching is a nil-safe collaborator (plan 05-06), mirroring quests,
+	// memory and conversation above: a nil value means no coaching reaches
+	// either prompt and HandleChat's push/withdraw step does nothing. Not
+	// set by New; wired by SetCoaching once cmd/server/main.go builds the
+	// real *store.CoachingStore.
+	coaching Coaching
 
 	mu sync.Mutex
 	// inFlight is keyed by user AND stint epoch (code review CR-01 of Phase
@@ -514,6 +543,16 @@ func (d *Driver) SetMemory(m Memory) {
 // real *store.ConversationStore is wired.
 func (d *Driver) SetConversation(c Conversation) {
 	d.conversation = c
+}
+
+// SetCoaching attaches (or replaces) the Driver's Coaching collaborator
+// after construction, mirroring SetQuests/SetMemory/SetConversation's exact
+// precedent (plan 05-06). Unwired (nil) is the default and a supported
+// state -- both prompts simply carry no coaching, and HandleChat's
+// push/withdraw step is a no-op, until a real *store.CoachingStore is
+// wired.
+func (d *Driver) SetCoaching(c Coaching) {
+	d.coaching = c
 }
 
 // HandleEngage runs one decision for userID on connectionID as a later
@@ -971,6 +1010,26 @@ func (d *Driver) sessionMemoryBullets(gameSessionID *uuid.UUID) []string {
 		return nil
 	}
 	return clampBullets(bullets, maxSessionMemoryBullets)
+}
+
+// coachingBullets reads the current game session's standing coaching list
+// (D-08, plan 05-06), clamped to maxCoachingBullets -- the same nil-safe,
+// clamped read sessionMemoryBullets takes for Session Memory above. Used by
+// AI-chatter's own prompt (chat.go's buildChatPromptContext) today; plan
+// 05-06-02 wires this same helper into AI-player's own promptContext
+// assembly (decide, above) so both prompts render the identical coaching
+// list. A nil Coaching collaborator, no current game session, or a lookup
+// error all resolve to no bullets, for the same reason as
+// activeQuestBullets/sessionMemoryBullets above.
+func (d *Driver) coachingBullets(gameSessionID *uuid.UUID) []string {
+	if d.coaching == nil || gameSessionID == nil {
+		return nil
+	}
+	bullets, err := d.coaching.CoachingFor(*gameSessionID)
+	if err != nil {
+		return nil
+	}
+	return clampBullets(bullets, maxCoachingBullets)
 }
 
 // persistMemory applies D-10/D-11's replace-or-leave-alone rule to what the
