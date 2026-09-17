@@ -765,7 +765,9 @@ func (d *Driver) decide(ctx context.Context, userID, connectionID string, first 
 			d.logDecision(userID, connectionID, "", stage, entry.ModelName, "", "", len(window), len(cmd))
 			return
 		}
-		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, failureAPIError, resolved)
+		// Any other send error is the game connection, not the model (code
+		// review WR-03 of Phase 4).
+		d.recordSendFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, resolved)
 		return
 	}
 
@@ -1039,6 +1041,65 @@ func (d *Driver) recordFailure(userID, connectionID string, userUUID, connUUID u
 	}, resolved))
 
 	d.logDecision(userID, connectionID, decisionID, "failed", modelName, dbOutcome, failureKind, len(window), len(command))
+}
+
+// failureSendFailed is the failure_kind stored on the row of a decision whose
+// command never reached the game because the game connection was gone. It
+// is deliberately absent from failureNotices, kindSentences and
+// transientFailureKinds: it is not a D-13/D-15 model failure and must never
+// be routed through recordFailure.
+const failureSendFailed = "send-failed"
+
+// sendFailedNotice is what the owner is shown, and what the decision row
+// stores, when a decided command could not be sent.
+const sendFailedNotice = "AI command was not sent: the game connection was lost."
+
+// recordSendFailure handles a send that failed for a reason that is neither
+// the switch (session.ErrAutopilotNotOn, dropped quietly by the caller) nor
+// the model: there was no game socket, or the write to it failed (code
+// review WR-03 of Phase 4). It used to be mapped to failureAPIError, which
+// told the owner "the model could not be reached", counted a lost connection
+// toward D-15's consecutive-failure threshold and, at threshold minus one,
+// called DisengageAutopilot -- turning the WAITING the session manager had
+// just parked the switch at into OFF, so the reconnect no longer resumed
+// (D-19). Here nothing is counted and the switch is left exactly where the
+// manager put it. The row keeps the audit trail honest (the decision was
+// made, reviewed and dispatched, and was not sent) using the existing
+// "failed" outcome with its own failure_kind; no new outcome value, so
+// migration 012's CHECK constraint is untouched.
+func (d *Driver) recordSendFailure(userID, connectionID string, userUUID, connUUID uuid.UUID, gameSessionID *uuid.UUID, modelName, window, reasoning, command string, resolved store.ResolvedAISettings) {
+	decisionID := ""
+	if d.decisions != nil {
+		id, _, err := d.decisions.InsertDecision(store.DecisionRecord{
+			UserID:        userUUID,
+			ConnectionID:  connUUID,
+			GameSessionID: gameSessionID,
+			ModelName:     modelName,
+			WindowText:    window,
+			Reasoning:     reasoning,
+			Command:       command,
+			Outcome:       "failed",
+			FailureKind:   failureSendFailed,
+			Notice:        sendFailedNotice,
+		})
+		if err == nil {
+			decisionID = id.String()
+		}
+	}
+
+	// "transient" is the existing not-a-halt event outcome: this message
+	// does not announce a disengage, and decorateEvent reports whatever
+	// state the manager left the switch in (waiting, after a drop).
+	d.notify(userID, d.decorateEvent(userID, Event{
+		ID:        decisionID,
+		Kind:      "system",
+		Reasoning: reasoning,
+		Outcome:   "transient",
+		Message:   sendFailedNotice,
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+	}, resolved))
+
+	d.logDecision(userID, connectionID, decisionID, "send-failed", modelName, "failed", failureSendFailed, len(window), len(command))
 }
 
 // recordBlocked stores a blocked decision (D-08), notifies a decision

@@ -366,7 +366,11 @@ func (f *fakeSessions) SendAICommand(userID, command string, epoch uint64) error
 		return session.ErrAutopilotNotOn
 	}
 	if f.sendErr != nil {
+		// Mirrors the real Manager: a failed write disconnects the session,
+		// which parks an engaged switch at waiting, before the error returns.
 		err := f.sendErr
+		newState, _ := session.EnterWaiting(f.currentStateLocked())
+		f.storeStateLocked(newState)
 		f.mu.Unlock()
 		return err
 	}

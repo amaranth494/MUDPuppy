@@ -372,6 +372,52 @@ func TestSendCommand_FailedWriteOnAReplacedSocketLeavesTheNewSessionAlone(t *tes
 	}
 }
 
+// TestSendAICommand_LostConnectionLeavesTheSwitchWaiting is the manager half
+// of code review WR-03 of Phase 4 (D-19). Path 1: the AI's own write finds
+// the dead socket -- the error is the typed ErrSendFailed and the switch is
+// parked at WAITING, not OFF. Path 2: the disconnect happened first -- the AI
+// send reads as ErrAutopilotNotOn (checked before the connection), never as
+// a bare "no active connection". A human send with no socket gets the typed
+// ErrNoConnection.
+func TestSendAICommand_LostConnectionLeavesTheSwitchWaiting(t *testing.T) {
+	m := newTestManager()
+	m.writeTimeout = 200 * time.Millisecond
+	userID := uuid.New().String()
+	connID := uuid.New().String()
+	seedConnectedSession(m, userID, connID)
+
+	client, server := net.Pipe()
+	defer server.Close()
+	m.mu.Lock()
+	m.conns[userID] = client
+	m.mu.Unlock()
+	_, _, epoch, err := m.EngageAutopilotEpoch(userID, connID)
+	if err != nil {
+		t.Fatalf("engage: %v", err)
+	}
+
+	client.Close() // the game dropped the socket; nobody has noticed yet
+
+	err = m.SendAICommand(userID, "north", epoch)
+	if !errors.Is(err, ErrSendFailed) {
+		t.Fatalf("expected ErrSendFailed from a write to a dead socket, got %v", err)
+	}
+	if got := m.AutopilotStateFor(userID); got != AutopilotWaiting {
+		t.Fatalf("AutopilotStateFor = %q after the AI's write found the drop, want %q", got, AutopilotWaiting)
+	}
+
+	// The session is gone now; a further AI send is a switch refusal.
+	if err := m.SendAICommand(userID, "north", epoch); !errors.Is(err, ErrAutopilotNotOn) {
+		t.Fatalf("expected ErrAutopilotNotOn for an AI send while parked with no socket, got %v", err)
+	}
+	if err := m.SendCommand(userID, "look"); !errors.Is(err, ErrNoConnection) {
+		t.Fatalf("expected ErrNoConnection for a human send with no socket, got %v", err)
+	}
+	if got := m.AutopilotStateFor(userID); got != AutopilotWaiting {
+		t.Fatalf("AutopilotStateFor = %q, want %q (nothing above may move it)", got, AutopilotWaiting)
+	}
+}
+
 func TestTranscriptLineSources(t *testing.T) {
 	m := newTestManager()
 	sink := &fakeTranscriptSink{}

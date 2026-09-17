@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/amaranth494/MudPuppy/internal/gemini"
+	"github.com/amaranth494/MudPuppy/internal/session"
 	"github.com/google/uuid"
 )
 
@@ -377,6 +378,68 @@ func TestStint_RetryDelayIsCancellable(t *testing.T) {
 		if ev.Outcome == "transient" || ev.Outcome == "failed" {
 			t.Fatalf("expected no failure notice, got %q", ev.Message)
 		}
+	}
+}
+
+// TestSendFailureIsNotAModelFailure is code review WR-03 of Phase 4: the AI's
+// write is what discovers the dropped socket. The session manager has
+// already parked the switch at WAITING; the driver must not call that a
+// model failure, must not count it toward D-15's threshold, and above all
+// must not disengage -- OFF instead of WAITING means the reconnect no longer
+// resumes (D-19).
+func TestSendFailureIsNotAModelFailure(t *testing.T) {
+	for _, sendErr := range []error{session.ErrSendFailed, session.ErrNoConnection} {
+		t.Run(sendErr.Error(), func(t *testing.T) {
+			sessions := &fakeSessions{window: "a room", sendErr: sendErr}
+			sessions.engageState()
+			decisions := &fakeDecisionsStore{}
+			notifier := &fakeNotifier{}
+			models := &fakeModels{
+				answer:       &gemini.Answer{Reasoning: "heading north", Command: "north"},
+				reviewAnswer: &gemini.ReviewAnswer{Blocked: false, Reason: "clear"},
+			}
+			d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, &fakeCommands{}, notifier, testConfig())
+
+			userID := uuid.New().String()
+			connID := uuid.New().String()
+
+			// Put the failure count at threshold minus one first: the next
+			// counted failure would disengage.
+			d.mu.Lock()
+			d.failureCounts[userID] = 2
+			d.mu.Unlock()
+
+			d.HandleEngage(userID, connID)
+
+			if got := sessions.disengages(); len(got) != 0 {
+				t.Fatalf("expected a lost connection to disengage nothing, got %v", got)
+			}
+			if got := sessions.AutopilotStateFor(userID); got != session.AutopilotWaiting {
+				t.Fatalf("expected the switch left where the manager put it (%q), got %q", session.AutopilotWaiting, got)
+			}
+			if _, failures, _ := stintCounters(d, userID); failures != 2 {
+				t.Fatalf("expected a lost connection not to count toward the failure threshold, got %d (was 2)", failures)
+			}
+
+			events := notifier.eventsSnapshot()
+			if len(events) != 1 {
+				t.Fatalf("expected exactly one notification, got %d", len(events))
+			}
+			if strings.Contains(events[0].Message, "model") || strings.Contains(events[0].Message, "disengaged") {
+				t.Fatalf("a lost connection was reported as a model failure or a disengage: %q", events[0].Message)
+			}
+			if events[0].Message != sendFailedNotice || events[0].State != string(session.AutopilotWaiting) {
+				t.Fatalf("expected %q with state %q, got %q with state %q", sendFailedNotice, session.AutopilotWaiting, events[0].Message, events[0].State)
+			}
+
+			rows := decisions.rows()
+			if len(rows) != 1 || rows[0].Outcome != "failed" || rows[0].FailureKind != failureSendFailed || rows[0].Command != "north" {
+				t.Fatalf("expected one failed row of kind %q carrying the unsent command, got %+v", failureSendFailed, rows)
+			}
+			if len(sessions.sendCalls()) != 0 {
+				t.Fatalf("expected nothing recorded as sent")
+			}
+		})
 	}
 }
 

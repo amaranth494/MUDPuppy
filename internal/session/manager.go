@@ -983,6 +983,19 @@ func (m *Manager) resumeAutopilotLocked(userID, connectionID string) {
 // command was decided in.
 var ErrAutopilotNotOn = errors.New("autopilot is not on; AI command not sent")
 
+// ErrNoConnection and ErrSendFailed are the two ways a command can fail to
+// reach the game for a reason that has nothing to do with the switch or the
+// model (code review WR-03 of Phase 4): there is no game socket, or the
+// write to it failed (in which case the session has already been
+// disconnected, which parks an engaged autopilot at waiting). They are typed
+// so the AI driver can tell a lost connection from a model failure; it used
+// to report both as "the model could not be reached" and count them toward
+// the disengage threshold.
+var (
+	ErrNoConnection = errors.New("no active connection")
+	ErrSendFailed   = errors.New("failed to send command")
+)
+
 // SendCommand sends a command to the MUD server, tagged in the session
 // transcript as human-typed. This is the browser's only send path
 // (websocket.go:653, covering typed input, aliases, triggers and timers
@@ -1053,11 +1066,16 @@ func (m *Manager) sendCommand(userID, command, source string, checkEpoch bool, e
 	aiAllowed := recOK && rec.State == AutopilotOn && (!checkEpoch || rec.Epoch == epoch)
 	m.mu.RUnlock()
 
-	if !ok {
-		return fmt.Errorf("no active connection")
-	}
+	// The switch is checked BEFORE the connection (code review WR-03 of
+	// Phase 4): a disconnect parks the switch at waiting AND removes the
+	// socket, and the AI's send must then read as "the switch is not On"
+	// (the decision is dropped quietly, the switch stays WAITING so the
+	// reconnect resumes, D-19), not as a generic send failure.
 	if source == "ai" && !aiAllowed {
 		return ErrAutopilotNotOn
+	}
+	if !ok {
+		return ErrNoConnection
 	}
 
 	// Reset idle timer
@@ -1073,7 +1091,7 @@ func (m *Manager) sendCommand(userID, command, source string, checkEpoch bool, e
 	_ = conn.SetWriteDeadline(time.Time{})
 	if err != nil {
 		m.disconnect(userID, ReasonError, conn)
-		return fmt.Errorf("failed to send command: %v", err)
+		return fmt.Errorf("%w: %v", ErrSendFailed, err)
 	}
 
 	m.enqueueTranscriptLine(userID, source, command)
