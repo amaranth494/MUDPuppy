@@ -1,4 +1,4 @@
-import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, AutomationCredentials, Profile, UpdateProfileRequest, Alias, Trigger, Variable, Timer, AliasesResponse, TriggersResponse, VariablesResponse, TimersResponse, HelpSection, HelpSummary, AISettingsResponse, GoalResponse, SessionMemoryResponse, DeleteCapturedTextResponse, PolicyResponse, EngageGateResponse, AIDecisionPayload, StoredDecision, GameSessionSummary, TranscriptLine } from '../types';
+import { User, SessionStatus, ConnectRequest, ConnectResponse, DisconnectResponse, WSMessage, SavedConnection, CreateConnectionRequest, UpdateConnectionRequest, SetCredentialsRequest, CredentialStatus, AutomationCredentials, Profile, UpdateProfileRequest, Alias, Trigger, Variable, Timer, AliasesResponse, TriggersResponse, VariablesResponse, TimersResponse, HelpSection, HelpSummary, AISettingsResponse, GoalResponse, SessionMemoryResponse, DeleteCapturedTextResponse, PolicyResponse, EngageGateResponse, AIDecisionPayload, StoredDecision, GameSessionSummary, TranscriptLine, ChatLine, CoachingResponse, ConversationResponse } from '../types';
 import { logErrorToConsole } from './log';
 import { CommandSource } from './automation';
 import { AutopilotAnswer } from './automation/evaluator';
@@ -102,9 +102,16 @@ export class WebSocketManager {
   // remember that we did, so onclose does not fire the handlers a second time.
   private disconnectNotified = false;
   // 02-04-02: best-effort live push of autopilot state changes (D-10)
-  private autopilotHandlers: ((state: string, cause?: string) => void)[] = [];
+  // 05-07: widened with two optional trailing args carrying the D-15 waiting
+  // reasons off the same push — existing callers with the shorter two-arg
+  // signature (e.g. PlayScreen.tsx's wheel-grab notice) keep working
+  // unchanged, since a JS/TS handler may always ignore trailing arguments.
+  private autopilotHandlers: ((state: string, cause?: string, pausedByOwner?: boolean, connectionLost?: boolean) => void)[] = [];
   // 03-10: live push of each AI decision/system notice (plan 03-09, D-08)
   private aiHandlers: ((decision: AIDecisionPayload) => void)[] = [];
+  // 05-07: live push of each conversation line (plan 05-05's MsgTypeChat) —
+  // the owner's own echoed message, AI-chatter's reply, or a system notice.
+  private chatHandlers: ((entry: ChatLine) => void)[] = [];
 
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -161,12 +168,17 @@ export class WebSocketManager {
         break;
       case 'autopilot':
         if (message.status) {
-          this.autopilotHandlers.forEach(handler => handler(message.status!, message.data));
+          this.autopilotHandlers.forEach(handler => handler(message.status!, message.data, message.paused_by_owner, message.connection_lost));
         }
         break;
       case 'ai':
         if (message.decision) {
           this.aiHandlers.forEach(handler => handler(message.decision!));
+        }
+        break;
+      case 'chat':
+        if (message.chat) {
+          this.chatHandlers.forEach(handler => handler(message.chat!));
         }
         break;
       case 'disconnect':
@@ -182,6 +194,29 @@ export class WebSocketManager {
         data: command,
         source,
       }));
+    }
+  }
+
+  // 05-07: sends one chat message to AI-chatter over this same websocket
+  // (plan 05-05's MsgTypeChat). Deliberately does NOT go through
+  // sendCommand: chat is not a game command and is not a wheel-grab (D-16).
+  // Returns whether the message actually left the browser — false without
+  // throwing when the socket is missing or not open, and false from a catch
+  // around the write — so the panel can show the locked
+  // "[Message failed to send — try again]" notice instead of silently
+  // losing the owner's draft (T-5-57) the way a void sendCommand would.
+  sendChat(text: string): boolean {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      return false;
+    }
+    try {
+      this.ws.send(JSON.stringify({
+        type: 'chat',
+        data: text,
+      }));
+      return true;
+    } catch {
+      return false;
     }
   }
 
@@ -250,11 +285,11 @@ export class WebSocketManager {
     }
   }
 
-  onAutopilot(handler: (state: string, cause?: string) => void): void {
+  onAutopilot(handler: (state: string, cause?: string, pausedByOwner?: boolean, connectionLost?: boolean) => void): void {
     this.autopilotHandlers.push(handler);
   }
 
-  offAutopilot(handler: (state: string, cause?: string) => void): void {
+  offAutopilot(handler: (state: string, cause?: string, pausedByOwner?: boolean, connectionLost?: boolean) => void): void {
     const index = this.autopilotHandlers.indexOf(handler);
     if (index > -1) {
       this.autopilotHandlers.splice(index, 1);
@@ -269,6 +304,20 @@ export class WebSocketManager {
     const index = this.aiHandlers.indexOf(handler);
     if (index > -1) {
       this.aiHandlers.splice(index, 1);
+    }
+  }
+
+  // 05-07: onChat/offChat mirror onAI/offAI exactly (plan 05-05's
+  // MsgTypeChat) — live push of each conversation line as it happens.
+  onChat(handler: (entry: ChatLine) => void): void {
+    this.chatHandlers.push(handler);
+  }
+
+  // 05-07: offChat unregisters a handler added via onChat, above.
+  offChat(handler: (entry: ChatLine) => void): void {
+    const index = this.chatHandlers.indexOf(handler);
+    if (index > -1) {
+      this.chatHandlers.splice(index, 1);
     }
   }
 
@@ -730,6 +779,36 @@ export async function getSessionMemory(connectionId: string): Promise<SessionMem
   return await response.json();
 }
 
+// Get the coaching currently in effect for a connection (D-09, plan 05-06),
+// read-only — the coaching list's only writer is AI-chatter itself (D-18);
+// there is no putCoaching this phase.
+export async function getCoaching(connectionId: string): Promise<CoachingResponse> {
+  const response = await fetch(`${API_BASE}/profiles/${connectionId}/ai-coaching`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to load coaching');
+  }
+  return await response.json();
+}
+
+// Get the owner/AI-chatter conversation for a connection (D-09, plan
+// 05-06), oldest first, read-only — the message box writes through the
+// websocket chat channel (MsgTypeChat) instead, never this endpoint (D-18).
+export async function getConversation(connectionId: string): Promise<ConversationResponse> {
+  const response = await fetch(`${API_BASE}/profiles/${connectionId}/ai-conversation`, {
+    credentials: 'include',
+  });
+  handleAuthError(response);
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.error || 'Failed to load conversation');
+  }
+  return await response.json();
+}
+
 // Delete captured game-text snapshots and session transcripts for a
 // connection immediately (D-21), behind the panel's own two-step
 // confirmation. Decision rows, reasoning, and outcomes are never touched.
@@ -827,8 +906,19 @@ export async function getGameSessionTranscript(connectionId: string, sessionId: 
   return data.lines ?? [];
 }
 
+// 05-07: the same wire shape as AutopilotAnswer, widened with the two D-15
+// waiting reasons every internal/session/handler.go AutopilotResponse now
+// carries (no omitempty server-side) — Pause/Resume's own responses, and a
+// 'status' call used to hydrate them on attach/reload, both need these.
+export interface AutopilotActionResponse extends AutopilotAnswer {
+  paused_by_owner: boolean;
+  connection_lost: boolean;
+}
+
 // 02-04-02: Engage/disengage/query autopilot for a connection (#AUTO ON/OFF/STATUS)
-export async function setAutopilot(connectionId: string, action: 'on' | 'off' | 'status'): Promise<AutopilotAnswer> {
+// 05-07: 'pause' and 'resume' join the action union (D-13) — one helper, no
+// second endpoint function, per the plan's own instruction.
+export async function setAutopilot(connectionId: string, action: 'on' | 'off' | 'status' | 'pause' | 'resume'): Promise<AutopilotActionResponse> {
   const response = await fetch(`${API_BASE}/session/autopilot`, {
     method: 'POST',
     headers: {

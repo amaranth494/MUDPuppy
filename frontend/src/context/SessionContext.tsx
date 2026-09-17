@@ -30,6 +30,12 @@ interface SessionContextType {
   // 02-06-01: server-held autopilot switch position, populated by refreshStatus's poll
   // and by the live websocket push; never derived locally
   autopilotState: 'on' | 'waiting' | 'off';
+  // 05-07: D-15's two independent waiting reasons, populated the same two
+  // ways autopilotState itself is (refreshStatus's poll — via a 'status'
+  // autopilot call, since GET /session/status carries no such fields — and
+  // the live 'autopilot' websocket push); always false outside 'waiting'.
+  pausedByOwner: boolean;
+  connectionLost: boolean;
   error: string | null;
   isLoading: boolean;
   host?: string;
@@ -82,6 +88,11 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   // 02-06-01: defaults to off, the correct position for a fresh page load or a server
   // that has restarted (D-06)
   const [autopilotState, setAutopilotState] = useState<'on' | 'waiting' | 'off'>('off');
+  // 05-07: D-15's two independent waiting reasons; reset to false whenever
+  // the state is anything other than 'waiting' (a pause always shows as
+  // Waiting, so neither reason is ever meaningful in 'on' or 'off').
+  const [pausedByOwner, setPausedByOwner] = useState(false);
+  const [connectionLost, setConnectionLost] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [host, setHost] = useState<string>('');
@@ -238,7 +249,27 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
       }
       // 02-06-01: the badge's whole refresh-correctness mechanism (D-10) — SessionBadge.tsx
       // already calls refreshStatus on mount, on visibility change and on a 15s interval
-      setAutopilotState(status.autopilot_state || 'off');
+      const nextAutopilotState = status.autopilot_state || 'off';
+      setAutopilotState(nextAutopilotState);
+      // 05-07: GET /session/status carries no waiting-reason fields (only the
+      // POST .../autopilot response and the websocket push do), so a 'status'
+      // action call is the best-effort way to hydrate D-15's two reasons on
+      // this same poll when there is something to hydrate — 'status' makes
+      // no state transition, matching every other read-only call this poll
+      // already makes.
+      if (nextAutopilotState === 'waiting' && status.autopilot_connection_id) {
+        try {
+          const answer = await setAutopilot(status.autopilot_connection_id, 'status');
+          setPausedByOwner(answer.paused_by_owner);
+          setConnectionLost(answer.connection_lost);
+        } catch {
+          // Best-effort only — the websocket push and the pause/resume
+          // actions themselves stay the authoritative sources.
+        }
+      } else {
+        setPausedByOwner(false);
+        setConnectionLost(false);
+      }
       if (status.last_error) {
         setError(mapBackendError(status.last_error));
       } else {
@@ -253,8 +284,18 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
   // mechanism (that's refreshStatus above). If a push is missed, the poll still corrects it.
   useEffect(() => {
     if (!wsManager) return;
-    const handleAutopilotPush = (state: string) => {
-      setAutopilotState(state === 'on' || state === 'waiting' || state === 'off' ? state : 'off');
+    const handleAutopilotPush = (state: string, _cause?: string, pushPausedByOwner?: boolean, pushConnectionLost?: boolean) => {
+      const nextState = state === 'on' || state === 'waiting' || state === 'off' ? state : 'off';
+      setAutopilotState(nextState);
+      // 05-07: the push carries the same two D-15 waiting reasons the poll
+      // above hydrates; reset both outside 'waiting' exactly as the poll does.
+      if (nextState === 'waiting') {
+        setPausedByOwner(!!pushPausedByOwner);
+        setConnectionLost(!!pushConnectionLost);
+      } else {
+        setPausedByOwner(false);
+        setConnectionLost(false);
+      }
     };
     wsManager.onAutopilot(handleAutopilotPush);
     return () => {
@@ -679,6 +720,8 @@ export function SessionProvider({ children }: SessionProviderProps): JSX.Element
         user,
         connectionState,
         autopilotState,
+        pausedByOwner,
+        connectionLost,
         error,
         isLoading,
         host,
