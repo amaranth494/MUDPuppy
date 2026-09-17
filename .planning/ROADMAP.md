@@ -23,7 +23,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 3: One AI Decision** - ICM engine wired server-side, Gemini connected from env config, one decision made and issued through the automation context, reasoning shown live and persisted (completed 2026-09-16)
 - [x] **Phase 3.1: Prompt Injection Review** (INSERTED) - Game text cannot steer the AI into a command the owner would not sanction; the investigation and any mitigation are proven by tests with hostile room text and demonstrated on staging (urgent, from the Phase 3 security review, DR-3-02) (completed 2026-09-16)
-- [ ] **Phase 4: Continuous Play** - Session goal, paced read/decide/act loop, call cap and error disengage with visible notices, clean reassessment on re-engage, all safety limits under test
+- [x] **Phase 4: Continuous Play** - Session goal, paced read/decide/act loop, call cap and error disengage with visible notices, clean reassessment on re-engage, all safety limits under test (completed 2026-09-17)
 - [ ] **Phase 5: Coaching Channel** - Chat pane beside the terminal: guidance lands in the next decision, pause/resume, promote guidance into the profile
 - [ ] **Phase 6: Measurement and Memory** - Progression tally from the game's status numbers, session debriefs, learned notes carried into the next session, manual driving captured as demonstrations
 - [ ] **Phase 7: Study Loader** - Paste or upload material against a profile, AI summarizes in chat, confirmed lessons enter learned notes
@@ -258,7 +258,7 @@ Plans:
 
 **Wave 9** *(blocked on Wave 8 completion)*
 
-- [ ] 04-11-PLAN.md — The phase is demonstrated on staging and every criterion points at a filed piece of evidence
+- [x] 04-11-PLAN.md — The phase is demonstrated on staging and every criterion points at a filed piece of evidence
 
 **UI hint**: yes
 
@@ -349,7 +349,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 1. Profile Foundation and Policy Gate | 6/6 | Complete    | 2026-09-15 |
 | 2. Autopilot Switch | 7/7 | Complete    | 2026-09-15 |
 | 3. One AI Decision | 13/13 | Complete    | 2026-09-16 |
-| 4. Continuous Play | 10/11 | In Progress|  |
+| 4. Continuous Play | 11/11 | Complete   | 2026-09-17 |
 | 5. Coaching Channel | 0/TBD | Not started | - |
 | 6. Measurement and Memory | 0/TBD | Not started | - |
 | 7. Study Loader | 0/TBD | Not started | - |

@@ -29,7 +29,7 @@ Delivery ordering (from the source): D1 -> D2 -> D3 -> D4 strictly sequential; D
 ### D4: Continuous play
 
 - [x] **REQ-continuous-loop**: The owner sets a session goal; the AI plays toward it until stopped, within the safety limits. Acceptance: "The loop runs read, decide, act continuously against a live game, pacing itself to the game's turn rhythm rather than flooding it."
-- [ ] **REQ-call-cap-and-error-disengage**: Acceptance: "The session call cap halts the loop with a visible notice when reached; repeated errors or malformed model output disengage with a visible notice."
+- [x] **REQ-call-cap-and-error-disengage**: Acceptance: "The session call cap halts the loop with a visible notice when reached; repeated errors or malformed model output disengage with a visible notice."
 - [x] **REQ-reengage-reassess**: Acceptance: "Re-engagement after manual driving demonstrably reassesses the situation rather than resuming a stale plan."
 
 ### D5: Coaching channel
@@ -101,7 +101,7 @@ Deferred; tracked but not in the current roadmap.
 | REQ-reasoning-visibility | Phase 3 | Complete |
 | REQ-env-config | Phase 3 | Complete |
 | REQ-continuous-loop | Phase 4 | Complete |
-| REQ-call-cap-and-error-disengage | Phase 4 | Pending |
+| REQ-call-cap-and-error-disengage | Phase 4 | Complete |
 | REQ-reengage-reassess | Phase 4 | Complete |
 | REQ-doc-continuous-visible-play | Phase 4 | Complete |
 | REQ-doc-wheel-grab-and-reengage | Phase 4 | Complete |
