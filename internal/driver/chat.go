@@ -629,6 +629,10 @@ func (d *Driver) endChat(userID string) {
 // line of an exchange could not be stored (code review WR-05 of Phase 5).
 const chatNotSavedNotice = "This part of the conversation could not be saved. It will be gone after a refresh and will not appear on the Logs page."
 
+// systemChatIDPrefix starts the id of a system chat line (a notice), which is
+// never stored and so has no row id (code review WR-12 of Phase 5).
+const systemChatIDPrefix = "notice-"
+
 // unsavedChatIDPrefix starts the id of a chat line that was shown but not
 // stored. A stored line's id is its row id, a plain number, so the two can
 // never collide and the panel can still key and de-duplicate by id.
@@ -841,8 +845,15 @@ func (d *Driver) notifyChat(userID string, ev ChatEvent) {
 // notifyChatSystem builds and sends a system chat line -- the cap-reached,
 // too-long, in-flight and failed notices AI-chatter itself renders, as
 // opposed to the owner's own message or AI-chatter's reply.
+//
+// Code review WR-12 of Phase 5: a system line is never stored, so it has no
+// row id -- and it used to be sent with an EMPTY id. Two such notices in one
+// list gave the panel two children with the same key. Every notice now
+// carries a generated id of its own; the prefix keeps it apart from a stored
+// line's numeric id and an unsaved line's id.
 func (d *Driver) notifyChatSystem(userID, text, state string) {
 	d.notifyChat(userID, ChatEvent{
+		ID:        systemChatIDPrefix + uuid.NewString(),
 		Speaker:   "system",
 		Text:      text,
 		State:     state,

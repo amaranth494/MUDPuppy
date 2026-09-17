@@ -824,6 +824,45 @@ func TestHandleChat_ReplyIsShownEvenWhenItCannotBeSaved(t *testing.T) {
 	})
 }
 
+// TestHandleChat_EveryLineCarriesAUniqueID proves the server half of code
+// review WR-12 of Phase 5: the panel keys and de-duplicates its list by id,
+// and system notices used to arrive with an empty one.
+func TestHandleChat_EveryLineCarriesAUniqueID(t *testing.T) {
+	f := newChatFixture(nil)
+	tooLong := strings.Repeat("a", maxChatMessageLength+1)
+
+	f.driver.HandleChat(f.userID, f.connID, tooLong) // notice
+	f.driver.HandleChat(f.userID, f.connID, tooLong) // the same notice again
+	f.driver.HandleChat(f.userID, f.connID, "hello") // owner echo + reply
+	f.models.chatErr = &gemini.Error{Kind: gemini.KindTransport, Message: "boom"}
+	f.driver.HandleChat(f.userID, f.connID, "hello again") // owner echo + failure notice
+
+	events := f.notifier.chatEventsSnapshot()
+	if len(events) != 6 {
+		t.Fatalf("expected 6 chat events, got %d: %+v", len(events), events)
+	}
+	seen := make(map[string]bool, len(events))
+	notices := 0
+	for _, ev := range events {
+		if ev.ID == "" {
+			t.Errorf("a %s line was sent with an empty id: %+v", ev.Speaker, ev)
+		}
+		if seen[ev.ID] {
+			t.Errorf("two lines share the id %q", ev.ID)
+		}
+		seen[ev.ID] = true
+		if ev.Speaker == "system" {
+			notices++
+			if !strings.HasPrefix(ev.ID, systemChatIDPrefix) {
+				t.Errorf("a notice's id %q should start with %q so it can never collide with a stored line's row id", ev.ID, systemChatIDPrefix)
+			}
+		}
+	}
+	if notices != 3 {
+		t.Fatalf("expected 3 notices among the events, got %d", notices)
+	}
+}
+
 // TestHandleChat_HasItsOwnCallCount proves code review WR-08 of Phase 5
 // (D-11): AI-chatter's replies are held to the cap number on their OWN
 // count, so a call-cap halt of AI-player never locks AI-chatter out, chat

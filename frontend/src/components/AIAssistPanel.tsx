@@ -14,6 +14,7 @@ import {
 } from '../services/api';
 import { useSession } from '../context/SessionContext';
 import { openPopout, closePopout } from '../services/popout';
+import { appendChatLine, chatLineKey, mergeLoadedConversation } from '../services/chatLines';
 
 interface AIAssistPanelProps {
   connectionId: string;
@@ -137,10 +138,15 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
   const [chatEntries, setChatEntries] = useState<ChatLine[]>([]);
   const [chatDraft, setChatDraft] = useState('');
   const chatLogRef = useRef<HTMLDivElement>(null);
+  const sendFailedCountRef = useRef(0);
 
   useEffect(() => {
     if (!connectionId) return;
     let cancelled = false;
+    // The load below merges into the list rather than replacing it (WR-12),
+    // so a change of connection has to empty it first or the last
+    // connection's lines would be merged into this one's.
+    setChatEntries([]);
     getConversation(connectionId)
       .then((resp) => {
         if (cancelled) return;
@@ -150,7 +156,10 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
           text: line.text,
           timestamp: line.timestamp,
         }));
-        setChatEntries(mapped);
+        // Code review WR-12 of Phase 5: merge, never replace. A line pushed
+        // while this load was in flight used to be erased by it, and one the
+        // load already contained was shown twice.
+        setChatEntries((live) => mergeLoadedConversation(mapped, live));
       })
       .catch(() => {
         // Same silent-fallback shape as every other load in this component.
@@ -163,7 +172,9 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
   useEffect(() => {
     if (!wsManager) return;
     const handleChat = (entry: ChatLine) => {
-      setChatEntries((prev) => [...prev, entry]);
+      // Code review WR-12 of Phase 5: a line the reload already delivered is
+      // not added a second time.
+      setChatEntries((prev) => appendChatLine(prev, entry));
       // A reply from AI-chatter is the signal that its own coaching list may
       // have just changed (a push or a withdraw always produces one) — reload
       // it rather than trying to parse the reply text for what changed.
@@ -198,10 +209,12 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
       // The socket was not open, or the write threw — keep the draft (never
       // silently lose it, T-5-57) and append one locked, unbracketed system
       // entry; the render below supplies the brackets.
+      sendFailedCountRef.current += 1;
       setChatEntries((prev) => [
         ...prev,
         {
-          id: `chat-send-failed-${Date.now()}`,
+          // The counter keeps two failures in the same millisecond apart.
+          id: `chat-send-failed-${Date.now()}-${sendFailedCountRef.current}`,
           speaker: 'system',
           state: 'failed',
           text: 'Message failed to send — try again',
@@ -842,9 +855,9 @@ function AIChatterView(props: AIChatterViewProps) {
         {props.chatEntries.length === 0 && (
           <div className="ai-assist-chat-empty">No messages yet. Say something to AI-chatter.</div>
         )}
-        {props.chatEntries.map((entry) => (
+        {props.chatEntries.map((entry, index) => (
           <div
-            key={entry.id}
+            key={chatLineKey(entry, index)}
             className={`ai-assist-chat-line speaker-${entry.speaker}${entry.state ? ` state-${entry.state}` : ''}`}
           >
             {entry.speaker === 'owner' && `You: ${entry.text}`}
