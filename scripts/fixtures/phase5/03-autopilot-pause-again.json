@@ -1,0 +1,2 @@
+200
+{"state":"waiting","outcome":"already-waiting","gate_allowed":true,"policy_version":"1.0","paused_by_owner":true,"connection_lost":false}
