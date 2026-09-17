@@ -224,10 +224,13 @@ type Profiles interface {
 // Decisions is the slice of *store.DecisionStore the driver depends on.
 type Decisions interface {
 	InsertDecision(rec store.DecisionRecord) (uuid.UUID, time.Time, error)
-	// ListForConnection exists so AI-chatter can answer "why did you do
-	// that" from the same rows the panel shows (plan 05-05, D-17).
-	// Matches (*store.DecisionStore).ListForConnection's signature exactly.
-	ListForConnection(connectionID uuid.UUID, limit int) ([]store.Decision, error)
+	// RecentForConnection exists so AI-chatter can answer "why did you do
+	// that" (plan 05-05, D-17). It returns the NEWEST limit decisions, oldest
+	// first among them, without the window text (code review WR-02 of
+	// Phase 5: the read this replaced paged from the oldest row, so the
+	// answer went stale once a connection had more than one page).
+	// Matches (*store.DecisionStore).RecentForConnection's signature exactly.
+	RecentForConnection(connectionID uuid.UUID, limit int) ([]store.Decision, error)
 }
 
 // Quests is the slice of *store.QuestStore the driver depends on to read

@@ -824,6 +824,59 @@ func TestHandleChat_ReplyIsShownEvenWhenItCannotBeSaved(t *testing.T) {
 	})
 }
 
+// TestHandleChat_ReadsTheNewestDecisions proves code review WR-02 of Phase 5.
+// The earlier test of this read used fewer rows than one store page, so it
+// could not see the bug: past a page, AI-chatter was shown the same five
+// stale decisions for ever. Here the connection has well over a page.
+func TestHandleChat_ReadsTheNewestDecisions(t *testing.T) {
+	f := newChatFixture(nil)
+	const total = 260 // more than the store's 200-row page
+	for i := 1; i <= total; i++ {
+		f.decisions.InsertDecision(store.DecisionRecord{
+			UserID:       f.userUUID,
+			ConnectionID: f.connUUID,
+			ModelName:    "test-model",
+			Command:      fmt.Sprintf("cmd%03d", i),
+			Reasoning:    fmt.Sprintf("reasoning-for-decision-%03d-end", i),
+			Outcome:      "sent",
+		})
+	}
+	// Another connection's decisions must never be read.
+	f.decisions.InsertDecision(store.DecisionRecord{
+		UserID: f.userUUID, ConnectionID: uuid.New(), ModelName: "test-model",
+		Command: "elsewhere", Reasoning: "reasoning-from-another-connection", Outcome: "sent",
+	})
+
+	f.driver.HandleChat(f.userID, f.connID, "why did you do that?")
+
+	instruction := f.models.lastChatSystemInstructionText()
+	lastIdx := -1
+	for i := total - maxRecentDecisionsForChat + 1; i <= total; i++ {
+		want := fmt.Sprintf("reasoning-for-decision-%03d-end", i)
+		idx := strings.Index(instruction, want)
+		if idx == -1 {
+			t.Fatalf("expected the newest decisions in the prompt; missing %q", want)
+		}
+		if idx < lastIdx {
+			t.Fatalf("expected the newest decisions oldest first; %q is out of order", want)
+		}
+		lastIdx = idx
+	}
+	for _, stale := range []int{1, 196, 200, total - maxRecentDecisionsForChat} {
+		if gone := fmt.Sprintf("reasoning-for-decision-%03d-end", stale); strings.Contains(instruction, gone) {
+			t.Errorf("a stale decision reached the prompt: %q", gone)
+		}
+	}
+	if strings.Contains(instruction, "reasoning-from-another-connection") {
+		t.Error("another connection's decision reached the prompt")
+	}
+
+	limits := f.decisions.recentLimitsSnapshot()
+	if len(limits) != 1 || limits[0] != maxRecentDecisionsForChat {
+		t.Fatalf("expected one bounded read of %d decisions, got %v", maxRecentDecisionsForChat, limits)
+	}
+}
+
 // TestHandleChat_WorksWhileTheGameConnectionIsDown proves code review WR-01
 // of Phase 5 (D-06): with no live game session -- the manager forgets it the
 // moment the socket drops -- AI-chatter still answers, from stored state,

@@ -102,6 +102,61 @@ func (s *DecisionStore) InsertDecision(rec DecisionRecord) (uuid.UUID, time.Time
 	return id, createdAt, nil
 }
 
+// recentDecisionsForConnectionSQL reads a connection's NEWEST decisions
+// (code review WR-02 of Phase 5). Like recentConversationSQL it orders newest
+// first with a LIMIT, and RecentForConnection reverses the rows in Go: SQL
+// has no "limit from the end of an ascending order". window_text is left
+// out -- AI-chatter never reads it from here, and it is by far the largest
+// column in the row.
+const recentDecisionsForConnectionSQL = `SELECT id, connection_id, game_session_id, model_name, reasoning, command, outcome, failure_kind, notice, created_at
+	FROM ai_decisions
+	WHERE connection_id = $1
+	ORDER BY created_at DESC, id DESC
+	LIMIT $2`
+
+// RecentForConnection returns the newest limit decisions for connectionID,
+// oldest first among those returned, with WindowText left empty. It exists
+// for AI-chatter (D-17): ListForConnection below pages from the OLDEST row,
+// so once a connection had more than a page of decisions, "why did you do
+// that?" was answered from the same five stale decisions for ever. Ownership
+// of connectionID is resolved by the caller. A limit of zero or less returns
+// an empty slice and runs no query.
+func (s *DecisionStore) RecentForConnection(connectionID uuid.UUID, limit int) ([]Decision, error) {
+	if limit <= 0 {
+		return []Decision{}, nil
+	}
+
+	rows, err := s.db.Query(recentDecisionsForConnectionSQL, connectionID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	decisions := make([]Decision, 0, limit)
+	for rows.Next() {
+		var d Decision
+		var gameSessionID uuid.NullUUID
+		if err := rows.Scan(
+			&d.ID, &d.ConnectionID, &gameSessionID, &d.ModelName,
+			&d.Reasoning, &d.Command, &d.Outcome, &d.FailureKind, &d.Notice, &d.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		if gameSessionID.Valid {
+			id := gameSessionID.UUID
+			d.GameSessionID = &id
+		}
+		decisions = append(decisions, d)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for i, j := 0, len(decisions)-1; i < j; i, j = i+1, j-1 {
+		decisions[i], decisions[j] = decisions[j], decisions[i]
+	}
+	return decisions, nil
+}
+
 // ListForConnection lists a connection's decisions oldest first, so the
 // panel renders them in the order they happened (D-12: "reloads the
 // current connection's decisions after a page refresh"). Ownership of

@@ -953,25 +953,32 @@ func (c *corpusDecisions) rowsSnapshot() []store.DecisionRecord {
 	return out
 }
 
-// ListForConnection satisfies the widened Decisions interface (plan 05-05,
-// D-17); the corpus runner never calls this itself, so an unfiltered,
-// unlimited read of every stored row is sufficient here.
-func (c *corpusDecisions) ListForConnection(connectionID uuid.UUID, limit int) ([]store.Decision, error) {
+// RecentForConnection satisfies the Decisions interface (plan 05-05, D-17;
+// renamed by code review WR-02 of Phase 5, double only -- no item, target,
+// window, fixture or verdict rule is touched). The hostile-text runner never
+// calls this itself; the newest limit stored rows, oldest first, with no
+// window text, is the real store's contract.
+func (c *corpusDecisions) RecentForConnection(connectionID uuid.UUID, limit int) ([]store.Decision, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if limit <= 0 {
+		return []store.Decision{}, nil
+	}
 	out := make([]store.Decision, 0, len(c.rows))
 	for _, rec := range c.rows {
 		out = append(out, store.Decision{
 			ConnectionID:  rec.ConnectionID,
 			GameSessionID: rec.GameSessionID,
 			ModelName:     rec.ModelName,
-			WindowText:    rec.WindowText,
 			Reasoning:     rec.Reasoning,
 			Command:       rec.Command,
 			Outcome:       rec.Outcome,
 			FailureKind:   rec.FailureKind,
 			Notice:        rec.Notice,
 		})
+	}
+	if len(out) > limit {
+		out = out[len(out)-limit:]
 	}
 	return out, nil
 }

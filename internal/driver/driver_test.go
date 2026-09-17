@@ -676,8 +676,9 @@ func (f *fakeProfiles) GetProfileByConnection(userID, connectionID uuid.UUID) (*
 
 // fakeDecisionsStore is an in-memory Decisions double.
 type fakeDecisionsStore struct {
-	mu         sync.Mutex
-	rowsStored []store.DecisionRecord
+	mu           sync.Mutex
+	rowsStored   []store.DecisionRecord
+	recentLimits []int
 }
 
 func (f *fakeDecisionsStore) InsertDecision(rec store.DecisionRecord) (uuid.UUID, time.Time, error) {
@@ -695,30 +696,30 @@ func (f *fakeDecisionsStore) rows() []store.DecisionRecord {
 	return out
 }
 
-// ListForConnection satisfies the widened Decisions interface (plan 05-05,
-// D-17): a connection-filtered read of the same in-memory rows
-// InsertDecision appended, oldest first with a limit taken from the front --
-// mirroring (*store.DecisionStore).ListForConnection's real ORDER BY
-// created_at ASC ... LIMIT $2 shape exactly, so a chat test exercises the
-// same "oldest N, not newest N" contract the driver's own
-// recentDecisionsForChat compensates for.
-func (f *fakeDecisionsStore) ListForConnection(connectionID uuid.UUID, limit int) ([]store.Decision, error) {
+// RecentForConnection satisfies the Decisions interface (plan 05-05, D-17;
+// code review WR-02 of Phase 5): a connection-filtered read of the same
+// in-memory rows InsertDecision appended, mirroring
+// (*store.DecisionStore).RecentForConnection's real contract exactly -- the
+// NEWEST limit rows, returned oldest first, with no window text, and an
+// empty list for a limit of zero or less. recentLimits records every limit
+// it was asked for, so a test can prove the driver asks for a bounded read.
+func (f *fakeDecisionsStore) RecentForConnection(connectionID uuid.UUID, limit int) ([]store.Decision, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.recentLimits = append(f.recentLimits, limit)
 	if limit <= 0 {
-		limit = 200
+		return []store.Decision{}, nil
 	}
-	out := make([]store.Decision, 0)
+	matching := make([]store.Decision, 0)
 	for _, rec := range f.rowsStored {
 		if rec.ConnectionID != connectionID {
 			continue
 		}
-		out = append(out, store.Decision{
+		matching = append(matching, store.Decision{
 			ID:            uuid.New(),
 			ConnectionID:  rec.ConnectionID,
 			GameSessionID: rec.GameSessionID,
 			ModelName:     rec.ModelName,
-			WindowText:    rec.WindowText,
 			Reasoning:     rec.Reasoning,
 			Command:       rec.Command,
 			Outcome:       rec.Outcome,
@@ -726,11 +727,17 @@ func (f *fakeDecisionsStore) ListForConnection(connectionID uuid.UUID, limit int
 			Notice:        rec.Notice,
 			CreatedAt:     time.Now(),
 		})
-		if len(out) >= limit {
-			break
-		}
 	}
-	return out, nil
+	if len(matching) > limit {
+		matching = matching[len(matching)-limit:]
+	}
+	return matching, nil
+}
+
+func (f *fakeDecisionsStore) recentLimitsSnapshot() []int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]int(nil), f.recentLimits...)
 }
 
 // fakeNotifier is an in-memory Notifier double.

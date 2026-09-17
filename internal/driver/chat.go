@@ -719,17 +719,22 @@ func (d *Driver) buildChatPromptContext(userID string, profile *store.Profile, u
 }
 
 // recentDecisionsForChat reads back AI-player's most recent decisions for
-// connUUID (D-17), oldest first among the ones kept -- ListForConnection
-// itself orders oldest first with a limit taken from the front, so this
-// reads the default-sized page and keeps only its own tail, the same
-// reversal-of-perspective RecentConversation's own doc comment describes
-// for a different store. A nil Decisions collaborator or a read error
-// yields no decisions at all; a missing history must never stop a reply.
+// connUUID (D-17), oldest first among the ones kept. A nil Decisions
+// collaborator or a read error yields no decisions at all; a missing history
+// must never stop a reply.
+//
+// Code review WR-02 of Phase 5: this used to read the store's default page,
+// which starts at the OLDEST row, and keep its last five. Once a connection
+// had more than a page of decisions -- half an hour of play -- those five
+// never changed again, and "why did you do that?" was answered from day one.
+// The store is now asked for the newest rows directly. The length check
+// below is a guard only: a collaborator that returns more than it was asked
+// for still cannot unbound the prompt.
 func (d *Driver) recentDecisionsForChat(connUUID uuid.UUID) []store.Decision {
 	if d.decisions == nil {
 		return nil
 	}
-	decisions, err := d.decisions.ListForConnection(connUUID, 0)
+	decisions, err := d.decisions.RecentForConnection(connUUID, maxRecentDecisionsForChat)
 	if err != nil || len(decisions) == 0 {
 		return nil
 	}
