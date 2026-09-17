@@ -1,12 +1,12 @@
 ### scripts/verify-phase4.sh --self-test (clean fixtures)
 ================================================================
 Phase 4 canned-report harness -- scripts/verify-phase4.sh
-Run started (UTC): 2026-09-17T12:15:55Z
+Run started (UTC): 2026-09-17T13:54:28Z
 Mode: --self-test (fixtures: scripts/fixtures/phase4/, no server)
 BASE_URL: http://fixture.invalid
 CONNECTION_ID: 00000000-0000-0000-0000-000000000000
 NOT_OWNED_CONNECTION_ID: ffffffff-ffff-ffff-ffff-ffffffffffff
-git rev-parse --short HEAD: 4df1543
+git rev-parse --short HEAD: 2e81e85
 ================================================================
 
 Ground rules: (1) proof here is this report or an end-user screenshot,
@@ -100,24 +100,24 @@ PASS C4: the decision's reasoning is still non-empty after the delete -- the aud
 ---- Step 13: GET profiles/$NOT_OWNED_CONNECTION_ID/ai-goal -- refused, not answered with someone else's goal (C1, T-4-09) ----
 GET /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/ai-goal -> HTTP 400
 {"error":"Profile not found"}
-PASS C1: a not-owned/non-existent connection_id is refused on ai-goal, never answered with HTTP 200 (status 400)
+PASS C1: a not-owned/non-existent connection_id is refused on ai-goal by the application itself (status 400, error: Profile not found, no "goal" in the body)
 
 ---- Step 14: GET profiles/$NOT_OWNED_CONNECTION_ID/ai-memory -- refused, not answered with someone else's memory (C2, T-4-09) ----
 GET /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/ai-memory -> HTTP 400
 {"error":"Profile not found"}
-PASS C2: a not-owned/non-existent connection_id is refused on ai-memory, never answered with HTTP 200 (status 400)
+PASS C2: a not-owned/non-existent connection_id is refused on ai-memory by the application itself (status 400, error: Profile not found, no "session_memory" in the body)
 
 ---- Step 15: DELETE profiles/$NOT_OWNED_CONNECTION_ID/captured-text -- refused, never deletes someone else's captured text (C4, T-4-09) ----
 DELETE /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/captured-text -> HTTP 400
 {"error":"Profile not found"}
-PASS C4: a not-owned/non-existent connection_id is refused on the captured-text delete, never answered with HTTP 200 (status 400)
+PASS C4: a not-owned/non-existent connection_id is refused on the captured-text delete by the application itself, and nothing was deleted (status 400, error: Profile not found, no "snapshots_cleared" in the body)
 
 ---- Step 16: PUT profiles/$CONNECTION_ID/ai-goal -- restore the pre-run goal (T-4-33) ----
 PUT /api/v1/profiles/$CONNECTION_ID/ai-goal -> HTTP 200
 {"goal":"reach the old lighthouse","quest":"reactivated"}
 PASS C1: the profile's goal is restored to its pre-run value (status 200)
 PASS C1: the restored goal matches what step 1 found, decoded and not re-escaped (got: reach the old lighthouse)
-RESTORED: goal set back to what step 1 found -- this run leaves the profile exactly as it found it.
+RESTORED: goal set back to what step 1 found. (The captured text deleted in step 11 is NOT restored and cannot be; two harness Quest rows remain.)
 
 ---- Step 17: C3 -- out of this script's reach ----
 SKIP C3: the call cap, threshold disengage, blocked-repeatedly disengage and blank-settings behavior (D-14 to D-17) cannot be driven by an HTTP client at all -- proven instead by `go test ./internal/driver/... -run "TestLoop_CallCap|TestLoop_ErrorThreshold|TestLoop_ConsecutiveBlocks|TestLoop_BlankSettings" -count=1 -v` and evidence/08-cap-halt-badge-off.png
@@ -143,12 +143,12 @@ GO TEST EXIT: 0
 ================================================================
 ================================================================
 Phase 4 canned-report harness -- scripts/verify-phase4.sh
-Run started (UTC): 2026-09-17T12:15:55Z
+Run started (UTC): 2026-09-17T13:54:28Z
 Mode: --self-test (fixtures: scripts/fixtures/phase4/, no server)
 BASE_URL: http://fixture.invalid
 CONNECTION_ID: 00000000-0000-0000-0000-000000000000
 NOT_OWNED_CONNECTION_ID: ffffffff-ffff-ffff-ffff-ffffffffffff
-git rev-parse --short HEAD: 4df1543
+git rev-parse --short HEAD: 2e81e85
 ================================================================
 
 Ground rules: (1) proof here is this report or an end-user screenshot,
@@ -242,24 +242,24 @@ PASS C4: the decision's reasoning is still non-empty after the delete -- the aud
 ---- Step 13: GET profiles/$NOT_OWNED_CONNECTION_ID/ai-goal -- refused, not answered with someone else's goal (C1, T-4-09) ----
 GET /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/ai-goal -> HTTP 400
 {"error":"Profile not found"}
-PASS C1: a not-owned/non-existent connection_id is refused on ai-goal, never answered with HTTP 200 (status 400)
+PASS C1: a not-owned/non-existent connection_id is refused on ai-goal by the application itself (status 400, error: Profile not found, no "goal" in the body)
 
 ---- Step 14: GET profiles/$NOT_OWNED_CONNECTION_ID/ai-memory -- refused, not answered with someone else's memory (C2, T-4-09) ----
 GET /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/ai-memory -> HTTP 400
 {"error":"Profile not found"}
-PASS C2: a not-owned/non-existent connection_id is refused on ai-memory, never answered with HTTP 200 (status 400)
+PASS C2: a not-owned/non-existent connection_id is refused on ai-memory by the application itself (status 400, error: Profile not found, no "session_memory" in the body)
 
 ---- Step 15: DELETE profiles/$NOT_OWNED_CONNECTION_ID/captured-text -- refused, never deletes someone else's captured text (C4, T-4-09) ----
 DELETE /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/captured-text -> HTTP 400
 {"error":"Profile not found"}
-PASS C4: a not-owned/non-existent connection_id is refused on the captured-text delete, never answered with HTTP 200 (status 400)
+PASS C4: a not-owned/non-existent connection_id is refused on the captured-text delete by the application itself, and nothing was deleted (status 400, error: Profile not found, no "snapshots_cleared" in the body)
 
 ---- Step 16: PUT profiles/$CONNECTION_ID/ai-goal -- restore the pre-run goal (T-4-33) ----
 PUT /api/v1/profiles/$CONNECTION_ID/ai-goal -> HTTP 200
 {"goal":"reach the old lighthouse","quest":"reactivated"}
 PASS C1: the profile's goal is restored to its pre-run value (status 200)
 PASS C1: the restored goal matches what step 1 found, decoded and not re-escaped (got: reach the old lighthouse)
-RESTORED: goal set back to what step 1 found -- this run leaves the profile exactly as it found it.
+RESTORED: goal set back to what step 1 found. (The captured text deleted in step 11 is NOT restored and cannot be; two harness Quest rows remain.)
 
 ---- Step 17: C3 -- out of this script's reach ----
 SKIP C3: the call cap, threshold disengage, blocked-repeatedly disengage and blank-settings behavior (D-14 to D-17) cannot be driven by an HTTP client at all -- proven instead by `go test ./internal/driver/... -run "TestLoop_CallCap|TestLoop_ErrorThreshold|TestLoop_ConsecutiveBlocks|TestLoop_BlankSettings" -count=1 -v` and evidence/08-cap-halt-badge-off.png
@@ -289,12 +289,12 @@ EXIT: 0
 ### scripts/verify-phase4.sh --self-test-negative (one deliberately wrong response)
 ================================================================
 Phase 4 canned-report harness -- scripts/verify-phase4.sh
-Run started (UTC): 2026-09-17T12:16:02Z
+Run started (UTC): 2026-09-17T13:54:35Z
 Mode: --self-test-negative (fixtures: scripts/fixtures/phase4-negative/, no server)
 BASE_URL: http://fixture.invalid
 CONNECTION_ID: 00000000-0000-0000-0000-000000000000
 NOT_OWNED_CONNECTION_ID: ffffffff-ffff-ffff-ffff-ffffffffffff
-git rev-parse --short HEAD: 4df1543
+git rev-parse --short HEAD: 2e81e85
 ================================================================
 
 Ground rules: (1) proof here is this report or an end-user screenshot,
@@ -388,24 +388,24 @@ FAIL C4: the decision's reasoning is still non-empty after the delete -- the aud
 ---- Step 13: GET profiles/$NOT_OWNED_CONNECTION_ID/ai-goal -- refused, not answered with someone else's goal (C1, T-4-09) ----
 GET /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/ai-goal -> HTTP 400
 {"error":"Profile not found"}
-PASS C1: a not-owned/non-existent connection_id is refused on ai-goal, never answered with HTTP 200 (status 400)
+PASS C1: a not-owned/non-existent connection_id is refused on ai-goal by the application itself (status 400, error: Profile not found, no "goal" in the body)
 
 ---- Step 14: GET profiles/$NOT_OWNED_CONNECTION_ID/ai-memory -- refused, not answered with someone else's memory (C2, T-4-09) ----
 GET /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/ai-memory -> HTTP 400
 {"error":"Profile not found"}
-PASS C2: a not-owned/non-existent connection_id is refused on ai-memory, never answered with HTTP 200 (status 400)
+PASS C2: a not-owned/non-existent connection_id is refused on ai-memory by the application itself (status 400, error: Profile not found, no "session_memory" in the body)
 
 ---- Step 15: DELETE profiles/$NOT_OWNED_CONNECTION_ID/captured-text -- refused, never deletes someone else's captured text (C4, T-4-09) ----
 DELETE /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/captured-text -> HTTP 400
 {"error":"Profile not found"}
-PASS C4: a not-owned/non-existent connection_id is refused on the captured-text delete, never answered with HTTP 200 (status 400)
+PASS C4: a not-owned/non-existent connection_id is refused on the captured-text delete by the application itself, and nothing was deleted (status 400, error: Profile not found, no "snapshots_cleared" in the body)
 
 ---- Step 16: PUT profiles/$CONNECTION_ID/ai-goal -- restore the pre-run goal (T-4-33) ----
 PUT /api/v1/profiles/$CONNECTION_ID/ai-goal -> HTTP 200
 {"goal":"reach the old lighthouse","quest":"reactivated"}
 PASS C1: the profile's goal is restored to its pre-run value (status 200)
 PASS C1: the restored goal matches what step 1 found, decoded and not re-escaped (got: reach the old lighthouse)
-RESTORED: goal set back to what step 1 found -- this run leaves the profile exactly as it found it.
+RESTORED: goal set back to what step 1 found. (The captured text deleted in step 11 is NOT restored and cannot be; two harness Quest rows remain.)
 
 ---- Step 17: C3 -- out of this script's reach ----
 SKIP C3: the call cap, threshold disengage, blocked-repeatedly disengage and blank-settings behavior (D-14 to D-17) cannot be driven by an HTTP client at all -- proven instead by `go test ./internal/driver/... -run "TestLoop_CallCap|TestLoop_ErrorThreshold|TestLoop_ConsecutiveBlocks|TestLoop_BlankSettings" -count=1 -v` and evidence/08-cap-halt-badge-off.png
@@ -431,12 +431,12 @@ GO TEST EXIT: 0
 ================================================================
 ================================================================
 Phase 4 canned-report harness -- scripts/verify-phase4.sh
-Run started (UTC): 2026-09-17T12:16:02Z
+Run started (UTC): 2026-09-17T13:54:35Z
 Mode: --self-test-negative (fixtures: scripts/fixtures/phase4-negative/, no server)
 BASE_URL: http://fixture.invalid
 CONNECTION_ID: 00000000-0000-0000-0000-000000000000
 NOT_OWNED_CONNECTION_ID: ffffffff-ffff-ffff-ffff-ffffffffffff
-git rev-parse --short HEAD: 4df1543
+git rev-parse --short HEAD: 2e81e85
 ================================================================
 
 Ground rules: (1) proof here is this report or an end-user screenshot,
@@ -530,24 +530,24 @@ FAIL C4: the decision's reasoning is still non-empty after the delete -- the aud
 ---- Step 13: GET profiles/$NOT_OWNED_CONNECTION_ID/ai-goal -- refused, not answered with someone else's goal (C1, T-4-09) ----
 GET /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/ai-goal -> HTTP 400
 {"error":"Profile not found"}
-PASS C1: a not-owned/non-existent connection_id is refused on ai-goal, never answered with HTTP 200 (status 400)
+PASS C1: a not-owned/non-existent connection_id is refused on ai-goal by the application itself (status 400, error: Profile not found, no "goal" in the body)
 
 ---- Step 14: GET profiles/$NOT_OWNED_CONNECTION_ID/ai-memory -- refused, not answered with someone else's memory (C2, T-4-09) ----
 GET /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/ai-memory -> HTTP 400
 {"error":"Profile not found"}
-PASS C2: a not-owned/non-existent connection_id is refused on ai-memory, never answered with HTTP 200 (status 400)
+PASS C2: a not-owned/non-existent connection_id is refused on ai-memory by the application itself (status 400, error: Profile not found, no "session_memory" in the body)
 
 ---- Step 15: DELETE profiles/$NOT_OWNED_CONNECTION_ID/captured-text -- refused, never deletes someone else's captured text (C4, T-4-09) ----
 DELETE /api/v1/profiles/$NOT_OWNED_CONNECTION_ID/captured-text -> HTTP 400
 {"error":"Profile not found"}
-PASS C4: a not-owned/non-existent connection_id is refused on the captured-text delete, never answered with HTTP 200 (status 400)
+PASS C4: a not-owned/non-existent connection_id is refused on the captured-text delete by the application itself, and nothing was deleted (status 400, error: Profile not found, no "snapshots_cleared" in the body)
 
 ---- Step 16: PUT profiles/$CONNECTION_ID/ai-goal -- restore the pre-run goal (T-4-33) ----
 PUT /api/v1/profiles/$CONNECTION_ID/ai-goal -> HTTP 200
 {"goal":"reach the old lighthouse","quest":"reactivated"}
 PASS C1: the profile's goal is restored to its pre-run value (status 200)
 PASS C1: the restored goal matches what step 1 found, decoded and not re-escaped (got: reach the old lighthouse)
-RESTORED: goal set back to what step 1 found -- this run leaves the profile exactly as it found it.
+RESTORED: goal set back to what step 1 found. (The captured text deleted in step 11 is NOT restored and cannot be; two harness Quest rows remain.)
 
 ---- Step 17: C3 -- out of this script's reach ----
 SKIP C3: the call cap, threshold disengage, blocked-repeatedly disengage and blank-settings behavior (D-14 to D-17) cannot be driven by an HTTP client at all -- proven instead by `go test ./internal/driver/... -run "TestLoop_CallCap|TestLoop_ErrorThreshold|TestLoop_ConsecutiveBlocks|TestLoop_BlankSettings" -count=1 -v` and evidence/08-cap-halt-badge-off.png
