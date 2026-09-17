@@ -14,6 +14,26 @@
 # evidence rule requires; no database query is used anywhere in this
 # script.
 #
+# !! A LIVE RUN IS DESTRUCTIVE !!  Step 11 issues the real
+# DELETE profiles/$CONNECTION_ID/captured-text. It PERMANENTLY DELETES the
+# captured game text of that connection -- every session transcript line on
+# the Logs page and the game-text snapshot on every AI decision row -- and
+# nothing can bring it back. There is no confirmation prompt and no opt-out:
+# criterion C4's proof IS that delete, run end to end (accepted as threat
+# T-4-15; the report records the counts it removed). Decision rows
+# themselves, their reasoning and outcomes, Session Memory and Quest Memory
+# are not touched. Point CONNECTION_ID at a connection whose captured text
+# you are content to lose. The two self-test modes touch nothing.
+#
+# What a live run changes, in full:
+#   * captured text for CONNECTION_ID: deleted, permanently (above);
+#   * the session goal: changed during the run and put back at the end, and
+#     put back by an exit trap if the run is interrupted (T-4-33);
+#   * Quests: two new active Quest rows, one per harness goal, which stay
+#     (nothing in Phase 4 closes a Quest, D-04).
+# So a live run does NOT leave the profile exactly as it found it; it leaves
+# the GOAL exactly as it found it.
+#
 # This is scripts/verify-phase3-1.sh's own shape, pointed at this phase's
 # three endpoints -- same argument parsing, same fixture-or-curl request
 # helper, same flat-JSON field extractor, same PASS/FAIL/SKIP-per-criterion
@@ -49,9 +69,9 @@
 #   3. There are four invocations (run with no arguments to print full
 #      usage):
 #
-#   1. Live run, against any running server:
+#   1. Live run, against any running server (DESTRUCTIVE, see above):
 #        BASE_URL=https://mudpuppy-staging.up.railway.app \
-#        SESSION_COOKIE="session=abc123..." \
+#        SESSION_COOKIE="session_token=abc123..." \
 #        CONNECTION_ID=11111111-2222-3333-4444-555555555555 \
 #        scripts/verify-phase4.sh evidence/03-canned-report.txt
 #
@@ -75,6 +95,8 @@
 #   NOT_OWNED_CONNECTION_ID   optional; connection_id the caller does not own.
 #                             Defaults to a fixed literal UUID that no profile
 #                             will ever have.
+#   HTTP_MAX_TIME             optional; seconds any one HTTP call may take
+#                             before it is given up as status 000. Default 30.
 #
 # CONNECTION_ID must name a profile the caller owns. A connection id the
 # caller does not own and one that does not exist are indistinguishable on
@@ -85,9 +107,16 @@
 # It never reads the session cookie, an API key or any game text back into
 # the report it writes (T-4-05). Step 1 below reads the profile's current
 # goal and keeps it decoded (not re-escaped) so the restore step at the end
-# can PUT it back exactly as found, leaving a live run's profile exactly as
-# it found it (T-4-33) -- this is the Phase 3.1 double-escaping defect
-# (03.1-07-SUMMARY.md) deliberately not repeated here.
+# can PUT it back exactly as found (T-4-33) -- this is the Phase 3.1
+# double-escaping defect (03.1-07-SUMMARY.md) deliberately not repeated
+# here. Two rules protect the owner's real goal (code review WR-11):
+#   * if step 1 cannot read the goal (anything but HTTP 200), the run ABORTS
+#     there with exit code 2, before it has changed anything -- it never
+#     carries on and "restores" an empty goal over the real one;
+#   * once step 1 HAS read the goal, an exit trap puts it back on any exit
+#     or interrupt (Ctrl-C, a closed terminal, a kill) that happens before
+#     step 16 has restored it, so a harness goal is never left on a profile
+#     a running autopilot would then play toward.
 #
 # Self-test modes need no server, no SESSION_COOKIE and no CONNECTION_ID:
 # the appended go test runs are skipped in --self-test and
@@ -115,6 +144,15 @@ and the captured-text retention delete over HTTP and writes <report-file>
 with a PASS/FAIL/SKIP line per criterion (C1..C5) and every
 request/response body underneath.
 
+WARNING: a live run is DESTRUCTIVE. It PERMANENTLY DELETES the captured game
+text of CONNECTION_ID -- every session transcript line on the Logs page and
+the game-text snapshot on every AI decision row. There is no prompt, no
+opt-out and no undo: that delete is what criterion C4 proves. Decision rows,
+their reasoning and outcomes, Session Memory and Quest Memory are kept. The
+session goal is changed during the run and put back at the end (and by an
+exit trap if the run is interrupted); two new Quest rows are left behind.
+The two self-test modes touch nothing.
+
 Live run reads its inputs from the environment:
 
   BASE_URL                 server root, e.g. https://mudpuppy-staging.up.railway.app
@@ -125,11 +163,11 @@ Live run reads its inputs from the environment:
                             will ever have.
 
   BASE_URL=https://mudpuppy-staging.up.railway.app \
-  SESSION_COOKIE="session=abc123..." \
+  SESSION_COOKIE="session_token=abc123..." \
   CONNECTION_ID=11111111-2222-3333-4444-555555555555 \
   scripts/verify-phase4.sh evidence/03-canned-report.txt
 
---self-test          run against scripts/fixtures/phase4/ instead of a
+--self-test         run against scripts/fixtures/phase4/ instead of a
                       live server; no environment variables required.
 --self-test-negative  run against scripts/fixtures/phase4-negative/ (one
                       deliberately wrong response) to prove the harness
@@ -189,6 +227,9 @@ fi
 # -- no profile will ever be seeded with this id.
 NOT_OWNED_CONNECTION_ID="${NOT_OWNED_CONNECTION_ID:-ffffffff-ffff-ffff-ffff-ffffffffffff}"
 
+# Seconds any one HTTP call may take before it is given up as status 000.
+HTTP_MAX_TIME="${HTTP_MAX_TIME:-30}"
+
 # Fixed goal text used by both this script's self-test fixtures and its
 # live run. Self-test text stays literal so the static fixture bodies can
 # match it exactly; live mode appends a run tag so two live runs in the
@@ -237,6 +278,14 @@ echo "this script cannot reach; they appear below as SKIP lines naming their"
 echo "real evidence, never as PASS or FAIL. (3) invocations: live,"
 echo "--self-test, --self-test-negative, --no-tests."
 echo
+if [ -z "$FIXTURE_DIR" ]; then
+  echo "LIVE RUN -- DESTRUCTIVE: step 11 permanently deletes the captured game"
+  echo "text of this connection (transcript lines and decision snapshots). That"
+  echo "delete is criterion C4's proof (threat T-4-15, accepted); the counts it"
+  echo "removed are printed under step 11. The session goal is put back at the"
+  echo "end, and by an exit trap if this run is interrupted."
+  echo
+fi
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -395,12 +444,17 @@ _http() {
     HTTP_BODY=$(tail -n +2 "$fixture")
     return 0
   fi
+  # --max-time bounds every call (code review WR-11/IN-10). Without it a
+  # request the server never answers hangs this script for ever -- and with
+  # it the exit trap, because bash runs a trap only once the command it is
+  # waiting on has returned. A call that times out reads as status 000 and
+  # FAILS its check like any other wrong answer.
   local resp
   if [ -n "$body" ]; then
-    resp=$(curl -sS -X "$method" -b "$SESSION_COOKIE" -H 'Content-Type: application/json' \
+    resp=$(curl -sS --max-time "$HTTP_MAX_TIME" -X "$method" -b "$SESSION_COOKIE" -H 'Content-Type: application/json' \
       -d "$body" -w '\n%{http_code}' "${BASE_URL}/api/v1/${path}")
   else
-    resp=$(curl -sS -X "$method" -b "$SESSION_COOKIE" -H 'Content-Type: application/json' \
+    resp=$(curl -sS --max-time "$HTTP_MAX_TIME" -X "$method" -b "$SESSION_COOKIE" -H 'Content-Type: application/json' \
       -w '\n%{http_code}' "${BASE_URL}/api/v1/${path}")
   fi
   HTTP_STATUS=$(printf '%s' "$resp" | tail -n 1)
@@ -508,6 +562,51 @@ _print_response() {
 }
 
 # ---------------------------------------------------------------------------
+# Exit trap: put the owner's goal back if this run ends early (code review
+# WR-11, T-4-33). Between step 2 and step 16 the profile carries a harness
+# goal; Ctrl-C, a closed terminal or a kill in that window used to leave it
+# there, where a running autopilot plays toward it. The trap restores only
+# when there is something real to restore:
+#   ORIG_GOAL_READ=1  step 1 answered 200, so ORIG_GOAL is the owner's goal
+#                     (which may legitimately be empty) -- never before that;
+#   GOAL_DIRTY=1      a harness goal has been written and step 16 has not yet
+#                     put the original back.
+# It does nothing in the two self-test modes (no server) and runs at most
+# once. It prints a status and never the cookie.
+# ---------------------------------------------------------------------------
+ORIG_GOAL=""
+ORIG_GOAL_READ=0
+GOAL_DIRTY=0
+_RESTORE_TRAP_RAN=0
+
+_restore_goal_on_exit() {
+  if [ "$_RESTORE_TRAP_RAN" -eq 1 ]; then
+    return 0
+  fi
+  _RESTORE_TRAP_RAN=1
+  if [ -n "$FIXTURE_DIR" ] || [ "$ORIG_GOAL_READ" -ne 1 ] || [ "$GOAL_DIRTY" -ne 1 ]; then
+    return 0
+  fi
+  echo
+  echo "---- exit trap: this run ended before step 16 restored the goal -- restoring it now (T-4-33) ----"
+  local trap_status
+  trap_status=$(curl -sS --max-time "$HTTP_MAX_TIME" -o /dev/null -w '%{http_code}' -X PUT -b "$SESSION_COOKIE" \
+    -H 'Content-Type: application/json' -d "$(_build_goal_body "$ORIG_GOAL")" \
+    "${BASE_URL}/api/v1/profiles/${CONNECTION_ID}/ai-goal" 2>/dev/null)
+  if [ "$trap_status" = "200" ]; then
+    GOAL_DIRTY=0
+    echo "RESTORED by the exit trap: the goal is back to what step 1 found."
+  else
+    echo "NOT RESTORED: the exit trap's PUT answered HTTP ${trap_status:-000}. The profile still"
+    echo "carries a harness goal -- put the goal printed under step 1 back by hand in"
+    echo "the AI Assist panel before engaging autopilot."
+  fi
+}
+trap _restore_goal_on_exit EXIT
+trap '_restore_goal_on_exit; exit 130' INT
+trap '_restore_goal_on_exit; exit 143' TERM HUP
+
+# ---------------------------------------------------------------------------
 # Step 1 -- GET profiles/$CONNECTION_ID/ai-goal -- record the current goal
 # verbatim (decoded, not re-escaped) so the restore step at the end can put
 # it back exactly as found (T-4-33)
@@ -516,7 +615,19 @@ _step "Step 1: GET profiles/\$CONNECTION_ID/ai-goal -- record the current goal (
 _http GET "profiles/${CONNECTION_ID}/ai-goal"
 _print_response GET "profiles/\$CONNECTION_ID/ai-goal"
 _check_status C1 "ai-goal GET answers HTTP 200 for the owning connection" "200"
+if [ "$HTTP_STATUS" != "200" ]; then
+  # Code review WR-11: without the original goal there is nothing to put
+  # back. Carrying on used to end in step 16 "restoring" an EMPTY goal over
+  # the owner's real one and printing RESTORED. Nothing has been changed
+  # yet, so stop here.
+  echo
+  echo "ABORTED: step 1 could not read the current goal (HTTP $HTTP_STATUS). Nothing has"
+  echo "been changed on the server. Check BASE_URL, SESSION_COOKIE (an expired"
+  echo "session answers 401) and CONNECTION_ID, then run again."
+  exit 2
+fi
 ORIG_GOAL=$(_get_text_field "$HTTP_BODY" goal)
+ORIG_GOAL_READ=1
 echo "goal found before this run (kept verbatim for the restore step): $ORIG_GOAL"
 
 # ---------------------------------------------------------------------------
@@ -524,6 +635,7 @@ echo "goal found before this run (kept verbatim for the restore step): $ORIG_GOA
 # byte (C1, D-01)
 # ---------------------------------------------------------------------------
 _step "Step 2: PUT profiles/\$CONNECTION_ID/ai-goal -- write goal A (C1, D-01)"
+GOAL_DIRTY=1   # from here until step 16 succeeds, the exit trap restores the goal
 _http PUT "profiles/${CONNECTION_ID}/ai-goal" "$(_build_goal_body "$GOAL_A")"
 _print_response PUT "profiles/\$CONNECTION_ID/ai-goal"
 _check_status C1 "PUT accepts goal A" "200"
@@ -696,7 +808,12 @@ _print_response PUT "profiles/\$CONNECTION_ID/ai-goal"
 _check_status C1 "the profile's goal is restored to its pre-run value" "200"
 RESTORED_GOAL=$(_get_text_field "$HTTP_BODY" goal)
 _check_eq C1 "the restored goal matches what step 1 found, decoded and not re-escaped" "$RESTORED_GOAL" "$ORIG_GOAL"
-echo "RESTORED: goal set back to what step 1 found -- this run leaves the profile exactly as it found it."
+if [ "$HTTP_STATUS" = "200" ] && [ "$RESTORED_GOAL" = "$ORIG_GOAL" ]; then
+  GOAL_DIRTY=0
+  echo "RESTORED: goal set back to what step 1 found. (The captured text deleted in step 11 is NOT restored and cannot be; two harness Quest rows remain.)"
+else
+  echo "NOT RESTORED by step 16 -- the exit trap will try once more when this script ends."
+fi
 
 # ---------------------------------------------------------------------------
 # Step 17 -- C3, out of this script's reach: the mechanical limits
