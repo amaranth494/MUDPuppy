@@ -1,10 +1,12 @@
 ---
 phase: 5
 slug: coaching-channel
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-09-17
+revised: 2026-09-17
+revision_note: D-29 pop-out windows added; owner confirmations on former assumptions 1/3/4/7 applied and removed; re-checked and approved 2026-09-17
 ---
 
 # Phase 5 — UI Design Contract
@@ -19,11 +21,12 @@ created: 2026-09-17
 (e) the **AI Command Rate Limit** field joining AI Settings in `AIPlayerPanel.tsx` (D-25);
 (f) the **Help article** entry (D-21) — nav placement and page title only, content is server-authored prose, not a new visual pattern;
 (g) the **Logs page conversation section** (D-27's discretion default: shown) beneath the existing transcript pane;
-(h) the regression invariant extended to Phase 5.
+(h) the **pop-out windows** for the AI-player view and the AI-chatter conversation (D-29, added by the owner after the first checker pass) — a pop-out button on each view's header row, the docked placeholder shown for whichever view is popped out, and the same-origin/no-second-connection mechanism that keeps a popped-out window fed by the play screen's own live data;
+(i) the regression invariant extended to Phase 5.
 
 Not covered: the debrief (Phase 6), Session Memory editing (dropped, D-19), any promotion UI (withdrawn, D-20).
 
-This phase adds **zero new CSS custom properties**. It reuses every existing token from Phases 1–4 (`--color-ai-accent`, `--color-human-command`, `--color-warning`, `--color-error`, `--color-text-dim`, `#888` neutral, the spacing/typography scale) and extends two existing reservations (see Color). No component library, no shadcn — unchanged from Phases 1–4.
+This phase adds **zero new CSS custom properties**. It reuses every existing token from Phases 1–4 (`--color-ai-accent`, `--color-human-command`, `--color-warning`, `--color-error`, `--color-text-dim`, `#888` neutral, the spacing/typography scale) and extends two existing reservations (see Color). No component library, no shadcn — unchanged from Phases 1–4. Pop-out windows (D-29) introduce no new tokens either — they copy/link the same stylesheet into the child window.
 
 ---
 
@@ -34,20 +37,21 @@ This phase adds **zero new CSS custom properties**. It reuses every existing tok
 | Tool | none |
 | Preset | not applicable |
 | Component library | none — hand-built React components, no Radix/base-ui/shadcn (unchanged from Phases 1–4) |
-| Icon library | none — this phase adds zero new glyphs. The Coaching in effect header reuses the exact `▸`/`▾` disclosure glyphs Phase 4 introduced for Session Memory; the Pause/Resume button is text-labelled, no icon. |
+| Icon library | none — this phase adds zero new glyphs. The Coaching in effect header reuses the exact `▸`/`▾` disclosure glyphs Phase 4 introduced for Session Memory; the Pause/Resume button is text-labelled, no icon; so are the two pop-out buttons and their "Bring back" controls (D-29). |
 | Font | `var(--font-mono)` = `'Courier New', Courier, monospace` (unchanged) |
 
 **Why no shadcn:** same brownfield hand-rolled retro-terminal system as Phases 1–4 (`frontend/src/index.css`). This phase extends `AIAssistPanel.tsx`, `AIPlayerPanel.tsx`, `LogsPage.tsx` and `HelpPage.tsx`'s section list with additive markup, CSS classes, and locked copy — nothing that would justify a component library.
 
 **Source of truth for reuse:**
-- `frontend/src/components/AIAssistPanel.tsx` (whole file) — the split (D-03) divides this exact component; `.ai-assist-panel-top` (goal box, status line, Session Memory) gains the Pause/Resume button and the Coaching in effect list; `.ai-assist-panel-body` (the decision stream) is otherwise untouched; a new sibling region holds the conversation.
+- `frontend/src/components/AIAssistPanel.tsx` (whole file) — the split (D-03) divides this exact component; `.ai-assist-panel-top` (goal box, status line, Session Memory) gains the Pause/Resume button and the Coaching in effect list; `.ai-assist-panel-body` (the decision stream) is otherwise untouched; a new sibling region holds the conversation. This is also the component that owns pop-out state (D-29): it decides which of its two views, if either, is rendered into a child window instead of inline.
 - `frontend/src/index.css` `.ai-assist-memory*` (Phase 4) — the exact collapsible pattern the Coaching in effect list copies verbatim (header, disclosure glyph, empty state, bullet list), styled identically so the two read as siblings.
 - `frontend/src/index.css` `.ai-system-line*` and its `state-*` colour classes (Phases 3–4) — the exact mechanism the "Coaching received" marker and the pause/resume notices reuse.
 - `frontend/src/components/AutopilotBadge.tsx` and `.autopilot-badge*` — the three-state (on/waiting/off) badge the WAITING reason text sits beside; the badge itself does not change.
 - `frontend/src/components/AIPlayerPanel.tsx` lines 269–306 (`.form-group`/`.form-label`/`.form-input`/`.form-hint`, the Call Cap and Disengage Threshold number fields) — the exact pattern the new AI Command Rate Limit field is a third sibling of.
-- `frontend/src/index.css` `.delete-confirm`/`.btn-danger`/`.btn-secondary`/`.btn-sm` (Phase 4) — reused for button sizing conventions where a compact, non-primary button is needed (Pause/Resume).
+- `frontend/src/index.css` `.delete-confirm`/`.btn-danger`/`.btn-secondary`/`.btn-sm` (Phase 4) — reused for button sizing conventions where a compact, non-primary button is needed (Pause/Resume, the two pop-out buttons, and the two "Bring back" controls).
 - `frontend/src/pages/LogsPage.tsx` and its `.logs-transcript*`/`.logs-transcript-line.human`/`.logs-transcript-line.ai` classes (Phase 3) — the exact human/AI colour convention (`--color-human-command` cyan / `--color-ai-accent` magenta) the new conversation section's line colours are modelled on, and the two-pane layout the conversation section is appended beneath.
 - `frontend/src/pages/HelpPage.tsx`'s `SECTION_ORDER` array — the exact list the new `ai-coaching` slug joins; no new visual pattern, this page's existing markdown-ish renderer (`renderContent`/`renderInline`) is unchanged.
+- `frontend/src/context/SessionContext.tsx`'s `wsManager`/`onAI`/`offAI` pair and `useSession()` hook — the exact live-data source both a docked view and a popped-out view read from (D-29): a pop-out never opens a second websocket or a second `onAI` registration path of its own; it is the same component subscribing from the same `useSession()` call, just mounted into a different document.
 - `03-UI-SPEC.md` and `04-UI-SPEC.md` — the Copywriting Contract voice (plain, non-marketing, terminal-bracket notices) every new string in this phase matches.
 
 ---
@@ -59,14 +63,16 @@ Declared values (must be multiples of 4) — the project's existing tokens in `i
 | Token | Value | Usage |
 |-------|-------|-------|
 | xs | 4px (`--spacing-xs`) | Gap between disclosure glyph and "Coaching in effect" text; gap between a coaching bullet and the next; gap between a chat line's speaker label and its text |
-| sm | 8px (`--spacing-sm`) | Gap inside `.ai-assist-panel-top`; gap between the Pause/Resume button and the status line; gap between chat log lines |
-| md | 16px (`--spacing-md`) | Chat log padding; chat input row padding; `.form-group` spacing for the new rate-limit field, matching Call Cap/Disengage Threshold exactly |
+| sm | 8px (`--spacing-sm`) | Gap inside `.ai-assist-panel-top`; gap between the Pause/Resume button and the status line; gap between chat log lines; gap between a view's header row and its pop-out button |
+| md | 16px (`--spacing-md`) | Chat log padding; chat input row padding; `.form-group` spacing for the new rate-limit field, matching Call Cap/Disengage Threshold exactly; padding inside each placeholder box |
 | lg | 24px | Unchanged usage elsewhere |
 
 **Exceptions (new pixel literals this phase, still multiples of 4, documented per the project's own convention):**
 - The panel keeps its Phase 4 geometry (380×760px, 96px bottom offset, `max-height: calc(100vh - 160px)`) — **unchanged.** The split does not grow the panel.
-- The chat region (`.ai-assist-chat`) is a fixed-height sibling of `.ai-assist-panel-body` inside the same flex column: **height: 240px**, `flex-shrink: 0`, with its own internal scroll (`.ai-assist-chat-log`) — chosen so the thinking stream keeps the majority of the panel's height (D-30's whole reason for going to 760px was more room for decisions) while the conversation still has enough lines visible to read a short back-and-forth without opening every message. See Assumptions.
-- Chat input row height: 40px (single-line text input + Send button, matching `.form-input`'s existing height).
+- The chat region (`.ai-assist-chat`) is a fixed-height sibling of `.ai-assist-panel-body` inside the same flex column: **height: 240px**, `flex-shrink: 0`, with its own internal scroll (`.ai-assist-chat-log`) — chosen so the thinking stream keeps the majority of the panel's height (D-30's whole reason for going to 760px was more room for decisions) while the conversation still has enough lines visible to read a short back-and-forth without opening every message. **CONFIRMED by the owner (2026-09-17): this strip is fixed, not resizable — no draggable divider.** The 240px figure applies only to the **docked** chat strip; a popped-out AI-chatter window (D-29) is an ordinary, owner-resizable browser window, so its chat log may grow to fill however large the owner makes that window.
+- Chat input row height: 40px (single-line text input + Send button, matching `.form-input`'s existing height) — unchanged whether docked or popped out.
+- **Pop-out default window sizes (D-29, multiples of 4):** AI-player pop-out opens at **420×800** (roughly the docked panel's own 380×760 content, plus a small margin so the browser's own window chrome doesn't crop anything). AI-chatter pop-out opens at **420×480** (smaller — matches D-29's "chat smaller" instruction; a short back-and-forth doesn't need as much vertical room as the decision stream, and the window is freely resizable afterward). Both are starting sizes only, not a cap.
+- **Docked placeholder** (shown in place of whichever view is popped out): a single line of Label-size text plus a "Bring back" button, padded with `--spacing-md` on all sides, no fixed height beyond what that content needs — it does **not** try to fill the 240px chat strip or the thinking-stream area it replaces. See Layout & Component Reuse §7.
 
 ---
 
@@ -81,11 +87,11 @@ Existing tokens in `index.css`, reused as-is, unchanged from Phases 1–4:
 | Badge / emphasis | 14px (`--font-size-sm`) | 700 (bold) | 1.2 |
 
 Usage in this phase:
-- **Label (14/400)** — every chat log line (owner and AI-chatter alike), the chat input placeholder, the Coaching in effect bullets and empty state, the paused-reason status-line text, every new system-line notice (coaching received, chat-cap-reached, message-failed, pause/resume) — matching `.ai-system-line`'s and `.ai-assist-memory-item`'s existing 14/400 treatment exactly, no override.
-- **Badge/emphasis (14/700)** — the "Coaching in effect ({count})" header, at Label size, identical treatment to "Session Memory ({count})"; the Pause/Resume button's label text, matching `.btn`'s existing bold button-label convention.
-- **Body (16/400)** — the chat input's typed text, matching `.form-input`'s existing size (no override, same as the goal box).
+- **Label (14/400)** — every chat log line (owner and AI-chatter alike), the chat input placeholder, the Coaching in effect bullets and empty state, the paused-reason status-line text, every new system-line notice (coaching received, chat-cap-reached, message-failed, pause/resume), and both pop-out placeholder lines ("AI-player is open in its own window." / "AI-chatter is open in its own window.") — matching `.ai-system-line`'s and `.ai-assist-memory-item`'s existing 14/400 treatment exactly, no override.
+- **Badge/emphasis (14/700)** — the "Coaching in effect ({count})" header, at Label size, identical treatment to "Session Memory ({count})"; the Pause/Resume button's label text and the two pop-out/"Bring back" buttons' label text, matching `.btn`'s existing bold button-label convention.
+- **Body (16/400)** — the chat input's typed text, matching `.form-input`'s existing size (no override, same as the goal box). A popped-out window's chat input keeps the same 16/400 treatment.
 
-No new sizes or weights are introduced. Still exactly two weights anywhere in the app: 400 and 700.
+No new sizes or weights are introduced. Still exactly two weights anywhere in the app: 400 and 700. This holds inside a popped-out window too — it links the exact same stylesheet, so nothing there can drift.
 
 ---
 
@@ -95,20 +101,20 @@ Existing tokens in `index.css`, reused as-is — **no new custom properties this
 
 | Role | Value | Usage in this phase |
 |------|-------|-----------|
-| Human identity | `#00ffff` (`--color-human-command`) | **Extends its existing "the human authored this" reservation from game commands to chat.** The owner's own chat lines (`You: {text}`) use this colour — the same fact ("a human, not the model, produced this") the Logs transcript already encodes for typed commands. |
+| Human identity | `#00ffff` (`--color-human-command`) | **Extends its existing "the human authored this" reservation from game commands to chat.** The owner's own chat lines (`You: {text}`) use this colour — the same fact ("a human, not the model, produced this") the Logs transcript already encodes for typed commands. Unchanged whether the chat view is docked or popped out. |
 | AI-chatter reply | `var(--color-text-dim)` (`#00cc00`) | **New usage of an existing token, not a new reservation.** AI-chatter's replies (`AI-chatter: {text}`) render in the same dim body-text colour a decision's reasoning already uses — AI-chatter is talking, not issuing a command, so it deliberately does **not** use `--color-ai-accent` (magenta stays reserved for "AI-player just sent this to the game," per Phase 4's explicit precedent of keeping that reservation narrow). |
-| Neutral | `#888888` | **Extends its existing "plain fact, not a safety event" reservation to the "Coaching received" marker** and to the resume-after-pause notice — an owner pausing or coaching the AI is the owner's own action, informational, same bucket as `[Autopilot disengaged: you took the wheel]` and `[Goal changed: ...]`. |
+| Neutral | `#888888` | **Extends its existing "plain fact, not a safety event" reservation to the "Coaching received" marker**, the resume-after-pause notice, and both pop-out placeholder lines — an owner pausing, coaching, or popping out a view is the owner's own action, informational, same bucket as `[Autopilot disengaged: you took the wheel]` and `[Goal changed: ...]`. |
 | Warning | `#ffff00` (`--color-warning`) | **Extends its existing "still going, waiting, nothing has stopped" reservation to the pause notice and the paused/WAITING status-line text** — pausing is a WAITING state (D-15), same bucket as "waiting for reconnect." |
-| Destructive | `#ff4444` (`--color-error`) | **Extends its existing "something other than the owner stopped this" reservation to the chat-cap-reached notice and the message-send-failure notice** — the cap is a mechanical limit stopping AI-chatter, and a failed send is a real error, both in the same bucket as the six D-13 failure notices. |
+| Destructive | `#ff4444` (`--color-error`) | **Extends its existing "something other than the owner stopped this" reservation to the chat-cap-reached notice, the message-send-failure notice, and the pop-up-blocked notice (D-29)** — the cap is a mechanical limit stopping AI-chatter, a failed send is a real error, and a blocked pop-up is the browser stopping something the owner asked for, all in the same bucket as the six D-13 failure notices. |
 
 ### The governing rule (unchanged from Phase 4, applied to this phase's new cases)
 
 1. **Cyan (`--color-human-command`)** = "a human produced this" — now covers chat, not only game commands.
 2. **Dim green (`--color-text-dim`)** = "plain descriptive/conversational text" — AI-chatter's spoken replies join decision reasoning here.
 3. **Magenta (`--color-ai-accent`)** = "AI-player just sent a command to the game" — untouched, never used for chat.
-4. **Neutral `#888`** = "a plain fact, the owner's own action" — Coaching received, resume-after-pause.
+4. **Neutral `#888`** = "a plain fact, the owner's own action" — Coaching received, resume-after-pause, pop-out placeholders.
 5. **Yellow** = "waiting, in progress" — pause, WAITING reason text.
-6. **Red** = "a mechanical limit or a real failure stopped something" — chat cap reached, send failed.
+6. **Red** = "a mechanical limit or a real failure stopped something" — chat cap reached, send failed, pop-up blocked.
 
 Applying this rule consistently is the design decision this phase makes for chat; no new token is justified because every new case already has a home in one of the six buckets above.
 
@@ -116,6 +122,7 @@ Applying this rule consistently is the design decision this phase makes for chat
 
 - **Weighting (60/30/10 equivalent):** the black terminal background stays dominant (about 60% of the panel); green body text, both `--color-text` and `--color-text-dim`, is the secondary layer (about 30%); everything else (magenta, cyan, yellow, red, neutral `#888`) is accent, together no more than about 10%, and each appears only on the lines its bucket above reserves it for. Chat adds no filled backgrounds, borders in accent colours, or coloured blocks.
 - **Focal point:** the AI-player thinking stream at the top of the panel remains the primary visual anchor; the newest decision and its magenta command line are what the eye lands on first. The chat strip is deliberately quieter: dim green replies, no animation, no accent colour except the owner's own cyan lines. Nothing in the chat region may pulse, flash, or auto-expand, so it never competes with the stream.
+- **Inside a popped-out window (D-29):** the same weighting and the same focal point rule apply unchanged — a popped-out window is the identical component tree rendered into a different document, sharing the linked stylesheet, so the black background stays dominant, green stays secondary, and each accent colour stays inside its one reserved bucket exactly as it does docked. Popping a view out never introduces a filled background, a border in an accent colour, or any new emphasis device.
 
 ---
 
@@ -138,7 +145,7 @@ Plain, non-marketing, terminal-friendly — matches the existing voice and Phase
 | Coaching in effect — header, collapsed | `▸ Coaching in effect ({count})` |
 | Coaching in effect — header, expanded | `▾ Coaching in effect ({count})` |
 | Coaching in effect — empty state | `No coaching in effect.` |
-| System line — coaching received | `[Coaching received]` (no suggestion text repeated here; the exact line lives in AI-chatter's chat reply and in the Coaching in effect list — see Assumptions) |
+| System line — coaching received | `[Coaching received]` (no suggestion text repeated here — CONFIRMED by the owner; the exact line lives in AI-chatter's chat reply and in the Coaching in effect list) |
 | AI-chatter reply — coaching pushed (quoting convention, D-09) | `Sent to AI-player: {suggestion text}` (prefixes the reply; the rest of the reply is AI-chatter's own words per D-11) |
 | AI-chatter reply — coaching withdrawn | `Withdrew from AI-player: {suggestion text}` (same quoting convention, symmetric with the push case) |
 | AI-chatter reply — rule conflict (D-12) | No fixed template — AI-chatter names the rule/filter in the way and suggests a wording change; this is model output, not a locked string. The Settings page pointer is always the same: `Update this in AI Player settings.` |
@@ -155,6 +162,13 @@ Plain, non-marketing, terminal-friendly — matches the existing voice and Phase
 | Help — nav entry description | `How the coaching chat works, how suggestions reach the AI, and how to make one permanent.` |
 | Logs page — conversation section heading | `Coaching Conversation` |
 | Logs page — conversation section empty state | `No coaching conversation recorded for this session.` |
+| **Pop-out button — AI-player view (D-29)** | Visible text: `Pop out`. `aria-label`/`title`: `Open AI-player in its own window` |
+| **Pop-out button — AI-chatter view (D-29)** | Visible text: `Pop out`. `aria-label`/`title`: `Open AI-chatter in its own window` |
+| **Docked placeholder — AI-player popped out (D-29)** | `AI-player is open in its own window.` with a `Bring back` button. `aria-label`/`title`: `Bring AI-player back to this panel` |
+| **Docked placeholder — AI-chatter popped out (D-29)** | `AI-chatter is open in its own window.` with a `Bring back` button. `aria-label`/`title`: `Bring AI-chatter back to this panel` |
+| **Pop-up blocked notice (D-29)** | `Your browser blocked the new window. Allow pop-ups for this site and try again.` (destructive red, shown in the docked view that tried to pop out; the view stays docked) |
+| **Pop-out window title — AI-player (D-29)** | `AI-player — {connection name}` |
+| **Pop-out window title — AI-chatter (D-29)** | `AI-chatter — {connection name}` |
 | Destructive confirmation | None new. No destructive action is added in this phase; Phase 4's "Delete Captured Text Now" is unchanged. |
 
 ---
@@ -244,7 +258,7 @@ Plain, non-marketing, terminal-friendly — matches the existing voice and Phase
 </div>
 ```
 
-**No tabs, no docked column** (D-03/D-04): the split is a single vertical stack inside the one existing panel — `.ai-assist-panel-body` (thinking stream) above, `.ai-assist-chat` (conversation) below, a 1px border the only visual divider. The message box is usable in every autopilot state (D-06) — it is never disabled by `autopilotState`, only by an empty draft or an in-flight send.
+**No tabs, no docked column** (D-03/D-04): the split is a single vertical stack inside the one existing panel — `.ai-assist-panel-body` (thinking stream) above, `.ai-assist-chat` (conversation) below, a 1px border the only visual divider. The message box is usable in every autopilot state (D-06) — it is never disabled by `autopilotState`, only by an empty draft or an in-flight send. **This vertical stack is what D-29 calls the two "views":** the AI-player view is `.ai-assist-panel-top` + `.ai-assist-panel-body` taken together (goal box, status line, Session Memory, Pause/Resume, Coaching in effect, and the thinking stream); the AI-chatter view is `.ai-assist-chat` alone. Popping out a view means rendering that whole region into a child window instead of inline; see §7.
 
 ### 2. Coaching in effect (`AIAssistPanel.tsx`, extended, inside `.ai-assist-panel-top`)
 
@@ -270,9 +284,9 @@ Direct sibling of the Session Memory section (Phase 4), same markup shape, same 
 </div>
 ```
 
-Placed directly below the Session Memory section, in the same `.ai-assist-panel-top` region, so both curated lists sit together above the decision stream (matches D-09 "beside Session Memory"). Default collapsed, component-only state, same as Session Memory (Phase 4 precedent).
+Placed directly below the Session Memory section, in the same `.ai-assist-panel-top` region, so both curated lists sit together above the decision stream (matches D-09 "beside Session Memory"). Default collapsed, component-only state, same as Session Memory (Phase 4 precedent). This section renders identically whether the AI-player view is docked or popped out (D-29) — it is the same JSX, mounted into whichever document currently holds that view.
 
-**The "Coaching received" marker** appears as a plain `.ai-system-line.state-goal`-style neutral line (reusing the exact `#888` class already defined for goal-changed) at the point in the thinking stream where the next decision incorporates it — text: `[Coaching received]`. It carries no suggestion text (D-09's exact quoted line already appears in AI-chatter's own reply, in the conversation view, and the full current set is always visible in the Coaching in effect list) — this avoids showing the same sentence three times across two views of one 380px panel.
+**The "Coaching received" marker** appears as a plain `.ai-system-line.state-goal`-style neutral line (reusing the exact `#888` class already defined for goal-changed) at the point in the thinking stream where the next decision incorporates it — text: `[Coaching received]`. **CONFIRMED by the owner: it carries no suggestion text** (D-09's exact quoted line already appears in AI-chatter's own reply, in the conversation view, and the full current set is always visible in the Coaching in effect list) — this avoids showing the same sentence three times across two views of one panel (or, popped out, across two separate windows).
 
 ### 3. Pause/Resume button (`AIAssistPanel.tsx`, extended, inside `.ai-assist-panel-top`)
 
@@ -293,6 +307,8 @@ Placed directly under the goal box, above the status line (D-13: "by the goal bo
     className="btn btn-sm btn-secondary"
     onClick={togglePause}
     disabled={autopilotState === 'off'}
+    aria-label={isPausedByOwner ? 'Resume AI-player' : 'Pause AI-player'}
+    title={isPausedByOwner ? 'Resume AI-player' : 'Pause AI-player'}
   >
     {isPausedByOwner ? 'Resume' : 'Pause'}
   </button>
@@ -300,7 +316,7 @@ Placed directly under the goal box, above the status line (D-13: "by the goal bo
 </div>
 ```
 
-Instant, no confirmation step (D-13: "no model call"), matching the button-toggle simplicity of `#AUTO ON`/`OFF` rather than the two-step `.delete-confirm` pattern reserved for destructive/irreversible actions — pausing is neither. Reuses `.btn-sm`/`.btn-secondary` exactly as the existing `Delete Captured Text Now` button's non-danger sibling styling.
+Instant, no confirmation step (D-13: "no model call"), matching the button-toggle simplicity of `#AUTO ON`/`OFF` rather than the two-step `.delete-confirm` pattern reserved for destructive/irreversible actions — pausing is neither. Reuses `.btn-sm`/`.btn-secondary` exactly as the existing `Delete Captured Text Now` button's non-danger sibling styling. **CONFIRMED by the owner: the button is rendered disabled (greyed out), never hidden, when autopilot is fully `off`** — there is nothing to pause, but the control stays visible so its position never shifts.
 
 The status line (existing, Phase 4) gains the paused-reason text as an additional segment when a reason is present: `Calls: 3 of 10 · Consecutive failures: 0 of 3 · Consecutive blocks: 0 of 3 · Paused by owner`.
 
@@ -338,11 +354,11 @@ const SECTION_ORDER = [
 ];
 ```
 
-Content is a server-authored JSON help file (matching every existing section's `HelpSection`/`Section` shape in `internal/help/handler.go`) — no new rendering logic. `HelpPage.tsx`'s existing `renderContent`/`renderInline` (bold + paragraph + bullet-list markdown-lite) is reused unchanged for the article's prose. No new visual pattern is introduced by this phase for the Help page itself.
+Content is a server-authored JSON help file (matching every existing section's `HelpSection`/`Section` shape in `internal/help/handler.go`) — no new rendering logic. `HelpPage.tsx`'s existing `renderContent`/`renderInline` (bold + paragraph + bullet-list markdown-lite) is reused unchanged for the article's prose. No new visual pattern is introduced by this phase for the Help page itself. The article's content should mention that both views can be popped into their own windows (D-29), in the same plain voice as the rest of the article.
 
 ### 6. Logs page conversation section (`frontend/src/pages/LogsPage.tsx`, extended)
 
-Appended below the existing `.logs-transcript` pane, inside the same right-hand column, as its own labelled subsection (D-27's discretion default: shown, separate from the thinking-stream transcript):
+Appended below the existing `.logs-transcript` pane, inside the same right-hand column, as its own labelled subsection. **CONFIRMED by the owner: this is its own section below the transcript, not woven into it in time order.**
 
 ```css
 .logs-conversation {
@@ -382,18 +398,120 @@ Appended below the existing `.logs-transcript` pane, inside the same right-hand 
 
 Loaded alongside the session's transcript when a session row is selected (same fetch-on-select pattern the transcript pane already uses); it does not replace or merge into `.logs-transcript` — the two stay visually and structurally separate, matching D-04's "one panel, two views" carried into the log page's read-only record.
 
+### 7. Pop-out windows (`AIAssistPanel.tsx`, extended, plus a small new `popout.ts` helper) — D-29
+
+**Mechanism.** Each of the two views defined in §1 (AI-player: `.ai-assist-panel-top` + `.ai-assist-panel-body`; AI-chatter: `.ai-assist-chat`) can be rendered into a same-origin child browser window instead of inline, using `window.open` plus a React portal — **not** a second page load. This is the only mechanism that satisfies D-29's "no second websocket, no second sign-in, no new route needing auth": the child window has no URL of its own to sign into and no router to match; it is blank HTML that this same component tree paints into, in the same JavaScript process, subscribed to the exact same `useSession()` / `wsManager.onAI`/`offAI` instance the docked panel already uses.
+
+```ts
+// frontend/src/services/popout.ts
+export function openPopout(key: 'ai-player' | 'ai-chatter', title: string, width: number, height: number): Window | null {
+  // Called synchronously inside the button's onClick — required so the
+  // browser's pop-up blocker treats it as a direct result of the click.
+  const win = window.open('', `mudpuppy-${key}`, `width=${width},height=${height}`);
+  if (!win) return null; // blocked — caller shows the red notice and stays docked
+  win.document.title = title;
+  win.document.body.style.margin = '0';
+  win.document.body.style.background = 'var(--color-bg)';
+  // Copy every stylesheet link and inline <style> tag from this document so the
+  // popout renders with the exact same tokens, typography and colour buckets —
+  // no separate CSS file, no drift.
+  document.querySelectorAll('link[rel="stylesheet"], style').forEach((node) => {
+    win.document.head.appendChild(node.cloneNode(true));
+  });
+  return win;
+}
+```
+
+```tsx
+// Inside AIAssistPanel.tsx
+const [poppedOut, setPoppedOut] = useState<{ aiPlayer: Window | null; aiChatter: Window | null }>({
+  aiPlayer: null,
+  aiChatter: null,
+});
+
+const handlePopOut = (key: 'aiPlayer' | 'aiChatter') => {
+  const win = openPopout(
+    key === 'aiPlayer' ? 'ai-player' : 'ai-chatter',
+    `${key === 'aiPlayer' ? 'AI-player' : 'AI-chatter'} — ${connectionName}`,
+    key === 'aiPlayer' ? 420 : 420,
+    key === 'aiPlayer' ? 800 : 480,
+  );
+  if (!win) {
+    setPopupBlocked(key);
+    return;
+  }
+  setPoppedOut((prev) => ({ ...prev, [key]: win }));
+};
+
+// Both views render through createPortal(...) when their window is set, and
+// inline (as today) when it is null:
+{poppedOut.aiPlayer
+  ? createPortal(<AIPlayerView {...aiPlayerViewProps} popped />, poppedOut.aiPlayer.document.body)
+  : <AIPlayerView {...aiPlayerViewProps} onPopOut={() => handlePopOut('aiPlayer')} />}
+```
+
+**Pop-out button.** One per view, in that view's own header row: the AI-player view's button sits in the existing `.ai-assist-panel-header` beside the Minimize control; the AI-chatter view gains a new one-line header row of its own (`.ai-assist-chat-header`, same height and padding conventions as the panel header) holding the label `AI-chatter` and its pop-out button. Both buttons use `.btn-sm` styling, visible text `Pop out`, `aria-label`/`title` per the Copywriting Contract. Opening a pop-out is instant, no confirmation step — same "no model call, nothing destructive" reasoning as Pause/Resume.
+
+```css
+.ai-assist-chat-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-top: 1px solid var(--color-border);
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+}
+
+.ai-assist-popout-placeholder {
+  padding: var(--spacing-md);
+  color: var(--color-text-dim);
+  font-style: italic;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+```
+
+**Docked placeholder.** When a view is popped out, its docked region shows a short placeholder in place of its normal content — the plain-language line from the Copywriting Contract, plus a `Bring back` button (`.btn-sm .btn-secondary`) that closes the child window and returns that view to normal inline rendering. **The freed space is not redistributed to the other view** (kept simple, per D-29): the AI-player region keeps its usual height and just shows the one-line placeholder inside it; the chat strip stays its usual 240px and shows the same style of placeholder inside that. Nothing else in the panel resizes when a view pops out or comes back.
+
+```tsx
+<div className="ai-assist-popout-placeholder">
+  <span>AI-player is open in its own window.</span>
+  <button className="btn btn-sm btn-secondary" onClick={() => bringBack('aiPlayer')} aria-label="Bring AI-player back to this panel">
+    Bring back
+  </button>
+</div>
+```
+
+**If both views are popped out at once:** the docked panel shows both placeholders, each in its own normal region (top region shows the AI-player placeholder, chat strip shows the AI-chatter placeholder) — the panel does **not** auto-minimize itself. This keeps the "Bring back" controls reachable from the same place they'd be if only one view were out, and the owner never loses the panel entirely just because both views are elsewhere. See Assumptions for this as a flagged default.
+
+**Window contents.** Each popped-out window renders the same component (`AIPlayerView` or the chat view) with the same props, so the message box, Send, Pause/Resume, Coaching in effect, the goal box, the status line, Session Memory, every marker and every notice work identically to docked — same classes, same colours, same copy. The window fills with that view's content and scrolls the same way the docked region does (`overflow-y: auto` on the same inner elements). The black background, the six colour buckets, and the "Colour weighting and focal point" rules (see Color section) apply unchanged inside the window.
+
+**Lifecycle:**
+- Closing the pop-out window (the owner clicks its native close button) is detected via a `window.addEventListener('beforeunload', ...)` on the child, which calls back into the parent to clear that entry in `poppedOut` state — the view returns to docked automatically, the same as clicking "Bring back."
+- Leaving the play screen — closing the tab, reloading, or navigating away — closes both pop-outs: a `useEffect` cleanup on `AIAssistPanel` calls `.close()` on any open child window when the component unmounts or `connectionId` changes.
+- Minimizing the docked panel (the existing `–` button, collapsing to the small tab) does **not** close any pop-out — a popped-out window keeps running independently of the docked panel's collapsed/expanded state.
+- If the browser blocks the pop-up (`window.open` returns `null`), the view that tried to pop out shows the red pop-up-blocked notice inline (Copywriting Contract) and stays docked — no partial or broken state.
+- **Pop-out state is not remembered across page loads** (kept simple, per D-29): every fresh load of the play screen starts with both views docked, regardless of what was popped out before the reload.
+
+**Evidence note:** the staging proof for this capability is a single end-user screenshot of the play screen showing both the AI-player and AI-chatter views live in their own separate browser windows at the same time, taken the same way as every other Phase 5 screenshot (PrintWindow, never a database query).
+
 ---
 
 ## Regression Invariant (carries Phases 2–4's invariants forward, non-negotiable)
 
-For any profile that has **not** accepted the Phase 1 policy: unchanged — no AI Assist panel at all, so none of this phase's new UI (chat, Pause/Resume, Coaching in effect) exists on the page.
+For any profile that has **not** accepted the Phase 1 policy: unchanged — no AI Assist panel at all, so none of this phase's new UI (chat, Pause/Resume, Coaching in effect, pop-out buttons) exists on the page.
 
 For any profile that **has** accepted the policy:
-- **The existing thinking stream (`.ai-assist-panel-body`) is byte-for-byte unchanged** — every decision card, blocked-row rendering, and Phase 3/3.1/4 system-line colour stays exactly as it was; this phase only adds a new sibling region below it, never alters its content or styling.
+- **The existing thinking stream (`.ai-assist-panel-body`) is byte-for-byte unchanged** — every decision card, blocked-row rendering, and Phase 3/3.1/4 system-line colour stays exactly as it was; this phase only adds a new sibling region below it, never alters its content or styling, whether that region is docked or popped out.
 - **The goal box, status line, and Session Memory section are unchanged** except for two new siblings appended in the same `.ai-assist-panel-top` region (Pause/Resume row, Coaching in effect list) — no existing element moves, resizes, or restyles.
-- **The panel's 380×760px geometry, bottom offset, and `max-height` are unchanged.**
+- **The panel's 380×760px geometry, bottom offset, and `max-height` are unchanged.** Popping a view out never changes the docked panel's own outer size — only the affected sub-region swaps its content for a placeholder.
 - **`AutopilotBadge.tsx` is visually unchanged** — pausing surfaces as the existing WAITING state (D-15), not a fourth badge state or new colour.
-- **Hand play is entirely unaffected** — chat, Pause/Resume, and Coaching in effect never appear, fire, or change colour for a human-typed game command; typing anything (including into the chat input, which is not a wheel-grab per D-16, but any actual game command typed into the terminal) behaves exactly as Phase 2–4 left it.
+- **Hand play is entirely unaffected** — chat, Pause/Resume, Coaching in effect, and popping a view in or out never appear, fire, or change colour for a human-typed game command; typing anything (including into the chat input, which is not a wheel-grab per D-16, but any actual game command typed into the terminal) behaves exactly as Phase 2–4 left it, whether or not either view is currently popped out.
+- **Popping a view out or bringing it back never touches its underlying data** — the decision stream, the chat log, and the Coaching in effect list are the same live state either way; nothing is refetched, cleared, or duplicated by the act of moving a view between the panel and a window.
 - **Every existing Copywriting Contract string from Phases 1–4 keeps its exact wording** — this phase adds new notices, it never rewrites an existing one.
 
 ---
@@ -405,7 +523,7 @@ For any profile that **has** accepted the policy:
 | shadcn official | none | not applicable — shadcn not initialized (see Design System note) |
 | third-party | none | not applicable |
 
-No component registry is used anywhere in this phase. All UI is hand-written React + existing/extended project CSS classes.
+No component registry is used anywhere in this phase, including the pop-out mechanism (D-29), which is hand-written `window.open` plus a React portal — no new dependency. All UI is hand-written React + existing/extended project CSS classes.
 
 ---
 
@@ -413,25 +531,25 @@ No component registry is used anywhere in this phase. All UI is hand-written Rea
 
 These are genuinely open, user-visible choices `05-CONTEXT.md` left to discretion. Sensible defaults are recorded above and used as the contract; flagging them here in plain language for the owner to confirm or correct at the next walkthrough:
 
-1. **Chat area is a fixed 240px strip at the bottom of the panel, not resizable.** You cannot drag the line between the AI's thinking and the conversation to make one bigger. If you'd rather be able to resize it, say so and it can be made draggable.
-2. **Chat looks like a plain scrolling list of lines** (`You: ...` / `AI-chatter: ...`), not speech-bubble style chat. This matches the rest of the app's plain-text terminal look. If you pictured something more like a phone messaging app, let us know.
-3. **The "Coaching received" line in the AI's thinking stream doesn't repeat what you said** — it just marks the moment, since the exact wording already shows in the chat reply and in the "Coaching in effect" list. If you want the coached line repeated in the thinking stream too, say so.
-4. **The Pause/Resume button is greyed out (not hidden) when autopilot is fully off**, since there's nothing to pause. If you'd rather it disappear entirely when off, say so.
-5. **The rate limit is measured "per second"** (matching the existing engine's own internal limiter), not "per minute" or another unit. If a different unit is easier to reason about, say so.
-6. **The Help article for coaching sits after "Safety" in the Help page's list**, alongside the other feature-explanation articles. If you'd rather it be first (since it's new), say so.
-7. **The Logs page shows the coaching conversation as its own labelled section below the transcript**, not interleaved with it. If you'd rather see them woven together in time order, say so.
+1. **Chat looks like a plain scrolling list of lines** (`You: ...` / `AI-chatter: ...`), not speech-bubble style chat. This matches the rest of the app's plain-text terminal look. If you pictured something more like a phone messaging app, let us know.
+2. **The rate limit is measured "per second"** (matching the existing engine's own internal limiter), not "per minute" or another unit. If a different unit is easier to reason about, say so.
+3. **The Help article for coaching sits after "Safety" in the Help page's list**, alongside the other feature-explanation articles. If you'd rather it be first (since it's new), say so.
+4. **If you pop both views out at once, the panel stays on screen showing two short "it's open in its own window" placeholders** (one where the AI-player stream normally is, one where the chat strip normally is), rather than the panel shrinking down to its small minimized tab. If you'd rather the whole panel minimize itself automatically once both views are elsewhere, say so.
+5. **Pop-out windows open at a fixed starting size** (AI-player about 420×800, AI-chatter smaller at about 420×480) and are freely resizable afterward, but that starting size is not remembered between visits — every fresh page load starts both views docked at these same defaults. If you'd rather it remember your last window size or which view was popped out, say so.
 
-None of these affect the underlying behaviour locked in `05-CONTEXT.md` (D-01 to D-28) — only how it looks and where things sit on screen.
+None of these affect the underlying behaviour locked in `05-CONTEXT.md` (D-01 to D-29) — only how it looks and where things sit on screen.
 
 ---
 
 ## Checker Sign-Off
 
-- [x] Dimension 1 Copywriting: PASS (flag on terse `Send` / `Pause` / `Resume` labels, addressed with accessible names and hover text)
-- [x] Dimension 2 Visuals: PASS (flag on missing focal point, addressed under Color → "Colour weighting and focal point")
-- [x] Dimension 3 Color: PASS (flag on missing 60/30/10 statement, addressed in the same section)
+- [x] Dimension 1 Copywriting: PASS (non-blocking flag: `Send` / `Pop out` / `Bring back` are verb-only labels; each carries a specific accessible name and hover text)
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
 - [x] Dimension 4 Typography: PASS
 - [x] Dimension 5 Spacing: PASS
 - [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** approved by gsd-ui-checker 2026-09-17 (no blocking issues; three non-blocking recommendations folded in afterwards by the orchestrator). The seven items under "Assumptions for owner confirmation" remain open for the owner.
+**Approval:** approved by gsd-ui-checker 2026-09-17, second pass, covering the D-29 pop-out revision and the owner confirmations. No blocking issues. The five items under "Assumptions for owner confirmation" stay open for the owner's walkthrough.
+
+_Note: the first review on 2026-09-17 approved the pre-D-29 version of this spec; its three non-blocking recommendations were folded in before this revision._

@@ -276,7 +276,7 @@ Implementation notes for planning: the loop is a server-side goroutine per engag
   1. A chat message sent while the AI plays is reflected in its next decision, and this is verifiable from the logged reasoning.
   2. Pause and resume work from the AI-player part of the AI panel (not from chat); pausing stops commands but keeps reading the game, shows as WAITING with its reason, and never resumes by itself.
   3. Chat is only ever plain text and AI-chatter can change no configuration; a help article in the app explains AI-chatter, AI-player and how the owner copies a suggestion into conduct rules or approach guidance by hand. (Promotion withdrawn by the owner 2026-09-17.)
-  4. The AI panel sits beside the terminal in the play screen as one panel with two views: AI-player's decisions, reasoning and notices on top, and the owner's conversation with AI-chatter below; every suggestion pushed to AI-player is visible to the owner (quoted in the reply, listed under "Coaching in effect", marked in the stream).
+  4. The AI panel sits beside the terminal in the play screen as one panel with two views: AI-player's decisions, reasoning and notices on top, and the owner's conversation with AI-chatter below; every suggestion pushed to AI-player is visible to the owner (quoted in the reply, listed under "Coaching in effect", marked in the stream). Each of the two views can be popped out into its own separate window and works the same there (added by the owner 2026-09-17; `05-CONTEXT.md` D-29).
 
 **Plans**: TBD
 **UI hint**: yes
