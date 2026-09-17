@@ -161,3 +161,30 @@ None new beyond what `04-08-PLAN.md`'s own threat model already declares (T-4-03
 ---
 *Phase: 04-continuous-play*
 *Completed: 2026-09-16*
+
+## Self-Check: PASSED
+
+- FOUND: internal/gemini/client.go
+- FOUND: internal/gemini/client_test.go
+- FOUND: internal/driver/driver.go
+- FOUND: internal/driver/memory.go
+- FOUND: internal/driver/driver_test.go
+- FOUND: internal/store/transcripts.go
+- FOUND: internal/session/websocket.go
+- FOUND: internal/session/websocket_test.go
+- FOUND: internal/profiles/handler.go
+- FOUND: internal/profiles/logs_test.go
+- FOUND: cmd/server/main.go
+- FOUND: frontend/src/services/api.ts
+- FOUND: frontend/src/types/index.ts
+- FOUND: frontend/src/components/AIAssistPanel.tsx
+- FOUND: frontend/src/index.css
+- FOUND: public/assets/index-Cj_-mmeJ.js
+- FOUND: public/assets/index-Cj_-mmeJ.js.map
+- FOUND: public/assets/index-UwP9oyAs.css
+- FOUND: .planning/phases/04-continuous-play/04-08-SUMMARY.md
+- FOUND: commit 75fe5b2 (Task 04-08-01)
+- FOUND: commit f8133a0 (Task 04-08-02, part 1)
+- FOUND: commit 7eef6c7 (Task 04-08-02, part 2)
+- FOUND: commit ff38f2c (Task 04-08-03)
+- FOUND: commit 377b0a2 (docs: plan summary)

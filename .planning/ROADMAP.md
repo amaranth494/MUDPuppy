@@ -246,7 +246,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 04-08-PLAN.md — The AI curates its Session Memory and Quest Memory as it plays, and the owner can watch it
+- [x] 04-08-PLAN.md — The AI curates its Session Memory and Quest Memory as it plays, and the owner can watch it
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
@@ -349,7 +349,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 1. Profile Foundation and Policy Gate | 6/6 | Complete    | 2026-09-15 |
 | 2. Autopilot Switch | 7/7 | Complete    | 2026-09-15 |
 | 3. One AI Decision | 13/13 | Complete    | 2026-09-16 |
-| 4. Continuous Play | 7/11 | In Progress|  |
+| 4. Continuous Play | 8/11 | In Progress|  |
 | 5. Coaching Channel | 0/TBD | Not started | - |
 | 6. Measurement and Memory | 0/TBD | Not started | - |
 | 7. Study Loader | 0/TBD | Not started | - |

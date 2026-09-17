@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-07-PLAN.md
-last_updated: "2026-09-17T05:44:14.275Z"
-last_activity: 2026-09-17 -- 04-07 (prompt context order, wrapped reasoning, reviewer-channel corpus item) complete
+stopped_at: Completed 04-08-PLAN.md
+last_updated: "2026-09-17T06:09:52.915Z"
+last_activity: 2026-09-17
 progress:
   total_phases: 9
   completed_phases: 4
   total_plans: 44
-  completed_plans: 40
-  percent: 91
+  completed_plans: 41
+  percent: 44
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-09-14)
 ## Current Position
 
 Phase: 4 (continuous-play) — EXECUTING
-Plan: 8 of 11 (04-07 complete; 04-08 next)
-Status: Executing Phase 4
-Last activity: 2026-09-17 -- 04-07 (prompt context order, wrapped reasoning, reviewer-channel corpus item) complete
+Plan: 9 of 11 (04-07 complete; 04-08 next)
+Status: Ready to execute
+Last activity: 2026-09-17
 
 Progress: [█████████░] 91%
 
@@ -61,6 +61,7 @@ Progress: [█████████░] 91%
 | Phase 04 P03 | 13min | 3 tasks | 8 files |
 | Phase 04 P06 | 9min | 3 tasks | 13 files |
 | Phase 04 P07 | 3min | 3 tasks | 5 files |
+| Phase 04 P08 | 15min | 3 tasks | 18 files |
 
 ## Accumulated Context
 
@@ -92,6 +93,7 @@ Recent decisions affecting current work:
 - [Phase 4]: 04-06: Session goal length cap shipped at 1000 characters; Quest create-vs-reactivate for the log line is derived by comparing Quest.CreatedAt.Equal(Quest.UpdatedAt) in the handler rather than widening EnsureActiveQuest's locked (Quest, error) signature
 - [Phase 4]: 04-07: promptContext threads goal/Quest bullets/Session Memory through both buildSystemInstruction and buildReviewSystemInstruction in D-13's fixed order; Quest/Session Memory are wrapped as untrusted (<QUEST_MEMORY>/<SESSION_MEMORY>, named in the one shared untrustedDataParagraph), the owner's own goal is not; D-12 ceilings (20 Quest bullets/30 Session Memory bullets, 200 chars each) enforced in Go via clampBullets
 - [Phase 4]: 04-07: D-24/DR-3.1-01 closed in code -- the reviewer's user text wraps the first model's stated reasoning in <MODEL_REASONING> markers with its own untrusted-account sentence beside the shared paragraph; corpus item reviewer-channel-01 added to the unmodified red-team corpus (category reviewer-channel, hostile-count floor raised to 25); no live model call made, AFTER rerun belongs to plan 04-11
+- [Phase 04]: 04-08: memory rides the same answer JSON as the command (flat string[], no extra model call); ceilings 30 Session Memory / 20 Quest bullets at 200 chars enforced again on the way out via truncateBullets; the ai-memory read endpoint is GET-only, no PUT (Phase 5 edits)
 
 ### Pending Todos
 
@@ -122,6 +124,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-09-17T05:44:14.275Z
-Stopped at: Completed 04-07-PLAN.md
+Last session: 2026-09-17T06:09:52.907Z
+Stopped at: Completed 04-08-PLAN.md
 Resume file: None
