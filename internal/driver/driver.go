@@ -734,7 +734,17 @@ func (d *Driver) decide(ctx context.Context, userID, connectionID string, first 
 		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, kind, resolved)
 		return
 	}
-	if review.Blocked {
+	// review.Blocked is guaranteed non-nil here: gemini.ReviewCommand
+	// (D-24/DR-4-02) already maps a nil verdict to a KindMalformed error,
+	// handled by the revErr branch above. This nil check is belt-and-braces
+	// behind that client-side guarantee, not a new behaviour — a nil
+	// verdict reaching here is treated as a failed review, never as "not
+	// blocked".
+	if review.Blocked == nil {
+		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, failureMalformed, resolved)
+		return
+	}
+	if *review.Blocked {
 		reason := review.Reason
 		if strings.TrimSpace(reason) == "" {
 			reason = emptyReviewReasonFallback

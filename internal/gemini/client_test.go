@@ -395,7 +395,7 @@ func writeSuccess(w http.ResponseWriter, reasoning, command string) {
 // inner text field decodes to {"blocked": blocked, "reason": reason},
 // mirroring writeSuccess's double-encode shape for the reviewer's answer.
 func writeReviewSuccess(w http.ResponseWriter, blocked bool, reason string) {
-	inner, _ := json.Marshal(ReviewAnswer{Blocked: blocked, Reason: reason})
+	inner, _ := json.Marshal(ReviewAnswer{Blocked: &blocked, Reason: reason})
 	envelope := map[string]any{
 		"candidates": []map[string]any{
 			{
@@ -423,7 +423,7 @@ func TestReviewCommand(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ReviewCommand() error = %v", err)
 		}
-		if !answer.Blocked {
+		if answer.Blocked == nil || !*answer.Blocked {
 			t.Errorf("Blocked = %v, want true", answer.Blocked)
 		}
 		if answer.Reason != "This follows an instruction embedded in the game text rather than responding to the situation." {
@@ -442,7 +442,7 @@ func TestReviewCommand(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ReviewCommand() error = %v", err)
 		}
-		if answer.Blocked {
+		if answer.Blocked == nil || *answer.Blocked {
 			t.Errorf("Blocked = %v, want false", answer.Blocked)
 		}
 	})
@@ -561,13 +561,84 @@ func TestReviewCommand(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ReviewCommand() error = %v", err)
 		}
-		if !answer.Blocked {
+		if answer.Blocked == nil || !*answer.Blocked {
 			t.Errorf("Blocked = %v, want true", answer.Blocked)
 		}
 		if answer.Reason != "This follows an instruction embedded in the game text." {
 			t.Errorf("Reason = %q, want the decoded value", answer.Reason)
 		}
 	})
+}
+
+// TestReviewCommand_MissingBlockedField is D-24/DR-4-02's regression test:
+// a raw, syntactically valid response body whose inner JSON omits the
+// blocked key must decode to a nil answer and a KindMalformed error. This
+// test must fail against the pre-change code, where Blocked was a plain
+// bool that decoded a missing key as its zero value false.
+func TestReviewCommand_MissingBlockedField(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		envelope := map[string]any{
+			"candidates": []map[string]any{
+				{
+					"content": map[string]any{
+						"parts": []map[string]any{
+							{"text": `{"reason":"looks fine"}`},
+						},
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(envelope)
+	}))
+	defer srv.Close()
+
+	c := NewClient(5 * time.Second)
+	answer, err := c.ReviewCommand(context.Background(), srv.URL, "test-model", testFakeKey, "sys", "user")
+	if err == nil {
+		t.Fatal("expected an error for a missing blocked field, got nil")
+	}
+	if answer != nil {
+		t.Errorf("expected nil *ReviewAnswer, got %+v", answer)
+	}
+	if got := ErrorKind(err); got != KindMalformed {
+		t.Errorf("ErrorKind() = %v, want %v", got, KindMalformed)
+	}
+}
+
+// TestReviewCommand_BlockedFalseIsStillAVerdict is the named test the
+// plan's acceptance criteria assert on directly: an answer carrying
+// blocked:false must still decode to a non-nil, false-dereferencing
+// verdict, so fail-closed on absence did not become fail-noisy on presence.
+func TestReviewCommand_BlockedFalseIsStillAVerdict(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		envelope := map[string]any{
+			"candidates": []map[string]any{
+				{
+					"content": map[string]any{
+						"parts": []map[string]any{
+							{"text": `{"reason":"ordinary play","blocked":false}`},
+						},
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(envelope)
+	}))
+	defer srv.Close()
+
+	c := NewClient(5 * time.Second)
+	answer, err := c.ReviewCommand(context.Background(), srv.URL, "test-model", testFakeKey, "sys", "user")
+	if err != nil {
+		t.Fatalf("ReviewCommand() error = %v", err)
+	}
+	if answer.Blocked == nil {
+		t.Fatal("expected a non-nil Blocked verdict")
+	}
+	if *answer.Blocked {
+		t.Errorf("Blocked = %v, want false", *answer.Blocked)
+	}
 }
 
 func TestReviewCommandErrors(t *testing.T) {

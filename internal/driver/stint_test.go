@@ -47,9 +47,9 @@ func TestStint_QuickReengageDropsTheOldDecision(t *testing.T) {
 			{Reasoning: "stint two, reassessed", Command: "inventory"},
 		},
 		reviewAnswers: []*gemini.ReviewAnswer{
-			{Blocked: false, Reason: "clear"},
-			{Blocked: false, Reason: "clear"},
-			{Blocked: false, Reason: "clear"},
+			{Blocked: boolPtr(false), Reason: "clear"},
+			{Blocked: boolPtr(false), Reason: "clear"},
+			{Blocked: boolPtr(false), Reason: "clear"},
 		},
 	}
 	d := newPacedDriver(sessions, decisions, notifier, commands, models, 2*time.Millisecond, 5*time.Second, 2*time.Millisecond)
@@ -160,7 +160,7 @@ func TestStint_StaleIterationIsNotAFailure(t *testing.T) {
 			&gemini.Error{Kind: gemini.KindTransport, Message: "dial tcp: i/o timeout"},
 			nil,
 		},
-		reviewAnswer: &gemini.ReviewAnswer{Blocked: false, Reason: "clear"},
+		reviewAnswer: &gemini.ReviewAnswer{Blocked: boolPtr(false), Reason: "clear"},
 	}
 	d := newPacedDriver(sessions, decisions, notifier, commands, models, 2*time.Millisecond, 5*time.Second, 2*time.Millisecond)
 
@@ -216,7 +216,7 @@ func TestStint_DuplicateEngageStartsNothing(t *testing.T) {
 	commands := &fakeCommands{}
 	models := &fakeModels{
 		answer:       &gemini.Answer{Reasoning: "looking around", Command: "look"},
-		reviewAnswer: &gemini.ReviewAnswer{Blocked: false, Reason: "clear"},
+		reviewAnswer: &gemini.ReviewAnswer{Blocked: boolPtr(false), Reason: "clear"},
 	}
 	d := newPacedDriver(sessions, decisions, notifier, commands, models, 2*time.Millisecond, 5*time.Second, 2*time.Millisecond)
 
@@ -288,7 +288,7 @@ func TestStint_StopLoopInterruptsAnInFlightModelCall(t *testing.T) {
 			commands := &fakeCommands{}
 			models := &fakeModels{
 				answer:       &gemini.Answer{Reasoning: "looking around", Command: "look"},
-				reviewAnswer: &gemini.ReviewAnswer{Blocked: false, Reason: "clear"},
+				reviewAnswer: &gemini.ReviewAnswer{Blocked: boolPtr(false), Reason: "clear"},
 			}
 			d := newPacedDriver(sessions, decisions, notifier, commands, models, 2*time.Millisecond, 5*time.Second, 2*time.Millisecond)
 
@@ -398,7 +398,7 @@ func TestSendFailureIsNotAModelFailure(t *testing.T) {
 			notifier := &fakeNotifier{}
 			models := &fakeModels{
 				answer:       &gemini.Answer{Reasoning: "heading north", Command: "north"},
-				reviewAnswer: &gemini.ReviewAnswer{Blocked: false, Reason: "clear"},
+				reviewAnswer: &gemini.ReviewAnswer{Blocked: boolPtr(false), Reason: "clear"},
 			}
 			d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, &fakeCommands{}, notifier, testConfig())
 
@@ -457,7 +457,7 @@ func TestMissingQuestIsRepairedAtTheNextDecision(t *testing.T) {
 		sessions.engageState()
 		models := &fakeModels{
 			answer:       &gemini.Answer{Reasoning: "heading north", Command: "north", QuestMemory: []string{"the tower is north of the square"}},
-			reviewAnswer: &gemini.ReviewAnswer{Blocked: false, Reason: "clear"},
+			reviewAnswer: &gemini.ReviewAnswer{Blocked: boolPtr(false), Reason: "clear"},
 		}
 		profile := testProfile()
 		profile.SessionGoal = goal
@@ -543,7 +543,7 @@ func TestStint_LateStopLoopLeavesTheNextStintRunning(t *testing.T) {
 	commands := &fakeCommands{}
 	models := &fakeModels{
 		answer:       &gemini.Answer{Reasoning: "looking around", Command: "look"},
-		reviewAnswer: &gemini.ReviewAnswer{Blocked: false, Reason: "clear"},
+		reviewAnswer: &gemini.ReviewAnswer{Blocked: boolPtr(false), Reason: "clear"},
 	}
 	d := newPacedDriver(sessions, decisions, notifier, commands, models, 2*time.Millisecond, 5*time.Second, 2*time.Millisecond)
 
@@ -588,7 +588,7 @@ func TestStint_LoopThatStopsItselfLeavesNoEntry(t *testing.T) {
 	sessions.engageState()
 	models := &fakeModels{
 		answer:       &gemini.Answer{Reasoning: "looking around", Command: "look"},
-		reviewAnswer: &gemini.ReviewAnswer{Blocked: false, Reason: "clear"},
+		reviewAnswer: &gemini.ReviewAnswer{Blocked: boolPtr(false), Reason: "clear"},
 	}
 	d := newPacedDriver(sessions, &fakeDecisionsStore{}, &fakeNotifier{}, &fakeCommands{}, models, 2*time.Millisecond, 5*time.Second, 2*time.Millisecond)
 
