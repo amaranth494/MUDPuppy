@@ -1,6 +1,6 @@
 # Phase 5 Brief — Coaching Channel
 
-**Status:** Pending the owner's approval for execution (artifact https://claude.ai/artifact/9ruK4eP1XcrS62dXtzyKsB, published 2026-09-17).
+**Status:** Approved by the owner for execution, 2026-09-17 (artifact https://claude.ai/artifact/9ruK4eP1XcrS62dXtzyKsB).
 
 **Purpose:** Owner review before execution. Everything here is lifted from `.planning/ROADMAP.md` §Phase 5, `05-CONTEXT.md` (D-01 to D-29), `05-UI-SPEC.md` and the eleven PLAN.md files; nothing is new. Approve this, and Phase 5 goes to `/gsd-execute-phase 5`.
 
@@ -86,4 +86,4 @@ Promotion (withdrawn, not deferred); per-message actions and a coaching clear bu
 
 ## Approval
 
-Pending.
+Approved 2026-09-17. The owner approved the brief as published, with no changes, in chat at the end of `/gsd-plan-phase 5` ("Approved").
