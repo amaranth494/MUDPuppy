@@ -18,9 +18,24 @@ import (
 	"github.com/google/uuid"
 )
 
+// UserStore is the slice of *store.UserStore this handler depends on
+// (mirrors internal/driver's per-consumer interface pattern), so tests can
+// supply a fake with no database connection. The real *store.UserStore
+// satisfies this with no adapter.
+type UserStore interface {
+	Create(email string) (*store.User, error)
+	GetByEmail(email string) (*store.User, error)
+	GetByID(id uuid.UUID) (*store.User, error)
+	// MarkLoginStarted records the moment userID's current MUDPuppy login
+	// began (D-31), read back by internal/store.TranscriptStore's
+	// OpenGameSession to decide which earlier game session's Session
+	// Memory a new one may inherit.
+	MarkLoginStarted(userID uuid.UUID) error
+}
+
 // Handler handles authentication HTTP requests
 type Handler struct {
-	userStore     *store.UserStore
+	userStore     UserStore
 	redisClient   *redis.Client
 	emailSender   *email.Sender
 	sessionSecret string
@@ -28,7 +43,7 @@ type Handler struct {
 }
 
 // NewHandler creates a new auth handler
-func NewHandler(userStore *store.UserStore, redisClient *redis.Client, cfg *config.Config) *Handler {
+func NewHandler(userStore UserStore, redisClient *redis.Client, cfg *config.Config) *Handler {
 	var emailSender *email.Sender
 	if cfg.SMTPHost != "" && cfg.SMTPUser != "" && cfg.SMTPPass != "" {
 		emailSender = email.NewSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPass, cfg.EmailFromAddress)
@@ -301,6 +316,19 @@ func (h *Handler) SendOTP(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// markLoginStart records userID's login boundary (D-31: Session Memory now
+// lives for the MUDPuppy login, per connection profile, not the game
+// connection) by calling UserStore.MarkLoginStarted. stage identifies the
+// caller ("login" or "logout") in the failure log line. A storage error
+// here must never fail the login or logout response the owner is waiting
+// on, so it is only logged -- with ids and stage, never an email address or
+// the underlying error text -- and never returned.
+func (h *Handler) markLoginStart(userID uuid.UUID, stage string) {
+	if err := h.userStore.MarkLoginStarted(userID); err != nil {
+		log.Printf("[AUTH] stage=%s user_id=%s failed to mark login start", stage, userID)
+	}
+}
+
 // Login handles POST /api/v1/login
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -385,6 +413,11 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// D-31: mark this sign-in as a new login boundary now that the session
+	// exists, so a new game session opened during this login knows where
+	// its Session Memory inheritance window starts.
+	h.markLoginStart(user.ID, "login")
+
 	// Log successful login (without sensitive data)
 	log.Printf("User %s logged in successfully", email)
 
@@ -422,11 +455,25 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 
 	ctx := context.Background()
 
+	// D-31: capture which user is signing out before the session is
+	// deleted, so the login boundary can be bumped afterward -- nothing
+	// carries across a sign-out even if some future path opens a game
+	// session before the next Login. A lookup failure here (an
+	// already-expired or invalid session) is not fatal to logout; there is
+	// simply no login boundary left to mark.
+	loggedOutUserID, sessionLookupErr := h.redisClient.GetSession(ctx, sessionID)
+
 	// Delete session from Redis
 	if err := h.redisClient.DeleteSession(ctx, sessionID); err != nil {
 		log.Printf("Error deleting session: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
+	}
+
+	if sessionLookupErr == nil && loggedOutUserID != "" {
+		if id, err := uuid.Parse(loggedOutUserID); err == nil {
+			h.markLoginStart(id, "logout")
+		}
 	}
 
 	// Clear the session cookie
