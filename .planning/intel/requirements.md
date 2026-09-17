@@ -117,12 +117,14 @@ D4 in either order (D5 first recommended); D7 depends on D6; D8 depends on every
 - source: .specify/specs/ai-game-player-design-v3.md (D5)
 - description: Pause and resume control from chat.
 - acceptance: "Pause and resume work from chat; pausing stops commands but keeps reading the game."
+- amended: 2026-09-17 by the owner; current text in .planning/REQUIREMENTS.md (Pause/Resume is an AI-player control, not chat)
 - scope: loop control
 
 ### REQ-promote-guidance
 - source: .specify/specs/ai-game-player-design-v3.md (D5; Definition of complete item 4)
 - description: Promote a piece of chat guidance into the profile permanently.
 - acceptance: "The owner can promote a chat instruction into the profile's conduct rules or approach guidance without leaving the page, and it persists across sessions."
+- amended: 2026-09-17 by the owner; promotion withdrawn, current text in .planning/REQUIREMENTS.md (plain-text chat, manual copy into AI settings, help article)
 - scope: profile editing from chat
 
 ---

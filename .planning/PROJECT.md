@@ -23,7 +23,7 @@ The existing MUDPuppy product is taken as-is per owner decision; its prior specs
 
 Requirement IDs come from `.planning/intel/requirements.md` and are quoted from the design's D1-D8 "Accepted when" bullets and Definition of complete. Full list with acceptance text in `.planning/REQUIREMENTS.md`.
 
-- [ ] D5 Coaching channel: REQ-coaching-chat, REQ-pause-resume, REQ-promote-guidance
+- [ ] D5 Coaching channel: REQ-coaching-chat, REQ-pause-resume, REQ-promote-guidance (amended by the owner 2026-09-17: AI-chatter chats in plain text and pushes suggestions to AI-player, nothing else; no promotion, a help article instead; Pause/Resume is an AI-player control)
 - [ ] D6 Measurement and memory: REQ-progression-tally, REQ-session-debrief, REQ-memory-carryover
 - [ ] D7 Study loader: REQ-study-loader, REQ-study-confirmation
 - [ ] D8 Acceptance run on Alter Aeon: REQ-acceptance-reconnaissance, REQ-acceptance-goal-sessions, REQ-acceptance-definition-holds

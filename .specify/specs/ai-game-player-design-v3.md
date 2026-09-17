@@ -16,7 +16,7 @@ The project is complete when all of the following are true, demonstrated on Alte
 1. The owner can create a game profile, accept the Safety and Abuse policy on it, and hand-play the character normally. The AI cannot be configured or engaged on any profile that has not accepted the policy.
 2. With autopilot engaged, the AI plays continuously toward the session goal the owner set, and every decision it makes is visible with its reasoning as it happens.
 3. Typing any game command instantly disengages autopilot and the command goes through. Re-engaging picks up cleanly from the current game situation.
-4. The owner can coach the AI from a chat pane while it plays, see the guidance take effect on the next decision, and promote a piece of guidance into the profile permanently.
+4. The owner can coach the AI from a chat pane while it plays and see the guidance take effect on the next decision. Chat is plain text only: to make a piece of guidance permanent the owner copies it into the profile's AI settings by hand, and a help article explains how. (Owner decision 2026-09-17; previously the chat could promote guidance into the profile.)
 5. Every session ends with a recorded debrief and updated progression tally, and across at least three consecutive goal sessions the tally shows improvement while required coaching declines.
 6. All mechanical safety limits hold under test: call cap when one is set, no AI-initiated reconnect, disengage on repeated errors, no commands issued while disconnected (autopilot waits and resumes only once the connection returns), and safe behaviour when profile settings are blank (no cap, informative failure, no crash, regular play unaffected).
 
@@ -60,12 +60,12 @@ Accepted when:
 
 ### D5: Coaching channel
 
-The live collaboration layer: a chat pane beside the terminal.
+The live collaboration layer: a chat pane beside the terminal. Two levels (owner decision 2026-09-17): AI-player is the loop that reads the game and sends commands; AI-chatter is the conversation that sits above it. AI-chatter chats in plain text and can push coaching suggestions down into AI-player mid-stream. It has no other application permissions or functionality: it cannot change settings, work controls, or send anything to the game.
 
 Accepted when:
 - A chat message sent while the AI plays is reflected in its next decision, and this is verifiable from the logged reasoning.
-- Pause and resume work from chat; pausing stops commands but keeps reading the game.
-- The owner can promote a chat instruction into the profile's conduct rules or approach guidance without leaving the page, and it persists across sessions.
+- Pause and resume work from the AI-player part of the play screen's AI panel (not from chat); pausing stops commands but keeps reading the game. (Amended 2026-09-17; previously "from chat".)
+- Chat is only ever plain text. There is no promotion: the owner applies a suggestion to the profile's conduct rules or approach guidance by copying it into the AI settings by hand, and a help article in the app explains AI-chatter, AI-player and how to do this. (Amended 2026-09-17; previously the owner could promote a chat instruction into the profile without leaving the page.)
 
 ### D6: Measurement and memory
 

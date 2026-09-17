@@ -35,8 +35,8 @@ Delivery ordering (from the source): D1 -> D2 -> D3 -> D4 strictly sequential; D
 ### D5: Coaching channel
 
 - [ ] **REQ-coaching-chat**: A chat pane beside the terminal. Acceptance: "A chat message sent while the AI plays is reflected in its next decision, and this is verifiable from the logged reasoning."
-- [ ] **REQ-pause-resume**: Acceptance: "Pause and resume work from chat; pausing stops commands but keeps reading the game."
-- [ ] **REQ-promote-guidance**: Acceptance: "The owner can promote a chat instruction into the profile's conduct rules or approach guidance without leaving the page, and it persists across sessions."
+- [ ] **REQ-pause-resume**: Acceptance (design D5 amended by the owner 2026-09-17): "Pause and resume work from the AI-player part of the play screen's AI panel (not from chat); pausing stops commands but keeps reading the game."
+- [ ] **REQ-promote-guidance**: Acceptance (design D5 amended by the owner 2026-09-17; promotion withdrawn, ID kept for traceability): "Chat is only ever plain text. There is no promotion: the owner applies a suggestion to the profile's conduct rules or approach guidance by copying it into the AI settings by hand, and a help article in the app explains AI-chatter, AI-player and how to do this."
 
 ### D6: Measurement and memory
 
@@ -60,7 +60,7 @@ Delivery ordering (from the source): D1 -> D2 -> D3 -> D4 strictly sequential; D
 - [x] **REQ-doc-hand-play-and-gate** (item 1): "The owner can create a game profile, accept the Safety and Abuse policy on it, and hand-play the character normally. The AI cannot be configured or engaged on any profile that has not accepted the policy." Maps to REQ-policy-gate, REQ-autopilot-directives.
 - [x] **REQ-doc-continuous-visible-play** (item 2): "With autopilot engaged, the AI plays continuously toward the session goal the owner set, and every decision it makes is visible with its reasoning as it happens." Maps to REQ-continuous-loop, REQ-reasoning-visibility.
 - [x] **REQ-doc-wheel-grab-and-reengage** (item 3): "Typing any game command instantly disengages autopilot and the command goes through. Re-engaging picks up cleanly from the current game situation." Maps to REQ-wheel-grab, REQ-reengage-reassess.
-- [ ] **REQ-doc-coaching** (item 4): "The owner can coach the AI from a chat pane while it plays, see the guidance take effect on the next decision, and promote a piece of guidance into the profile permanently." Maps to REQ-coaching-chat, REQ-promote-guidance.
+- [ ] **REQ-doc-coaching** (item 4, amended 2026-09-17): "The owner can coach the AI from a chat pane while it plays and see the guidance take effect on the next decision. Chat is plain text only: to make a piece of guidance permanent the owner copies it into the profile's AI settings by hand, and a help article explains how." Maps to REQ-coaching-chat, REQ-promote-guidance.
 - [ ] **REQ-improvement-trend** (item 5): "Every session ends with a recorded debrief and updated progression tally, and across at least three consecutive goal sessions the tally shows improvement while required coaching declines." Maps to REQ-session-debrief, REQ-progression-tally; adds the three-session trend as its own measurable criterion.
 - [x] **REQ-safety-limits-hold** (item 6, amended 2026-09-15): "All mechanical safety limits hold under test: call cap when one is set, no AI-initiated reconnect, disengage on repeated errors, no commands issued while disconnected (autopilot waits and resumes only once the connection returns), and safe behaviour when profile settings are blank (no cap, informative failure, no crash, regular play unaffected)." Maps to REQ-call-cap-and-error-disengage, REQ-no-auto-reconnect, REQ-profile-ai-fields.
 
@@ -134,4 +134,4 @@ Mapping notes:
 
 ---
 *Requirements defined: 2026-09-14*
-*Last updated: 2026-09-15 after the owner amended D2 disconnect behaviour (autopilot waits across a disconnect and resumes on return)*
+*Last updated: 2026-09-17 after the owner amended D5 (chat is plain text with no promotion; Pause/Resume is an AI-player control; a help article explains applying suggestions by hand)*
