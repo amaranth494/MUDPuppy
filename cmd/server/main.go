@@ -327,20 +327,36 @@ func main() {
 	// decision row is already stored before this notification runs, so a
 	// refresh recovers it through the decisions-read endpoint even if the
 	// tab was closed at the moment the decision happened.
-	aiDriver.SetNotifier(aidriver.NotifierFunc(func(userID string, ev aidriver.Event) {
-		// WithStint (code review WR-05 of Phase 4): every driver event
-		// carries the stint's counts and memory list even when they are
-		// zero or empty, so the panel can show a streak that has cleared.
-		_ = wsHandler.PushAI(userID, session.AIDecisionPayload{
-			ID:        ev.ID,
-			Kind:      ev.Kind,
-			Reasoning: ev.Reasoning,
-			Command:   ev.Command,
-			Outcome:   ev.Outcome,
-			Message:   ev.Message,
-			Timestamp: ev.Timestamp,
-		}.WithStint(ev.State, ev.Calls, ev.CallCap, ev.CallCapSet, ev.Failures, ev.Blocks, ev.Threshold, ev.SessionMemory))
-	}))
+	// Notifier is now two methods (plan 05-05 adds NotifyChat beside
+	// NotifyDecision); NotifierFunc and ChatNotifierFunc each satisfy one
+	// half, and embedding both in one anonymous struct promotes both
+	// methods, satisfying the full interface with one concrete value. The
+	// chat half is wired for real in plan 05-05-03, once MsgTypeChat and
+	// PushChat exist on wsHandler; until then it is a documented no-op so
+	// the build stays green.
+	aiDriver.SetNotifier(struct {
+		aidriver.NotifierFunc
+		aidriver.ChatNotifierFunc
+	}{
+		NotifierFunc: aidriver.NotifierFunc(func(userID string, ev aidriver.Event) {
+			// WithStint (code review WR-05 of Phase 4): every driver event
+			// carries the stint's counts and memory list even when they are
+			// zero or empty, so the panel can show a streak that has cleared.
+			_ = wsHandler.PushAI(userID, session.AIDecisionPayload{
+				ID:        ev.ID,
+				Kind:      ev.Kind,
+				Reasoning: ev.Reasoning,
+				Command:   ev.Command,
+				Outcome:   ev.Outcome,
+				Message:   ev.Message,
+				Timestamp: ev.Timestamp,
+			}.WithStint(ev.State, ev.Calls, ev.CallCap, ev.CallCapSet, ev.Failures, ev.Blocks, ev.Threshold, ev.SessionMemory))
+		}),
+		ChatNotifierFunc: aidriver.ChatNotifierFunc(func(userID string, ev aidriver.ChatEvent) {
+			// Wired for real in plan 05-05-03 (MsgTypeChat/PushChat land in
+			// internal/session/websocket.go in that task).
+		}),
+	})
 
 	// Wire the goal endpoint's goal-changed/goal-cleared system line
 	// (plan 04-06, D-03) through the exact same wsHandler.PushAI path the
