@@ -329,6 +329,12 @@ func TestLoop_Pacing(t *testing.T) {
 		// decision can only come from the floor interval's own nudge.
 		waitForCalls(t, models, 2)
 
+		// waitForCalls returns when the second model call STARTS. Since code
+		// review WR-02 of Phase 4, StopLoop cancels the stint's context and a
+		// decision still in flight is dropped rather than sent, so wait for
+		// the nudge's send before stopping -- exactly as the sub-test above
+		// does -- or a StopLoop that wins the race leaves 1 send, not 2.
+		waitForSendCount(t, sessions, 2)
 		d.StopLoop(userID, sessions.currentEpoch())
 
 		assertStableCallCount(t, models, 2, 100*time.Millisecond)
