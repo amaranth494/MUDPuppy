@@ -475,9 +475,14 @@ body {
   font-style: italic;
 }
 
+/* Owner-reported fix OW-02: the server puts each quoted coaching line on its
+   own line, then a line break, then AI-chatter's own words. pre-wrap makes
+   those line breaks show; the text is still plain React text. */
 .ai-assist-chat-line {
   font-size: var(--font-size-sm);
   line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .ai-assist-chat-line.speaker-owner { color: var(--color-human-command); }
 .ai-assist-chat-line.speaker-chatter { color: var(--color-text-dim); }
@@ -528,7 +533,7 @@ body {
   font-weight: 700;
   margin-bottom: var(--spacing-sm);
 }
-.logs-conversation-line { font-size: var(--font-size-sm); line-height: 1.5; margin-bottom: var(--spacing-xs); }
+.logs-conversation-line { font-size: var(--font-size-sm); line-height: 1.5; margin-bottom: var(--spacing-xs); white-space: pre-wrap; overflow-wrap: anywhere; }
 .logs-conversation-line.human { color: var(--color-human-command); }
 .logs-conversation-line.chatter { color: var(--color-text-dim); }
 .logs-conversation-empty {

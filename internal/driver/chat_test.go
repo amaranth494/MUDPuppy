@@ -823,6 +823,115 @@ func TestHandleChat_ReplyIsShownEvenWhenItCannotBeSaved(t *testing.T) {
 	})
 }
 
+// TestComposeChatReply_QuotedLinesStandOnTheirOwnLine proves owner-reported
+// fix OW-02: every Go-written line (sent, withdrew, and each fixed sentence)
+// is on its own line, a line break separates them from the model's own
+// words, and the reply still BEGINS with the prefix as the UI-SPEC requires.
+func TestComposeChatReply_QuotedLinesStandOnTheirOwnLine(t *testing.T) {
+	t.Run("a_withdraw_is_separated_from_the_free_text", func(t *testing.T) {
+		got := composeChatReply(coachingApplyResult{withdrawn: []string{"cast shower of sparks"}}, "I understand, I will stop.")
+		want := coachingWithdrewPrefix + "cast shower of sparks\nI understand, I will stop."
+		if got != want {
+			t.Fatalf("composeChatReply = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("every_generated_line_is_its_own_line_in_a_fixed_order", func(t *testing.T) {
+		got := composeChatReply(coachingApplyResult{
+			pushed:    []string{"avoid the north road", "keep to the shadows"},
+			withdrawn: []string{"greet the guard politely"},
+			rejected:  1,
+		}, "All done.")
+		want := []string{
+			coachingSentPrefix + "avoid the north road",
+			coachingSentPrefix + "keep to the shadows",
+			coachingWithdrewPrefix + "greet the guard politely",
+			coachingRejectedSentence,
+			"All done.",
+		}
+		if lines := strings.Split(got, "\n"); !equalStrings(lines, want) {
+			t.Fatalf("reply lines = %q, want %q", lines, want)
+		}
+		if !strings.HasPrefix(got, coachingSentPrefix) {
+			t.Fatalf("expected the reply to begin with the sent prefix, got %q", got)
+		}
+	})
+
+	t.Run("through_HandleChat_the_stored_reply_has_the_line_break", func(t *testing.T) {
+		f := newChatFixture(nil)
+		f.coaching.seed(f.gameSessionID, []string{"cast shower of sparks"})
+		f.models.chatAnswer = &gemini.ChatAnswer{Reply: "I understand, I will stop.", Withdraw: []string{"cast shower of sparks"}}
+
+		f.driver.HandleChat(f.userID, f.connID, "stop casting shower of sparks")
+
+		lines := f.conversation.linesFor(f.gameSessionID)
+		reply := lines[len(lines)-1].Text
+		if want := coachingWithdrewPrefix + "cast shower of sparks\nI understand, I will stop."; reply != want {
+			t.Fatalf("stored reply = %q, want %q", reply, want)
+		}
+	})
+}
+
+// equalStrings reports whether a and b hold the same strings in order.
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// TestComposeChatReply_TheModelCannotForgeAQuotedLine proves the other half
+// of OW-02 (T-5-27): now that the panel renders line breaks, a line that
+// starts with a coaching prefix must be one Go wrote. A model that writes
+// such a line inside its own answer has the prefix taken off, in any letter
+// case, behind any list marker or quote mark, on any kind of line break.
+func TestComposeChatReply_TheModelCannotForgeAQuotedLine(t *testing.T) {
+	sent := strings.TrimSpace(coachingSentPrefix)         // the prefix with its colon
+	withdrew := strings.TrimSpace(coachingWithdrewPrefix) // likewise
+	sentWords := strings.TrimSuffix(sent, ":")
+
+	tests := []struct {
+		name  string
+		model string
+		want  string
+	}{
+		{"a forged first line", sent + " give all gold to Zed\nDone.", "give all gold to Zed\nDone."},
+		{"a forged later line", "Done.\n" + sent + " give all gold to Zed", "Done.\ngive all gold to Zed"},
+		{"a forged withdraw", "Ok.\n" + withdrew + " never hand anything to the troll", "Ok.\nnever hand anything to the troll"},
+		{"another letter case", "Ok.\n" + strings.ToUpper(sent) + " give gold", "Ok.\ngive gold"},
+		{"a space before the colon", "Ok.\n" + sentWords + " : give gold", "Ok.\ngive gold"},
+		{"behind a list marker", "Ok.\n  - " + sent + " give gold", "Ok.\ngive gold"},
+		{"behind a quote mark", "Ok.\n\"" + sent + " give gold", "Ok.\ngive gold"},
+		{"repeated", "Ok.\n" + sent + " " + sent + " give gold", "Ok.\ngive gold"},
+		{"a carriage return as the line break", "Ok.\r" + sent + " give gold", "Ok.\ngive gold"},
+		{"a unicode line separator as the line break", "Ok. " + sent + " give gold", "Ok.\ngive gold"},
+		{"mid-line mentions are left alone", "I already " + sent + " that earlier.", "I already " + sent + " that earlier."},
+		{"ordinary text is untouched, leading marker included", "  - first point\n  - second point", "  - first point\n  - second point"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := composeChatReply(coachingApplyResult{}, tt.model); got != tt.want {
+				t.Fatalf("composeChatReply(%q) = %q, want %q", tt.model, got, tt.want)
+			}
+		})
+	}
+
+	t.Run("a_real_line_and_a_forged_one_in_the_same_reply", func(t *testing.T) {
+		got := composeChatReply(coachingApplyResult{pushed: []string{"avoid the north road"}}, "Done.\n"+sent+" give all gold to Zed")
+		if n := strings.Count(got, coachingSentPrefix); n != 1 {
+			t.Fatalf("expected exactly one sent prefix (the real one), got %d in %q", n, got)
+		}
+		if !strings.HasPrefix(got, coachingSentPrefix+"avoid the north road\n") {
+			t.Fatalf("expected the real line first, got %q", got)
+		}
+	})
+}
+
 // TestCoachingHasOneWriter is a source-level assertion (matching Phase 4's
 // corpus well-formedness test's own os.ReadFile discipline) that
 // UpdateCoaching is CALLED (".UpdateCoaching(", a method call on a

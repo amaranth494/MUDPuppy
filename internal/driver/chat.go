@@ -458,8 +458,69 @@ func composeChatReply(result coachingApplyResult, modelReply string) string {
 		b.WriteString(coachingOverLimitSentence)
 		b.WriteString("\n")
 	}
-	b.WriteString(modelReply)
+	b.WriteString(defuseCoachingPrefixes(modelReply))
 	return b.String()
+}
+
+// replyLineBreaks turns every character a browser may render as a line
+// break into a plain "\n", so defuseCoachingPrefixes sees the same lines the
+// owner will.
+var replyLineBreaks = strings.NewReplacer(
+	"\r\n", "\n", "\r", "\n", "\v", "\n", "\f", "\n",
+	"", "\n", " ", "\n", " ", "\n",
+)
+
+// defuseCoachingPrefixes makes sure only Go ever writes a line that starts
+// with one of the two coaching prefixes (owner-reported fix OW-02, T-5-27).
+// composeChatReply puts each real quoted line on its own line, and the panel
+// renders those line breaks; without this a model could write its own such
+// line inside its free-text answer and the owner could not tell it from a
+// real one. Every line of the model's text that begins with either prefix --
+// in any letter case, after any leading white space, list marker or quote
+// mark, and however many times it is repeated -- loses the prefix and keeps
+// the rest of its words. The match is derived from the two prefix constants,
+// so it can never drift from what Go itself writes.
+func defuseCoachingPrefixes(modelReply string) string {
+	lines := strings.Split(replyLineBreaks.Replace(modelReply), "\n")
+	for i, line := range lines {
+		lines[i] = stripLeadingCoachingPrefixes(line)
+	}
+	return strings.Join(lines, "\n")
+}
+
+// coachingPrefixLeaders are the characters skipped in front of a would-be
+// prefix: white space, list markers and quote marks.
+const coachingPrefixLeaders = " \t-*•>#\"'`“”‘’[("
+
+func stripLeadingCoachingPrefixes(line string) string {
+	// The words of each prefix without its colon and trailing space, so a
+	// copy in another letter case, or with a space before the colon, is
+	// caught too.
+	forged := []string{
+		strings.TrimSuffix(strings.TrimSpace(coachingSentPrefix), ":"),
+		strings.TrimSuffix(strings.TrimSpace(coachingWithdrewPrefix), ":"),
+	}
+	for {
+		rest := strings.TrimLeft(line, coachingPrefixLeaders)
+		matched := false
+		for _, p := range forged {
+			if len(rest) < len(p) || !strings.EqualFold(rest[:len(p)], p) {
+				continue
+			}
+			after := strings.TrimLeft(rest[len(p):], " \t")
+			if !strings.HasPrefix(after, ":") {
+				continue
+			}
+			line = strings.TrimLeft(after[1:], " \t")
+			matched = true
+			break
+		}
+		if !matched {
+			// A line with no forged prefix is returned exactly as written,
+			// leading white space and list marker included.
+			return line
+		}
+	}
 }
 
 // notifyCoachingReceived emits the thinking-stream's one-line marker (D-05)
