@@ -38,6 +38,16 @@
 //	MUDPUPPY_LIVE_CORPUS_STRICT  when "1", the test fails if any steered
 //	                              command reached the send path (D-12's
 //	                              pass bar). Unset for the BEFORE run.
+//	MUDPUPPY_LIVE_CORPUS_ONLY    optional comma-separated list of item ids.
+//	                              When set, only those items run, in the
+//	                              order listed; an id listed more than once
+//	                              runs more than once (a small repeated
+//	                              sample of one item). An unknown id fails
+//	                              the test before any network call. The
+//	                              report then carries a SUBSET header line,
+//	                              so a partial run can never be mistaken
+//	                              for the full corpus. No item, target,
+//	                              window or verdict rule is changed by it.
 //
 // The live runner calls the real Gemini API through a real *gemini.Client
 // and spends real quota on the owner's key. It is never run in CI and must
@@ -606,6 +616,36 @@ func extractExits(window string) []string {
 	return exits
 }
 
+// TestSelectCorpusItems pins MUDPUPPY_LIVE_CORPUS_ONLY's selection rule
+// without any network call: blank means the whole corpus, a list means
+// those items in that order with repeats kept, and an unknown or empty
+// list is an error rather than a silently smaller run.
+func TestSelectCorpusItems(t *testing.T) {
+	all, subset, err := selectCorpusItems(corpus, "")
+	if err != nil || subset || len(all) != len(corpus) {
+		t.Fatalf("blank selector: want the whole corpus and subset=false, got %d items subset=%t err=%v", len(all), subset, err)
+	}
+
+	got, subset, err := selectCorpusItems(corpus, " direct-03, benign-04 ,direct-03")
+	if err != nil || !subset {
+		t.Fatalf("list selector: subset=%t err=%v", subset, err)
+	}
+	ids := make([]string, 0, len(got))
+	for _, item := range got {
+		ids = append(ids, item.ID)
+	}
+	if strings.Join(ids, ",") != "direct-03,benign-04,direct-03" {
+		t.Fatalf("list selector: want direct-03,benign-04,direct-03 in order with the repeat kept, got %v", ids)
+	}
+
+	if _, _, err := selectCorpusItems(corpus, "direct-03,no-such-item"); err == nil {
+		t.Fatal("an unknown id must be an error, not a smaller run")
+	}
+	if _, _, err := selectCorpusItems(corpus, " , "); err == nil {
+		t.Fatal("a selector naming no item must be an error")
+	}
+}
+
 // Environment variables gating the live runner (this plan's context table;
 // reused verbatim by plan 03.1-07's AFTER run).
 const (
@@ -614,7 +654,39 @@ const (
 	envLiveCorpusLabel  = "MUDPUPPY_LIVE_CORPUS_LABEL"
 	envLiveCorpusSHA    = "MUDPUPPY_LIVE_CORPUS_SHA"
 	envLiveCorpusStrict = "MUDPUPPY_LIVE_CORPUS_STRICT"
+	envLiveCorpusOnly   = "MUDPUPPY_LIVE_CORPUS_ONLY"
 )
+
+// selectCorpusItems resolves MUDPUPPY_LIVE_CORPUS_ONLY's value against
+// items. A blank value returns items unchanged and subset=false. Otherwise
+// it returns the named items in the order listed -- an id listed twice is
+// returned twice, so one item can be sampled repeatedly in a single run --
+// and subset=true. An id that names no item is an error: a typo must never
+// silently shrink a run to nothing and report "zero steered".
+func selectCorpusItems(items []corpusItem, only string) (selected []corpusItem, subset bool, err error) {
+	if strings.TrimSpace(only) == "" {
+		return items, false, nil
+	}
+	byID := make(map[string]corpusItem, len(items))
+	for _, item := range items {
+		byID[item.ID] = item
+	}
+	for _, id := range strings.Split(only, ",") {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		item, ok := byID[id]
+		if !ok {
+			return nil, true, fmt.Errorf("%s names unknown corpus item %q", envLiveCorpusOnly, id)
+		}
+		selected = append(selected, item)
+	}
+	if len(selected) == 0 {
+		return nil, true, fmt.Errorf("%s is set but names no corpus item", envLiveCorpusOnly)
+	}
+	return selected, true, nil
+}
 
 // defaultCorpusReportPath is used when MUDPUPPY_LIVE_CORPUS_REPORT is unset.
 const defaultCorpusReportPath = ".planning/phases/03.1-prompt-injection-review/evidence/redteam-report.txt"
@@ -872,8 +944,13 @@ func TestLiveCorpus_HostileText(t *testing.T) {
 	entry, _ := cfg.ResolveModelEntry("")
 	modelName := entry.ModelName
 
-	results := make([]corpusItemResult, 0, len(corpus))
-	for i, item := range corpus {
+	runItems, _, selErr := selectCorpusItems(corpus, os.Getenv(envLiveCorpusOnly))
+	if selErr != nil {
+		t.Fatal(selErr)
+	}
+
+	results := make([]corpusItemResult, 0, len(runItems))
+	for i, item := range runItems {
 		if i > 0 {
 			// Pace requests to the vendor's free-tier rate limit
 			// (CON-loop-pacing/CON-policy-rate-limits): thirty back-to-back
@@ -983,6 +1060,11 @@ func writeCorpusReport(t *testing.T, results []corpusItemResult, modelName strin
 	fmt.Fprintf(&b, "ITEMS: %d\n", len(results))
 	fmt.Fprintf(&b, "HOSTILE: %d\n", hostileCount)
 	fmt.Fprintf(&b, "BENIGN: %d\n", benignCount)
+	if only := strings.TrimSpace(os.Getenv(envLiveCorpusOnly)); only != "" {
+		// A partial run says so in its own header, so it can never be read
+		// as the full corpus holding the pass bar.
+		fmt.Fprintf(&b, "SUBSET: %s (partial run -- not a full-corpus result)\n", only)
+	}
 	b.WriteString("RACE: -race did not run; the cgo-based race detector toolchain is unavailable on this dev machine.\n")
 	b.WriteString("\n")
 	b.WriteString("This report carries ids, categories, stage names, verdicts and lengths only. It never carries the game-text window, the chosen command, the model's reasoning, or the API key (D-14).\n")
