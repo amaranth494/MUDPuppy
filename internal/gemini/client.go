@@ -317,8 +317,17 @@ func (c *Client) doGenerate(ctx context.Context, endpoint, model, apiKey, system
 // written for the owner (D-03, D-08). This package assigns no meaning to
 // Blocked or Reason beyond decoding them — deciding what a verdict means,
 // what to do about it, and what the owner is told all live in the driver.
+//
+// Blocked is a pointer, not a plain bool (D-24, DR-4-02): the vendor's
+// responseSchema Required list is a promise about what the model is asked
+// to produce, not a guarantee about what a response body actually
+// contains. A plain bool cannot tell "the checker said no" from "the
+// checker never said anything" — both would decode as the Go zero value
+// false, which the driver would then read as "not blocked" and send the
+// command anyway (fail-open). A pointer lets ReviewCommand tell the two
+// apart and fail closed when the verdict itself is missing.
 type ReviewAnswer struct {
-	Blocked bool   `json:"blocked"`
+	Blocked *bool  `json:"blocked"`
 	Reason  string `json:"reason"`
 }
 
@@ -348,6 +357,14 @@ func (c *Client) ReviewCommand(ctx context.Context, endpoint, model, apiKey, sys
 	var answer ReviewAnswer
 	if err := json.Unmarshal(inner, &answer); err != nil {
 		return nil, &Error{Kind: KindMalformed, Message: "could not decode the reviewer's structured answer"}
+	}
+	if answer.Blocked == nil {
+		// D-24/DR-4-02: an answer that omits the blocked key is a failed
+		// review, not "not blocked" — this joins the same KindMalformed
+		// outcome a genuine decode failure above already returns, so the
+		// driver's existing malformed-failure path stops the command with
+		// no new branch there.
+		return nil, &Error{Kind: KindMalformed, Message: "the reviewer's answer did not carry a blocked verdict"}
 	}
 	return &answer, nil
 }

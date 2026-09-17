@@ -38,9 +38,9 @@ func TestScriptedStint(t *testing.T) {
 			{Reasoning: "checking gear", Command: "inventory"},
 		},
 		reviewAnswers: []*gemini.ReviewAnswer{
-			{Blocked: false, Reason: "clear, an ordinary look command"},
-			{Blocked: false, Reason: "clear, ordinary movement"},
-			{Blocked: false, Reason: "clear, checking inventory"},
+			{Blocked: boolPtr(false), Reason: "clear, an ordinary look command"},
+			{Blocked: boolPtr(false), Reason: "clear, ordinary movement"},
+			{Blocked: boolPtr(false), Reason: "clear, checking inventory"},
 		},
 	}
 	d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, commands, notifier, testConfig())
@@ -185,8 +185,8 @@ func TestScriptedStintSurvivesAFailureMidway(t *testing.T) {
 		// ever called -- so this queue has two entries, indexed by
 		// review-call order, not by decision number.
 		reviewAnswers: []*gemini.ReviewAnswer{
-			{Blocked: false, Reason: "clear"},
-			{Blocked: false, Reason: "clear"},
+			{Blocked: boolPtr(false), Reason: "clear"},
+			{Blocked: boolPtr(false), Reason: "clear"},
 		},
 	}
 	d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, commands, notifier, testConfig())
@@ -256,9 +256,9 @@ func TestLoop_Pacing(t *testing.T) {
 				{Reasoning: "checking gear", Command: "inventory"},
 			},
 			reviewAnswers: []*gemini.ReviewAnswer{
-				{Blocked: false, Reason: "clear"},
-				{Blocked: false, Reason: "clear"},
-				{Blocked: false, Reason: "clear"},
+				{Blocked: boolPtr(false), Reason: "clear"},
+				{Blocked: boolPtr(false), Reason: "clear"},
+				{Blocked: boolPtr(false), Reason: "clear"},
 			},
 		}
 		const settle = 20 * time.Millisecond
@@ -313,8 +313,8 @@ func TestLoop_Pacing(t *testing.T) {
 				{Reasoning: "nudging a quiet game", Command: "look"},
 			},
 			reviewAnswers: []*gemini.ReviewAnswer{
-				{Blocked: false, Reason: "clear"},
-				{Blocked: false, Reason: "clear"},
+				{Blocked: boolPtr(false), Reason: "clear"},
+				{Blocked: boolPtr(false), Reason: "clear"},
 			},
 		}
 		d := newPacedDriver(sessions, decisions, notifier, commands, models, 2*time.Millisecond, 30*time.Millisecond, 2*time.Millisecond)
@@ -351,7 +351,7 @@ func TestLoop_Pacing(t *testing.T) {
 		commands := &fakeCommands{}
 		models := &fakeModels{
 			answer:       &gemini.Answer{Reasoning: "looking around", Command: "look"},
-			reviewAnswer: &gemini.ReviewAnswer{Blocked: false, Reason: "clear"},
+			reviewAnswer: &gemini.ReviewAnswer{Blocked: boolPtr(false), Reason: "clear"},
 		}
 		const minSpacing = 25 * time.Millisecond
 		d := newPacedDriver(sessions, decisions, notifier, commands, models, 2*time.Millisecond, 500*time.Millisecond, minSpacing)
@@ -417,8 +417,8 @@ func TestEngageLoop_Reassess(t *testing.T) {
 			{Reasoning: "second decision, no plan carried over", Command: "north"},
 		},
 		reviewAnswers: []*gemini.ReviewAnswer{
-			{Blocked: false, Reason: "clear"},
-			{Blocked: false, Reason: "clear"},
+			{Blocked: boolPtr(false), Reason: "clear"},
+			{Blocked: boolPtr(false), Reason: "clear"},
 		},
 	}
 	d := newPacedDriver(sessions, decisions, notifier, commands, models, 2*time.Millisecond, 5*time.Second, 2*time.Millisecond)
@@ -474,7 +474,7 @@ func TestLoop_StopsWhenWheelGrabbed(t *testing.T) {
 		commands := &fakeCommands{}
 		models := &fakeModels{
 			answer:       &gemini.Answer{Reasoning: "heading out", Command: "look"},
-			reviewAnswer: &gemini.ReviewAnswer{Blocked: false, Reason: "clear"},
+			reviewAnswer: &gemini.ReviewAnswer{Blocked: boolPtr(false), Reason: "clear"},
 		}
 		d := newPacedDriver(sessions, decisions, notifier, commands, models, 5*time.Millisecond, 200*time.Millisecond, 5*time.Millisecond)
 
@@ -513,8 +513,8 @@ func TestLoop_StopsWhenWheelGrabbed(t *testing.T) {
 				{Reasoning: "second, mid-flight when grabbed", Command: "north"},
 			},
 			reviewAnswers: []*gemini.ReviewAnswer{
-				{Blocked: false, Reason: "clear"},
-				{Blocked: false, Reason: "clear"},
+				{Blocked: boolPtr(false), Reason: "clear"},
+				{Blocked: boolPtr(false), Reason: "clear"},
 			},
 		}
 		d := newPacedDriver(sessions, decisions, notifier, commands, models, 2*time.Millisecond, 500*time.Millisecond, 2*time.Millisecond)
@@ -572,8 +572,8 @@ func TestLoop_NothingIssuedWhileWaiting(t *testing.T) {
 			{Reasoning: "after the resume", Command: "north"},
 		},
 		reviewAnswers: []*gemini.ReviewAnswer{
-			{Blocked: false, Reason: "clear"},
-			{Blocked: false, Reason: "clear"},
+			{Blocked: boolPtr(false), Reason: "clear"},
+			{Blocked: boolPtr(false), Reason: "clear"},
 		},
 	}
 	d := newPacedDriver(sessions, decisions, notifier, commands, models, 2*time.Millisecond, 500*time.Millisecond, 2*time.Millisecond)
@@ -633,8 +633,8 @@ func TestLoop_NoAIReconnect(t *testing.T) {
 			{Reasoning: "resumed", Command: "north"},
 		},
 		reviewAnswers: []*gemini.ReviewAnswer{
-			{Blocked: false, Reason: "clear"},
-			{Blocked: false, Reason: "clear"},
+			{Blocked: boolPtr(false), Reason: "clear"},
+			{Blocked: boolPtr(false), Reason: "clear"},
 		},
 	}
 	d := newPacedDriver(sessions, decisions, notifier, commands, models, 2*time.Millisecond, 500*time.Millisecond, 2*time.Millisecond)
@@ -675,7 +675,7 @@ func TestLoop_CallCap(t *testing.T) {
 	commands := &fakeCommands{}
 	models := &fakeModels{
 		answer:       &gemini.Answer{Reasoning: "heading out", Command: "look"},
-		reviewAnswer: &gemini.ReviewAnswer{Blocked: false, Reason: "clear"},
+		reviewAnswer: &gemini.ReviewAnswer{Blocked: boolPtr(false), Reason: "clear"},
 	}
 	profile := testProfile()
 	callCap := 2
@@ -808,7 +808,7 @@ func TestLoop_ErrorThreshold(t *testing.T) {
 				transientErr,
 			},
 			reviewAnswers: []*gemini.ReviewAnswer{
-				{Blocked: false, Reason: "clear"},
+				{Blocked: boolPtr(false), Reason: "clear"},
 			},
 		}
 		d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, commands, notifier, testConfig())
@@ -946,7 +946,7 @@ func TestLoop_ConsecutiveBlocks(t *testing.T) {
 				{Reasoning: "handing it over", Command: "give sword to bob"},
 			},
 			reviewAnswers: []*gemini.ReviewAnswer{
-				{Blocked: false, Reason: "clear"},
+				{Blocked: boolPtr(false), Reason: "clear"},
 			},
 		}
 		d := New(sessions, &fakeProfiles{profile: profile}, decisions, models, commands, notifier, testConfig())
@@ -1005,7 +1005,7 @@ func TestLoop_BlankSettings(t *testing.T) {
 		commands := &fakeCommands{}
 		models := &fakeModels{
 			answer:       &gemini.Answer{Reasoning: "looking around", Command: "look"},
-			reviewAnswer: &gemini.ReviewAnswer{Blocked: false, Reason: "clear"},
+			reviewAnswer: &gemini.ReviewAnswer{Blocked: boolPtr(false), Reason: "clear"},
 		}
 		d := newPacedDriver(sessions, decisions, notifier, commands, models, 2*time.Millisecond, 5*time.Second, time.Millisecond)
 
