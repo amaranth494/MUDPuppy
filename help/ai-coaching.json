@@ -1,0 +1,35 @@
+{
+  "slug": "ai-coaching",
+  "title": "AI-chatter & AI-player",
+  "description": "How the coaching chat works, how suggestions reach the AI, and how to make one permanent.",
+  "sections": [
+    {
+      "title": "The two levels",
+      "content": "AI-player is the part that reads the game and sends commands. AI-chatter is the conversation above it: you talk to it in plain words and it talks back.\n\nAI-chatter can see everything AI-player can see — your session goal, your rules and guidance, the recent game text, what AI-player decided and why, and what it has written down. So you can ask it why it did something, what it remembers, or which rule is stopping it."
+    },
+    {
+      "title": "How a message reaches the player",
+      "content": "When you ask for something, AI-chatter can pass one short line down to AI-player. Its reply quotes that exact line back to you, beginning `Sent to AI-player:`.\n\nThe line joins the **Coaching in effect** list on the panel, and the thinking stream prints `[Coaching received]` at the moment it happened.\n\nThose three are the whole of it: nothing reaches AI-player that you cannot see."
+    },
+    {
+      "title": "How long it lasts, and how to take it back",
+      "content": "A line stays in effect for the rest of your MUDPuppy login on that connection profile — through a page refresh, a reconnect, turning autopilot off and on, taking the wheel, or a redeploy. Signing in again starts clean.\n\nTo take one back, say so in the conversation (\"forget what I said about the north road\"); AI-chatter removes it and tells you which one it removed. There is no button for this."
+    },
+    {
+      "title": "What chat cannot do",
+      "content": "Chat is only ever text. Nothing you type in the message box is sent to the game, and typing there never takes the wheel.\n\nAI-chatter cannot change any setting, cannot change your goal or your memory, and cannot turn autopilot on or off.\n\nYour profile's conduct rules, Never-issue list and safety check always win over anything said in chat. When what you ask for is blocked by one of them, AI-chatter will name the rule that is in the way and suggest wording that would work, and leave the change to you."
+    },
+    {
+      "title": "Making a suggestion permanent, by hand",
+      "content": "AI-chatter cannot save anything to your settings for you. If you like a suggestion enough to keep it:\n\n1. Select the line in the conversation and copy it.\n2. Open **AI Player** settings for this connection profile.\n3. Paste it into **Conduct rules** for something the AI must always or never do, or into **Approach guidance** for how you want it to play.\n4. Save.\n\nNothing in the chat will do this for you — that is deliberate, so a setting never changes without you typing it."
+    },
+    {
+      "title": "Pause and Resume",
+      "content": "The Pause button sits with AI-player, by the session goal. Pausing is instant and costs nothing: AI-player stops deciding and stops sending, but keeps reading the game, so when you resume it looks at where the character actually is rather than carrying on an old plan.\n\nWhile paused the badge reads WAITING and the status line says `Paused by owner`. It never starts again on its own — a reconnect does not resume a pause.\n\nAI-chatter keeps working the whole time."
+    },
+    {
+      "title": "Two windows if you want them",
+      "content": "Each of the two views has a **Pop out** button that opens it in its own separate window, fed by the same play screen. Close that window, or press **Bring back**, and it returns to the panel."
+    }
+  ]
+}
