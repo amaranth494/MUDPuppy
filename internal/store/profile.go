@@ -85,15 +85,22 @@ type Timers struct {
 	Items []Timer `json:"items"`
 }
 
-// AISettings holds the AI Player's per-profile configuration. A nil CallCap
-// or DisengageThreshold and a blank ModelName are meaningful, user-visible
-// "blank" states (D-09, D-10, D-11) and must round-trip unchanged; they are
-// resolved to concrete values only by ResolveAISettings, never on read.
-// There is no reconnect field, and none may be added (D-13).
+// AISettings holds the AI Player's per-profile configuration. A nil CallCap,
+// DisengageThreshold or RateLimitPerSecond and a blank ModelName are
+// meaningful, user-visible "blank" states (D-09, D-10, D-11, D-25) and must
+// round-trip unchanged; they are resolved to concrete values only by
+// ResolveAISettings, never on read. There is no reconnect field, and none
+// may be added (D-13).
 type AISettings struct {
 	ModelName          string `json:"model_name"`
 	CallCap            *int   `json:"call_cap"`
 	DisengageThreshold *int   `json:"disengage_threshold"`
+
+	// RateLimitPerSecond is D-25/DR-4-03's configurable speed limit on
+	// AI-issued commands. Unlike CallCap, a nil value here never means
+	// "unlimited" — it means the server's own limit
+	// (DefaultAIRateLimitPerSecond) applies, resolved by ResolveAISettings.
+	RateLimitPerSecond *int `json:"rate_limit_per_second"`
 }
 
 // ProfileSettings contains UI and behavior settings for a profile
@@ -580,6 +587,14 @@ func (s *ProfileStore) DeleteProfile(userID, profileID uuid.UUID) error {
 // only resolves this value; the loop that consumes it is Phase 4.
 const DefaultDisengageThreshold = 3
 
+// DefaultAIRateLimitPerSecond is the server's own limit on AI-issued
+// commands per second (D-25/DR-4-03), used when a profile's AI Command
+// Rate Limit setting is left blank. Unlike CallCap, blank here never means
+// unlimited — it means this server default applies, resolved by
+// ResolveAISettings. internal/driver/ratelimit.go is the engine that
+// enforces it.
+const DefaultAIRateLimitPerSecond = 2
+
 // EngageGateRefusalMessage is shown when AI engagement is refused because
 // the profile has not recorded Safety and Abuse policy acceptance. This
 // exact string is the Phase 2 contract (D-05, 01-UI-SPEC.md Copywriting
@@ -597,17 +612,28 @@ type ResolvedAISettings struct {
 	CallCapSet         bool
 	CallCap            int
 	DisengageThreshold int
+
+	// RateLimitSet and RateLimitPerSecond are D-25/DR-4-03's resolution of
+	// AISettings.RateLimitPerSecond. Unlike CallCapSet, RateLimitSet false
+	// does not mean "no limit" — RateLimitPerSecond is still always a real,
+	// non-zero limit (DefaultAIRateLimitPerSecond) in that case; RateLimitSet
+	// only distinguishes "the owner chose this value" from "the server
+	// default applies", for callers that care which.
+	RateLimitSet       bool
+	RateLimitPerSecond int
 }
 
 // ResolveAISettings resolves a profile's (possibly blank) AISettings to
 // concrete values: a blank ModelName resolves to serverDefaultModel, a nil
-// CallCap means no cap at all (CallCapSet is false), and a nil
-// DisengageThreshold resolves to DefaultDisengageThreshold. Non-nil/non-blank
-// values pass through unchanged.
+// CallCap means no cap at all (CallCapSet is false), a nil
+// DisengageThreshold resolves to DefaultDisengageThreshold, and a nil
+// RateLimitPerSecond resolves to DefaultAIRateLimitPerSecond (never
+// "unlimited" — D-25). Non-nil/non-blank values pass through unchanged.
 func ResolveAISettings(s AISettings, serverDefaultModel string) ResolvedAISettings {
 	resolved := ResolvedAISettings{
 		ModelName:          s.ModelName,
 		DisengageThreshold: DefaultDisengageThreshold,
+		RateLimitPerSecond: DefaultAIRateLimitPerSecond,
 	}
 
 	if resolved.ModelName == "" {
@@ -621,6 +647,11 @@ func ResolveAISettings(s AISettings, serverDefaultModel string) ResolvedAISettin
 
 	if s.DisengageThreshold != nil {
 		resolved.DisengageThreshold = *s.DisengageThreshold
+	}
+
+	if s.RateLimitPerSecond != nil {
+		resolved.RateLimitSet = true
+		resolved.RateLimitPerSecond = *s.RateLimitPerSecond
 	}
 
 	return resolved

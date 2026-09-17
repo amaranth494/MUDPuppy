@@ -1047,8 +1047,9 @@ func TestLoop_BlankSettings(t *testing.T) {
 		models := &fakeModels{err: &gemini.Error{Kind: gemini.KindAuth, Message: "invalid API key"}}
 		d := New(sessions, &fakeProfiles{profile: testProfile()}, decisions, models, commands, notifier, testConfig())
 
-		// Nothing panics with every AI setting left blank (testProfile's
-		// AISettings{} zero value): no model call, either, since the
+		// Nothing panics with call cap and disengage threshold left blank
+		// (testProfile only sets a generous rate limit, D-25/DR-4-03's
+		// unrelated addition): no model call succeeds either, since the
 		// failure below shows nothing about this test depends on a set
 		// cap or threshold.
 		d.HandleEngage(uuid.New().String(), uuid.New().String())

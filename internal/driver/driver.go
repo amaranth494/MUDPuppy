@@ -46,6 +46,14 @@ const (
 	failureMalformed    = "malformed"
 	failureICMRefused   = "icm-refused"
 
+	// failureRateLimitedAI is D-25/DR-4-03's fix: a refusal from the
+	// driver's own per-user send limiter (internal/driver/ratelimit.go),
+	// checked immediately before every Dispatch call. It is deliberately
+	// a distinct kind from failureRateLimited above (the vendor model's
+	// own 429) — "rate-limited-ai" names the AI's outgoing command pace,
+	// not the model API.
+	failureRateLimitedAI = "rate-limited-ai"
+
 	failureAuth           = "auth"
 	failureBadRequest     = "bad-request"
 	failureMissingProfile = "missing-profile"
@@ -71,6 +79,7 @@ var failureNotices = map[string]string{
 	failureNonGameLine:    "AI decision failed: the model tried to issue a non-game command. Autopilot disengaged.",
 	failureMalformed:      "AI decision failed: the model's answer could not be understood. Autopilot disengaged.",
 	failureICMRefused:     "AI decision failed: the game's own limits refused the command. Autopilot disengaged.",
+	failureRateLimitedAI:  "AI decision failed: the AI's commands were coming too fast and this one was held back. Autopilot disengaged.",
 	failureAuth:           "AI decision failed: the model could not be reached. Autopilot disengaged.",
 	failureBadRequest:     "AI decision failed: the model could not be reached. Autopilot disengaged.",
 	failureMissingProfile: "AI decision failed: the model could not be reached. Autopilot disengaged.",
@@ -85,13 +94,14 @@ var failureNotices = map[string]string{
 // (recordFailure) without the "Autopilot disengaged." suffix the full
 // failureNotices entry carries.
 var kindSentences = map[string]string{
-	failureAPIError:     "the model could not be reached.",
-	failureRateLimited:  "the model's rate limit was reached.",
-	failureNoCommand:    "the model did not return a command.",
-	failureMultiCommand: "the model returned more than one command.",
-	failureNonGameLine:  "the model tried to issue a non-game command.",
-	failureMalformed:    "the model's answer could not be understood.",
-	failureICMRefused:   "the game's own limits refused the command.",
+	failureAPIError:      "the model could not be reached.",
+	failureRateLimited:   "the model's rate limit was reached.",
+	failureNoCommand:     "the model did not return a command.",
+	failureMultiCommand:  "the model returned more than one command.",
+	failureNonGameLine:   "the model tried to issue a non-game command.",
+	failureMalformed:     "the model's answer could not be understood.",
+	failureICMRefused:    "the game's own limits refused the command.",
+	failureRateLimitedAI: "the AI's commands were coming too fast and this one was held back.",
 }
 
 // transientFailureKinds names exactly the seven D-15 kinds counted toward
@@ -102,14 +112,21 @@ var kindSentences = map[string]string{
 // kind absent from this set (including the cap-reached and
 // blocked-repeatedly halts, which are not D-13/D-15 kinds at all) is
 // non-transient and disengages immediately (04-RESEARCH Pitfall 1).
+//
+// failureRateLimitedAI (D-25/DR-4-03) joins this set for the same reason
+// failureICMRefused does: a single refused send is a transient pacing
+// hiccup, not proof the AI has broken -- it takes the same repeated-
+// failure road as every other transient kind, with its own notice, rather
+// than disengaging autopilot on its first occurrence.
 var transientFailureKinds = map[string]bool{
-	failureAPIError:     true,
-	failureRateLimited:  true,
-	failureMalformed:    true,
-	failureNoCommand:    true,
-	failureMultiCommand: true,
-	failureNonGameLine:  true,
-	failureICMRefused:   true,
+	failureAPIError:      true,
+	failureRateLimited:   true,
+	failureMalformed:     true,
+	failureNoCommand:     true,
+	failureMultiCommand:  true,
+	failureNonGameLine:   true,
+	failureICMRefused:    true,
+	failureRateLimitedAI: true,
 }
 
 // failureEventOutcome overrides the browser-facing Event.Outcome for a
@@ -119,6 +136,9 @@ var transientFailureKinds = map[string]bool{
 // absent here defaults to "failed" in recordFailure; a sub-threshold
 // transient failure overrides to "transient" inline, not through this map,
 // since that depends on the live count rather than the kind alone.
+// rate-limited-ai (D-25/DR-4-03) is deliberately absent, exactly like its
+// transient sibling icm-refused: it takes the default "failed"/"transient"
+// outcome handling, not a halt-specific override.
 var failureEventOutcome = map[string]string{
 	failureCapReached:        "cap",
 	failureBlockedRepeatedly: "blocked-repeatedly",
@@ -128,7 +148,10 @@ var failureEventOutcome = map[string]string{
 // failure kind that is not the ordinary "ai-failure" — the cap-reached and
 // blocked-repeatedly halts each get their own cause so the autopilot
 // transition log can tell them apart from an ordinary AI failure. A kind
-// absent here defaults to "ai-failure" in recordFailure.
+// absent here defaults to "ai-failure" in recordFailure. rate-limited-ai
+// (D-25/DR-4-03) is deliberately absent for the same reason: it is a
+// transient kind, not a halt, so it uses the default "ai-failure" cause
+// exactly like icm-refused and every other transient kind.
 var failureDisengageCause = map[string]string{
 	failureCapReached:        "ai-call-cap",
 	failureBlockedRepeatedly: "ai-blocked-repeatedly",
@@ -332,6 +355,14 @@ type Driver struct {
 	failureCounts map[string]int
 	blockCounts   map[string]int
 
+	// aiSendLimiters is D-25/DR-4-03's per-user token bucket (internal/
+	// driver/ratelimit.go), guarded by this same d.mu. It is lazily
+	// populated on first send and rebuilt whenever the resolved limit for
+	// that user changes, so editing the AI Command Rate Limit setting
+	// takes effect on the next stint without a restart. It deliberately
+	// shares no state with icm.Dispatcher's own circuit breaker.
+	aiSendLimiters map[string]*aiSendLimiter
+
 	// settleDelay, floorInterval, minSpacing and retryDelay are Driver
 	// fields rather than package constants (04-RESEARCH Don't Hand-Roll) so
 	// tests can inject millisecond values with no fake-clock library. D-06
@@ -373,6 +404,7 @@ func New(sessions Sessions, profiles Profiles, decisions Decisions, models Model
 		callCounts:     make(map[string]int),
 		failureCounts:  make(map[string]int),
 		blockCounts:    make(map[string]int),
+		aiSendLimiters: make(map[string]*aiSendLimiter),
 		settleDelay:    1500 * time.Millisecond,
 		floorInterval:  20 * time.Second,
 		minSpacing:     8 * time.Second,
@@ -750,6 +782,18 @@ func (d *Driver) decide(ctx context.Context, userID, connectionID string, first 
 			reason = emptyReviewReasonFallback
 		}
 		d.recordBlocked(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, "reviewer", "Reviewer blocked: "+reason, resolved)
+		return
+	}
+
+	// D-25/DR-4-03: every AI-issued command is counted against a per-user
+	// speed limit immediately before it is dispatched (internal/driver/
+	// ratelimit.go). This check is independent of icm.Dispatcher's own
+	// circuit breaker, which a pass-through command like this one never
+	// reaches — see ratelimit.go's file comment for why that counter
+	// cannot be reused here.
+	if !d.allowAISend(userID, resolved) {
+		d.logDecision(userID, connectionID, "", "rate-limited-ai", entry.ModelName, "", "", len(window), len(cmd))
+		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, failureRateLimitedAI, resolved)
 		return
 	}
 
