@@ -306,8 +306,8 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 05-08-PLAN.md — Either view can be popped into its own window and works the same there
-- [ ] 05-09-PLAN.md — The Help page explains the two levels and the by-hand copy, and the Logs page shows the conversation
+- [x] 05-08-PLAN.md — Either view can be popped into its own window and works the same there
+- [x] 05-09-PLAN.md — The Help page explains the two levels and the by-hand copy, and the Logs page shows the conversation
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
@@ -384,7 +384,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8
 | 2. Autopilot Switch | 7/7 | Complete    | 2026-09-15 |
 | 3. One AI Decision | 13/13 | Complete    | 2026-09-16 |
 | 4. Continuous Play | 11/11 | Complete    | 2026-09-17 |
-| 5. Coaching Channel | 8/11 | In Progress|  |
+| 5. Coaching Channel | 10/11 | In Progress|  |
 | 6. Measurement and Memory | 0/TBD | Not started | - |
 | 7. Study Loader | 0/TBD | Not started | - |
 | 8. Acceptance Run on Alter Aeon | 0/TBD | Not started | - |
