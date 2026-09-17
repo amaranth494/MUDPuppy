@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 status: verifying
 stopped_at: "Phase 3.1 security review: risk register published, awaiting the owner's decisions on 15 items"
-last_updated: "2026-09-16T23:39:14.903Z"
-last_activity: 2026-09-16
+last_updated: "2026-09-17T00:05:18.856Z"
+last_activity: 2026-09-17
 progress:
   total_phases: 9
   completed_phases: 4
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-09-14)
 
 ## Current Position
 
-Phase: 3.1 (prompt-injection-review) — EXECUTION COMPLETE. Walkthrough 1 was reassessed (no attack was stopped; only a false block occurred), D-03 was amended (reviewer judges harm, not text), and walkthrough 2 was accepted by the owner as demonstrated, with 03.1-07-SUMMARY.md's row 6 characterised honestly rather than overclaimed
-Plan: 7 of 7 (03.1-07 complete — reviewer amendment, AFTER rerun, redeploy, walkthrough 2, and the finalised SUMMARY and security agenda all done)
+Phase: 4
+Plan: Not started
 Status: Phase execution complete — pending code review, the regression gate, verification, and the Phase 3.1 security review before the phase can close
-Last activity: 2026-09-16
+Last activity: 2026-09-17
 
 Progress: [██▌       ] 25%
 
@@ -36,7 +36,7 @@ Progress: [██▌       ] 25%
 
 **Velocity:**
 
-- Total plans completed: 32 (Phase 01, all waves) — duration logged for 1 (01-05)
+- Total plans completed: 39 (Phase 01, all waves) — duration logged for 1 (01-05)
 - Average duration: 61min (01-05 only; earlier plans in this phase predate metric logging)
 - Total execution time: ~1 hour logged
 
@@ -48,6 +48,7 @@ Progress: [██▌       ] 25%
 | 01 | 6 | - | - |
 | 02 | 7 | - | - |
 | 3 | 13 | - | - |
+| 3.1 | 7 | - | - |
 
 **Recent Trend:**
 
