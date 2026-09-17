@@ -13,7 +13,7 @@ import {
   getConnection,
 } from '../services/api';
 import { useSession } from '../context/SessionContext';
-import { openPopout, closePopout } from '../services/popout';
+import { openPopout, closePopout, closePopouts } from '../services/popout';
 import { appendChatLine, chatLineKey, mergeLoadedConversation } from '../services/chatLines';
 
 interface AIAssistPanelProps {
@@ -359,6 +359,23 @@ export default function AIAssistPanel({ connectionId }: AIAssistPanelProps) {
       closePopout(poppedOutRef.current.aiChatter);
     };
   }, [connectionId]);
+
+  // Code review WR-13 of Phase 5: the cleanup above is a React cleanup, and a
+  // page refresh, a closed tab or a navigation away from the app runs none.
+  // The pop-outs were left open, frozen, with buttons that did nothing. The
+  // page's own pagehide (and beforeunload, for browsers that fire it first)
+  // closes them; both read the ref, so they always close what is open NOW.
+  useEffect(() => {
+    const closeAll = () => {
+      closePopouts([poppedOutRef.current.aiPlayer, poppedOutRef.current.aiChatter]);
+    };
+    window.addEventListener('pagehide', closeAll);
+    window.addEventListener('beforeunload', closeAll);
+    return () => {
+      window.removeEventListener('pagehide', closeAll);
+      window.removeEventListener('beforeunload', closeAll);
+    };
+  }, []);
 
   // The counts are meaningless before an engage and reset to zero on every
   // new stint (D-14/D-15/D-17); the status line itself is hidden entirely

@@ -21,18 +21,71 @@
  * locked pop-up-blocked notice and leave the view docked.
  */
 export function openPopout(key: 'ai-player' | 'ai-chatter', title: string, width: number, height: number): Window | null {
-  const win = window.open('', `mudpuppy-${key}`, `width=${width},height=${height}`);
+  const features = `width=${width},height=${height}`;
+  let win = window.open('', `mudpuppy-${key}`, features);
   if (!win) return null; // blocked — caller shows the red notice and stays docked
+
+  // Code review WR-13 of Phase 5: `mudpuppy-${key}` is a NAMED window, so
+  // when one is already open under that name the browser hands it back
+  // instead of opening a new one. After a refresh of the play screen that
+  // window is an orphan: it still shows its last contents, but every button
+  // in it belonged to the page that is gone and does nothing. It used to be
+  // reused as it stood -- the stylesheets appended a second time, the live
+  // view painted underneath the frozen copy. It is always emptied first now,
+  // so what the owner sees is only ever the live view.
+  if (!resetPopoutDocument(win)) {
+    // The window could not be emptied (it is no longer a blank same-origin
+    // page). Never paint into it: close it and open a fresh one under a name
+    // nothing else has used.
+    closePopout(win);
+    win = window.open('', `mudpuppy-${key}-${Date.now()}`, features);
+    if (!win || !resetPopoutDocument(win)) {
+      closePopout(win);
+      return null;
+    }
+  }
+
   win.document.title = title;
   win.document.body.style.margin = '0';
   win.document.body.style.background = 'var(--color-bg)';
   // Copy every stylesheet link and inline <style> tag from this document so the
   // popout renders with the exact same tokens, typography and colour buckets —
   // no separate CSS file, no drift.
+  const head = win.document.head;
   document.querySelectorAll('link[rel="stylesheet"], style').forEach((node) => {
-    win.document.head.appendChild(node.cloneNode(true));
+    head.appendChild(node.cloneNode(true));
   });
   return win;
+}
+
+/**
+ * Empties a pop-out window's head and body so nothing from an earlier use
+ * survives. Returns false when the document cannot be reached or changed.
+ */
+function resetPopoutDocument(win: Window): boolean {
+  try {
+    const doc = win.document;
+    if (!doc || !doc.head || !doc.body) return false;
+    doc.head.replaceChildren();
+    doc.body.replaceChildren();
+    doc.body.removeAttribute('style');
+    doc.body.removeAttribute('class');
+    doc.documentElement.removeAttribute('class');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Closes every window in the list. Meant for the play screen's own
+ * `pagehide` / `beforeunload`: a refresh, a closed tab or a navigation away
+ * never runs a React cleanup, so without this the pop-outs were left behind
+ * (code review WR-13 of Phase 5; D-29: a pop-out "lives only while the play
+ * screen tab is open").
+ */
+export function closePopouts(wins: Array<Window | null>): void {
+  wins.forEach((win) => closePopout(win));
 }
 
 /**
