@@ -57,9 +57,12 @@ type coachingStorage interface {
 
 // conversationStorage is the subset of *store.ConversationStore the
 // ai-conversation read endpoint calls (plan 05-06, D-09). Same discipline
-// as coachingStorage above.
+// as coachingStorage above. ConversationForSession is the Logs page's
+// per-session read (plan 05-09, D-04/D-27), added alongside the
+// login-scoped ConversationFor already used by the panel.
 type conversationStorage interface {
 	ConversationFor(connectionID uuid.UUID) ([]store.ConversationLine, error)
+	ConversationForSession(gameSessionID, connectionID uuid.UUID) ([]store.ConversationLine, error)
 }
 
 // questStorage is the subset of *store.QuestStore the goal endpoint calls

@@ -25,6 +25,12 @@ func TestConversationStoreSQL(t *testing.T) {
 		}
 	})
 
+	t.Run("session_read_is_scoped_to_the_connection_as_defence_in_depth", func(t *testing.T) {
+		if !strings.Contains(conversationForSessionSQL, "connection_id") {
+			t.Errorf("conversationForSessionSQL missing connection_id scoping: %q", conversationForSessionSQL)
+		}
+	})
+
 	t.Run("login_scoped_read_bounds_on_login_started_at", func(t *testing.T) {
 		if !strings.Contains(conversationForConnectionSQL, "login_started_at") {
 			t.Errorf("conversationForConnectionSQL missing login_started_at bound: %q", conversationForConnectionSQL)

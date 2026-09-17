@@ -691,6 +691,18 @@ func main() {
 		}
 	})
 
+	// A session's coaching conversation, read back separately from its
+	// transcript (D-04, D-27, plan 05-09) -- the Logs page's own section,
+	// below the transcript pane, never woven into it.
+	mux.HandleFunc("/api/v1/profiles/{connection_id}/sessions/{session_id}/conversation", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			profilesHandler.GetSessionConversation(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
 	// A connection's decisions, read back in the order they happened
 	// (D-12, plan 03-09): this is what lets a reloaded play screen rebuild
 	// what it missed. Ownership is resolved through GetProfileByConnection
