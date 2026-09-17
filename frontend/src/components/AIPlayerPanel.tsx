@@ -23,6 +23,7 @@ export default function AIPlayerPanel({ connectionId }: AIPlayerPanelProps) {
   const [modelName, setModelName] = useState('');
   const [callCapStr, setCallCapStr] = useState('');
   const [disengageThresholdStr, setDisengageThresholdStr] = useState('');
+  const [rateLimitStr, setRateLimitStr] = useState('');
 
   // The captured-text danger zone (D-21) — its own two-step inline
   // confirmation, separate from the settings-save state above so a save in
@@ -38,6 +39,9 @@ export default function AIPlayerPanel({ connectionId }: AIPlayerPanelProps) {
     setCallCapStr(data.ai_settings.call_cap === null ? '' : String(data.ai_settings.call_cap));
     setDisengageThresholdStr(
       data.ai_settings.disengage_threshold === null ? '' : String(data.ai_settings.disengage_threshold)
+    );
+    setRateLimitStr(
+      data.ai_settings.rate_limit_per_second === null ? '' : String(data.ai_settings.rate_limit_per_second)
     );
   };
 
@@ -93,6 +97,7 @@ export default function AIPlayerPanel({ connectionId }: AIPlayerPanelProps) {
           model_name: modelName,
           call_cap: callCapStr.trim() === '' ? null : Number(callCapStr),
           disengage_threshold: disengageThresholdStr.trim() === '' ? null : Number(disengageThresholdStr),
+          rate_limit_per_second: rateLimitStr.trim() === '' ? null : Number(rateLimitStr),
         },
       };
       const updated = await putAISettings(connectionId, body);
@@ -302,6 +307,20 @@ export default function AIPlayerPanel({ connectionId }: AIPlayerPanelProps) {
             <p className="form-hint">
               Blank uses the engine's built-in error handling: any AI failure shows an informative error,
               disengages, and regular play continues. It never crashes.
+            </p>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">AI Command Rate Limit (per second)</label>
+            <input
+              type="number"
+              className="form-input"
+              placeholder="Server default"
+              value={rateLimitStr}
+              onChange={(e) => setRateLimitStr(e.target.value)}
+            />
+            <p className="form-hint">
+              Blank uses the server's default. Limits how many commands the AI may send per second, on top of every other safety limit.
             </p>
           </div>
 
