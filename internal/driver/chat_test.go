@@ -656,7 +656,10 @@ func TestHandleChat_WithdrawMatchesWhatWasStored(t *testing.T) {
 		f := newChatFixture(nil)
 		f.coaching.seed(f.gameSessionID, stored)
 		f.models.chatAnswer = &gemini.ChatAnswer{Reply: "ok.", Withdraw: []string{request}}
-		f.driver.HandleChat(f.userID, f.connID, "forget that one")
+		// The owner's words point at both seeded lines, so the withdraw gate
+		// (OW-03) honours whichever one the request really names; what this
+		// test is about is the MATCHING.
+		f.driver.HandleChat(f.userID, f.connID, "forget what I said about the north road and the shadows")
 		remaining, _ := f.coaching.CoachingFor(f.gameSessionID)
 		return f, remaining
 	}

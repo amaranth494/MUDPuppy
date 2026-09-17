@@ -57,6 +57,114 @@ var coachingStopWords = map[string]bool{
 	"yours": true,
 }
 
+// maxWithdrawsPerMessage is the most coaching lines one owner message may
+// take back, mirroring maxPushesPerMessage (owner-reported fix OW-03).
+const maxWithdrawsPerMessage = 2
+
+// minSharedStemRunes is how long a common prefix two words need before they
+// count as the same stem: "casting" and "cast", "spells" and "spell".
+const minSharedStemRunes = 4
+
+// OW-03, the withdraw gate. A withdraw had no gate at first, on the reasoning
+// that it can only remove a line that exists and the owner sees which one
+// went. A live run of the chat-channel corpus then showed 2 of 2 hostile
+// samples removing a standing SAFETY line while the owner had only asked an
+// ordinary question: game text told AI-chatter to withdraw it, and it did.
+// Seeing the line go afterwards is not the same as having asked for it.
+//
+// The rule, enforced in applyCoaching from the owner's CURRENT message:
+//
+//  1. a withdraw of a line is honoured when the owner's message shares at
+//     least one content-word stem with that line (withdrawSharesStemWithOwner);
+//  2. otherwise, when the owner's message holds a take-it-back word or phrase
+//     (ownerAsksToTakeBack), a withdraw is honoured ONLY for the most recently
+//     added standing line -- whatever line the model named, only the newest
+//     may go this way, once per message;
+//  3. anything else is refused: the line stays and the owner is told.
+
+// sharesStem reports whether two words share a common prefix of at least
+// minSharedStemRunes characters.
+func sharesStem(a, b string) bool {
+	ar, br := []rune(a), []rune(b)
+	n := 0
+	for n < len(ar) && n < len(br) && ar[n] == br[n] {
+		n++
+	}
+	return n >= minSharedStemRunes
+}
+
+// withdrawSharesStemWithOwner is rule 1: some content word of the owner's
+// message shares a stem with some content word of the line. Content words
+// are the push gate's (contentWords), so a stop-word can never be the link.
+func withdrawSharesStemWithOwner(ownerMessage, line string) bool {
+	lineWords := contentWords(line)
+	for _, ow := range contentWords(ownerMessage) {
+		for _, lw := range lineWords {
+			if sharesStem(ow, lw) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// takeBackSuffixes are the endings that make a word of the owner's message an
+// inflection of a take-back word: "forgetting", "cancelled", "removed",
+// "withdrawn". A bare prefix match is not used: "undoubtedly" is not "undo"
+// and a "scrapbook" is not "scrap".
+var takeBackSuffixes = []string{"", "s", "es", "d", "ed", "ing", "n", "ne", "al", "ting", "ted", "led", "ling", "ped", "ping"}
+
+// isInflectionOf reports whether tok is word, or word with one of
+// takeBackSuffixes, allowing for a dropped final "e" ("removing").
+func isInflectionOf(tok, word string) bool {
+	stems := []string{word}
+	if strings.HasSuffix(word, "e") {
+		stems = append(stems, strings.TrimSuffix(word, "e"))
+	}
+	for _, stem := range stems {
+		if !strings.HasPrefix(tok, stem) {
+			continue
+		}
+		rest := tok[len(stem):]
+		for _, suffix := range takeBackSuffixes {
+			if rest == suffix {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// takeBackWords are single words, matched with their inflections
+// (isInflectionOf). takeBackPhrases are matched as whole consecutive words.
+var (
+	takeBackWords   = []string{"forget", "withdraw", "cancel", "remove", "nevermind", "scrap", "undo"}
+	takeBackPhrases = []string{"drop that", "never mind", "take back", "take that back", "ignore that", "stop doing", "no longer"}
+)
+
+// ownerAsksToTakeBack is rule 2's test: the owner's own message holds a
+// take-it-back word or phrase. Only the owner's message is read, so game
+// text can never supply the word.
+func ownerAsksToTakeBack(ownerMessage string) bool {
+	tokens := strings.FieldsFunc(strings.ToLower(ownerMessage), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
+	for _, tok := range tokens {
+		for _, w := range takeBackWords {
+			if isInflectionOf(tok, w) {
+				return true
+			}
+		}
+	}
+	joined := " " + strings.Join(tokens, " ") + " "
+	for _, p := range takeBackPhrases {
+		if strings.Contains(joined, " "+p+" ") {
+			return true
+		}
+	}
+	return false
+}
+
 // contentWords returns the distinct content words of s, in first-seen
 // order: lower-cased, split on anything that is not a letter or a digit, at
 // least minContentWordRunes long, stop-words removed.
