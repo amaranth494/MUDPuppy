@@ -745,12 +745,25 @@ func boolPtr(v bool) *bool {
 	return &v
 }
 
+// testRateLimitPerSecond is a deliberately generous AI Command Rate Limit
+// (D-25/DR-4-03) for testProfile(), set far above anything any pre-05-04
+// test's tight loop of HandleEngage/EngageLoop calls could reach within one
+// wall-clock second. Every pre-existing test in this package predates the
+// rate limiter and assumed no cap on AI sends at all; testRateLimitPerSecond
+// preserves that assumption so those tests keep exercising what they always
+// exercised (call cap, disengage threshold, pacing) rather than incidentally
+// tripping the new limiter. A test that means to exercise the limiter itself
+// sets its own low RateLimitPerSecond on the profile it builds (see
+// TestDriverRateLimitRefusalIsTransient in ratelimit_test.go).
+const testRateLimitPerSecond = 1_000_000
+
 func testProfile() *store.Profile {
+	limit := testRateLimitPerSecond
 	return &store.Profile{
 		ConductRules:     "RULE: never grief another player. RULE: no scripting external bots.",
 		ApproachGuidance: "GUIDE: prioritize quest completion over open-ended exploration.",
 		NeverIssueList:   "",
-		AISettings:       store.AISettings{},
+		AISettings:       store.AISettings{RateLimitPerSecond: &limit},
 	}
 }
 

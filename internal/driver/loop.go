@@ -183,6 +183,12 @@ func (d *Driver) StopLoop(userID string, epoch uint64) {
 	if ok {
 		entry.cancel()
 	}
+
+	// D-25/DR-4-03: a stint that just ended gives up its rate-limit
+	// bucket, so the next stint (a fresh #AUTO ON or a resume) starts with
+	// a full one rather than inheriting whatever tokens this stint had
+	// already spent.
+	d.resetAISendLimiter(userID)
 }
 
 // stintLoop is one user's registered pacing loop: the stint it belongs to

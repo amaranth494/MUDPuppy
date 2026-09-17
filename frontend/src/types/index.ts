@@ -312,6 +312,10 @@ export interface AISettings {
   model_name: string;
   call_cap: number | null;
   disengage_threshold: number | null;
+  // rate_limit_per_second is D-25/DR-4-03's AI Command Rate Limit: unlike
+  // call_cap, null here never means unlimited — it means the server's own
+  // default limit applies, resolved server-side.
+  rate_limit_per_second: number | null;
 }
 
 export interface AISettingsResponse {
