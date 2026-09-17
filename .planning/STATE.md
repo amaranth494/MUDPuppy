@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 5: plans 05-01..05-10 complete; 05-11 tasks 1 done, task 2 (corpus) owed on a fresh-quota day, staging on deployment 09925327 (migration 15 clean); at checkpoint 05-11-03 awaiting owner cookie + screenshots 12/13"
-last_updated: "2026-09-17T21:28:55.193Z"
+stopped_at: "Phase 5: plans 05-01..05-10 done; code review 25 findings, 23 fixed incl. owner items OW-01..03 (05-REVIEW-FIX.md); staging on deployment fd1ce6d0 (gemini-3.1-flash-lite, migration 15 clean); 05-11 evidence 01,02,03 RUN A,04b,04c,12,13 filed; OWED: walkthrough checkpoint 05-11-04 (awaiting owner's choice of who drives), like-for-like corpus on gemini-3.5-flash-lite after quota reset, security agenda, 05-11 summary, verifier, dossier, risk register, push"
+last_updated: "2026-09-17T23:03:41.202Z"
 last_activity: 2026-09-17 -- Phase 05 execution started
 progress:
   total_phases: 9
@@ -140,6 +140,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-09-17T21:28:55.186Z
-Stopped at: Phase 5: plans 05-01..05-10 complete; 05-11 tasks 1 done, task 2 (corpus) owed on a fresh-quota day, staging on deployment 09925327 (migration 15 clean); at checkpoint 05-11-03 awaiting owner cookie + screenshots 12/13
+Last session: 2026-09-17T23:03:41.196Z
+Stopped at: Phase 5: plans 05-01..05-10 done; code review 25 findings, 23 fixed incl. owner items OW-01..03 (05-REVIEW-FIX.md); staging on deployment fd1ce6d0 (gemini-3.1-flash-lite, migration 15 clean); 05-11 evidence 01,02,03 RUN A,04b,04c,12,13 filed; OWED: walkthrough checkpoint 05-11-04 (awaiting owner's choice of who drives), like-for-like corpus on gemini-3.5-flash-lite after quota reset, security agenda, 05-11 summary, verifier, dossier, risk register, push
 Resume file: .planning/phases/05-coaching-channel/05-11-PLAN.md
