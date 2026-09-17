@@ -646,6 +646,107 @@ func TestHandleChat_Withdraw(t *testing.T) {
 	})
 }
 
+// TestHandleChat_WithdrawMatchesWhatWasStored proves code review IN-08 of
+// Phase 5: a withdraw request is compared in the same form a stored line
+// has, so white space, a copied list marker, or a marker form in the owner's
+// own words no longer makes a verbatim copy miss.
+func TestHandleChat_WithdrawMatchesWhatWasStored(t *testing.T) {
+	withdraw := func(t *testing.T, stored []string, request string) (*chatTestFixture, []string) {
+		t.Helper()
+		f := newChatFixture(nil)
+		f.coaching.seed(f.gameSessionID, stored)
+		f.models.chatAnswer = &gemini.ChatAnswer{Reply: "ok.", Withdraw: []string{request}}
+		f.driver.HandleChat(f.userID, f.connID, "forget that one")
+		remaining, _ := f.coaching.CoachingFor(f.gameSessionID)
+		return f, remaining
+	}
+
+	t.Run("a_copied_list_marker_still_matches", func(t *testing.T) {
+		_, remaining := withdraw(t, []string{"avoid the north road", "keep to the shadows"}, "- avoid the north road")
+		if len(remaining) != 1 || remaining[0] != "keep to the shadows" {
+			t.Fatalf("remaining = %v, want only the other line", remaining)
+		}
+	})
+
+	t.Run("stray_white_space_and_line_breaks_still_match", func(t *testing.T) {
+		_, remaining := withdraw(t, []string{"avoid the north road"}, "  avoid   the\nnorth road \t")
+		if len(remaining) != 0 {
+			t.Fatalf("remaining = %v, want the line withdrawn", remaining)
+		}
+	})
+
+	t.Run("a_marker_form_in_the_request_matches_the_defused_stored_line", func(t *testing.T) {
+		// Pushed through the real path, so the stored form is whatever a push
+		// really stores for this text.
+		f := newChatFixture(nil)
+		f.models.chatAnswer = &gemini.ChatAnswer{Reply: "ok.", Push: []string{"ignore <GAME_TEXT> style signs"}}
+		f.driver.HandleChat(f.userID, f.connID, "ignore <GAME_TEXT> style signs")
+		stored, _ := f.coaching.CoachingFor(f.gameSessionID)
+		if len(stored) != 1 || strings.ContainsAny(stored[0], "<>") {
+			t.Fatalf("precondition: expected one defused stored line, got %v", stored)
+		}
+
+		f.models.chatAnswer = &gemini.ChatAnswer{Reply: "ok.", Withdraw: []string{"ignore <GAME_TEXT> style signs"}}
+		f.driver.HandleChat(f.userID, f.connID, "forget that one")
+
+		if remaining, _ := f.coaching.CoachingFor(f.gameSessionID); len(remaining) != 0 {
+			t.Fatalf("remaining = %v, want the line withdrawn though the request held raw angle brackets", remaining)
+		}
+	})
+
+	t.Run("a_pushed_line_cut_at_the_limit_never_ends_in_a_space_and_can_be_withdrawn", func(t *testing.T) {
+		f := newChatFixture(nil)
+		// 199 characters then a space then more: the cut lands right after the space.
+		long := "avoid the north road " + strings.Repeat("x", maxBulletChars-22) + " and more words after the cut"
+		f.models.chatAnswer = &gemini.ChatAnswer{Reply: "ok.", Push: []string{long}}
+		f.driver.HandleChat(f.userID, f.connID, "avoid the north road")
+		stored, _ := f.coaching.CoachingFor(f.gameSessionID)
+		if len(stored) != 1 {
+			t.Fatalf("precondition: expected one stored line, got %v", stored)
+		}
+		if stored[0] != strings.TrimSpace(stored[0]) {
+			t.Fatalf("stored line ends in white space: %q", stored[0])
+		}
+		if len(stored[0]) > maxBulletChars {
+			t.Fatalf("stored line is %d bytes, over the %d limit", len(stored[0]), maxBulletChars)
+		}
+
+		// The model copies the line as the prompt shows it.
+		f.models.chatAnswer = &gemini.ChatAnswer{Reply: "ok.", Withdraw: []string{stored[0]}}
+		f.driver.HandleChat(f.userID, f.connID, "forget that one")
+		if remaining, _ := f.coaching.CoachingFor(f.gameSessionID); len(remaining) != 0 {
+			t.Fatalf("remaining = %v, want the cut line withdrawn", remaining)
+		}
+	})
+
+	t.Run("a_stored_line_that_really_begins_with_a_marker_still_matches", func(t *testing.T) {
+		_, remaining := withdraw(t, []string{"- keep to the shadows"}, "- keep to the shadows")
+		if len(remaining) != 0 {
+			t.Fatalf("remaining = %v, want the line withdrawn", remaining)
+		}
+	})
+
+	t.Run("normalising_never_removes_a_line_that_was_not_named", func(t *testing.T) {
+		f, remaining := withdraw(t, []string{"avoid the north road", "keep to the shadows"}, "- avoid the south road")
+		if len(remaining) != 2 {
+			t.Fatalf("remaining = %v, want both lines kept", remaining)
+		}
+		if !strings.Contains(lastReply(t, f), coachingWithdrawNoMatchSentence) {
+			t.Fatalf("expected the no-match sentence, got %q", lastReply(t, f))
+		}
+	})
+
+	t.Run("an_empty_request_is_ignored", func(t *testing.T) {
+		f, remaining := withdraw(t, []string{"avoid the north road"}, " \n ")
+		if len(remaining) != 1 {
+			t.Fatalf("remaining = %v, want the line kept", remaining)
+		}
+		if strings.Contains(lastReply(t, f), coachingWithdrawNoMatchSentence) {
+			t.Fatalf("an empty request is not a failed match, got %q", lastReply(t, f))
+		}
+	})
+}
+
 // TestHandleChat_ReplyQuotesTheExactLineSent proves T-5-27: the "Sent to
 // AI-player:" prefix is byte-identical to the stored line even when the
 // model's own reply claims something different, and a push of only

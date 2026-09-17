@@ -367,13 +367,18 @@ func (d *Driver) applyCoaching(gameSessionID uuid.UUID, ownerMessage string, pus
 	}
 
 	for _, w := range withdraws {
-		w = strings.TrimSpace(w)
-		if w == "" {
+		candidates := withdrawCandidates(w)
+		if len(candidates) == 0 {
 			continue
 		}
-		idx := indexOfCoachingLine(current, w)
-		if idx == -1 {
-			idx = indexOfCoachingLineFold(current, w)
+		idx := -1
+		for _, candidate := range candidates {
+			if idx = indexOfCoachingLine(current, candidate); idx != -1 {
+				break
+			}
+			if idx = indexOfCoachingLineFold(current, candidate); idx != -1 {
+				break
+			}
 		}
 		if idx == -1 {
 			result.noMatch = true
@@ -384,7 +389,10 @@ func (d *Driver) applyCoaching(gameSessionID uuid.UUID, ownerMessage string, pus
 	}
 
 	for _, p := range pushes {
-		line := cutBytes(neutraliseLine(p), maxBulletChars)
+		// Trimmed AFTER the cut (code review IN-08 of Phase 5): a line cut at
+		// maxBulletChars can end in a space, and the prompt shows it without
+		// one, so the model's verbatim copy could never match it again.
+		line := strings.TrimSpace(cutBytes(neutraliseLine(p), maxBulletChars))
 		if line == "" {
 			continue
 		}
@@ -436,6 +444,37 @@ func (d *Driver) applyCoaching(gameSessionID uuid.UUID, ownerMessage string, pus
 	}
 
 	return result
+}
+
+// withdrawCandidates puts a withdraw request into the same form a stored
+// coaching line has, so the two can be compared (code review IN-08 of
+// Phase 5). A stored line went through neutraliseLine, a cut and a trim; the
+// model reads it in the prompt as a "- " bullet. So the request is made one
+// line with its marker forms defused exactly as the stored line's were, and
+// cut and trimmed the same way. That form is tried first; if the request
+// begins with a list marker the model copied from the prompt, the same text
+// without the marker is tried second (second, so a stored line that really
+// does begin with one still matches). An empty request yields nothing.
+//
+// This can only ever make a request match a line that EXISTS, and the line
+// removed is always quoted back to the owner in the reply.
+func withdrawCandidates(w string) []string {
+	shape := func(s string) string { return strings.TrimSpace(cutBytes(s, maxBulletChars)) }
+	line := neutraliseLine(w)
+	full := shape(line)
+	if full == "" {
+		return nil
+	}
+	candidates := []string{full}
+	for _, marker := range []string{"- ", "* ", "• "} {
+		if strings.HasPrefix(line, marker) {
+			if stripped := shape(strings.TrimPrefix(line, marker)); stripped != "" && stripped != full {
+				candidates = append(candidates, stripped)
+			}
+			break
+		}
+	}
+	return candidates
 }
 
 // indexOfCoachingLine returns the index of the first exact match of s in
