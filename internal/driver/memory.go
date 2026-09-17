@@ -11,7 +11,9 @@
 package driver
 
 import (
+	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/amaranth494/MudPuppy/internal/store"
 )
@@ -44,11 +46,80 @@ const (
 	maxBulletChars          = 200
 )
 
+// markerNameRe matches the name of any of OUR four delimiting markers, in
+// any letter case, wherever it appears in untrusted text.
+var markerNameRe = regexp.MustCompile(`(?i)(GAME|QUEST|SESSION|MODEL)_(TEXT|MEMORY|REASONING)`)
+
+// angleBracketReplacer turns every character a model could read as the
+// opening or closing angle bracket of a marker -- ASCII '<' and '>' and
+// their common Unicode look-alikes -- into a square bracket, which is not
+// part of our marker syntax.
+var angleBracketReplacer = strings.NewReplacer(
+	"<", "[", ">", "]",
+	"＜", "[", "＞", "]", // fullwidth
+	"﹤", "[", "﹥", "]", // small form
+	"‹", "[", "›", "]", // single guillemets
+	"〈", "[", "〉", "]", // CJK angle brackets
+	"⟨", "[", "⟩", "]", // mathematical angle brackets
+	"〈", "[", "〉", "]", // pointing angle brackets
+)
+
+// neutraliseUntrusted is the ONE function every untrusted-data wrapper in
+// this package passes its content through (code review CR-02 of Phase 4):
+// wrapWindow, wrapQuestMemory, wrapSessionMemory and wrapModelReasoning, plus
+// goalBlock and the write-side truncateBullets. D-13's whole defence rests on
+// the delimiting markers, and until this existed the content between them
+// could simply contain "</SESSION_MEMORY>" -- closing its own block and
+// leaving whatever followed sitting in the trusted system instruction of the
+// player AND the reviewer at once, for as long as the bullet lived.
+//
+// After this function nothing in s can read as one of our markers: no angle
+// bracket of any kind survives (they become square brackets) and no marker
+// name survives intact (its underscore becomes a hyphen), so
+// "</SESSION_MEMORY>" reaches the model as "[/SESSION-MEMORY]". Line breaks
+// are left alone here because the game-text window and a model's reasoning
+// legitimately have them; single-line content uses neutraliseLine.
+func neutraliseUntrusted(s string) string {
+	s = angleBracketReplacer.Replace(s)
+	return markerNameRe.ReplaceAllString(s, "$1-$2")
+}
+
+// neutraliseLine is neutraliseUntrusted for content that must be exactly one
+// line -- a memory bullet, the session goal: every control character
+// (CR and LF included) becomes a space and runs of white space collapse to
+// one, so a bullet can never start a new line that looks like a heading, a
+// new bullet, or a paragraph of the surrounding instruction.
+func neutraliseLine(s string) string {
+	s = strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return ' '
+		}
+		return r
+	}, s)
+	return neutraliseUntrusted(strings.Join(strings.Fields(s), " "))
+}
+
+// cutBytes cuts s to at most max bytes without splitting a multi-byte
+// character (code review IN-03 of Phase 4: a split rune was stored and
+// shown as U+FFFD).
+func cutBytes(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	for max > 0 && !utf8.RuneStart(s[max]) {
+		max--
+	}
+	return s[:max]
+}
+
 // clampBullets enforces D-12's ceilings on a bullet list before it reaches
-// either prompt: at most maxCount entries, each truncated to
-// maxBulletChars bytes (matching maxCommandBytes' byte-length convention
-// elsewhere in this package, not a rune count). A nil or empty input
-// returns nil, so an unset memory layer contributes no block at all.
+// either prompt: at most maxCount entries, each neutralised to one
+// marker-free line (neutraliseLine -- applied here, at prompt-assembly time,
+// so a poisoned bullet stored before code review CR-02's fix is covered too)
+// and only then truncated to maxBulletChars bytes (matching maxCommandBytes'
+// byte-length convention elsewhere in this package, not a rune count). A nil
+// or empty input returns nil, so an unset memory layer contributes no block
+// at all.
 func clampBullets(bullets []string, maxCount int) []string {
 	if len(bullets) == 0 {
 		return nil
@@ -58,18 +129,17 @@ func clampBullets(bullets []string, maxCount int) []string {
 		if len(out) >= maxCount {
 			break
 		}
-		if len(bullet) > maxBulletChars {
-			bullet = bullet[:maxBulletChars]
-		}
-		out = append(out, bullet)
+		out = append(out, cutBytes(neutraliseLine(bullet), maxBulletChars))
 	}
 	return out
 }
 
 // truncateBullets applies D-12's ceilings to a bullet list the model
 // proposed on its way out, before anything is stored or shown (T-4-10): at
-// most maxItems entries, each trimmed and then cut to maxLen characters,
-// with empty and whitespace-only entries dropped entirely. Always returns a
+// most maxItems entries, each neutralised to one marker-free line
+// (neutraliseLine, code review CR-02 of Phase 4 -- so neither the store nor
+// the panel ever holds a forged marker) and then cut to maxLen bytes, with
+// empty and whitespace-only entries dropped entirely. Always returns a
 // non-nil slice, even when every entry is dropped or in itself was empty,
 // so "the model proposed replacing memory with nothing" stays expressible
 // and distinguishable from persistMemory's own "the model proposed no
@@ -78,17 +148,14 @@ func clampBullets(bullets []string, maxCount int) []string {
 func truncateBullets(in []string, maxItems, maxLen int) []string {
 	out := make([]string, 0, maxItems)
 	for _, bullet := range in {
-		trimmed := strings.TrimSpace(bullet)
+		trimmed := neutraliseLine(bullet)
 		if trimmed == "" {
 			continue
 		}
 		if len(out) >= maxItems {
 			break
 		}
-		if len(trimmed) > maxLen {
-			trimmed = trimmed[:maxLen]
-		}
-		out = append(out, trimmed)
+		out = append(out, cutBytes(trimmed, maxLen))
 	}
 	return out
 }
@@ -105,7 +172,10 @@ func bulletBytes(bullets []string) int {
 }
 
 // renderBullets renders bullets as a plain "- " prefixed list, one per
-// line -- the shape wrapQuestMemory and wrapSessionMemory both share.
+// line -- the shape wrapQuestMemory and wrapSessionMemory both share. Every
+// bullet goes through neutraliseLine here, whatever the caller did or did
+// not do first, so neither wrapper can be handed content that closes its own
+// block (code review CR-02 of Phase 4).
 func renderBullets(bullets []string) string {
 	var b strings.Builder
 	for i, bullet := range bullets {
@@ -113,7 +183,7 @@ func renderBullets(bullets []string) string {
 			b.WriteString("\n")
 		}
 		b.WriteString("- ")
-		b.WriteString(bullet)
+		b.WriteString(neutraliseLine(bullet))
 	}
 	return b.String()
 }
@@ -150,9 +220,13 @@ func wrapSessionMemory(bullets []string) string {
 // is the owner's own typed text, never model-written, so unlike Quest
 // Memory and Session Memory it is not wrapped in the untrusted-data
 // markers; it sits with the profile's standing text, labelled as the
-// owner's own instruction.
+// owner's own instruction. It still goes through neutraliseLine (code review
+// CR-02 of Phase 4): the goal is a one-line box, so a pasted line break or a
+// literal marker in it is never the owner's intent, and an unwrapped
+// "<SESSION_MEMORY>" here would forge the opening of a block in the trusted
+// tier of both prompts.
 func goalBlock(goal string) string {
-	trimmed := strings.TrimSpace(goal)
+	trimmed := neutraliseLine(goal)
 	if trimmed == "" {
 		return ""
 	}

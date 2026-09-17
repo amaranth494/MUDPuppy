@@ -1138,9 +1138,12 @@ func (d *Driver) logDecision(userID, connectionID, decisionID, stage, modelName,
 // (D-01) so the game text the model receives is delimited as untrusted
 // data rather than pasted in raw. The unwrapped window is still what
 // recordFailure/recordBlocked/recordSuccess store as WindowText and what
-// logDecision measures for snapshot_bytes.
+// logDecision measures for snapshot_bytes. The wrapped copy -- and only the
+// wrapped copy -- goes through neutraliseUntrusted (internal/driver/memory.go,
+// code review CR-02 of Phase 4), so game text containing a literal
+// "</GAME_TEXT>" cannot close the block it sits in.
 func wrapWindow(window string) string {
-	return "<GAME_TEXT>\n" + window + "\n</GAME_TEXT>"
+	return "<GAME_TEXT>\n" + neutraliseUntrusted(window) + "\n</GAME_TEXT>"
 }
 
 // wrapModelReasoning encloses reasoning between <MODEL_REASONING> and
@@ -1151,9 +1154,11 @@ func wrapWindow(window string) string {
 // same untrusted game text, not testimony to be accepted at face value.
 // This marker appears only in the reviewer's own user text — the player's
 // prompt has nothing to wrap here, since the player has not yet stated any
-// reasoning when its own prompt is built.
+// reasoning when its own prompt is built. The reasoning goes through
+// neutraliseUntrusted for the same reason the window does (code review CR-02
+// of Phase 4); the stored and displayed reasoning is untouched.
 func wrapModelReasoning(reasoning string) string {
-	return "<MODEL_REASONING>\n" + reasoning + "\n</MODEL_REASONING>"
+	return "<MODEL_REASONING>\n" + neutraliseUntrusted(reasoning) + "\n</MODEL_REASONING>"
 }
 
 // buildSystemInstruction assembles tier two of the two-tier prompt (D-05):
