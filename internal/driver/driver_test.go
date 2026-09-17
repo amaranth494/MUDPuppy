@@ -1320,6 +1320,42 @@ func TestBuildReviewSystemInstruction(t *testing.T) {
 	})
 }
 
+// TestBuildReviewSystemInstruction_FightingIsOrdinaryPlay proves D-23's
+// fix: the reviewer's ordinary-play exception now names fighting a
+// game-presented target as normal play, without dropping the existing
+// harm-definition and find-then-decide sentences it extends rather than
+// replaces (DR-4-01).
+func TestBuildReviewSystemInstruction_FightingIsOrdinaryPlay(t *testing.T) {
+	profile := testProfile()
+	si := buildReviewSystemInstruction(promptContext{Profile: profile})
+	if !strings.Contains(si, reviewFightingIsOrdinaryPlaySentence) {
+		t.Fatalf("expected the fighting-is-ordinary-play sentence, got %q", si)
+	}
+	if !strings.Contains(si, reviewHarmDefinition) {
+		t.Fatalf("expected the existing harm-definition sentence to still be present, got %q", si)
+	}
+	if !strings.Contains(si, reviewFindThenDecideProcedure) {
+		t.Fatalf("expected the existing find-then-decide procedure sentence to still be present, got %q", si)
+	}
+}
+
+// TestBuildReviewSystemInstruction_MemoryAuthorship proves D-24's second
+// half: the reviewer's own instruction states that any Quest Memory or
+// Session Memory it is shown was written by the other model, not by
+// itself, and that this sentence is reviewer-only -- the player prompt
+// built by buildSystemInstruction never carries it (DR-4-02).
+func TestBuildReviewSystemInstruction_MemoryAuthorship(t *testing.T) {
+	profile := testProfile()
+	reviewSI := buildReviewSystemInstruction(promptContext{Profile: profile})
+	if !strings.Contains(reviewSI, reviewMemoryAuthorshipSentence) {
+		t.Fatalf("expected the memory-authorship sentence in the reviewer instruction, got %q", reviewSI)
+	}
+	playerSI := buildSystemInstruction(promptContext{Profile: profile})
+	if strings.Contains(playerSI, reviewMemoryAuthorshipSentence) {
+		t.Fatalf("expected the memory-authorship sentence to stay out of the player system instruction, got %q", playerSI)
+	}
+}
+
 // TestPromptContextOrder proves D-13's prompt shape: the profile's
 // standing text, then the session goal, then the active Quest's bullets,
 // then Session Memory, in that fixed order, and that a blank goal, no
