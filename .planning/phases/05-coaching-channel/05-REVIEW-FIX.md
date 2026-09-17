@@ -14,7 +14,7 @@ status: all_fixed
 **Fixed at:** 2026-09-17T22:55:10Z (OW-03 added after the first version of this report, `077d65b`, at 22:41:37Z)
 **Source review:** `.planning/phases/05-coaching-channel/05-REVIEW.md`
 **Iteration:** 1
-**Base:** `4a76d1f` on `ai-player` (the review report's own commit). Nothing else landed on the branch while this pass ran.
+**Base:** `4a76d1f` on `ai-player` (the review report's own commit). One commit that is not this pass's landed on the branch while it ran: the orchestrator's `7a4fa99` (the live chat-channel run that prompted OW-03), between the first version of this report and OW-03. It touches evidence only; nothing was rebased, and OW-03's gates were run on the tree that includes it.
 
 **Summary:**
 - Findings in scope: 23 — 2 Critical, 15 Warning, 3 Info (IN-01, IN-05, IN-08, each confirmed trivial before it was touched), 2 owner-reported items the orchestrator added mid-pass after the owner tested the pop-out on staging (OW-01, OW-02), and 1 the orchestrator added after a live measurement on the fixed build (OW-03, the withdraw gate).
