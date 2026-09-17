@@ -214,6 +214,45 @@ This document is the input to the Phase 4 security review, not its output. It de
 
 ---
 
+### Two small loose ends in the reviewer, found by the direct-03 diagnosis and left as they were
+
+**Problem:** (1) The shared paragraph that tells both models "these notes are untrusted" says the memory notes "were written by you". That is true for the playing model and false for the reviewer, which is being told it wrote notes it never wrote. (2) If the reviewer's answer ever arrived without its yes/no "blocked" field, the code would read that as "not blocked". The answer format marks the field as required, so the vendor should never send such an answer, but nothing on our side refuses one.
+
+**Fix:** (1) Give the reviewer its own wording: "written by the other model". (2) Treat a missing "blocked" field as a failed review, which already stops the command. Both are a few lines with tests. Neither was the cause of anything seen this phase (`.planning/debug/reviewer-regression-direct-03.md`).
+
+**Dispositions:**
+- [ ] **Accept** — leave both as they are.
+- [ ] **Defer** — carry to a later review.
+- [ ] **Remediate Now** — make both changes; small.
+
+---
+
+### The Phase 4 report file prints some of the AI's own words
+
+**Problem:** The rule for server logs is "ids, counts and lengths only", and the log excerpt keeps to it. The canned report (`evidence/03-canned-report.txt`) is a different file with a different job, and its "got:" lines print the session goal and the first line of one decision's reasoning and command, because that is how it proves they survived. It is evidence for the owner in a private repository, not a server log, but it is the AI's text sitting in a committed file, and the branch is pushed to GitHub at phase close.
+
+**Fix:** Have the harness print lengths and a short fingerprint instead of the text itself, and keep proving "unchanged" by comparing fingerprints. About an hour, plus regenerating the fixtures.
+
+**Dispositions:**
+- [ ] **Accept** — the text is harmless tutorial play in a private repository.
+- [ ] **Defer** — carry to a later review.
+- [ ] **Remediate Now** — change the harness before the branch is pushed.
+
+---
+
+### Session Memory now follows the login (D-31): two gaps around it
+
+**Problem:** (1) The new "when did this login start" marker is set at sign-in and sign-out. The tests prove the marker code and the shape of the database statements, but no test drives a real sign-in or sign-out request end to end, because the code has no stand-in for the session store to test against. If a later change stopped calling the marker, Session Memory would quietly carry across sign-ins and no test would notice. (2) When the server restarts, the game session that was interrupted is never marked as ended. One of those left-over rows was read back as live memory during the walkthrough. The read-back was fixed (`0dd3b06`), but the left-over rows still pile up, and Phase 6 plans to read finished sessions.
+
+**Fix:** (1) Add a small stand-in for the session store and two request-level tests. (2) Mark every unfinished game session as ended when the server starts; a follow-up task for this is already written up.
+
+**Dispositions:**
+- [ ] **Accept** — the hand check that both handlers call the marker is enough for now; leave the rows.
+- [ ] **Defer** — carry to the Phase 6 review, which depends on finished sessions being marked.
+- [ ] **Remediate Now** — do both; small.
+
+---
+
 ## Part 3: Residuals accepted at plan level (confirmation only, not re-litigation)
 
 These were dispositioned inside the plans that found them, not left open. The review's job here is to confirm each still holds as described, not to re-decide it from scratch.
