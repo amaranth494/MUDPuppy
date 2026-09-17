@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -898,6 +899,10 @@ func (m *Manager) resumeAutopilotLocked(userID, connectionID string) {
 	}
 }
 
+// ErrAutopilotNotOn is what SendCommandAs returns for an "ai" command when
+// autopilot is not On at the moment of the write.
+var ErrAutopilotNotOn = errors.New("autopilot is not on; AI command not sent")
+
 // SendCommand sends a command to the MUD server, tagged in the session
 // transcript as human-typed. This is the browser's only send path
 // (websocket.go:653, covering typed input, aliases, triggers and timers
@@ -912,6 +917,13 @@ func (m *Manager) SendCommand(userID, command string) error {
 // the only caller that passes "ai"). The transcript line is enqueued only
 // after the write to the socket succeeds, so a failed send is never
 // recorded as sent.
+//
+// An "ai" command is written only while autopilot is On, and the check and
+// the write happen under one read lock: DisengageAutopilot takes the write
+// lock, so a decision that was already in flight when the owner took the
+// wheel (or typed #AUTO OFF) can never reach the game after the switch has
+// gone off. It returns ErrAutopilotNotOn instead. The staging walkthrough
+// of 2026-09-17 found exactly that: a command sent one second after off.
 func (m *Manager) SendCommandAs(userID, command, source string) error {
 	m.mu.RLock()
 	conn, ok := m.conns[userID]
@@ -929,7 +941,19 @@ func (m *Manager) SendCommandAs(userID, command, source string) error {
 	command = strings.TrimRight(command, "\n")
 
 	// Send command with CRLF (standard for MUD servers)
-	_, err := conn.Write([]byte(command + "\r\n"))
+	var err error
+	if source == "ai" {
+		m.mu.RLock()
+		rec, recOK := m.autopilot[userID]
+		if !recOK || rec.State != AutopilotOn {
+			m.mu.RUnlock()
+			return ErrAutopilotNotOn
+		}
+		_, err = conn.Write([]byte(command + "\r\n"))
+		m.mu.RUnlock()
+	} else {
+		_, err = conn.Write([]byte(command + "\r\n"))
+	}
 	if err != nil {
 		m.Disconnect(userID, ReasonError)
 		return fmt.Errorf("failed to send command: %v", err)

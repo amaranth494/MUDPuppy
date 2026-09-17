@@ -27,6 +27,7 @@ import (
 // on top of.
 func TestScriptedStint(t *testing.T) {
 	sessions := &fakeSessions{window: "a room, exits north and south"}
+	sessions.engageState()
 	decisions := &fakeDecisionsStore{}
 	notifier := &fakeNotifier{}
 	commands := &fakeCommands{}
@@ -164,6 +165,7 @@ func TestFakeSessionsStateMachine(t *testing.T) {
 // disengage, which predates the threshold this plan adds.
 func TestScriptedStintSurvivesAFailureMidway(t *testing.T) {
 	sessions := &fakeSessions{window: "a room"}
+	sessions.engageState()
 	decisions := &fakeDecisionsStore{}
 	notifier := &fakeNotifier{}
 	commands := &fakeCommands{}
@@ -522,11 +524,27 @@ func TestLoop_StopsWhenWheelGrabbed(t *testing.T) {
 		sessions.fireOutput()
 		waitForCalls(t, models, 2) // the second call is now blocked mid-flight
 
+		// The real order of events: the manager flips the switch off, then
+		// its disengage hook stops the loop, and only then does the model
+		// answer. The decision that was in flight must never reach the game
+		// (found on staging 2026-09-17: it was sent one second after off),
+		// and being dropped is not a failure.
+		sessions.disengageState()
 		d.StopLoop(userID)
 		close(block)
 
-		waitForSendCount(t, sessions, 2)
 		assertStableCallCount(t, models, 2, 100*time.Millisecond)
+		if got := len(sessions.sendCalls()); got != 1 {
+			t.Fatalf("expected only the first decision's send, the in-flight one dropped; got %d sends", got)
+		}
+		if got := len(commands.dispatchCalls()); got != 1 {
+			t.Fatalf("expected no ICM dispatch for the dropped decision, got %d dispatches", got)
+		}
+		for _, row := range decisions.rows() {
+			if row.Outcome == "failed" {
+				t.Fatalf("a dropped in-flight decision must not be stored as a failure")
+			}
+		}
 	})
 }
 
@@ -728,6 +746,7 @@ func TestLoop_CallCap(t *testing.T) {
 func TestLoop_ErrorThreshold(t *testing.T) {
 	t.Run("two_transient_failures_continue_then_the_third_disengages", func(t *testing.T) {
 		sessions := &fakeSessions{window: "a room"}
+		sessions.engageState()
 		decisions := &fakeDecisionsStore{}
 		notifier := &fakeNotifier{}
 		commands := &fakeCommands{}
@@ -764,6 +783,7 @@ func TestLoop_ErrorThreshold(t *testing.T) {
 
 	t.Run("a_sent_command_resets_the_count", func(t *testing.T) {
 		sessions := &fakeSessions{window: "a room"}
+		sessions.engageState()
 		decisions := &fakeDecisionsStore{}
 		notifier := &fakeNotifier{}
 		commands := &fakeCommands{}
@@ -812,6 +832,7 @@ func TestLoop_ErrorThreshold(t *testing.T) {
 		profile := testProfile()
 		profile.AISettings.DisengageThreshold = nil
 		sessions := &fakeSessions{window: "a room"}
+		sessions.engageState()
 		decisions := &fakeDecisionsStore{}
 		notifier := &fakeNotifier{}
 		commands := &fakeCommands{}
@@ -834,6 +855,7 @@ func TestLoop_ErrorThreshold(t *testing.T) {
 
 	t.Run("auth_failure_disengages_on_the_first_hit", func(t *testing.T) {
 		sessions := &fakeSessions{window: "a room"}
+		sessions.engageState()
 		decisions := &fakeDecisionsStore{}
 		notifier := &fakeNotifier{}
 		commands := &fakeCommands{}
@@ -865,6 +887,7 @@ func TestLoop_ConsecutiveBlocks(t *testing.T) {
 		profile := testProfile()
 		profile.NeverIssueList = "give"
 		sessions := &fakeSessions{window: "a room"}
+		sessions.engageState()
 		decisions := &fakeDecisionsStore{}
 		notifier := &fakeNotifier{}
 		commands := &fakeCommands{}
@@ -904,6 +927,7 @@ func TestLoop_ConsecutiveBlocks(t *testing.T) {
 		profile := testProfile()
 		profile.NeverIssueList = "give"
 		sessions := &fakeSessions{window: "a room"}
+		sessions.engageState()
 		decisions := &fakeDecisionsStore{}
 		notifier := &fakeNotifier{}
 		commands := &fakeCommands{}
@@ -939,6 +963,7 @@ func TestLoop_ConsecutiveBlocks(t *testing.T) {
 		profile := testProfile()
 		profile.NeverIssueList = "give"
 		sessions := &fakeSessions{window: "a room"}
+		sessions.engageState()
 		decisions := &fakeDecisionsStore{}
 		notifier := &fakeNotifier{}
 		commands := &fakeCommands{}
@@ -1009,6 +1034,7 @@ func TestLoop_BlankSettings(t *testing.T) {
 
 	t.Run("a_failure_is_still_informative_with_blank_settings", func(t *testing.T) {
 		sessions := &fakeSessions{window: "a room"}
+		sessions.engageState()
 		decisions := &fakeDecisionsStore{}
 		notifier := &fakeNotifier{}
 		commands := &fakeCommands{}
@@ -1041,6 +1067,7 @@ func TestLoop_BlankSettings(t *testing.T) {
 		// plan's counters or halts can fire for a session that never turns
 		// autopilot on.
 		sessions := &fakeSessions{window: "a room"}
+		sessions.engageState()
 		decisions := &fakeDecisionsStore{}
 		notifier := &fakeNotifier{}
 		commands := &fakeCommands{}

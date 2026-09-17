@@ -778,11 +778,12 @@ func (c *corpusSessions) CurrentGameSessionID(userID string) (uuid.UUID, bool) {
 }
 
 // AutopilotStateFor satisfies the Sessions interface widened by 04-01-01.
-// The corpus harness never reads the switch state — every item is judged
-// solely on sends/dispatches/disengages — so a fixed AutopilotOff is
-// sufficient; nothing here needs the real state machine.
+// Every corpus item is one engaged decision, so the switch reads On: the
+// driver drops a decision whose stint has ended before it dispatches, and a
+// fixed AutopilotOff here would turn every item into a silent no-row. No
+// item, target, window or fixture is touched by this.
 func (c *corpusSessions) AutopilotStateFor(userID string) session.AutopilotState {
-	return session.AutopilotOff
+	return session.AutopilotOn
 }
 
 // OutputSignal satisfies the Sessions interface widened by 04-03-02. The

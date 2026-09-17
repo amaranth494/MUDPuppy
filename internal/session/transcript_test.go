@@ -1,7 +1,9 @@
 package session
 
 import (
+	"errors"
 	"net"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -165,6 +167,91 @@ func TestTranscriptOpensOnConnectAndClosesOnDisconnect(t *testing.T) {
 	})
 }
 
+// TestSendCommandAs_AIRefusedUnlessAutopilotOn pins the rule the 2026-09-17
+// staging walkthrough found missing: a decision already in flight when the
+// owner typed #AUTO OFF was sent one second after the switch went off. An
+// "ai" command must reach the socket only while autopilot is On; a human
+// command is never affected.
+func TestSendCommandAs_AIRefusedUnlessAutopilotOn(t *testing.T) {
+	m := newTestManager()
+	userID := uuid.New().String()
+	connID := uuid.New().String()
+	seedConnectedSession(m, userID, connID)
+
+	client, server := net.Pipe()
+	defer client.Close()
+	defer server.Close()
+	m.mu.Lock()
+	m.conns[userID] = client
+	m.mu.Unlock()
+
+	var mu sync.Mutex
+	var wire []string
+	go func() {
+		buf := make([]byte, 4096)
+		for {
+			n, err := server.Read(buf)
+			if err != nil {
+				return
+			}
+			mu.Lock()
+			wire = append(wire, string(buf[:n]))
+			mu.Unlock()
+		}
+	}()
+	written := func() string {
+		mu.Lock()
+		defer mu.Unlock()
+		return strings.Join(wire, "")
+	}
+	setState := func(s AutopilotState) {
+		m.mu.Lock()
+		m.autopilot[userID] = &AutopilotRecord{State: s, ConnectionID: connID}
+		m.mu.Unlock()
+	}
+
+	// No autopilot record at all: refused.
+	if err := m.SendCommandAs(userID, "east", "ai"); !errors.Is(err, ErrAutopilotNotOn) {
+		t.Fatalf("expected ErrAutopilotNotOn with no autopilot record, got %v", err)
+	}
+
+	for _, s := range []AutopilotState{AutopilotOff, AutopilotWaiting} {
+		setState(s)
+		if err := m.SendCommandAs(userID, "east", "ai"); !errors.Is(err, ErrAutopilotNotOn) {
+			t.Fatalf("expected ErrAutopilotNotOn in state %q, got %v", s, err)
+		}
+	}
+
+	// A human command goes through whatever the switch says.
+	if err := m.SendCommand(userID, "look"); err != nil {
+		t.Fatalf("human SendCommand with autopilot off: %v", err)
+	}
+
+	setState(AutopilotOn)
+	if err := m.SendCommandAs(userID, "north", "ai"); err != nil {
+		t.Fatalf("ai SendCommandAs with autopilot on: %v", err)
+	}
+
+	// The engaged decision is disengaged before its send: refused again.
+	if _, changed := m.DisengageAutopilot(userID, "wheel-grab"); !changed {
+		t.Fatalf("expected DisengageAutopilot to change state")
+	}
+	if err := m.SendCommandAs(userID, "south", "ai"); !errors.Is(err, ErrAutopilotNotOn) {
+		t.Fatalf("expected ErrAutopilotNotOn after disengage, got %v", err)
+	}
+
+	if !pollUntil(t, time.Second, func() bool { return strings.Contains(written(), "north\r\n") }) {
+		t.Fatalf("expected the engaged ai command on the wire, got %q", written())
+	}
+	got := written()
+	if strings.Contains(got, "east") || strings.Contains(got, "south") {
+		t.Fatalf("a refused ai command reached the wire: %q", got)
+	}
+	if !strings.Contains(got, "look\r\n") {
+		t.Fatalf("expected the human command on the wire, got %q", got)
+	}
+}
+
 func TestTranscriptLineSources(t *testing.T) {
 	m := newTestManager()
 	sink := &fakeTranscriptSink{}
@@ -180,6 +267,10 @@ func TestTranscriptLineSources(t *testing.T) {
 	if err := m.SendCommand(userID, "look"); err != nil {
 		t.Fatalf("SendCommand: %v", err)
 	}
+	// An "ai" send is only written while autopilot is On.
+	m.mu.Lock()
+	m.autopilot[userID] = &AutopilotRecord{State: AutopilotOn, ConnectionID: connID}
+	m.mu.Unlock()
 	if err := m.SendCommandAs(userID, "north", "ai"); err != nil {
 		t.Fatalf("SendCommandAs: %v", err)
 	}

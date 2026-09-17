@@ -15,6 +15,7 @@ package driver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -614,6 +615,17 @@ func (d *Driver) runIteration(userID, connectionID string, first bool) {
 		return
 	}
 
+	// The model calls above take seconds, and the owner may have taken the
+	// wheel or typed #AUTO OFF in the meantime. A decision that outlived its
+	// stint is dropped: nothing is dispatched, nothing is sent, and it is not
+	// a failure (it must not feed D-15's counter or print a failure notice).
+	// SendCommandAs enforces the same rule atomically below; this check just
+	// avoids spending an ICM dispatch on a command that will be refused.
+	if d.sessions.AutopilotStateFor(userID) != session.AutopilotOn {
+		d.logDecision(userID, connectionID, "", "dropped-disengaged", entry.ModelName, "", "", len(window), len(cmd))
+		return
+	}
+
 	ctx := icm.ContextAutomation
 	normalized := &icm.NormalizedCommand{
 		Command:           cmd,
@@ -628,6 +640,10 @@ func (d *Driver) runIteration(userID, connectionID string, first bool) {
 	d.logDecision(userID, connectionID, "", "dispatch", entry.ModelName, "", "", len(window), len(cmd))
 
 	if err := d.sessions.SendCommandAs(userID, cmd, "ai"); err != nil {
+		if errors.Is(err, session.ErrAutopilotNotOn) {
+			d.logDecision(userID, connectionID, "", "dropped-disengaged", entry.ModelName, "", "", len(window), len(cmd))
+			return
+		}
 		d.recordFailure(userID, connectionID, userUUID, connUUID, gameSessionID, entry.ModelName, window, answer.Reasoning, cmd, failureAPIError, resolved)
 		return
 	}
