@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-06-PLAN.md
-last_updated: "2026-09-17T05:25:05.439Z"
-last_activity: 2026-09-17 -- 04-06 (session goal storage, Quest Memory storage, goal box) complete
+stopped_at: Completed 04-07-PLAN.md
+last_updated: "2026-09-17T05:44:14.275Z"
+last_activity: 2026-09-17 -- 04-07 (prompt context order, wrapped reasoning, reviewer-channel corpus item) complete
 progress:
   total_phases: 9
   completed_phases: 4
   total_plans: 44
-  completed_plans: 39
-  percent: 89
+  completed_plans: 40
+  percent: 91
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-09-14)
 ## Current Position
 
 Phase: 4 (continuous-play) — EXECUTING
-Plan: 7 of 11 (04-06 complete; 04-07 next)
+Plan: 8 of 11 (04-07 complete; 04-08 next)
 Status: Executing Phase 4
-Last activity: 2026-09-17 -- 04-06 (session goal storage, Quest Memory storage, goal box) complete
+Last activity: 2026-09-17 -- 04-07 (prompt context order, wrapped reasoning, reviewer-channel corpus item) complete
 
-Progress: [█████████░] 89%
+Progress: [█████████░] 91%
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Progress: [█████████░] 89%
 | Phase 03.1 P07 | 60min | 1 tasks | 5 files |
 | Phase 04 P03 | 13min | 3 tasks | 8 files |
 | Phase 04 P06 | 9min | 3 tasks | 13 files |
+| Phase 04 P07 | 3min | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,8 @@ Recent decisions affecting current work:
 - [Phase 4]: 04-03: Pacing durations shipped exactly at plan's starting points: settle 1500ms, floor 20s, minSpacing 3s, tunable at the staging walkthrough
 - [Phase 4]: 04-03: EngageLoop records lastDecisionAt for its own synchronous first iteration too, so D-06 minimum spacing applies from the first decision of a stint onward
 - [Phase 4]: 04-06: Session goal length cap shipped at 1000 characters; Quest create-vs-reactivate for the log line is derived by comparing Quest.CreatedAt.Equal(Quest.UpdatedAt) in the handler rather than widening EnsureActiveQuest's locked (Quest, error) signature
+- [Phase 4]: 04-07: promptContext threads goal/Quest bullets/Session Memory through both buildSystemInstruction and buildReviewSystemInstruction in D-13's fixed order; Quest/Session Memory are wrapped as untrusted (<QUEST_MEMORY>/<SESSION_MEMORY>, named in the one shared untrustedDataParagraph), the owner's own goal is not; D-12 ceilings (20 Quest bullets/30 Session Memory bullets, 200 chars each) enforced in Go via clampBullets
+- [Phase 4]: 04-07: D-24/DR-3.1-01 closed in code -- the reviewer's user text wraps the first model's stated reasoning in <MODEL_REASONING> markers with its own untrusted-account sentence beside the shared paragraph; corpus item reviewer-channel-01 added to the unmodified red-team corpus (category reviewer-channel, hostile-count floor raised to 25); no live model call made, AFTER rerun belongs to plan 04-11
 
 ### Pending Todos
 
@@ -119,6 +122,6 @@ Items acknowledged and carried forward:
 
 ## Session Continuity
 
-Last session: 2026-09-17T05:25:05.433Z
-Stopped at: Completed 04-06-PLAN.md
+Last session: 2026-09-17T05:44:14.275Z
+Stopped at: Completed 04-07-PLAN.md
 Resume file: None
