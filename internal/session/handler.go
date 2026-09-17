@@ -500,6 +500,57 @@ func (h *Handler) Autopilot(w http.ResponseWriter, r *http.Request) {
 		return
 
 	case "resume":
+		// Code review WR-09 of Phase 5: the owner's Resume is an engagement
+		// -- it begins a new stint exactly as #AUTO ON does -- so it passes
+		// the same gate. A pause can last the whole login; policy acceptance
+		// withdrawn, a policy version bump or AI being unconfigured in the
+		// meantime used to go unnoticed, because the gate result resolved
+		// above was simply ignored on this arm.
+		//
+		// The gate is asked about the connection the switch is PARKED on,
+		// never the one named in the request body: otherwise a profile that
+		// accepted the policy could lend its acceptance to the paused one
+		// (the same rule code review C2 set for "on"). It is asked only when
+		// there is an owner pause to lift, so a Resume with nothing to resume
+		// still answers "not-waiting" as before. When the gate refuses, the
+		// switch is left exactly as it was -- still paused -- and the owner
+		// is told why, in the same words #AUTO ON uses.
+		if paused, _ := h.manager.AutopilotWaitingReasons(userIDStr); paused && h.manager.AutopilotStateFor(userIDStr) == AutopilotWaiting {
+			parkedID := h.manager.AutopilotConnectionIDFor(userIDStr)
+			refusal, refusalMessage := "", ""
+			parkedUUID, parseErr := uuid.Parse(parkedID)
+			switch {
+			case parseErr != nil || h.callbacks == nil || h.callbacks.EngageGate == nil:
+				// A missing dependency fails closed, never open (T-2-10).
+				refusal, refusalMessage = "refused-gate", gateMessage
+				resp.GateAllowed = false
+			default:
+				allowed, message, version := h.callbacks.EngageGate(parkedUUID, userUUID)
+				resp.GateAllowed, resp.GateMessage, resp.PolicyVersion = allowed, message, version
+				if !allowed {
+					refusal, refusalMessage = "refused-gate", message
+				} else if h.config == nil || !h.config.AIConfigured() {
+					refusal, refusalMessage = "refused-not-configured", "Autopilot refused: AI is not configured on this server"
+					resp.GateMessage = refusalMessage
+				}
+			}
+			if refusal != "" {
+				resp.State = string(AutopilotWaiting)
+				resp.Outcome = refusal
+				log.Printf("[AI-PLAYER] autopilot user_id=%s connection_id=%s old=%s new=%s cause=%s",
+					userIDStr, parkedID, AutopilotWaiting, AutopilotWaiting, refusal+"-resume")
+				// The Resume button has no terminal directive to print the
+				// reason, so it goes to the thinking stream (and, through the
+				// play screen, the terminal) as a refused line.
+				if refusalMessage != "" {
+					h.notifyAutopilotSystemLine(userIDStr, "refused", refusalMessage)
+				}
+				resp.PausedByOwner, resp.ConnectionLost = h.manager.AutopilotWaitingReasons(userIDStr)
+				h.sendJSON(w, resp)
+				return
+			}
+		}
+
 		// D-13: the engage hook is never called from this handler directly —
 		// only ResumeAutopilotByOwner's own changed-true path fires it, so
 		// "one code path fires each real engage" holds for the owner-resume

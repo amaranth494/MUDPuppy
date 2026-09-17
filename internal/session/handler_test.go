@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/amaranth494/MudPuppy/internal/config"
 	"github.com/amaranth494/MudPuppy/internal/store"
@@ -687,6 +688,193 @@ func TestAutopilotHandler_PauseAndResumeActions(t *testing.T) {
 		}
 		if resp.PausedByOwner || resp.ConnectionLost {
 			t.Errorf("(paused_by_owner, connection_lost) = (%v, %v), want (false, false)", resp.PausedByOwner, resp.ConnectionLost)
+		}
+	})
+}
+
+// TestAutopilotHandler_ResumeConsultsTheEngageGate proves code review WR-09
+// of Phase 5: the owner's Resume begins a new stint exactly as #AUTO ON
+// does, so it passes the same gate -- asked about the connection the switch
+// is parked on -- and when the gate refuses, the switch stays paused and the
+// owner is told why in the same words.
+func TestAutopilotHandler_ResumeConsultsTheEngageGate(t *testing.T) {
+	// pausedHandler engages and pauses with the gate open, then hands the
+	// test a switch for the gate, the connections it was asked about and
+	// the notices it pushed.
+	type rig struct {
+		h       *Handler
+		m       *Manager
+		userID  uuid.UUID
+		connID  uuid.UUID
+		allow   *bool
+		asked   *[]uuid.UUID
+		notices *[]AIDecisionPayload
+		engaged chan uint64
+		cfg     *config.Config
+	}
+	pausedHandler := func(t *testing.T, cfg *config.Config) rig {
+		t.Helper()
+		allow := true
+		var asked []uuid.UUID
+		var notices []AIDecisionPayload
+		m := newTestManager()
+		userID, connID := uuid.New(), uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
+		gate := func(connectionID, uid uuid.UUID) (bool, string, string) {
+			asked = append(asked, connectionID)
+			if allow {
+				return true, "", "1.0"
+			}
+			return false, store.EngageGateRefusalMessage, ""
+		}
+		h := NewHandlerWithCallbacks(m, configuredConfig(), &HandlerCallbacks{EngageGate: gate})
+		h.SetAINotifier(func(uid string, payload AIDecisionPayload) { notices = append(notices, payload) })
+
+		h.Autopilot(httptest.NewRecorder(), newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: connID})))
+		h.Autopilot(httptest.NewRecorder(), newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "pause"})))
+		if got := m.AutopilotStateFor(userID.String()); got != AutopilotWaiting {
+			t.Fatalf("precondition: state = %q, want %q", got, AutopilotWaiting)
+		}
+
+		engaged := make(chan uint64, 4)
+		m.SetEngageHook(func(uid, cid string, epoch uint64) { engaged <- epoch })
+		asked, notices = nil, nil
+		h.config = cfg
+		return rig{h: h, m: m, userID: userID, connID: connID, allow: &allow, asked: &asked, notices: &notices, engaged: engaged, cfg: cfg}
+	}
+	resume := func(t *testing.T, r rig, body AutopilotRequest) AutopilotResponse {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		r.h.Autopilot(rec, newAutopilotRequest(http.MethodPost, &r.userID, jsonBody(t, body)))
+		return decodeAutopilotResponse(t, rec)
+	}
+	assertStillPaused := func(t *testing.T, r rig, resp AutopilotResponse, wantOutcome string) {
+		t.Helper()
+		if resp.Outcome != wantOutcome {
+			t.Errorf("outcome = %q, want %q", resp.Outcome, wantOutcome)
+		}
+		if resp.State != string(AutopilotWaiting) || !resp.PausedByOwner {
+			t.Errorf("(state, paused_by_owner) = (%q, %v), want (%q, true): a refused resume leaves the switch paused", resp.State, resp.PausedByOwner, AutopilotWaiting)
+		}
+		if got := r.m.AutopilotStateFor(r.userID.String()); got != AutopilotWaiting {
+			t.Errorf("manager state = %q, want %q", got, AutopilotWaiting)
+		}
+		if paused, _ := r.m.AutopilotWaitingReasons(r.userID.String()); !paused {
+			t.Errorf("the owner's pause was cleared by a refused resume")
+		}
+		time.Sleep(20 * time.Millisecond)
+		if len(r.engaged) != 0 {
+			t.Errorf("the engage hook fired %d time(s) for a refused resume, want 0", len(r.engaged))
+		}
+	}
+
+	t.Run("a_gate_that_now_refuses_leaves_the_switch_paused_and_says_why", func(t *testing.T) {
+		r := pausedHandler(t, configuredConfig())
+		*r.allow = false // e.g. policy acceptance withdrawn while paused
+
+		resp := resume(t, r, AutopilotRequest{Action: "resume"})
+
+		assertStillPaused(t, r, resp, "refused-gate")
+		if resp.GateAllowed || resp.GateMessage != store.EngageGateRefusalMessage {
+			t.Errorf("(gate_allowed, gate_message) = (%v, %q), want (false, %q)", resp.GateAllowed, resp.GateMessage, store.EngageGateRefusalMessage)
+		}
+		notices := *r.notices
+		if len(notices) != 1 || notices[0].Kind != "system" || notices[0].Outcome != "refused" || notices[0].Message != store.EngageGateRefusalMessage {
+			t.Fatalf("expected exactly one refused notice carrying the same words #AUTO ON uses, got %+v", notices)
+		}
+		for _, n := range notices {
+			if n.Outcome == "resumed" {
+				t.Errorf("a refused resume announced itself as resumed: %+v", n)
+			}
+		}
+	})
+
+	t.Run("the_gate_is_asked_about_the_parked_connection_never_the_request_bodys", func(t *testing.T) {
+		r := pausedHandler(t, configuredConfig())
+		other := uuid.New() // another of the owner's profiles, named in the body
+
+		resume(t, r, AutopilotRequest{Action: "resume", ConnectionID: other})
+
+		sawParked := false
+		for _, id := range *r.asked {
+			if id == r.connID {
+				sawParked = true
+			}
+		}
+		if !sawParked {
+			t.Fatalf("the gate was never asked about the parked connection %s; asked about %v", r.connID, *r.asked)
+		}
+	})
+
+	t.Run("another_profiles_acceptance_cannot_be_borrowed", func(t *testing.T) {
+		allowOnly := uuid.New()
+		m := newTestManager()
+		userID, connID := uuid.New(), uuid.New()
+		seedConnectedSession(m, userID.String(), connID.String())
+		open := true
+		gate := func(connectionID, uid uuid.UUID) (bool, string, string) {
+			if open || connectionID == allowOnly {
+				return true, "", "1.0"
+			}
+			return false, store.EngageGateRefusalMessage, ""
+		}
+		h := NewHandlerWithCallbacks(m, configuredConfig(), &HandlerCallbacks{EngageGate: gate})
+		h.Autopilot(httptest.NewRecorder(), newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "on", ConnectionID: connID})))
+		h.Autopilot(httptest.NewRecorder(), newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "pause"})))
+		open = false // now only the OTHER profile passes the gate
+
+		rec := httptest.NewRecorder()
+		h.Autopilot(rec, newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "resume", ConnectionID: allowOnly})))
+		resp := decodeAutopilotResponse(t, rec)
+
+		if resp.Outcome != "refused-gate" || m.AutopilotStateFor(userID.String()) != AutopilotWaiting {
+			t.Fatalf("outcome = %q, state = %q; naming an accepted profile in the body must not resume the paused one", resp.Outcome, m.AutopilotStateFor(userID.String()))
+		}
+	})
+
+	t.Run("ai_no_longer_configured_refuses_too", func(t *testing.T) {
+		r := pausedHandler(t, unconfiguredConfig())
+
+		resp := resume(t, r, AutopilotRequest{Action: "resume"})
+
+		assertStillPaused(t, r, resp, "refused-not-configured")
+		if resp.GateMessage != "Autopilot refused: AI is not configured on this server" {
+			t.Errorf("gate_message = %q, want the same words #AUTO ON uses", resp.GateMessage)
+		}
+	})
+
+	t.Run("a_missing_gate_fails_closed", func(t *testing.T) {
+		r := pausedHandler(t, configuredConfig())
+		r.h.callbacks = &HandlerCallbacks{EngageGate: nil}
+
+		resp := resume(t, r, AutopilotRequest{Action: "resume"})
+
+		assertStillPaused(t, r, resp, "refused-gate")
+	})
+
+	t.Run("an_open_gate_resumes_as_before", func(t *testing.T) {
+		r := pausedHandler(t, configuredConfig())
+
+		resp := resume(t, r, AutopilotRequest{Action: "resume"})
+
+		if resp.Outcome != "resumed" || resp.State != string(AutopilotOn) {
+			t.Fatalf("(outcome, state) = (%q, %q), want (resumed, on)", resp.Outcome, resp.State)
+		}
+		if !pollUntil(t, 2*time.Second, func() bool { return len(r.engaged) >= 1 }) {
+			t.Fatal("timed out waiting for the engage hook on an allowed resume")
+		}
+	})
+
+	t.Run("nothing_to_resume_still_answers_not_waiting_even_with_the_gate_shut", func(t *testing.T) {
+		m := newTestManager()
+		userID := uuid.New()
+		h := newAutopilotHandler(m, alwaysRefuse(store.EngageGateRefusalMessage))
+
+		rec := httptest.NewRecorder()
+		h.Autopilot(rec, newAutopilotRequest(http.MethodPost, &userID, jsonBody(t, AutopilotRequest{Action: "resume"})))
+
+		if resp := decodeAutopilotResponse(t, rec); resp.Outcome != "not-waiting" {
+			t.Fatalf("outcome = %q, want %q", resp.Outcome, "not-waiting")
 		}
 	})
 }
