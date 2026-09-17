@@ -1,0 +1,2 @@
+400
+{"error":"AI command rate limit must be between 1 and 20 commands per second"}
