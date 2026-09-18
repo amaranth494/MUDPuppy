@@ -62,7 +62,7 @@ completed: 2026-09-18
 - **Duration:** ~16h 33m wall-clock across two calendar days (see frontmatter; not continuous execution time)
 - **Started:** 2026-09-17T14:18:22-07:00 (first evidence commit, `ebb877a`)
 - **Completed:** 2026-09-18T06:51:25-07:00 (this plan's own closing commit)
-- **Tasks:** 5 (05-11-01 through 05-11-05; 05-11-03 and 05-11-04 are blocking human-verify checkpoints, both approved by the owner)
+- **Tasks:** 5 (05-11-01 through 05-11-05; 05-11-03 and 05-11-04 are blocking human-verify checkpoints, 05-11-03 approved by the owner on 2026-09-18; 05-11-04 performed by Claude at the owner's direction and awaiting the owner's confirmation)
 - **Files modified:** 25 evidence files created, 1 source file touched by a documented in-scope deviation (`internal/driver/corpus_live_test.go`), 2 documents (this file and `05-SECURITY-AGENDA.md`)
 
 ## Accomplishments
@@ -74,19 +74,19 @@ completed: 2026-09-18
 
 ## Task Commits
 
-Tasks 05-11-01 through 05-11-04 were executed and approved before this executor was spawned; their evidence is already on disk and committed. This executor performed task 05-11-05 only (the security agenda) and this closing summary, and does not re-verify or re-commit any file under `evidence/`.
+Tasks 05-11-01 through 05-11-04 were executed before this executor was spawned (05-11-03 is approved by the owner; 05-11-04 awaits the owner's confirmation); their evidence is already on disk and committed. This executor performed task 05-11-05 only (the security agenda) and this closing summary, and does not re-verify or re-commit any file under `evidence/`.
 
 1. **Task 05-11-01: Test report and harness self-test** - `ebb877a` (test), recaptured after the code-review fixes at `4e390b3` (test); deviation fix `1629bbf` (fix)
 2. **Task 05-11-02: Red-team corpus rerun** - `a9f7d14` (docs, quota-exhausted run set aside), `1629bbf` (fix, unmeasured-sample reporting), `93ec3d9` (docs, corpus runs filed under final names)
 3. **Task 05-11-03 (checkpoint, approved): Staging deploy, migration 015, RUN A, screenshots 12-13** - `7f899d2` (docs, staging startup excerpt), `1d2e0c2` (test, RUN A), `4691b5e` (docs, screenshots 12 and 13)
-4. **Task 05-11-04 (checkpoint, approved): Owner walkthrough, RUN B, twelve screenshots, log excerpt** - `83f8952` (test, RUN A rerun on the fixed build), `7a4fa99` (test, chat-channel live run before the withdraw gate), `df8645e` (test, chat-channel live run after the withdraw gate), `9073422` (docs, staging startup excerpt for the withdraw-gate build), `f4fff44` (docs, walkthrough evidence, RUN B and the staging log excerpt), `f4a8043` (docs, screenshot 10 retaken on the pop-out controls fix)
+4. **Task 05-11-04 (checkpoint, performed; owner confirmation pending): Owner walkthrough, RUN B, twelve screenshots, log excerpt** - `83f8952` (test, RUN A rerun on the fixed build), `7a4fa99` (test, chat-channel live run before the withdraw gate), `df8645e` (test, chat-channel live run after the withdraw gate), `9073422` (docs, staging startup excerpt for the withdraw-gate build), `f4fff44` (docs, walkthrough evidence, RUN B and the staging log excerpt), `f4a8043` (docs, screenshot 10 retaken on the pop-out controls fix)
 5. **Task 05-11-05: Security review agenda** - `6bd1def` (docs)
 
 **Plan metadata:** this commit (docs: complete plan)
 
 ## Files Created/Modified
 
-- `evidence/01-test-report.txt` - all twenty-two commands from `go build` through the `### LOGS ROUTE GUARD` grep, captured verbatim; `GO TEST EXIT: 0` at line 4235
+- `evidence/01-test-report.txt` - all twenty-two commands from `go build` through the `### LOGS ROUTE GUARD` grep, captured verbatim; `GO TEST EXIT: 0` at line 4241
 - `evidence/02-harness-selftest.txt` - clean self-test (`EXIT: 0`, line 176) and negative self-test (`FAIL C3` at line 286, `EXIT: 1` at line 353)
 - `evidence/03-canned-report.txt` - RUN A (line 1, before the walkthrough, staging base URL and SHA `235816d`) and RUN B (line 157, after the walkthrough)
 - `evidence/04-redteam-after.txt` - the kept AFTER corpus run, `STEERED: 0` at line 68
@@ -209,7 +209,7 @@ A second coaching message ("do not enter the cave until I say so") was pushed at
 
 ## Race Detector
 
-`-race` ran: `evidence/01-test-report.txt`'s `### RACE` section, lines 4062-4078, shows every package with tests passing under `go test ./internal/... -race -count=1` (`EXIT: 0` at line 4078). This corrects an earlier, hard-coded report line from a discarded run (`04a-redteam-after-quota-exhausted.txt:8`, "did not run; the cgo-based race detector toolchain is unavailable") that predated `1629bbf`'s fix and was never true of this machine's actual `01-test-report.txt` run.
+`-race` ran: `evidence/01-test-report.txt`'s `### RACE` section, lines 4068-4084, shows every package with tests passing under `go test ./internal/... -race -count=1` (`EXIT: 0` at line 4084). This corrects an earlier, hard-coded report line from a discarded run (`04a-redteam-after-quota-exhausted.txt:8`, "did not run; the cgo-based race detector toolchain is unavailable") that predated `1629bbf`'s fix and was never true of this machine's actual `01-test-report.txt` run.
 
 ## Deviations from Plan
 
@@ -292,7 +292,7 @@ The Phase 5 security review's own agenda is `05-SECURITY-AGENDA.md`, re-presenti
 
 ## Self-Check: PASSED
 
-- FOUND: .planning/phases/05-coaching-channel/evidence/01-test-report.txt (GO TEST EXIT: 0 at line 4235; RACE section lines 4062-4078)
+- FOUND: .planning/phases/05-coaching-channel/evidence/01-test-report.txt (GO TEST EXIT: 0 at line 4241; RACE section lines 4068-4084)
 - FOUND: .planning/phases/05-coaching-channel/evidence/02-harness-selftest.txt (FAIL C3 at line 286, EXIT: 1 at line 353)
 - FOUND: .planning/phases/05-coaching-channel/evidence/03-canned-report.txt (RUN A line 1, RUN B line 157)
 - FOUND: .planning/phases/05-coaching-channel/evidence/04-redteam-after.txt (STEERED: 0 at line 68)

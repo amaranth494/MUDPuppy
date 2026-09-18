@@ -51,7 +51,7 @@ This document is the input to the Phase 5 security review, not its output. It de
 
 **What Phase 5 did:** every AI-player command is now counted by a per-user send limiter before it is dispatched, and the send is refused when the limiter says stop. Per the owner's own condition, the limit is a setting on the profile — the same Settings page as the other AI settings — where a blank value means the server's own default, matching the project's existing blank-means-default pattern elsewhere. The pass-through dispatcher this limiter sits behind was not touched.
 
-**Evidence:** `evidence/01-test-report.txt:1532` (`TestAllowAISend_FloodRefused`, PASS), `evidence/01-test-report.txt:2847` (`TestResolveAISettings_RateLimitBlankMeansServerDefault`, PASS), the empty `### ICM UNCHANGED` section at `evidence/01-test-report.txt:4219-4221`, and `evidence/12-ai-settings-rate-limit.png` (the setting, its `Server default` placeholder and its hint, as the owner sees it).
+**Evidence:** `evidence/01-test-report.txt:1532` (`TestAllowAISend_FloodRefused`, PASS), `evidence/01-test-report.txt:2849` (`TestResolveAISettings_RateLimitBlankMeansServerDefault`, PASS), the empty `### ICM UNCHANGED` section at `evidence/01-test-report.txt:4225-4227`, and `evidence/12-ai-settings-rate-limit.png` (the setting, its `Server default` placeholder and its hint, as the owner sees it).
 
 **Dispositions:**
 - [ ] **Accept** — the per-user limiter, as a configurable setting, stands as sufficient.
@@ -81,7 +81,7 @@ This document is the input to the Phase 5 security review, not its output. It de
 
 **What Phase 5 did about the condition:** a visitor who is not signed in and opens the log page for a connection is sent to sign-in rather than shown any transcript. The route is pinned inside the sign-in guard in the frontend's own routing file, with a comment naming this row so a later change cannot move it back out by accident without the comment being noticed.
 
-**Evidence:** `evidence/13-logs-signed-out.png` (captured from a private browser window, never by signing the owner out, showing a sign-in prompt rather than any transcript) and the `### LOGS ROUTE GUARD` section, `evidence/01-test-report.txt:4223-4233` (the route's line falling inside `AuthGuard`, with the comment naming this row).
+**Evidence:** `evidence/13-logs-signed-out.png` (captured from a private browser window, never by signing the owner out, showing a sign-in prompt rather than any transcript) and the `### LOGS ROUTE GUARD` section, `evidence/01-test-report.txt:4229-4239` (the route's line falling inside `AuthGuard`, with the comment naming this row).
 
 **What is still the owner's own task, not something this phase's code could do anything about:** reviewing who has Railway project access or tokens that could run `railway logs` against staging remains entirely the owner's own administrative step. Nothing in this phase changes who that is.
 
@@ -209,7 +209,7 @@ These were dispositioned `accept` inside the plans that found them, not left ope
 
 | Threat ID | What it is | Dispositioned at | What to confirm |
 |-----------|-----------|-------------------|------------------|
-| T-5-SC | Supply chain: no package was added to `go.mod` or `frontend/package.json` anywhere in this phase. | Every plan, 05-01 through 05-11 | The empty `### DEPENDENCY DRIFT` section of `evidence/01-test-report.txt:4206-4208`. |
+| T-5-SC | Supply chain: no package was added to `go.mod` or `frontend/package.json` anywhere in this phase. | Every plan, 05-01 through 05-11 | The empty `### DEPENDENCY DRIFT` section of `evidence/01-test-report.txt:4212-4214`. |
 | T-5-13 | The stricter vault-key gate (DR-4-04, item 4 above) could have stopped staging if `ENCRYPTION_KEY_V1` had not already been set there. | Plan 05-03 | Staging's key was already set from Phase 4 and was not changed; the migration and startup lines in `evidence/05-staging-ai-player.log:3` show a clean start. |
 | T-5-09 | The corpus rerun this phase needed costs a day's worth of the free-tier quota. | Plan 05-02, restated in this plan's own threat model | The rerun happened on a fresh-quota day (2026-09-18); the first attempt on 2026-09-17 hit the spent quota and was filed separately (`evidence/04a-redteam-after-quota-exhausted.txt`) rather than being used as a measurement. |
 | T-5-41 | The help article this phase adds teaches the owner to paste a model-written suggestion into his own Conduct rules or Approach guidance, by hand — profile text the rest of the system trusts as the owner's own. | Plan 05-09 | `evidence/14-help-article.png` and `evidence/15-guidance-pasted-by-hand.png`: the copy is manual, no promotion control exists anywhere, and the article names the two settings and their purposes before telling the owner to paste. |
