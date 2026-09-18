@@ -573,8 +573,11 @@ body.ai-popout-body > .ai-assist-chat > .ai-assist-chat-header { border-top: non
    the window, scrolling inside themselves, so opening both lists can never
    squeeze the thinking stream out -- and the thinking stream takes the rest
    and scrolls. */
+/* flex-shrink must be 0: a shrinkable scroll container has a min-height of
+   zero, so a long thinking stream squeezed these controls to a sliver and
+   the Pause button could not be reached (seen in the 05-11 walkthrough). */
 body.ai-popout-body > .ai-assist-panel-top {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   max-height: 50%;
   overflow-y: auto;
 }
