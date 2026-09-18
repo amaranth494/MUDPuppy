@@ -1,0 +1,10 @@
+{
+  "criticality": "low",
+  "decidedAt": "2026-09-18T15:21:08.912Z",
+  "decision": "accept",
+  "note": "This is not a security risk.  Update the guide as needed.",
+  "phase": "05",
+  "reference": "T-5-41 (audit: OPEN, low)",
+  "risk_id": "R-13",
+  "title": "The help article tells you where to paste a suggestion, but not to read it first"
+}

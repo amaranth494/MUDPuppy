@@ -1,0 +1,10 @@
+{
+  "criticality": "high",
+  "decidedAt": "2026-09-18T15:14:39.732Z",
+  "decision": "accept",
+  "note": "",
+  "phase": "05",
+  "reference": "DR-4-02 (deferred from Phase 4, high)",
+  "risk_id": "R-03",
+  "title": "A checker answer with no yes-or-no used to send the command: fixed"
+}

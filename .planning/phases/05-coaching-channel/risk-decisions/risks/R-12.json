@@ -1,0 +1,10 @@
+{
+  "criticality": "low",
+  "decidedAt": "2026-09-18T15:20:46.776Z",
+  "decision": "accept",
+  "note": "AI-CHAT and AI-PLAYER are different in nature and the Call Cap should only affect the AI-PLAYER.  Keep as is.",
+  "phase": "05",
+  "reference": "T-5-NEW-04 (audit, low) / WR-08",
+  "risk_id": "R-12",
+  "title": "The Call Cap no longer limits every AI call"
+}

@@ -1,0 +1,10 @@
+{
+  "criticality": "low",
+  "decidedAt": "2026-09-18T15:24:45.603Z",
+  "decision": "accept",
+  "note": "Not a security risk.",
+  "phase": "05",
+  "reference": "Agenda item 12; IN-02, IN-03, IN-04, IN-07; harness C1",
+  "risk_id": "R-18",
+  "title": "Small things left undone"
+}

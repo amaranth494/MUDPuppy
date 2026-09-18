@@ -1,0 +1,10 @@
+{
+  "criticality": "low",
+  "decidedAt": "2026-09-18T15:14:46.937Z",
+  "decision": "accept",
+  "note": "",
+  "phase": "05",
+  "reference": "DR-4-04 (deferred from Phase 4, low)",
+  "risk_id": "R-05",
+  "title": "The password-vault key check only ran on Railway: fixed"
+}

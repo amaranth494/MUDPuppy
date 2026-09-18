@@ -1,0 +1,10 @@
+{
+  "criticality": "high",
+  "decidedAt": "2026-09-18T15:14:41.805Z",
+  "decision": "accept",
+  "note": "",
+  "phase": "05",
+  "reference": "DR-4-03 (deferred from Phase 4, high; T-4-02)",
+  "risk_id": "R-04",
+  "title": "The last-resort speed limit did not count the AI's commands: fixed, and now a setting"
+}

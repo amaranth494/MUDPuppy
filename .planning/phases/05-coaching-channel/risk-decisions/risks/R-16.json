@@ -1,0 +1,10 @@
+{
+  "criticality": "medium",
+  "decidedAt": "2026-09-18T15:22:52.352Z",
+  "decision": "accept",
+  "note": "",
+  "phase": "05",
+  "reference": "Found by the audit; bears on AR-4-08",
+  "risk_id": "R-16",
+  "title": "Every command you type by hand is written to the server log, including a password typed at a login prompt"
+}

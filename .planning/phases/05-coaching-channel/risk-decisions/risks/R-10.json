@@ -1,0 +1,10 @@
+{
+  "criticality": "low",
+  "decidedAt": "2026-09-18T15:19:12.728Z",
+  "decision": "defer",
+  "note": "AI-Chat and AI-Player should not ever become available unless the AI policy is accepted in the game profile.  Fix this as a bug in the next Phase.",
+  "phase": "05",
+  "reference": "T-5-NEW-11 (audit, low)",
+  "risk_id": "R-10",
+  "title": "AI-chatter will answer for a profile that never accepted the policy"
+}

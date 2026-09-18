@@ -1,0 +1,10 @@
+{
+  "criticality": "high",
+  "decidedAt": "2026-09-18T15:18:06.256Z",
+  "decision": "defer",
+  "note": "We are going to address this in advanced logic for the AI-Player later.",
+  "phase": "05",
+  "reference": "T-5-26 (deferred to this review, high) + T-5-NEW-02 (audit, medium)",
+  "risk_id": "R-08",
+  "title": "A hostile room could try to get a sentence to the AI through the chat, and the check on that can be got round"
+}

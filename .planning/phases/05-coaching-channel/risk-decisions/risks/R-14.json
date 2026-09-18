@@ -1,0 +1,10 @@
+{
+  "criticality": "low",
+  "decidedAt": "2026-09-18T15:21:36.736Z",
+  "decision": "defer",
+  "note": "We are going to address this in advanced logic for the AI-Player later.",
+  "phase": "05",
+  "reference": "Walkthrough observation (agenda item 11)",
+  "risk_id": "R-14",
+  "title": "A standing suggestion can make the AI play worse"
+}

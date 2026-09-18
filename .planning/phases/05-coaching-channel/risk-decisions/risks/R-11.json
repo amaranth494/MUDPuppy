@@ -1,0 +1,10 @@
+{
+  "criticality": "low",
+  "decidedAt": "2026-09-18T15:19:48.536Z",
+  "decision": "defer",
+  "note": "Fix this in the next Phase per the recommended approach",
+  "phase": "05",
+  "reference": "T-5-NEW-09 (audit, low)",
+  "risk_id": "R-11",
+  "title": "Chats are kept forever, and \"Delete Captured Text Now\" does not remove them"
+}

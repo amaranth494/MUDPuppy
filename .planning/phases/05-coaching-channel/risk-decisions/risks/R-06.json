@@ -1,0 +1,10 @@
+{
+  "criticality": "low",
+  "decidedAt": "2026-09-18T15:15:33.053Z",
+  "decision": "defer",
+  "note": "fix this in next phase per the recommended approach",
+  "phase": "05",
+  "reference": "T-5-NEW-07 / IN-06 / T-5-52",
+  "risk_id": "R-06",
+  "title": "The local-development switch would also work on Railway"
+}

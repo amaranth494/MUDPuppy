@@ -1,0 +1,10 @@
+{
+  "criticality": "medium",
+  "decidedAt": "2026-09-18T15:21:45.656Z",
+  "decision": "accept",
+  "note": "",
+  "phase": "05",
+  "reference": "T-5-NEW-08 (audit, medium) + T-5-09",
+  "risk_id": "R-15",
+  "title": "The safety checker has never been fully tested on the model staging now runs"
+}

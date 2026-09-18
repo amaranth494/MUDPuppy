@@ -1,0 +1,10 @@
+{
+  "criticality": "low",
+  "decidedAt": "2026-09-18T14:34:13.017Z",
+  "decision": "accept",
+  "note": "Push as is.",
+  "phase": "05",
+  "reference": "T-5-46 (audit: OPEN, low, time-sensitive)",
+  "risk_id": "R-01",
+  "title": "An older copy of the staging report, still in the unpushed history, shows your conduct rules and Never-issue list"
+}

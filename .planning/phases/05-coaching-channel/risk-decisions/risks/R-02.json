@@ -1,0 +1,10 @@
+{
+  "criticality": "high",
+  "decidedAt": "2026-09-18T15:14:36.117Z",
+  "decision": "accept",
+  "note": "",
+  "phase": "05",
+  "reference": "DR-4-01 (deferred from Phase 4, high)",
+  "risk_id": "R-02",
+  "title": "The checker blocked ordinary fighting and changed its mind: a fix is built and measured"
+}

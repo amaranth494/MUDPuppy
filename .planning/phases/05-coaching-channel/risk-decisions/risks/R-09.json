@@ -1,0 +1,10 @@
+{
+  "criticality": "low",
+  "decidedAt": "2026-09-18T15:18:22.640Z",
+  "decision": "accept",
+  "note": "",
+  "phase": "05",
+  "reference": "T-5-NEW-03 + T-5-NEW-10 (audit, low)",
+  "risk_id": "R-09",
+  "title": "Smaller holes in the chat checks: taking a line back, and faking the \"Sent to AI-player\" line"
+}
