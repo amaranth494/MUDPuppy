@@ -1,12 +1,12 @@
 ### bash scripts/verify-phase5.sh --self-test <file>
 ================================================================
 Phase 5 canned-report harness -- scripts/verify-phase5.sh
-Run started (UTC): 2026-09-17T23:02:28Z
+Run started (UTC): 2026-09-18T13:58:31Z
 Mode: --self-test (fixtures: scripts/fixtures/phase5/, no server)
 BASE_URL: http://fixture.invalid
 CONNECTION_ID: 00000000-0000-0000-0000-000000000000
 NOT_OWNED_CONNECTION_ID: ffffffff-ffff-ffff-ffff-ffffffffffff
-git rev-parse --short HEAD: 9073422
+git rev-parse --short HEAD: 3b1ddc1
 ================================================================
 
 Ground rules: (1) proof here is this report or an end-user screenshot,
@@ -178,12 +178,12 @@ EXIT: 0
 ### bash scripts/verify-phase5.sh --self-test-negative <file>
 ================================================================
 Phase 5 canned-report harness -- scripts/verify-phase5.sh
-Run started (UTC): 2026-09-17T23:02:39Z
+Run started (UTC): 2026-09-18T13:58:42Z
 Mode: --self-test-negative (fixtures: scripts/fixtures/phase5-negative/, no server)
 BASE_URL: http://fixture.invalid
 CONNECTION_ID: 00000000-0000-0000-0000-000000000000
 NOT_OWNED_CONNECTION_ID: ffffffff-ffff-ffff-ffff-ffffffffffff
-git rev-parse --short HEAD: 9073422
+git rev-parse --short HEAD: 3b1ddc1
 ================================================================
 
 Ground rules: (1) proof here is this report or an end-user screenshot,

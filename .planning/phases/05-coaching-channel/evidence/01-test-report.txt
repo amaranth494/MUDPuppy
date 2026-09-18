@@ -29,7 +29,7 @@ EXIT: 0
     --- PASS: TestMarkLoginStart/the_hook_is_told_even_when_the_store_call_fails (0.00s)
     --- PASS: TestMarkLoginStart/no_hook_is_a_no_op (0.00s)
 PASS
-ok  	github.com/amaranth494/MudPuppy/internal/auth	0.394s
+ok  	github.com/amaranth494/MudPuppy/internal/auth	(cached)
 === RUN   TestLoadRequiresEncryptionKeyEverywhereUnlessLocalDev
 === RUN   TestLoadRequiresEncryptionKeyEverywhereUnlessLocalDev/no_key,_no_flag,_no_RAILWAY_ENVIRONMENT_fails
 === RUN   TestLoadRequiresEncryptionKeyEverywhereUnlessLocalDev/no_key,_RAILWAY_ENVIRONMENT_set_still_fails_(the_old_escape_route_is_gone)
@@ -1691,7 +1691,7 @@ ok  	github.com/amaranth494/MudPuppy/internal/config	(cached)
 2026/09/17 16:01:17 [AI-PLAYER] decision user_id=ec86c1a0-d778-46e6-bc5f-6282bf15f842 connection_id=859bbfee-00b7-4f2e-800a-617281fcd24f decision_id=42212f64-2a95-4524-924e-1ae177c3876e stage=sent model=test-model-not-a-real-name outcome=sent failure= snapshot_bytes=6 cmd_len=4
 --- PASS: TestStint_LoopThatStopsItselfLeavesNoEntry (0.00s)
 PASS
-ok  	github.com/amaranth494/MudPuppy/internal/driver	3.126s
+ok  	github.com/amaranth494/MudPuppy/internal/driver	(cached)
 ?   	github.com/amaranth494/MudPuppy/internal/email	[no test files]
 === RUN   TestGenerateContent
 === RUN   TestGenerateContent/sends_api_key_in_header
@@ -2797,7 +2797,7 @@ ok  	github.com/amaranth494/MudPuppy/internal/profiles	(cached)
     --- PASS: TestWindow_CoversTheGapSinceThePreviousDecision/a_short_gap_still_gets_the_full_age_bound (0.00s)
     --- PASS: TestWindow_CoversTheGapSinceThePreviousDecision/a_very_long_gap_is_still_bounded_by_the_ring (0.00s)
 PASS
-ok  	github.com/amaranth494/MudPuppy/internal/session	2.719s
+ok  	github.com/amaranth494/MudPuppy/internal/session	(cached)
 === RUN   TestCoachingStoreSQL
 --- PASS: TestCoachingStoreSQL (0.00s)
 === RUN   TestConversationStoreSQL
@@ -2824,6 +2824,8 @@ ok  	github.com/amaranth494/MudPuppy/internal/session	2.719s
 --- PASS: TestRecentDecisionsSQL (0.00s)
 === RUN   TestRecentForConnection_NoLimitNoQuery
 --- PASS: TestRecentForConnection_NoLimitNoQuery (0.00s)
+=== RUN   TestListDecisionsSQL
+--- PASS: TestListDecisionsSQL (0.00s)
 === RUN   TestMigration012DownReconcilesBlockedRows
 --- PASS: TestMigration012DownReconcilesBlockedRows (0.00s)
 === RUN   TestMigration014AddsLoginStartedAtColumn
@@ -3072,7 +3074,7 @@ EXIT: 0
         --- PASS: TestWheelGrabSourceRule/decision/paused_trigger_source_is_not_grabbed (0.00s)
         --- PASS: TestWheelGrabSourceRule/decision/second_user_untouched (0.00s)
 PASS
-ok  	github.com/amaranth494/MudPuppy/internal/session	0.616s
+ok  	github.com/amaranth494/MudPuppy/internal/session	(cached)
 EXIT: 0
 
 ### go test ./internal/gemini/... -run "TestReviewCommand_MissingBlockedField|TestReviewCommand_BlockedFalseIsStillAVerdict|TestChat_" -v
@@ -3100,7 +3102,7 @@ EXIT: 0
 === RUN   TestBuildReviewSystemInstruction_MemoryAuthorship
 --- PASS: TestBuildReviewSystemInstruction_MemoryAuthorship (0.00s)
 PASS
-ok  	github.com/amaranth494/MudPuppy/internal/driver	0.699s
+ok  	github.com/amaranth494/MudPuppy/internal/driver	(cached)
 EXIT: 0
 
 ### go test ./internal/driver/... -run "TestAllowAISend_|TestDriverRateLimitRefusalIsTransient" -v
@@ -3123,7 +3125,7 @@ EXIT: 0
 2026/09/17 16:01:24 [AI-PLAYER] decision user_id=ba5272ac-2f47-4191-8fce-0e40027db8db connection_id=8c09f10c-e371-4031-a55d-bcad46bcf20f decision_id=7c982c20-706a-4d5e-b7d7-c9fa6244c8dc stage=failed model=test-model-not-a-real-name outcome=failed failure=rate-limited-ai snapshot_bytes=6 cmd_len=5
 --- PASS: TestDriverRateLimitRefusalIsTransient (0.00s)
 PASS
-ok  	github.com/amaranth494/MudPuppy/internal/driver	1.840s
+ok  	github.com/amaranth494/MudPuppy/internal/driver	(cached)
 EXIT: 0
 
 ### go test ./internal/driver/... -run "TestHandleChat_" -v
@@ -3443,7 +3445,7 @@ EXIT: 0
 2026/09/17 16:01:26 [AI-CHATTER] chat user_id=89892f00-0714-438f-b4f2-c7ba2093f3ce connection_id=17b6581c-b9b7-4123-a12f-f3212758080a stage=coaching-pushed count=1 dropped=0
 --- PASS: TestHandleChat_PushReachesNextPrompt (0.00s)
 PASS
-ok  	github.com/amaranth494/MudPuppy/internal/driver	0.704s
+ok  	github.com/amaranth494/MudPuppy/internal/driver	(cached)
 EXIT: 0
 
 ### go test ./internal/driver/... -run "TestCoaching|TestUntrustedParagraphNamesEveryMarker|TestPromptContextOrder|TestMemoryIsWrappedInBothPrompts|TestMemoryCeilingsAreEnforced" -v
@@ -3544,10 +3546,10 @@ EXIT: 0
 === RUN   TestCoachingCannotForgeAMarker
 --- PASS: TestCoachingCannotForgeAMarker (0.00s)
 PASS
-ok  	github.com/amaranth494/MudPuppy/internal/driver	0.709s
+ok  	github.com/amaranth494/MudPuppy/internal/driver	(cached)
 EXIT: 0
 
-### go test ./internal/store/... -run "TestConversationStoreSQL|TestCoachingStoreSQL|TestResolveAISettings" -v
+### go test ./internal/store/... -run "TestConversationStoreSQL|TestCoachingStoreSQL|TestResolveAISettings|TestListDecisionsSQL|TestRecentDecisionsSQL" -v
 === RUN   TestCoachingStoreSQL
 --- PASS: TestCoachingStoreSQL (0.00s)
 === RUN   TestConversationStoreSQL
@@ -3570,6 +3572,10 @@ EXIT: 0
     --- PASS: TestConversationStoreSQL/recent_conversation_orders_descending_with_a_limit (0.00s)
     --- PASS: TestConversationStoreSQL/append_chat_line_rejects_unknown_speaker_before_touching_the_database (0.00s)
     --- PASS: TestConversationStoreSQL/recent_conversation_rejects_a_non_positive_limit_before_touching_the_database (0.00s)
+=== RUN   TestRecentDecisionsSQL
+--- PASS: TestRecentDecisionsSQL (0.00s)
+=== RUN   TestListDecisionsSQL
+--- PASS: TestListDecisionsSQL (0.00s)
 === RUN   TestResolveAISettings
 === RUN   TestResolveAISettings/all_blank_resolves_to_server_default_model,_no_cap,_threshold_3
 === RUN   TestResolveAISettings/explicit_model_name_passes_through_unchanged
@@ -3589,7 +3595,7 @@ EXIT: 0
     --- PASS: TestResolveAISettings_RateLimitBlankMeansServerDefault/explicit_rate_limit_7_sets_RateLimitSet_and_RateLimitPerSecond (0.00s)
     --- PASS: TestResolveAISettings_RateLimitBlankMeansServerDefault/rate_limit_resolves_independently_of_the_other_three_settings (0.00s)
 PASS
-ok  	github.com/amaranth494/MudPuppy/internal/store	0.326s
+ok  	github.com/amaranth494/MudPuppy/internal/store	0.320s
 EXIT: 0
 
 ### go test ./internal/config/... -run "TestLoadRequiresEncryptionKeyEverywhereUnlessLocalDev|TestLocalDevOptOutIsAnnounced" -v
@@ -4045,7 +4051,7 @@ EXIT: 0
 === RUN   TestCorpusIsWellFormed
 --- PASS: TestCorpusIsWellFormed (0.00s)
 PASS
-ok  	github.com/amaranth494/MudPuppy/internal/driver	0.701s
+ok  	github.com/amaranth494/MudPuppy/internal/driver	(cached)
 EXIT: 0
 
 ### go test ./internal/driver/... -run TestLiveCorpus -v (corpus flag unset)
@@ -4056,25 +4062,25 @@ EXIT: 0
     corpus_live_test.go:1074: set MUDPUPPY_LIVE_CORPUS=1 (and the AI_MODEL_* Gemini variables) to run the live red-team corpus
 --- SKIP: TestLiveCorpus_HostileText (0.00s)
 PASS
-ok  	github.com/amaranth494/MudPuppy/internal/driver	0.701s
+ok  	github.com/amaranth494/MudPuppy/internal/driver	(cached)
 EXIT: 0
 
 ### RACE
-ok  	github.com/amaranth494/MudPuppy/internal/auth	1.756s
-ok  	github.com/amaranth494/MudPuppy/internal/config	1.322s
+ok  	github.com/amaranth494/MudPuppy/internal/auth	1.530s
+ok  	github.com/amaranth494/MudPuppy/internal/config	1.236s
 ?   	github.com/amaranth494/MudPuppy/internal/connections	[no test files]
 ?   	github.com/amaranth494/MudPuppy/internal/crypto	[no test files]
-ok  	github.com/amaranth494/MudPuppy/internal/driver	4.572s
+ok  	github.com/amaranth494/MudPuppy/internal/driver	4.470s
 ?   	github.com/amaranth494/MudPuppy/internal/email	[no test files]
-ok  	github.com/amaranth494/MudPuppy/internal/gemini	1.991s
+ok  	github.com/amaranth494/MudPuppy/internal/gemini	1.510s
 ?   	github.com/amaranth494/MudPuppy/internal/help	[no test files]
-ok  	github.com/amaranth494/MudPuppy/internal/icm	1.409s
+ok  	github.com/amaranth494/MudPuppy/internal/icm	1.309s
 ?   	github.com/amaranth494/MudPuppy/internal/metrics	[no test files]
-ok  	github.com/amaranth494/MudPuppy/internal/policy	1.314s
-ok  	github.com/amaranth494/MudPuppy/internal/profiles	1.466s
+ok  	github.com/amaranth494/MudPuppy/internal/policy	1.216s
+ok  	github.com/amaranth494/MudPuppy/internal/profiles	1.355s
 ?   	github.com/amaranth494/MudPuppy/internal/redis	[no test files]
-ok  	github.com/amaranth494/MudPuppy/internal/session	3.700s
-ok  	github.com/amaranth494/MudPuppy/internal/store	1.330s
+ok  	github.com/amaranth494/MudPuppy/internal/session	3.582s
+ok  	github.com/amaranth494/MudPuppy/internal/store	1.248s
 EXIT: 0
 
 ### go test ./internal/driver/... -run "TestWithdrawGate|TestPushGate|TestCoachingGate|TestApplyCoaching" -v
@@ -4176,7 +4182,7 @@ EXIT: 0
 === RUN   TestCoachingGateLogsCountsOnly
 --- PASS: TestCoachingGateLogsCountsOnly (0.00s)
 PASS
-ok  	github.com/amaranth494/MudPuppy/internal/driver	0.672s
+ok  	github.com/amaranth494/MudPuppy/internal/driver	(cached)
 EXIT: 0
 
 ### cd frontend && npm run build
@@ -4192,15 +4198,15 @@ transforming...
 [39m
 rendering chunks...
 computing gzip size...
-[2m../public/[22m[32mindex.html                 [39m[1m[2m  0.48 kB[22m[1m[22m[2m │ gzip:   0.32 kB[22m
-[2m../public/[22m[35massets/index-D6QSVy5x.css  [39m[1m[2m 47.57 kB[22m[1m[22m[2m │ gzip:   7.99 kB[22m
-[2m../public/[22m[36massets/index-B8lXEI2f.js   [39m[1m[33m639.52 kB[39m[22m[2m │ gzip: 171.93 kB[22m[2m │ map: 2,072.07 kB[22m
+[2m../public/[22m[32mindex.html                 [39m[1m[2m  0.48 kB[22m[1m[22m[2m │ gzip:   0.31 kB[22m
+[2m../public/[22m[35massets/index-kbs0VSrx.css  [39m[1m[2m 47.57 kB[22m[1m[22m[2m │ gzip:   7.99 kB[22m
+[2m../public/[22m[36massets/index-Dm9cQFpQ.js   [39m[1m[33m639.52 kB[39m[22m[2m │ gzip: 171.93 kB[22m[2m │ map: 2,072.07 kB[22m
 [33m
 (!) Some chunks are larger than 500 kB after minification. Consider:
 - Using dynamic import() to code-split the application
 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
-[32m✓ built in 2.33s[39m
+[32m✓ built in 2.41s[39m
 EXIT: 0
 
 ### DEPENDENCY DRIFT
