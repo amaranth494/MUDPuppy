@@ -157,9 +157,27 @@ func (s *DecisionStore) RecentForConnection(connectionID uuid.UUID, limit int) (
 	return decisions, nil
 }
 
-// ListForConnection lists a connection's decisions oldest first, so the
-// panel renders them in the order they happened (D-12: "reloads the
-// current connection's decisions after a page refresh"). Ownership of
+// listDecisionsForConnectionSQL reads a connection's NEWEST limit decisions
+// and hands them back oldest first. The inner query takes the newest page
+// (descending order with a LIMIT); the outer query puts that page back in
+// the order it happened. An ascending order with a LIMIT read the OLDEST
+// page, so after a long session a refreshed panel showed the start of the
+// connection's history instead of what had just happened (the same defect
+// code review WR-02 of Phase 5 fixed for AI-chatter).
+const listDecisionsForConnectionSQL = `SELECT id, connection_id, game_session_id, model_name, window_text, reasoning, command, outcome, failure_kind, notice, created_at
+	FROM (
+		SELECT id, connection_id, game_session_id, model_name, window_text, reasoning, command, outcome, failure_kind, notice, created_at
+		FROM ai_decisions
+		WHERE connection_id = $1
+		ORDER BY created_at DESC, id DESC
+		LIMIT $2
+	) newest
+	ORDER BY created_at ASC, id ASC`
+
+// ListForConnection lists a connection's newest decisions, oldest first
+// among those returned, so the panel renders them in the order they
+// happened (D-12: "reloads the current connection's decisions after a
+// page refresh") and a long session reloads its latest page. Ownership of
 // connectionID is resolved by the caller (plan 03-09's handler) before this
 // is ever reached — this method takes an already-authorised connection id
 // and performs no ownership check of its own. limit <= 0 defaults to 200.
@@ -168,14 +186,7 @@ func (s *DecisionStore) ListForConnection(connectionID uuid.UUID, limit int) ([]
 		limit = defaultDecisionListLimit
 	}
 
-	rows, err := s.db.Query(
-		`SELECT id, connection_id, game_session_id, model_name, window_text, reasoning, command, outcome, failure_kind, notice, created_at
-		 FROM ai_decisions
-		 WHERE connection_id = $1
-		 ORDER BY created_at ASC, id ASC
-		 LIMIT $2`,
-		connectionID, limit,
-	)
+	rows, err := s.db.Query(listDecisionsForConnectionSQL, connectionID, limit)
 	if err != nil {
 		return nil, err
 	}

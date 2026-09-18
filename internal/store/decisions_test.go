@@ -9,8 +9,7 @@ import (
 
 // TestRecentDecisionsSQL pins code review WR-02 of Phase 5 without a
 // database: AI-chatter's read takes the NEWEST rows (descending order and a
-// limit), where ListForConnection pages from the oldest, and it leaves the
-// window text out.
+// limit) and it leaves the window text out.
 func TestRecentDecisionsSQL(t *testing.T) {
 	stmt := strings.Join(strings.Fields(sqlWithoutComments(recentDecisionsForConnectionSQL)), " ")
 
@@ -47,5 +46,28 @@ func TestRecentForConnection_NoLimitNoQuery(t *testing.T) {
 		if err != nil || got == nil || len(got) != 0 {
 			t.Fatalf("RecentForConnection(limit=%d) = (%v, %v), want an empty non-nil slice and no error", limit, got, err)
 		}
+	}
+}
+
+// TestListDecisionsSQL pins the panel reload's read without a database: it
+// takes the NEWEST page (an inner descending order with the limit) and hands
+// it back oldest first (an outer ascending order with no limit of its own).
+// An ascending order carrying the limit is the defect: it reads the oldest
+// page, so a refreshed panel on a long session showed stale decisions.
+func TestListDecisionsSQL(t *testing.T) {
+	stmt := strings.Join(strings.Fields(sqlWithoutComments(listDecisionsForConnectionSQL)), " ")
+
+	inner := "WHERE connection_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2 ) newest"
+	if !strings.Contains(stmt, inner) {
+		t.Errorf("expected the inner query to take the newest page (%q):\n%s", inner, stmt)
+	}
+	if !strings.HasSuffix(stmt, "ORDER BY created_at ASC, id ASC") {
+		t.Errorf("expected the outer query to return the page oldest first:\n%s", stmt)
+	}
+	if strings.Count(stmt, "LIMIT") != 1 {
+		t.Errorf("expected exactly one LIMIT, on the inner newest-first query:\n%s", stmt)
+	}
+	if !strings.Contains(stmt, "window_text") {
+		t.Errorf("the panel/Logs read keeps window_text in the row:\n%s", stmt)
 	}
 }
