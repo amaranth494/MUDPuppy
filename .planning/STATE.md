@@ -108,8 +108,9 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- `.planning/todos/pending/2026-09-17-phase5-security-carry-forward.md` — the four Phase 4 deferrals (DR-4-01 to DR-4-04), to fold into Phase 5 planning
-- `.planning/todos/pending/2026-09-17-confirm-log-page-login-gate.md` — the owner's condition on AR-4-08: confirm the `/logs/:connectionId` page redirects to sign-in when signed out
+- `.planning/todos/pending/2026-09-18-phase6-discuss-phase5-suggestions.md` — owner instruction: every Phase 5 suggestion (and his own play-feature ideas and model-usage changes) must be addressed in the Phase 6 discussion, each leaving with a recorded outcome
+- `.planning/todos/pending/2026-09-18-phase6-security-carry-forward.md` — the four Phase 5 deferrals (DR-5-01 to DR-5-04), to fold into Phase 6 planning and raise again at the Phase 6 security review
+
 
 ### Blockers/Concerns
 
