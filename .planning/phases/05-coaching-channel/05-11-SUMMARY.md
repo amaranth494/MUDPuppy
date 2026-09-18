@@ -62,7 +62,7 @@ completed: 2026-09-18
 - **Duration:** ~16h 33m wall-clock across two calendar days (see frontmatter; not continuous execution time)
 - **Started:** 2026-09-17T14:18:22-07:00 (first evidence commit, `ebb877a`)
 - **Completed:** 2026-09-18T06:51:25-07:00 (this plan's own closing commit)
-- **Tasks:** 5 (05-11-01 through 05-11-05; 05-11-03 and 05-11-04 are blocking human-verify checkpoints, 05-11-03 approved by the owner on 2026-09-18; 05-11-04 performed by Claude at the owner's direction and awaiting the owner's confirmation)
+- **Tasks:** 5 (05-11-01 through 05-11-05; 05-11-03 and 05-11-04 are blocking human-verify checkpoints, 05-11-03 approved by the owner on 2026-09-18; 05-11-04 performed by Claude at the owner's direction and confirmed by the owner on 2026-09-18 when he accepted the Evidence Dossier: "I accept the Phase report.")
 - **Files modified:** 25 evidence files created, 1 source file touched by a documented in-scope deviation (`internal/driver/corpus_live_test.go`), 2 documents (this file and `05-SECURITY-AGENDA.md`)
 
 ## Accomplishments
@@ -74,12 +74,12 @@ completed: 2026-09-18
 
 ## Task Commits
 
-Tasks 05-11-01 through 05-11-04 were executed before this executor was spawned (05-11-03 is approved by the owner; 05-11-04 awaits the owner's confirmation); their evidence is already on disk and committed. This executor performed task 05-11-05 only (the security agenda) and this closing summary, and does not re-verify or re-commit any file under `evidence/`.
+Tasks 05-11-01 through 05-11-04 were executed before this executor was spawned (05-11-03 approved by the owner; 05-11-04 confirmed by the owner with the dossier on 2026-09-18); their evidence is already on disk and committed. This executor performed task 05-11-05 only (the security agenda) and this closing summary, and does not re-verify or re-commit any file under `evidence/`.
 
 1. **Task 05-11-01: Test report and harness self-test** - `ebb877a` (test), recaptured after the code-review fixes at `4e390b3` (test); deviation fix `1629bbf` (fix)
 2. **Task 05-11-02: Red-team corpus rerun** - `a9f7d14` (docs, quota-exhausted run set aside), `1629bbf` (fix, unmeasured-sample reporting), `93ec3d9` (docs, corpus runs filed under final names)
 3. **Task 05-11-03 (checkpoint, approved): Staging deploy, migration 015, RUN A, screenshots 12-13** - `7f899d2` (docs, staging startup excerpt), `1d2e0c2` (test, RUN A), `4691b5e` (docs, screenshots 12 and 13)
-4. **Task 05-11-04 (checkpoint, performed; owner confirmation pending): Owner walkthrough, RUN B, twelve screenshots, log excerpt** - `83f8952` (test, RUN A rerun on the fixed build), `7a4fa99` (test, chat-channel live run before the withdraw gate), `df8645e` (test, chat-channel live run after the withdraw gate), `9073422` (docs, staging startup excerpt for the withdraw-gate build), `f4fff44` (docs, walkthrough evidence, RUN B and the staging log excerpt), `f4a8043` (docs, screenshot 10 retaken on the pop-out controls fix)
+4. **Task 05-11-04 (checkpoint, performed by Claude, confirmed by the owner 2026-09-18): Owner walkthrough, RUN B, twelve screenshots, log excerpt** - `83f8952` (test, RUN A rerun on the fixed build), `7a4fa99` (test, chat-channel live run before the withdraw gate), `df8645e` (test, chat-channel live run after the withdraw gate), `9073422` (docs, staging startup excerpt for the withdraw-gate build), `f4fff44` (docs, walkthrough evidence, RUN B and the staging log excerpt), `f4a8043` (docs, screenshot 10 retaken on the pop-out controls fix)
 5. **Task 05-11-05: Security review agenda** - `6bd1def` (docs)
 
 **Plan metadata:** this commit (docs: complete plan)
