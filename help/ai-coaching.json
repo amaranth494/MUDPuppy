@@ -9,7 +9,7 @@
     },
     {
       "title": "How a message reaches the player",
-      "content": "When you ask for something, AI-chatter can pass one short line down to AI-player. Its reply quotes that exact line back to you, beginning `Sent to AI-player:`.\n\nThe line joins the **Coaching in effect** list on the panel, and the thinking stream prints `[Coaching received]` at the moment it happened.\n\nThose three are the whole of it: nothing reaches AI-player that you cannot see."
+      "content": "When you ask for something, AI-chatter can pass one short line down to AI-player. Its reply quotes that exact line back to you, beginning \"Sent to AI-player:\".\n\nThe line joins the **Coaching in effect** list on the panel, and the thinking stream prints [Coaching received] at the moment it happened.\n\nThose three are the whole of it: nothing reaches AI-player that you cannot see."
     },
     {
       "title": "How long it lasts, and how to take it back",
@@ -21,11 +21,11 @@
     },
     {
       "title": "Making a suggestion permanent, by hand",
-      "content": "AI-chatter cannot save anything to your settings for you. If you like a suggestion enough to keep it:\n\n1. Select the line in the conversation and copy it.\n2. Open **AI Player** settings for this connection profile.\n3. Paste it into **Conduct rules** for something the AI must always or never do, or into **Approach guidance** for how you want it to play.\n4. Save.\n\nNothing in the chat will do this for you — that is deliberate, so a setting never changes without you typing it."
+      "content": "AI-chatter cannot save anything to your settings for you. If you like a suggestion enough to keep it, read it first, the way you would read any advice: AI-chatter wrote it, and AI-chatter reads the game's own text. Your conduct rules and approach guidance are trusted far more than a chat line, so only paste in something you would have written yourself. Then:\n\n1. Select the line in the conversation and copy it.\n2. Open **AI Player** settings for this connection profile.\n3. Paste it into **Conduct rules** for something the AI must always or never do, or into **Approach guidance** for how you want it to play.\n4. Save.\n\nNothing in the chat will do this for you — that is deliberate, so a setting never changes without you typing it."
     },
     {
       "title": "Pause and Resume",
-      "content": "The Pause button sits with AI-player, by the session goal. Pausing is instant and costs nothing: AI-player stops deciding and stops sending, but keeps reading the game, so when you resume it looks at where the character actually is rather than carrying on an old plan.\n\nWhile paused the badge reads WAITING and the status line says `Paused by owner`. It never starts again on its own — a reconnect does not resume a pause.\n\nAI-chatter keeps working the whole time."
+      "content": "The Pause button sits with AI-player, by the session goal. Pausing is instant and costs nothing: AI-player stops deciding and stops sending, but keeps reading the game, so when you resume it looks at where the character actually is rather than carrying on an old plan.\n\nWhile paused the badge reads WAITING and the status line says Paused by owner. It never starts again on its own — a reconnect does not resume a pause.\n\nAI-chatter keeps working the whole time."
     },
     {
       "title": "Two windows if you want them",
